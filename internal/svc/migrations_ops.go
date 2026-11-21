@@ -457,3 +457,40 @@ func migratePowerRequestTables(ctx context.Context, sqlDB *sql.DB) error {
 	}
 	return nil
 }
+
+// powerRequestTargetStatusMigration adds power_request_targets.status (PWR-003):
+// the per-machine progress marker driving crash recovery. AddColumn 补列模式
+// （0025/0053/0054/0059/0060）；缺表跳过（fanout 重放到无该表的库不报错、不
+// 建空壳）。存量行全写于动作完成后（0064 时代只在整批后落库），回填 done；
+// 列默认 'done' 使 AddColumn 对既有行即得 done，回填 UPDATE 是跨驱动保险
+// （0041 messages.level 先例——旧 MySQL 语义下 ADD COLUMN default 只保新行）。
+func powerRequestTargetStatusMigration() *goose.Migration {
+	return goose.NewGoMigration(65,
+		&goose.GoFunc{RunDB: migratePowerRequestTargetStatus},
+		nil,
+	)
+}
+
+func migratePowerRequestTargetStatus(ctx context.Context, sqlDB *sql.DB) error {
+	db, err := wrapGorm(sqlDB)
+	if err != nil {
+		return err
+	}
+	m := db.Migrator()
+	if !m.HasTable(&model.PowerRequestTarget{}) {
+		return nil
+	}
+	if m.HasColumn(&model.PowerRequestTarget{}, "status") {
+		return nil
+	}
+	if err := m.AddColumn(&model.PowerRequestTarget{}, "Status"); err != nil {
+		return fmt.Errorf("migrate: 0065 add power_request_targets.status: %w", err)
+	}
+	if err := db.WithContext(ctx).Exec(
+		"UPDATE power_request_targets SET status = ? WHERE status IS NULL OR status = ''",
+		"done",
+	).Error; err != nil {
+		return fmt.Errorf("migrate: 0065 backfill power_request_targets.status: %w", err)
+	}
+	return nil
+}

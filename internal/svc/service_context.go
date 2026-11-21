@@ -701,6 +701,10 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 	//（force_off 走 high+OTP step-up）。
 	if ctx.Config.Powerops.Enabled {
 		ctx.Powerops = newPoweropsOrchestrator(ctx)
+		// 启动恢复（PWR-003）：上一次进程崩溃留下的 executing/verifying 请求
+		// 收敛到可观察终态，破坏性操作绝不盲目重放（结果未知的目标记为失败，
+		// 由操作员决定）。恢复在装配后、服务对外之前同步执行。
+		ctx.Powerops.RecoverInFlight()
 		slog.Default().Info("powerops engine enabled", "verifyTimeoutMs", ctx.Config.Powerops.EffectiveVerifyTimeout(), "verifyIntervalMs", ctx.Config.Powerops.EffectiveVerifyInterval())
 	}
 

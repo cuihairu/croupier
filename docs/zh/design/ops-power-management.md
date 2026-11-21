@@ -81,6 +81,7 @@ pending ──(approved)──▶ executing ──▶ verifying ──▶ done
 - 拒绝路径：审批拒绝 ⇒ 请求 `rejected`，什么都不执行。
 - 执行跑在 `context.WithoutCancel` 派生的后台 context（CR-FIX-22 纪律）：HTTP 客户端断开不得把请求卡在 `executing`。
 - 双层时间界（PWR-002）杜绝「永不返回的 provider 挂住请求」：每次 provider 调用——变更动作与状态轮询都算——都跑在 `powerops.actionTimeout`（默认 30s）之下，到点落为该机诚实失败行；整个执行（动作 + 验证）跑在 `powerops.requestTimeout`（默认 5m）之下，超时后请求收敛到可观察终态且 `errorMsg` 指名超出的界，绝不停在 `executing`/`verifying`。
+- 逐目标进度落库（PWR-003）：每台机器的行动作前落库为 `attempting`、结果记录后翻为 `done`，进程在批次中途崩溃时已完成目标仍留在表里。启动恢复（`RecoverInFlight`，随引擎装配调用）收敛残留在 `executing`/`verifying` 的请求：`done` 行原样保留，`attempting` 行按「结果未知」记失败，执行循环未到达的机器按「未尝试」记失败，`errorMsg` 均指名中断。恢复绝不重放动作：结果未知的破坏性操作呈现给操作员决定，绝不盲目重放。
 
 存储：新表 `power_requests`（头）+ `power_request_targets`（逐机行），按编号迁移契约落地（`internal/svc/migrations.go` 注册 + `MinimumRequiredVersion` bump + 合成迁移测试同步，与模型同 PR）。机器清单本身留在 `nodes.meta.power`——清单无需迁移。
 

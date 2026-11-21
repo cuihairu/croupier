@@ -166,6 +166,8 @@ import (
 //               审批门控的电源请求头（状态机 pending→executing→verifying→
 //               done/partial/failed/rejected）+ 逐机结果行；新表 CreateTable，
 //               索引随建表一次建出，无存量约束名漂移；缺表跳过）
+//   0065 (Go)   power_request_targets.status 列（PWR-003 逐目标进度标记驱动
+//               崩溃恢复；AddColumn 补列 + 存量行回填 done；缺表跳过）
 
 func init() {
 	registerSvcMigrations()
@@ -240,6 +242,7 @@ func registerSvcMigrations() {
 		runbookTablesMigration(),
 		agentMetricsHourlyAgentIDSizeMigration(),
 		powerRequestTablesMigration(),
+		powerRequestTargetStatusMigration(),
 	); err != nil {
 		// panic-ok: init 期迁移注册表组装失败属开发期错误（迁移函数
 		// 引用漂移），进程不可安全启动（CR-FIX-22 豁免清单）。

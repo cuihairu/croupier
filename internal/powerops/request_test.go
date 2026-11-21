@@ -75,7 +75,10 @@ type scriptedProvider struct {
 	// hangStatus makes Status never return — the PWR-002 "永不返回的
 	// Runner" regression shape for the verification loop.
 	hangStatus bool
-	failOn     map[Action]error
+	// hangActionNode makes the action on one node never return — the PWR-003
+	// mid-batch crash shape: the row stays attempting until recovery converges.
+	hangActionNode string
+	failOn         map[Action]error
 	// failNode restricts failOn to one node (partial-failure scenarios);
 	// empty = fail every node.
 	failNode string
@@ -121,6 +124,9 @@ func (p *scriptedProvider) nextStatus() string {
 
 func (p *scriptedProvider) PowerOn(ctx context.Context, m Machine) (string, error) {
 	p.record("power_on")
+	if p.hangActionNode != "" && p.hangActionNode == m.NodeID {
+		<-make(chan struct{}) // PWR-003 mid-batch crash shape
+	}
 	if p.fails(m, ActionPowerOn) {
 		return "", p.failOn[ActionPowerOn]
 	}
@@ -129,6 +135,9 @@ func (p *scriptedProvider) PowerOn(ctx context.Context, m Machine) (string, erro
 
 func (p *scriptedProvider) PowerOff(ctx context.Context, m Machine, force bool) (string, error) {
 	p.record("power_off")
+	if p.hangActionNode != "" && p.hangActionNode == m.NodeID {
+		<-make(chan struct{}) // PWR-003 mid-batch crash shape
+	}
 	if p.powerOff != nil {
 		if err := p.powerOff(force); err != nil {
 			return "", err
@@ -139,6 +148,9 @@ func (p *scriptedProvider) PowerOff(ctx context.Context, m Machine, force bool) 
 
 func (p *scriptedProvider) Reboot(ctx context.Context, m Machine) (string, error) {
 	p.record("reboot")
+	if p.hangActionNode != "" && p.hangActionNode == m.NodeID {
+		<-make(chan struct{}) // PWR-003 mid-batch crash shape
+	}
 	if p.failOn != nil && p.failOn[ActionReboot] != nil {
 		return "", p.failOn[ActionReboot]
 	}
@@ -213,6 +225,7 @@ func resolver() mapResolver {
 	return mapResolver{m: map[string]Machine{
 		"node-1":  {NodeID: "node-1", Provider: ProviderIPMI, BmcAddr: "10.0.0.7"},
 		"node-2":  {NodeID: "node-2", Provider: ProviderIPMI, BmcAddr: "10.0.0.8"},
+		"node-3":  {NodeID: "node-3", Provider: ProviderIPMI, BmcAddr: "10.0.0.9"},
 		"agent-1": {NodeID: "agent-1", Provider: ProviderAgent, AgentID: "ag-1"},
 		"wol-1":   {NodeID: "wol-1", Provider: ProviderWOL, MAC: "aa:bb:cc:dd:ee:01"},
 	}}
@@ -490,6 +503,125 @@ func TestHungStatusCutByRequestBound(t *testing.T) {
 	require.Len(t, targets, 1)
 	assert.True(t, targets[0].Success, "the action itself succeeded")
 	assert.False(t, targets[0].Verified, "a hung status poll can never confirm")
+}
+
+// PWR-003：批次中途"崩溃"（node-2 动作永不返回、行停留 attempting）后启动
+// 恢复：已完成目标保留、结果未知的目标记失败且绝不重放、未到达的目标补
+// 失败行、请求收敛到可观察终态；恢复路径零 provider 调用。
+func TestCrashMidBatchRecoveryKeepsCompletedTargets(t *testing.T) {
+	h := newHarness(t, []string{"on"})
+	h.provider.hangActionNode = "node-2"
+	h.orch.ActionTimeout = 30 * time.Second // 崩溃前不让动作超时：行必须停留 attempting
+
+	req := h.submit(t, ActionPowerOn, "node-1", "node-2", "node-3")
+	h.gate.approve(req.ApprovalID)
+	_, err := h.orch.ResumeAsync(context.Background(), req.RequestID)
+	require.NoError(t, err)
+
+	// 等"崩溃"形态落库：node-1 done、node-2 attempting（真实中途截断的持久化
+	// 残留）；此后不再等待后台 goroutine——恢复读的就是这份残留。
+	deadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) {
+		rows, err := h.store.Targets(req.RequestID)
+		require.NoError(t, err)
+		byStatus := map[string]string{}
+		for _, r := range rows {
+			byStatus[r.NodeID] = r.Status
+		}
+		if byStatus["node-1"] == TargetDone && byStatus["node-2"] == TargetAttempting {
+			break
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	callsBefore := h.provider.actionCallCount()
+
+	h.orch.RecoverInFlight() // 模拟重启后的启动恢复
+
+	final, err := h.store.Get(req.RequestID)
+	require.NoError(t, err)
+	require.NotNil(t, final)
+	assert.Equal(t, StateFailed, final.State, "a crashed batch converges to failed")
+	assert.Contains(t, final.ErrorMsg, "interrupted by restart")
+	assert.Equal(t, callsBefore, h.provider.actionCallCount(), "recovery must never replay actions")
+
+	targets, err := h.store.Targets(req.RequestID)
+	require.NoError(t, err)
+	require.Len(t, targets, 3)
+	byNode := map[string]*model.PowerRequestTarget{}
+	for _, tgt := range targets {
+		byNode[tgt.NodeID] = tgt
+	}
+	assert.True(t, byNode["node-1"].Success, "completed target must survive recovery")
+	assert.Equal(t, TargetDone, byNode["node-1"].Status)
+	assert.False(t, byNode["node-2"].Success, "unknown-outcome target fails")
+	assert.Contains(t, byNode["node-2"].ErrorMsg, "outcome unknown")
+	assert.False(t, byNode["node-3"].Success, "never-reached target fails")
+	assert.Contains(t, byNode["node-3"].ErrorMsg, "before attempt")
+}
+
+// PWR-003：构造崩溃残留（executing + node-1 done / node-2 attempting）直接
+// 验证恢复语义：保留已完成、未知记失败、请求收敛、零 provider 调用。
+func TestRecoverInFlightMarksUnknownAndKeepsCompleted(t *testing.T) {
+	h := newHarness(t, []string{"on"})
+	req := h.submit(t, ActionPowerOn, "node-1", "node-2")
+	h.gate.approve(req.ApprovalID)
+	now := time.Now()
+	claimed, err := h.store.Transit(req.RequestID, StatePending, StateExecuting, &now)
+	require.NoError(t, err)
+	require.True(t, claimed)
+	at := now
+	require.NoError(t, h.store.ReplaceTargets(req.RequestID, []*model.PowerRequestTarget{
+		{RequestID: req.RequestID, NodeID: "node-1", Provider: ProviderIPMI, Success: true, State: "on", Status: TargetDone, AttemptAt: &at},
+		{RequestID: req.RequestID, NodeID: "node-2", Provider: ProviderIPMI, Status: TargetAttempting},
+	}))
+
+	h.orch.RecoverInFlight()
+
+	final, err := h.store.Get(req.RequestID)
+	require.NoError(t, err)
+	assert.Equal(t, StateFailed, final.State)
+	assert.Contains(t, final.ErrorMsg, "interrupted by restart")
+	assert.Equal(t, 0, h.provider.actionCallCount(), "recovery must never call providers")
+
+	targets, err := h.store.Targets(req.RequestID)
+	require.NoError(t, err)
+	require.Len(t, targets, 2)
+	byNode := map[string]*model.PowerRequestTarget{}
+	for _, tgt := range targets {
+		byNode[tgt.NodeID] = tgt
+	}
+	assert.True(t, byNode["node-1"].Success, "completed target must survive recovery")
+	assert.Equal(t, TargetDone, byNode["node-1"].Status)
+	assert.False(t, byNode["node-2"].Success)
+	assert.Contains(t, byNode["node-2"].ErrorMsg, "outcome unknown")
+}
+
+// PWR-003：崩溃发生在首个 target 写入之前（executing、targets 表空）——
+// 全部目标按"未尝试"记失败，请求收敛，绝不重放。
+func TestRecoverInFlightNoTargetsMarksAllInterrupted(t *testing.T) {
+	h := newHarness(t, []string{"on"})
+	req := h.submit(t, ActionPowerOn, "node-1", "node-2")
+	h.gate.approve(req.ApprovalID)
+	now := time.Now()
+	claimed, err := h.store.Transit(req.RequestID, StatePending, StateExecuting, &now)
+	require.NoError(t, err)
+	require.True(t, claimed)
+
+	h.orch.RecoverInFlight()
+
+	final, err := h.store.Get(req.RequestID)
+	require.NoError(t, err)
+	assert.Equal(t, StateFailed, final.State)
+	assert.Contains(t, final.ErrorMsg, "interrupted by restart")
+	assert.Equal(t, 0, h.provider.actionCallCount(), "recovery must never call providers")
+
+	targets, err := h.store.Targets(req.RequestID)
+	require.NoError(t, err)
+	require.Len(t, targets, 2)
+	for _, tgt := range targets {
+		assert.False(t, tgt.Success)
+		assert.Contains(t, tgt.ErrorMsg, "before attempt")
+	}
 }
 
 func TestPartialFailureAggregation(t *testing.T) {

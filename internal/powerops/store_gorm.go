@@ -73,6 +73,19 @@ func (s *GormStore) List(limit int) ([]*model.PowerRequest, error) {
 	return rows, nil
 }
 
+// ListInFlight returns requests stuck in executing/verifying — the residue a
+// process crash leaves. Startup recovery converges these without replaying
+// actions (PWR-003).
+func (s *GormStore) ListInFlight() ([]*model.PowerRequest, error) {
+	var rows []*model.PowerRequest
+	err := s.db.Where("state IN ?", []string{StateExecuting, StateVerifying}).
+		Order("id ASC").Find(&rows).Error
+	if err != nil {
+		return nil, fmt.Errorf("powerops: list in-flight requests: %w", err)
+	}
+	return rows, nil
+}
+
 // ReplaceTargets rewrites the per-machine rows transactionally (delete +
 // insert keeps the row set equal to the in-memory slice, so partial verify
 // refreshes never leave stale rows).

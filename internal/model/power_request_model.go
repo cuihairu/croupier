@@ -48,6 +48,12 @@ type PowerRequestTarget struct {
 	NodeID    string `gorm:"size:64;index:idx_power_target_request;not null" json:"nodeId"`
 	// Provider is the machine's provider kind (ipmi/wol/cloud/agent).
 	Provider string `gorm:"size:16" json:"provider"`
+	// Status tracks per-machine progress for crash recovery (PWR-003):
+	// attempting = the action is in flight (an outcome unknown after a crash);
+	// done = the action outcome is recorded. Legacy rows created before this
+	// column are backfilled to done (they were only written post-action).
+	// Default 'done' makes the 0065 AddColumn backfill existing rows safely.
+	Status string `gorm:"size:16;not null;default:'done'" json:"status"`
 	// Success reports the action execution; Verified reports the post-action
 	// state confirmation (power_on on, power_off off, agent reconnect).
 	Success  bool `gorm:"not null;default:false" json:"success"`

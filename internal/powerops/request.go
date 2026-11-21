@@ -24,6 +24,26 @@ const (
 	StateRejected  = "rejected"
 )
 
+// Per-target progress markers (PWR-003): they drive crash recovery. A target
+// row is written as attempting before its action and flipped to done after the
+// outcome is recorded; a crash mid-batch leaves the in-flight row attempting,
+// which recovery treats as an unknown outcome and never replays.
+const (
+	TargetAttempting = "attempting"
+	TargetDone       = "done"
+)
+
+// ErrInterrupted is the per-target failure recorded by startup recovery for a
+// machine whose outcome is unknown after a process crash (PWR-003). Destructive
+// operations are never blindly replayed: the request converges to a terminal
+// state and the operator decides.
+const ErrInterrupted = "powerops: interrupted by restart, outcome unknown (not replayed)"
+
+// ErrNotAttempted is the per-target failure for machines the execution loop
+// never reached before the crash — nothing was sent, and recovery still refuses
+// to replay (fail-closed).
+const ErrNotAttempted = "powerops: interrupted by restart before attempt (not replayed)"
+
 // Sentinel errors — the API layer maps them to conflict/not-found responses
 // (provision resume precedent).
 var (
@@ -42,6 +62,10 @@ type RequestStore interface {
 	Update(r *model.PowerRequest) error
 	Get(requestID string) (*model.PowerRequest, error)
 	List(limit int) ([]*model.PowerRequest, error)
+	// ListInFlight returns requests still in executing/verifying — the set a
+	// process crash leaves behind, which startup recovery converges without
+	// replaying any action (PWR-003).
+	ListInFlight() ([]*model.PowerRequest, error)
 	// Transit claims a state transition with a single conditional update
 	// (state: fromState → toState). True means this caller performed the
 	// transition; false means the row already moved elsewhere — the CAS
@@ -360,22 +384,28 @@ func (o *Orchestrator) executeRequest(ctx context.Context, req *model.PowerReque
 	now := o.now()
 	targets := make([]*model.PowerRequestTarget, 0, len(machines))
 	for _, m := range machines {
-		res := o.runActionBounded(runCtx, m, action, now)
+		// PWR-003: persist this machine as attempting BEFORE the action — a
+		// crash mid-batch leaves a durable "outcome unknown" marker, so startup
+		// recovery can converge without ever replaying a destructive operation.
 		t := &model.PowerRequestTarget{
 			RequestID: req.RequestID,
 			NodeID:    m.NodeID,
 			Provider:  m.Provider,
-			Success:   res.Success,
-			State:     res.State,
-			Output:    truncate(res.Output, 512),
-			ErrorMsg:  truncate(res.Error, 512),
-			AttemptAt: &now,
+			Status:    TargetAttempting,
 		}
 		targets = append(targets, t)
+		o.persistTargets(req.RequestID, targets)
+
+		res := o.runActionBounded(runCtx, m, action, now)
+		t.Success = res.Success
+		t.State = res.State
+		t.Output = truncate(res.Output, 512)
+		t.ErrorMsg = truncate(res.Error, 512)
+		t.AttemptAt = &now
+		t.Status = TargetDone
+		o.persistTargets(req.RequestID, targets)
 	}
-	if err := o.Store.ReplaceTargets(req.RequestID, targets); err != nil {
-		slog.Error("powerops: persist targets", "request", req.RequestID, "error", err)
-	}
+	o.persistTargets(req.RequestID, targets)
 
 	anySuccess := false
 	for _, t := range targets {
@@ -395,6 +425,83 @@ func (o *Orchestrator) executeRequest(ctx context.Context, req *model.PowerReque
 		slog.Error("powerops: persist verifying state", "request", req.RequestID, "error", err)
 	}
 	o.verify(runCtx, req, machines, targets, action)
+}
+
+// persistTargets rewrites the per-machine rows, logging (never failing) a write
+// error: a crash mid-batch still leaves the most recent durable slice, and a
+// write failure here must not abort the run — the request keeps converging and
+// the durable progress is what recovery reads.
+func (o *Orchestrator) persistTargets(requestID string, targets []*model.PowerRequestTarget) {
+	if err := o.Store.ReplaceTargets(requestID, targets); err != nil {
+		slog.Error("powerops: persist targets", "request", requestID, "error", err)
+	}
+}
+
+// RecoverInFlight converges requests a previous process left in executing or
+// verifying (PWR-003). It never re-runs actions: a machine whose outcome is
+// unknown (attempting at crash) is marked failed and the request lands in an
+// observable terminal state for the operator — no blind replay of destructive
+// operations. Completed targets are preserved; machines never reached are
+// marked interrupted.
+func (o *Orchestrator) RecoverInFlight() {
+	reqs, err := o.Store.ListInFlight()
+	if err != nil {
+		slog.Error("powerops: list in-flight requests", "error", err)
+		return
+	}
+	for _, req := range reqs {
+		o.recoverRequest(req)
+	}
+}
+
+// recoverRequest converges one interrupted request. Only rows whose Status is
+// done are kept as-is (the action outcome was recorded); attempting rows are
+// failed with the unknown-outcome marker; machines absent from the targets
+// table (the loop never reached them) are failed as never attempted. No
+// provider call is made on this path.
+func (o *Orchestrator) recoverRequest(req *model.PowerRequest) {
+	machines, err := decodeTargets(req.TargetsJSON)
+	if err != nil || len(machines) == 0 {
+		o.failRequest(req, "decode targets: "+errString(err))
+		return
+	}
+	existing, err := o.Store.Targets(req.RequestID)
+	if err != nil {
+		o.failRequest(req, "load targets: "+err.Error())
+		return
+	}
+	byNode := make(map[string]*model.PowerRequestTarget, len(existing))
+	for _, t := range existing {
+		byNode[t.NodeID] = t
+	}
+	targets := make([]*model.PowerRequestTarget, 0, len(machines))
+	unknown := 0
+	for _, m := range machines {
+		t, ok := byNode[m.NodeID]
+		if ok && t.Status == TargetDone {
+			targets = append(targets, t)
+			continue
+		}
+		msg := ErrInterrupted
+		if ok {
+			unknown++ // attempting at crash: outcome unknown
+		} else {
+			msg = ErrNotAttempted // loop never reached this machine
+		}
+		targets = append(targets, &model.PowerRequestTarget{
+			RequestID: req.RequestID,
+			NodeID:    m.NodeID,
+			Provider:  m.Provider,
+			Status:    TargetDone,
+			ErrorMsg:  msg,
+		})
+	}
+	msg := "powerops: interrupted by restart, outcome unknown (not replayed)"
+	if unknown == 0 {
+		msg = "powerops: interrupted by restart before completion (not replayed)"
+	}
+	req.ErrorMsg = truncate(msg, 512)
+	o.finish(req, targets, terminalState(Action(req.Action), targets))
 }
 
 // runActionBounded runs one provider action with its own ActionTimeout
