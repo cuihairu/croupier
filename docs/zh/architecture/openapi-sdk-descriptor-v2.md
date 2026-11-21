@@ -40,7 +40,7 @@ OpenAPI operation / SDK descriptor
 | `id`                      | `operationId`                   | `id`           | 稳定函数 ID                                                 |
 | `version`                 | 文档/服务版本                   | `version`      | 函数契约版本                                                |
 | `summary` / `description` | 标准字段                        | 同名字段       | 目录和诊断说明，非菜单事实                                  |
-| `inputSchema`             | request body schema             | `inputSchema`  | 请求 JSON Schema                                            |
+| `inputSchema`             | request body schema             | `inputSchema`  | 该 operation 的[请求契约](./openapi-request-contract.md)面向操作者的投影；参数/body 划分见该文档 |
 | `outputSchema`            | response schema                 | `outputSchema` | 响应 JSON Schema                                            |
 | `resourceKey`             | REST path 推导或 `x-resource`   | `resource`     | 稳定业务资源 key                                            |
 | `operationKey`            | REST operation 或 `x-operation` | `operation`    | 业务动作 key                                                |

@@ -40,7 +40,7 @@ All SDKs must converge on the same FunctionContract:
 | `id`                      | `operationId`                       | `id`           | Stable function ID                                            |
 | `version`                 | Document/service version            | `version`      | Function contract version                                     |
 | `summary` / `description` | Standard fields                     | Same-named     | Catalog and diagnostic descriptions, not menu facts           |
-| `inputSchema`             | request body schema                 | `inputSchema`  | Request JSON Schema                                           |
+| `inputSchema`             | request body schema                 | `inputSchema`  | The operator-facing projection of the operation's [request contract](./openapi-request-contract.md); see that document for the parameter/body split |
 | `outputSchema`            | response schema                     | `outputSchema` | Response JSON Schema                                          |
 | `resourceKey`             | Derived from the REST path or `x-resource` | `resource` | Stable business resource key                               |
 | `operationKey`            | REST operation or `x-operation`     | `operation`    | Business action key                                           |
