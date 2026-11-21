@@ -203,6 +203,8 @@ func registerAuthRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	// 被绕过时可达，panic 是正确终点而非日志降级。
 	jwtSecret, err := jwtutil.ResolveSecret(ctx.Config)
 	if err != nil {
+		// panic-ok: 构造期不变量——JWT secret 缺失时启动即失败，绝不静默降级
+		// 到可伪造的无签名 token（见上方注释；仅测试/配置绕过路径可达）。
 		panic(fmt.Sprintf("JWT secret not configured: %v", err))
 	}
 	authSvc := auth.NewService(ctx.AdminModel, permissionservice.NewPermissionService(ctx.DB), jwtSecret, ctx.OpsStateStore).
