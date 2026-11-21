@@ -1862,9 +1862,12 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 完成证据：commit 4f4bfe4a3（`internal/platform/backupexec/executor.go` `dumpSQLite` 重写 + `sqliteFilePath`/`sqliteStringLiteral` 新增；`executor_test.go` +122；`backupexec_extra_test.go`/`runbackup_openfail_gap_test.go`/`runbackup_putfail_gap_test.go`/`dump_create_gap_test.go`/`internal/api/backup/executor_extra_test.go` 源改真实库）。
   - 已知边界：`VACUUM INTO` 需 SQLite 3.27+（本仓 glebarez 纯 Go 实现已满足，无 CGO）；目标文件必须不存在（删除先行，失败即报错不覆盖）；备份产物大小不再与主文件相同（VACUUM 去碎片/紧凑，属预期）；`os.Remove(out)` 对不存在目标容忍（`os.IsNotExist` 放行），但目标存在且删除失败会报错而非覆盖旧备份——对象存储 Put 前本地临时文件路径由调用方管理。ops 备份面（`internal/api/ops/backups.go`）只用 `backupexec.VerifyChecksum`（读/验侧），不受执行器改动影响。
 
-- [ ] **AUD-010 · P1 · 修复 · 账号不存在时拒绝旧 JWT 认证**
+- [x] **AUD-010 · P1 · 修复 · 账号不存在时拒绝旧 JWT 认证**（commit a63af12aa）
   - 依赖：—。交付与验收：区分账号删除、禁用、令牌版本不匹配与数据库故障；覆盖无缓存的新中间件。
-  - 状态／条件：service_context_auth.go:304-316 把 RecordNotFound 也放行；软删除账号后新中间件仍接受旧 JWT。
+  - 状态／条件：LOCAL VERIFIED（2026-11-22，commit a63af12aa）：根因在 `internal/svc/service_context_auth.go` 的 `checkTokenVersion`——`currentTokenVersion` → `AdminModel.GetTokenVersion`（`First` 无行返回 `gorm.ErrRecordNotFound`），而错误分支把**任何**错误都当「存储故障」记日志放行（可用性优先），于是软删/硬删账号的旧 JWT 仍被当作有效管理员身份接受（审计断言：`service_context_auth.go:304-316` 把 RecordNotFound 也放行）。修法：在错误分支顶部用 `errors.Is(err, gorm.ErrRecordNotFound)` 单独识别「账号不存在」，返回 `account not found`（与 `token revoked` 同语义，认证失败）；其余错误（真存储故障）保持原有可用性优先放行不变。禁用/改密/登出路径本就 bump `admins.token_version`（`admin/service.go:208-209`、`:358`）→ 旧 claims 版本落后 → `token revoked`，已覆盖，未改动。
+  - 验证：`go test ./internal/svc/` 全绿（86.2s）；`go test ./internal/...` 172/172 全绿（FULL_EXIT=0）。新增用例：`TestAuthMiddleware_RejectsDeletedAccountToken`（软删后清缓存走无缓存路径，旧 JWT 必须拒绝 `account not found`——AUD-010 回归核心）、`TestAuthMiddleware_GenuineDBFailureStillBypasses`（注入非 NotFound 查询错误，仍放行，证明未过度收紧）；存量 `TestAuthMiddleware_Handle` 的「valid token」两子用例（alice id=42 / bob id=43）此前用不存在的幽灵账号、靠漏洞才通过，改为种入真实账号保住原意（svc_extra_test.go）。变异自证：把 RecordNotFound 分支改成 no-op（回放行）→ `TestAuthMiddleware_RejectsDeletedAccountToken` 如实红（期望错误却 nil），还原后绿。`go build ./...` 0 错；`cd docs && CI=true pnpm build` 通过。
+  - 完成证据：commit a63af12aa（`internal/svc/service_context_auth.go` `checkTokenVersion` +7/-1、`errors.Is` 识别 RecordNotFound；`token_revoke_test.go` +58 两用例；`svc_extra_test.go` +9 种真实 alice/bob）。docs 同步 d7924e394（`docs/security.md` + zh 镜像、`docs/operations/access-control.md` + zh 镜像：账号删除后旧 JWT 拒绝、真存储故障仍可用性优先放行）。
+  - 已知边界：30 秒版本缓存（`tokenVersionCacheTTL`）是既有设计取舍，删除/禁用/改密后旧 JWT 最长 30s 内仍可过缓存命中路径（文档已标注「撤销最长延迟 30s 生效」）；本修复针对的是缓存未命中（无缓存路径）的永久放行缺口。仅拒绝 `ErrRecordNotFound`（账号不存在），`GetTokenVersion` 的其他错误（连接故障等）仍放行。
 
 - [ ] **AUD-011 · P1 · 修复 · 修正移动端 CI 覆盖率阈值读取**
   - 依赖：—。交付与验收：100% 覆盖率通过，低于阈值和无有效覆盖数据拒绝。
