@@ -105,21 +105,21 @@ Server 从 input JSON Schema 生成默认 FormPresentationSpec；管理员只能
 
 **FormFieldSpec 字段两分**：
 
-- **纯展示（不影响调用）**：`label`/`placeholder`/`description`/`role`/`unit`/`perTarget`/`widget`/`width`/`order`/`enumOptions`/`remoteOptions`/`widgetProps`，以及页面级 `layout`/`groups`/`submitButton`/`cancelButton`。`layout` 特例说明边界：`deriveRuntimeSchema` 只把它映射为 `formContext` 布局配置（`web/src/components/SchemaFormRenderer/index.tsx:449-470`），不触碰 schema、校验与 payload——**同一 schema、同一 Binding 下标准与紧凑布局生成相同请求**（SUI-031/036 的设计前提）。
+- **纯展示（不影响调用）**：`label`/`placeholder`/`description`/`role`/`unit`/`perTarget`/`widget`/`width`/`order`/`enumOptions`/`remoteOptions`/`widgetProps`，以及页面级 `layout`/`groups`/`submitButton`/`cancelButton`。`layout` 特例说明边界：`deriveRuntimeSchema` 只把它映射为 `formContext` 布局配置（`web/src/components/SchemaFormRenderer/index.tsx:480-500`），不触碰 schema、校验与 payload——**同一 schema、同一 Binding 下标准与紧凑布局生成相同请求**（SUI-031/036 的设计前提）。
 - **调用相关（影响取值或校验）**：
-  - `defaultValue` —— 表单初值种入：仅补 `undefined` 的字段，绑定注入/`initialValues` 优先，`null`/空串视为已提供不覆盖（`applySpecDefaults`，`index.tsx:405-417`）；
+  - `defaultValue` —— 表单初值种入：仅补 `undefined` 的字段，绑定注入/`initialValues` 优先，`null`/空串视为已提供不覆盖（`applySpecDefaults`，`index.tsx:412-424`）；
   - `visible`/`visibleWhen`/`disabled` —— 可见性（见下）；
-  - `required`/`validationRules` —— 并入运行时 schema：`required: true` 加入、`required: false` 撤销 schema 原必填、`min`/`max` 按类型映射 ajv 关键字、`pattern` 直写、`custom` 显式告警忽略（`mergeFieldValidity`，`index.tsx:347-403`）。
+  - `required`/`validationRules` —— 并入运行时 schema：`required: true` 加入、`required: false` 撤销 schema 原必填、`min`/`max` 按类型映射 ajv 关键字、`pattern` 直写、`custom` 显式告警忽略（`mergeFieldValidity`，`index.tsx:352-408`）。
 
 **隐藏字段的三条出口**（SUI-015 的边界）：
 
-1. **值保留**：隐藏（`visibleWhen` 不满足或 `visible: false`）字段以 `ui:widget: "hidden"` 保留在 schema 中，值保留在表单状态（`getValues()` 可读、切换可见性可恢复）；仅**客户端提交 payload** 剔除隐藏键（`index.tsx:644-657`）。
-2. **绑定可达**：隐藏字段的值可经绑定 `{ kind: "form", path }` 进入 payload——服务端从执行上下文 `context.form` 按 path 取值（`resolveSourceValue`，`console_execute.go:593-594`）；浏览器端 `projectBindingContext` 把上下文裁剪到发布 selector 实际引用的字段（`web/src/components/PageRenderer/runtime.ts:77-120`），隐藏字段若被 selector 引用仍随裁剪结果送达。**隐藏且由绑定提供的合法值可执行。**
-3. **服务端兜底**：隐藏必填的豁免只发生在**客户端**运行时 schema（从 `required` 摘除，`index.tsx:499-511`）；服务端在绑定应用之后校验最终 payload——`validateBindingExecutePayload` 对不匹配 input schema 的 payload 返回结构化 422（`console_execute.go:507-521`）。**隐藏且无任何来源（无 assignment、无 literal/default transform 兜底）的必填项因此在服务端得到字段级结构化错误**，不会被静默丢弃后发出错请求。
+1. **值保留**：隐藏（`visibleWhen` 不满足或 `visible: false`，统一谓词 `isFieldHidden`）字段以 `ui:widget: "hidden"` 保留在 schema 中，值保留在表单状态；提交 payload 经唯一投影 `projectSubmitValues`（SUI-014 统一提交取值，`index.tsx:445-450`）生成——隐藏键按当前值剔除、其余键原样保留，原生提交与命令式 `getSubmitValues()`（`index.tsx:661-665`）共用同一条规则；`getValues()` 返回含隐藏字段的全部值，仅用于状态镜像/回显（`index.tsx:680-688`）。
+2. **绑定可达**：隐藏字段的值可经绑定 `{ kind: "form", path }` 进入 payload——服务端从执行上下文 `context.form` 按 path 取值（`resolveSourceValue`，`console_execute.go:593-594`）；浏览器端 `projectBindingContext` 把上下文裁剪到发布 selector 实际引用的字段（`web/src/components/PageRenderer/runtime.ts:78-120`），隐藏字段若被 selector 引用仍随裁剪结果送达。**隐藏且由绑定提供的合法值可执行。**
+3. **服务端兜底**：隐藏必填的豁免只发生在**客户端**运行时 schema（从 `required` 摘除，`index.tsx:538-540`）；服务端在绑定应用之后校验最终 payload——`validateBindingExecutePayload` 对不匹配 input schema 的 payload 返回结构化 422（`console_execute.go:507-521`）。**隐藏且无任何来源（无 assignment、无 literal/default transform 兜底）的必填项因此在服务端得到字段级结构化错误**，不会被静默丢弃后发出错请求。
 
-**最终校验顺序**（当前实现已按此序；SUI-014 统一提交取值接口后不变）：
+**最终校验顺序**（已按此序实现；SUI-014 统一提交取值后维持）：
 
-- 客户端：绑定注入（弹窗参数/行注入/级联，作为 `initialValues`）→ `applySpecDefaults` 种入 → `deriveRuntimeSchema`（visibleWhen 豁免 required → `mergeFieldValidity` 覆盖合并 → required 字符串补 `minLength: 1`）→ AJV 提交校验 → 剔除隐藏键 → `onFinish`。注入是**覆盖**而非补空：注入 JSON 变化时整表重置为种入值（`index.tsx:591-609`）。
+- 客户端：绑定注入（弹窗参数/行注入/级联，作为 `initialValues`）→ `applySpecDefaults` 种入 → `deriveRuntimeSchema`（visibleWhen 豁免 required → `mergeFieldValidity` 覆盖合并 → required 字符串补 `minLength: 1`）→ AJV 提交校验 → 唯一投影 `projectSubmitValues` 剔除隐藏键 → `onFinish`。注入是**覆盖**而非补空：注入 JSON 变化时整表重置为种入值（`index.tsx:633-639`）。
 - 服务端（`executeBindingFromSnapshot`，`console_execute.go:186-202`）：executor bound → binding fresh → governance → **先** `buildBindingPayloadFromSelectors` 应用全部绑定与 default transform → **后** `validateBindingExecutePayload` 校验最终请求 → 幂等占位 → 审批闸 → 下发。即「绑定及明确默认值应用完再校验最终请求」。
 
 **旧页面兼容**：`required`（含 `required: false` 撤销）、`defaultValue`、`visible`/`visibleWhen`、`validationRules` 四类覆盖继续按现语义生效（`web/src/components/SchemaFormRenderer/__tests__/field-validity.test.tsx` 锁定），本节不新增 wire 字段、纯语义澄清。分界同时约束展示变体协议（SUI-031）：变体只允许覆盖纯展示项；调用相关项属于调用契约的一部分，任何变体不得改动。
