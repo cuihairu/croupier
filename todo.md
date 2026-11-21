@@ -458,7 +458,7 @@
 
 - [ ] **GAME-009 · P0 · 方案决策 · 评审高风险操作凭据与未知结果协议**
   - 依赖：GAME-001。交付与验收：复用 high-risk-operation-contract-design，决定稳定 operationId、参数/目标指纹、批准快照、游戏持久去重与收据查询职责；明确响应丢失后先查凭据及重试/取消/补偿边界，不重建与 taskId/page idempotency 重复的系统
-  - 状态／条件：BLOCKED（2026-11-01 复核）：设计存在但实现协议未批准（用户拍板）；禁止将平台去重当游戏 exactly-once。缺协议批准。
+  - 状态／条件：**方案已落，待用户拍板**（2026-11-22，LOCAL VERIFIED）：评审文档 `docs/design/high-risk-operation-protocol-review.md`（中文镜像 `docs/zh/design/high-risk-operation-protocol-review.md`）——风险面 6 项（响应丢失重复发放/未知误判/平台幂等≠游戏 exactly-once/取消谎称回滚/参数漂移/无凭据伪造成功）+ 5 项决策方案 D1–D5（operationId=`gameId:env:domain:UUIDv7` 复合编码、专用 `business_operation_credentials` 表、SDK `GameOperationResult` 信封+durableIdempotency 能力声明、未知 60s×10 自动查询+重试上限 8 且不补发、取消强制游戏确认）+ 备选对比表 + 验收映射 + GAME-010 范围（平台侧）/边界（游戏侧待真实环境）。**待用户拍板后才可实现 GAME-010**。验证：`go test ./internal/... -count=1` 全绿（含 AUD-036/037 提交）；`cd docs && CI=true pnpm build` 通过。
 
 - [ ] **GAME-010 · P0 · 实现 · 游戏持久执行凭据与未知结果收敛**
   - 依赖：GAME-009, GAME-008。交付与验收：按批准协议贯通游戏适配器、执行结果和凭据查询；同 operationId 改参数拒绝、响应丢失/服务重启不重复发奖、未知结果可查询收敛；取消不谎称回滚，补偿引用原凭据
@@ -1881,13 +1881,15 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
 
 > 来源：`docs/review/aud-cov-001-go-api-2026-11-16.md`（3 P0 / 8 P1 / 7 P2 / 6 P3）。当场修 4 条：incident 行级 scope `9bc08d56a`、ticket 行级 scope `5b0fee15f`、cicd webhook fail-closed `ce667c63d`、backup 下载收敛 objstore `8dbf59c53`；默认 JWT secret 已有 AUD-008 不重复计数。下列为逐条复核确认属实的遗留项（含已修条目的残余半边）。
 
-- [ ] **AUD-036 · P0 · 修复 · 外部 incident token 绑定 game/env allowlist**
+- [x] **AUD-036 · P0 · 修复 · 外部 incident token 绑定 game/env allowlist**
   - 依赖：—。交付与验收：`external_token` 模型加 game/env 允许列（模型变更同 PR 编号迁移，三处同步：migrations.go 注册 + MinimumRequiredVersion + migrate_test 合成清单）；签发与校验按 token scope 强制过滤写入和查询；带越权拒绝用例。
-  - 状态／条件：2026-11-16 复核属实——`internal/api/incident/external.go:85-128` 创建透传 payload gameID/env，查询只按 categories。
+  - 状态／条件：**DONE · LOCAL VERIFIED（2026-11-22，commit 622160cae）**：`external_tokens` 加 `game_allowlist`/`env_allowlist` 两列（JSON 数组；NULL/空=不限，向后兼容）；模型加 `ScopeGameIDs`/`ScopeEnvs`（nil 接收者安全）；编号迁移 0066 三处同步（`migrations.go` 注册+版本清单注释、`MinimumRequiredVersion` 65→66、`migrate_test.go` 四处合成清单加 0066）；签发（CreateToken/UpdateToken）从 scope 的 `gameIds`/`envs` 键落列、DTO 回读并入 scope；写入强制：`RegisterIncident`/`CreateBug` 经 `checkScopeWrite`——允许面非空时目标缺省或面外一律 403（缺省无法证明在面内，拒绝而非回落全局）；查询强制：`ListIncidents` 允许面非空时 SQL `game_id/env IN` 收窄（Total 同步收窄），显式查面外 game/env 返回空（不降级全量）；`IncidentQueryOptions` 加 `GameIDs`/`Envs` 集合过滤（单值优先，存量调用方 nil=no-op）。
+  - 验证：`go test ./internal/api/incident/ -count=1` 全绿（新增 `external_scope_test.go`：允许面解析、RegisterIncident/CreateBug 越权负例（面外 game/env、缺省 scope→403）、ListIncidents 面内收窄+面外空+Total 收窄、handler 签发持久化回读）；`go test ./internal/svc/ -run 'ExternalTokenScope'` 全绿（0066 存量表形态 AddColumn 补齐、存量行留空不回填、幂等、缺表跳过）；`go test ./internal/model/ -count=1` 全绿；`go test ./internal/... -count=1` 全绿（exit 0）；`go build ./internal/...` 0 错。已知边界：签名请求方案未做（AUD-036 用 token 允许面，签名属于对外调用方身份更强校验，未在本条范围）；`CreateBug` 写入同样受允许面约束（同 token 写入面）。
 
-- [ ] **AUD-037 · P0 · 修复 · 公开配置端点按 game/env 过滤**
+- [x] **AUD-037 · P0 · 修复 · 公开配置端点按 game/env 过滤**
   - 依赖：公开客户端契约方向（签名请求 vs 客户端 scope）需用户拍板后再动 SQL。交付与验收：`/api/v1/public/configs`（`internal/api/config/watch.go:204-228`）强制 game_id/env 过滤并限制返回字段；契约结论先落本条目。
-  - 状态／条件：2026-11-16 复核属实——匿名可枚举 namespace/key 读全部 game/env 配置值。
+  - 状态／条件：**DONE · LOCAL VERIFIED（2026-11-22，commit 25da5d4b2）**：契约结论（本条目落定）：**客户端 scope 方案**（匿名端点由客户端经 `gameId`/`env` query 显式声明作用域），SQL 强制 `game_id=? AND env=?` 等值过滤，返回字段白名单（namespace/key/version/value/format/updatedAt；message/createdBy/game_id/env 不回传）。签名请求方案不做——它是更强的调用方身份证明（密钥管理/防重放面），属于独立契约决策，超出本条最小修复面，留待公开客户端契约专项。行为：`GET /api/v1/public/configs` 缺 `gameId` 或 `env`（含只给半边）→ 400，绝不回落全局读；面外声明返回空（不泄漏别家配置）。
+  - 验证：`go test ./internal/api/config/ -count=1` 全绿（`watch_test.go` 新增 `TestPublicHandler_List_RequiresScope`（缺参/半参→400）与 `TestPublicHandler_List_CrossScopeEmpty`（跨 game/env 越权负例→空）；`coverage_v9_test.go` 既有用例同步 scope 参数）；`go test ./internal/... -count=1` 全绿；`go build ./internal/...` 0 错。既有消费方：仓库内无 SDK/web 调用该端点（仅 docs 设计引用），改必填不破坏存量客户端。
 
 - [ ] **AUD-038 · P1 · 修复 · Approve/Reject 增加审批权限与两人规则执行**
   - 依赖：—。交付与验收：`internal/api/approval/service.go:216-231` 加显式审批权限检查；`two_person` policy 从描述性数据变为运行时强制两个不同授权主体；带低权限拒绝与同主体二次批准拒绝用例。
