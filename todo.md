@@ -1383,9 +1383,12 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
 - [ ] AUD-COV-007 · 复核 · 构建/发布/部署/运维与文档契约：检查 CI 触发路径、质量门禁、发布版本一致性、镜像/Compose 默认值、密钥暴露、备份恢复和用户文档与实现漂移；覆盖 .github、docker、configs、scripts、Makefile 与 docs。
 - [ ] AUD-COV-008 · 汇总 · 回归历史审计并形成总报告：把 11 月 1–10 日历史审计结论按当前 HEAD 逐条标成仍存在/已修/无法复核；合并重复项、给出严重级别和证据；未覆盖区域明确标注，不能用扫描器无告警替代人工复核。
 
-- [ ] **AUD-001 · P1 · 修复 · Provider 握手令牌启用时强制保护明文链路**
+- [x] **AUD-001 · P1 · 修复 · Provider 握手令牌启用时强制保护明文链路**
   - 依赖：—。交付与验收：当 `providerAuth.require=true` 且本地 listener 绑定非 loopback 地址时，拒绝 `tls.enabled=false` 的配置，或提供明确且不可忽略的启动阻断；保持 loopback 开发配置可用；加入启动配置组合验证与部署文档说明。
-  - 状态／条件：静态审核确认 Provider `authToken` 由 SDK 放入握手 metadata，Agent 可启用 token 校验，但样例 listener 默认 `0.0.0.0:19091`、TLS 默认关闭，配置校验只检查 token 非空（`configs/agent.yaml:19,25-27,40-45`、`cmd/sidecar-agent/root.go:638-647`）。若生产照此配置，握手凭据可被同网段监听并重放；需要把认证与传输保密绑定，不能只依赖注释提醒。
+  - 状态／条件：LOCAL VERIFIED（2026-11-21，commit 7a550438f）：把认证与传输保密在启动时绑定——`startAgentCore` 在既有 token 非空校验之后新增组合校验：`providerAuth.require=true` 且 `agent.tls.enabled=false` 且本地 listener 绑非 loopback → 启动即报错（不可忽略，提示 enable agent.tls 或只绑 loopback）；`isLoopbackAddr` 判定绑定地址是否只回环（127.0.0.1/::1/localhost 为真，0.0.0.0/具名网卡/空 host=全接口为假），故 loopback 开发配置与已启用 TLS 的生产配置均不受阻；文档在 agent 配置页 tls 小节写明该组合与例外。
+  - 验证：`go test ./cmd/sidecar-agent/ -count=1 -race` ok（新增 `TestIsLoopbackAddr` 10 组地址判定；`TestStartAgentCore_ProviderAuthCleartextGuard` 三组合：非 loopback+TLS 关闭 → 阻断（断言 "cleartext (replayable)"）、loopback+TLS 关闭 → 可用、非 loopback+TLS 开启（devcert 真证书）→ 可用）；变异自证：守卫条件加 `false &&` 短路 → 「非 loopback+TLS 关闭」用例如实红（未报错）复现原缺陷，还原后全绿；`go test ./internal/... -count=1` 172 包全绿 0 FAIL；`go build ./...` 0 错；gofmt 干净；`bash scripts/dashboard_vnext_guard.sh` PASSED；`python3 scripts/docs/check-architecture.py` PASS；`cd docs && CI=true pnpm build` 0 错；`pnpm --dir web run tsc` 0 错
+  - 完成证据：commit 7a550438f（4 文件，119 insertions / 2 deletions）；实现 `cmd/sidecar-agent/root.go`（`isLoopbackAddr` + `startAgentCore` 组合校验）、测试 `cmd/sidecar-agent/root_extra_test.go`；文档 `docs/operations/config-agent.md` 与 `docs/zh/operations/config-agent.md`（tls 小节该组合启动阻断与 loopback 例外）
+  - 已知边界：判定基于本地 listener 的绑定地址文本，若部署在 NAT/反代之后实际暴露面与绑定地址不符，仍须由运维绑定 loopback 或启用 agent.tls（平台无法识别网络拓扑）；`localhost` 按回环对待，若系统主机名解析到非回环地址则应由显式 IP 绑定；`require=false` 时无令牌可比对，明文链路无凭据暴露问题（不涉及本项）。
 
 - [ ] **AUD-002 · P1 · 修复 · 传输层以结构化协议表达 RPC handler 错误**
   - 依赖：—。交付与验收：统一 `internal/transport/tcp/server.go` 与 `core/transport/tcp/mux_conn.go` 的错误响应编码；JSON 错误文本必须使用标准编码器转义；非 Invoke RPC 必须返回客户端可识别的失败状态，不能以空 protobuf 伪装零值成功；每种消息验证引号、反斜杠、换行错误和客户端可观测结果。
