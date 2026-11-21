@@ -1876,9 +1876,12 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 完成证据：commit d179e1a2b（`.github/workflows/ci-mobile.yml` threshold 行改为 `os.environ.get` + 注释 + import 清理）。
   - 已知边界：`COVERAGE_THRESHOLD` 覆盖入口是进程 env（GitHub Actions 仓库级 env 或步骤 env 可注入），workflow 本身未新增 dispatch input；Python 段仍是独立脚本而非可单测模块，回归靠片段提取模拟（本条验证法）与线上 run。
 
-- [ ] **AUD-012 · P2 · 修复 · SSE 解析保留跨分块 CRLF 状态**
+- [x] **AUD-012 · P2 · 修复 · SSE 解析保留跨分块 CRLF 状态**（commit 0e30edd49）
   - 依赖：—。交付与验收：同一事件字节无论网络如何分块，事件名和多行 data 必须一致。
-  - 状态／条件：web/src/services/core/http.ts:180 提前归一化 chunk 尾 CR；实际源码解析 update/hello 事件在 CRLF 分块后变成 message/hello。
+  - 状态／条件：LOCAL VERIFIED（2026-11-22，commit 0e30edd49）：根因在 `web/src/services/core/http.ts` 的 `readStream`（fetch-SSE 客户端 `FetchSSEStream`）——每个 chunk 追加进 buffer 后立即把 `\r\n`/`\r` 归一化为 `\n` 再按 `\n\n` 分帧。chunk 以裸 `\r` 结尾时（跨 chunk 的 CRLF 前半），该 `\r` 被提前折成 `\n`，下一 chunk 开头的 `\n` 与之拼出**假空行**，把 `event: update` 行单独切成无 data 的帧（不发出），`data: hello` 落进下一帧变默认 `message`——事件名在分块边界处丢失（审计复现：`['event: update\r', '\ndata: hello\r\n\r\n']` 旧实现 update=[]/message=['hello']）。修法（http.ts:179-189）：保留急切归一化（分帧逻辑不变），新增 `pendingCR` 跟踪——归一化前记录 buffer 是否以裸 `\r` 结尾；该标记挂起期间，下一 chunk 若以 `\n` 开头则剥掉该 `\n`（它与上一轮已归一的 `\r` 本是同一 CRLF），非 `\n` 开头则标记作废（纯 CR 行尾，已折成 `\n` 的归一化正确）。EOF 无需 flush：`pendingCR` 只影响**下一 chunk** 首字符的解释，流结束时不悬挂任何待发字节。
+  - 验证：`npx jest src/services/core src/pages/Ops/Agents/devopsTerminal` 39/39 绿（含 fetch-SSE 全既有用例：retry/重连/注释心跳/多行 data/CRLF 混合行尾，零回归）；新增用例 `readStream：CRLF 跨 chunk 边界不误切帧（AUD-012）`（核心复现，旧实现 update=[]）与 `readStream：跨 chunk 分帧边界与纯 CR 行尾（AUD-012 补充）`（纯 CR 跨 chunk 两事件、LF 单块对照、CRLF 恰在两事件之间不粘连）；变异自证：回放旧实现（无 pendingCR 直接归一化）→ 新用例如实红（update 事件丢失变 message），还原后绿；`pnpm --dir web run tsc` 0 错。全量 `npx jest --silent` 37 套件 99 用例红，逐一归类为环境性：负载平均 59-69 下 20s 超时风暴（supervisorDrawer 320s/studioActions 1377s 等），唯一非超时断言失败 `Support/Tickets/Detail` 隔离复跑 44/44 绿；37 个失败套件经 grep 全部不 import `createEventSource`/`services/core/http`——与本改动无可达路径，非回归。
+  - 完成证据：commit 0e30edd49（`web/src/services/core/http.ts` `readStream` +17/-4：`pendingCR` 状态机两行核心（`:184` 剥下一 chunk 首 `\n`、`:189` 尾裸 `\r` 置位）；`web/src/services/core/__tests__/http.node.test.ts` +66：`driveSSE` 驱动助手（fetch 桩永不 settle、按类型收集事件）+ 两回归用例）。
+  - 已知边界：修复面仅 fetch-SSE 客户端（`createEventSource` 消费面）；DOM 原生 `EventSource` 不经过本解析器。`pendingCR` 只在「chunk 恰以 `\r` 结尾」时挂起一轮，跨多 chunk 的字符级 CRLF 拆分（`\r` 与 `\n` 分属不同 chunk 且中间无其他字节）之外的分块形态不受影响也无需影响——归一化对整段 buffer 运作，中间完整 CRLF 不会错切。多字节 UTF-8 序列跨 chunk 拆分由 `TextDecoder(stream:true)` 既有机制处理，不在本项范围。
 
 - [ ] **AUD-013 · P1 · 修复 · C++ transport 完整写帧并串行化连接写入**
   - 依赖：—。交付与验收：统一 Call/响应 writer 的连接级锁、write-all 和失败收口；覆盖合法短写。
