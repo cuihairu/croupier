@@ -185,15 +185,30 @@ func NewPublicService(svcCtx *svc.ServiceContext) *PublicService {
 	return &PublicService{svcCtx: svcCtx}
 }
 
-// List serves GET /public/configs?ns=iap&keys=a,b.
+// PublicScope 公开配置读端点的客户端声明作用域（AUD-037）。端点匿名可达、
+// 无鉴权中间件可派生 scope，故 SQL 过滤只能来自客户端显式声明的 game/env；
+// 缺省或半声明一律拒绝（400），绝不回落成全局读。
+type PublicScope struct {
+	GameID string
+	Env    string
+}
+
+// List serves GET /public/configs?gameId=g&env=e&ns=iap&keys=a,b。
+// gameId/env 必填（AUD-037）：缺任一即 400——此前端点只按 namespace/key 过滤，
+// 匿名用户可枚举任意 game/env 的 config_versions 值。
 func (h *PublicHandler) List(c *gin.Context) {
 	namespaces, err := parseNamespaces(c.Query("ns"))
 	if err != nil {
 		response.Error(c, err)
 		return
 	}
+	scope, ok := publicScopeFromQuery(c)
+	if !ok {
+		response.Error(c, errorx.NewBadRequest("公开配置查询必须同时携带 gameId 与 env"))
+		return
+	}
 	keys := splitCSV(c.Query("keys"))
-	items, err := h.service.latest(c.Request.Context(), namespaces, keys)
+	items, err := h.service.latest(c.Request.Context(), namespaces, keys, scope)
 	if err != nil {
 		response.Error(c, err)
 		return
@@ -201,13 +216,28 @@ func (h *PublicHandler) List(c *gin.Context) {
 	response.Success(c, gin.H{"items": items})
 }
 
-func (s *PublicService) latest(ctx context.Context, namespaces, keys []string) ([]gin.H, error) {
+// publicScopeFromQuery 提取公开端点的 game/env 声明作用域。半声明（只给
+// gameId 不给 env，或反之）视为无效——单一 game_id 无法唯一确定配置面。
+func publicScopeFromQuery(c *gin.Context) (PublicScope, bool) {
+	scope := PublicScope{
+		GameID: strings.TrimSpace(c.Query("gameId")),
+		Env:    strings.TrimSpace(c.Query("env")),
+	}
+	return scope, scope.GameID != "" && scope.Env != ""
+}
+
+// latest 返回声明 scope 内的最新版本。SQL 强制 game_id/env 等值过滤，
+// 返回字段固定为白名单（namespace/key/version/value/format/updatedAt）：
+// message、createdBy、game_id/env 不回传。
+func (s *PublicService) latest(ctx context.Context, namespaces, keys []string, scope PublicScope) ([]gin.H, error) {
 	if s.svcCtx == nil || s.svcCtx.ConfigVersionModel == nil {
 		return []gin.H{}, nil
 	}
 	db := s.svcCtx.ConfigVersionModel.DB().WithContext(ctx)
 	var rows []model.ConfigVersion
-	q := db.Where("namespace IN ?", namespaces)
+	q := db.Where("namespace IN ?", namespaces).
+		Where("game_id = ?", scope.GameID).
+		Where("env = ?", scope.Env)
 	if len(keys) > 0 {
 		q = q.Where("key IN ?", keys)
 	}

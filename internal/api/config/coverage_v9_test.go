@@ -276,7 +276,7 @@ func TestWatchAndPublic_NilSvcCtxV9(t *testing.T) {
 	assert.Empty(t, ws.currentVersions(context.Background(), []string{"runtime"}))
 
 	ps := NewPublicService(&svc.ServiceContext{})
-	items, err := ps.latest(context.Background(), []string{"runtime"}, nil)
+	items, err := ps.latest(context.Background(), []string{"runtime"}, nil, PublicScope{GameID: "g1", Env: "prod"})
 	require.NoError(t, err)
 	assert.Empty(t, items)
 }
@@ -285,14 +285,14 @@ func TestWatchAndPublic_NilSvcCtxV9(t *testing.T) {
 func TestPublicService_Latest_KeysAndDBErrorV9(t *testing.T) {
 	db, svcCtx := newConfigSvcDBV9(t)
 	require.NoError(t, db.Create(&model.ConfigVersion{
-		Namespace: "runtime", Key: "a.key", Version: 1, Value: "1", Format: "json",
+		Namespace: "runtime", Key: "a.key", Version: 1, Value: "1", Format: "json", GameID: "g1", Env: "prod",
 	}).Error)
 	require.NoError(t, db.Create(&model.ConfigVersion{
-		Namespace: "runtime", Key: "b.key", Version: 1, Value: "2", Format: "json",
+		Namespace: "runtime", Key: "b.key", Version: 1, Value: "2", Format: "json", GameID: "g1", Env: "prod",
 	}).Error)
 
 	ps := NewPublicService(svcCtx)
-	items, err := ps.latest(context.Background(), []string{"runtime"}, []string{"a.key"})
+	items, err := ps.latest(context.Background(), []string{"runtime"}, []string{"a.key"}, PublicScope{GameID: "g1", Env: "prod"})
 	require.NoError(t, err)
 	require.Len(t, items, 1)
 	assert.Equal(t, "a.key", items[0]["key"])
@@ -302,10 +302,10 @@ func TestPublicService_Latest_KeysAndDBErrorV9(t *testing.T) {
 	require.NoError(t, db.Migrator().DropTable("config_versions"))
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest(http.MethodGet, "/public/configs?ns=runtime", nil)
+	c.Request = httptest.NewRequest(http.MethodGet, "/public/configs?ns=runtime&gameId=g1&env=prod", nil)
 	h.List(c)
 	assert.Equal(t, http.StatusInternalServerError, w.Code, w.Body.String())
 
-	_, err = ps.latest(context.Background(), []string{"runtime"}, nil)
+	_, err = ps.latest(context.Background(), []string{"runtime"}, nil, PublicScope{GameID: "g1", Env: "prod"})
 	require.Error(t, err)
 }

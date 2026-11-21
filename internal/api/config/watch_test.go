@@ -169,13 +169,13 @@ func TestPublicHandler_List(t *testing.T) {
 	db := newWatchTestDB(t)
 	// Latest per key wins: v1 then v2 of the same key.
 	require.NoError(t, db.Create(&model.ConfigVersion{
-		Namespace: "iap", Key: "shop.enabled", Version: 1, Value: "false", Format: "json",
+		Namespace: "iap", Key: "shop.enabled", Version: 1, Value: "false", Format: "json", GameID: "g1", Env: "prod",
 	}).Error)
 	require.NoError(t, db.Create(&model.ConfigVersion{
-		Namespace: "iap", Key: "shop.enabled", Version: 2, Value: "true", Format: "json",
+		Namespace: "iap", Key: "shop.enabled", Version: 2, Value: "true", Format: "json", GameID: "g1", Env: "prod",
 	}).Error)
 	require.NoError(t, db.Create(&model.ConfigVersion{
-		Namespace: "runtime", Key: "other.key", Version: 1, Value: "1", Format: "json",
+		Namespace: "runtime", Key: "other.key", Version: 1, Value: "1", Format: "json", GameID: "g1", Env: "prod",
 	}).Error)
 
 	svcCtx := &svc.ServiceContext{ConfigVersionModel: model.NewConfigVersionModel(db)}
@@ -184,7 +184,7 @@ func TestPublicHandler_List(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest(http.MethodGet, "/public/configs?ns=iap", nil)
+	c.Request = httptest.NewRequest(http.MethodGet, "/public/configs?ns=iap&gameId=g1&env=prod", nil)
 	h.List(c)
 	require.Equal(t, http.StatusOK, w.Code)
 	body := w.Body.String()
@@ -196,9 +196,59 @@ func TestPublicHandler_List(t *testing.T) {
 	// Invalid namespace → 400.
 	w2 := httptest.NewRecorder()
 	c2, _ := gin.CreateTestContext(w2)
-	c2.Request = httptest.NewRequest(http.MethodGet, "/public/configs?ns=secret", nil)
+	c2.Request = httptest.NewRequest(http.MethodGet, "/public/configs?ns=secret&gameId=g1&env=prod", nil)
 	h.List(c2)
 	assert.Equal(t, http.StatusBadRequest, w2.Code)
+}
+
+// AUD-037：公开端点缺 gameId/env 或只给半边 → 400，绝不回落成全局读。
+func TestPublicHandler_List_RequiresScope(t *testing.T) {
+	db := newWatchTestDB(t)
+	require.NoError(t, db.Create(&model.ConfigVersion{
+		Namespace: "iap", Key: "shop.enabled", Version: 1, Value: "true", Format: "json", GameID: "g1", Env: "prod",
+	}).Error)
+	svcCtx := &svc.ServiceContext{ConfigVersionModel: model.NewConfigVersionModel(db)}
+	h := NewPublicHandler(NewPublicService(svcCtx))
+	gin.SetMode(gin.TestMode)
+
+	for _, target := range []string{
+		"/public/configs?ns=iap",
+		"/public/configs?ns=iap&gameId=g1",
+		"/public/configs?ns=iap&env=prod",
+	} {
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = httptest.NewRequest(http.MethodGet, target, nil)
+		h.List(c)
+		require.Equal(t, http.StatusBadRequest, w.Code, "url=%s body=%s", target, w.Body.String())
+	}
+}
+
+// AUD-037：越权负例——请求其他 game 或 env 的 scope 返回空，不泄漏别家配置。
+func TestPublicHandler_List_CrossScopeEmpty(t *testing.T) {
+	db := newWatchTestDB(t)
+	require.NoError(t, db.Create(&model.ConfigVersion{
+		Namespace: "iap", Key: "shop.enabled", Version: 1, Value: "true", Format: "json", GameID: "g1", Env: "prod",
+	}).Error)
+	svcCtx := &svc.ServiceContext{ConfigVersionModel: model.NewConfigVersionModel(db)}
+	h := NewPublicHandler(NewPublicService(svcCtx))
+	gin.SetMode(gin.TestMode)
+
+	// 声明 g2/prod → 查不到 g1/prod 的行。
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodGet, "/public/configs?ns=iap&gameId=g2&env=prod", nil)
+	h.List(c)
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.NotContains(t, w.Body.String(), "shop.enabled", "cross-game scope must not leak other game config")
+
+	// 声明 g1/staging → 查不到 g1/prod 的行。
+	w2 := httptest.NewRecorder()
+	c2, _ := gin.CreateTestContext(w2)
+	c2.Request = httptest.NewRequest(http.MethodGet, "/public/configs?ns=iap&gameId=g1&env=staging", nil)
+	h.List(c2)
+	require.Equal(t, http.StatusOK, w2.Code)
+	assert.NotContains(t, w2.Body.String(), "shop.enabled", "cross-env scope must not leak other env config")
 }
 
 func copyVersions(in map[string]int) map[string]int {
