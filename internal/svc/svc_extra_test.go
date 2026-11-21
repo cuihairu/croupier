@@ -402,6 +402,15 @@ func TestAuthMiddleware_Handle(t *testing.T) {
 	// 初始化过，显式重键并在测试结束后恢复。
 	defer jwtutil.ResetGlobalSecretForTesting("test-secret-for-svc")()
 	svcCtx := newSvcTestContext(t)
+	// AUD-010：中间件要求账号在库（删除/不存在即拒绝）。此前的「valid token」
+	// 用不存在的 adminID 42/43，靠 RecordNotFound 被误放行的漏洞才通过；现种入
+	// 真实账号，token 版本 0 与初始版本一致。
+	for _, a := range []*model.Admin{
+		{Model: gorm.Model{ID: 42}, Username: "alice", Status: 1},
+		{Model: gorm.Model{ID: 43}, Username: "bob", Status: 1},
+	} {
+		require.NoError(t, svcCtx.AdminModel.Create(context.Background(), a, "Passw0rd!x"))
+	}
 	mw := NewAuthMiddlewareImpl(svcCtx)
 
 	newEngine := func() *gin.Engine {

@@ -17,6 +17,7 @@ import (
 	"github.com/cuihairu/croupier/internal/platform/settings"
 	jwtutil "github.com/cuihairu/croupier/internal/security/jwtutil"
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // NewAuthMiddleware 创建认证中间件
@@ -307,7 +308,13 @@ func (m *AuthMiddleware) checkTokenVersion(ctx context.Context, claims *jwtutil.
 	}
 	current, err := m.currentTokenVersion(ctx, claims.AdminID)
 	if err != nil {
-		// 存储故障时不放大为全站 401：记日志并放行，可用性优先。
+		// AUD-010：账号不存在（硬删/软删，First 无行即 ErrRecordNotFound）
+		// 时旧 JWT 必须拒绝——此前误当存储故障放行，是「删除账号后旧 token
+		// 仍被接受」的安全缺口。返回错误与「token revoked」同语义（认证失败）。
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errors.New("account not found")
+		}
+		// 真存储故障时不放大为全站 401：记日志并放行，可用性优先。
 		slog.WarnContext(ctx, "token version check skipped", "adminID", claims.AdminID, "error", err)
 		return nil
 	}
