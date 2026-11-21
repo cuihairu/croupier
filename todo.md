@@ -56,11 +56,13 @@
 
 ### 表单值、校验与默认界面
 
-- [ ] **SUI-014 · P0 · 修复 · 统一表单的提交取值接口**
+- [x] **SUI-014 · P0 · 修复 · 统一表单的提交取值接口** ✅ 2d4825d3c ddae70725
   - 依赖：SUI-045。交付与验收：原生提交、调试、资源创建/编辑、行操作和组合页经同一提交取值逻辑。隐藏前后的编辑值可恢复，提交 payload 严格按统一的投影规则生成。
+  - 交付：`SchemaFormRenderer` 唯一投影 `projectSubmitValues`/`getSubmitValues()`/`isFieldHidden`（原生提交与命令式同一规则，2d4825d3c）；`ResourcePageRenderer`、`Functions/Invoke`、`CloneModal` 命令式提交改走 `getSubmitValues()`（ddae70725）；组合页经 `onFinish` 原生路径。证据：`submit-values.test.tsx`（原生/命令式剔除-恢复对拍）本机单跑通过；`compositeDialog.test.tsx` 10/10 通过；2d4825d3c ddae70725。
 
-- [ ] **SUI-015 · P0 · 修复 · 以最终绑定参数校验调用契约**
+- [x] **SUI-015 · P0 · 修复 · 以最终绑定参数校验调用契约** ✅ d775c708d 2d4825d3c ddae70725
   - 依赖：SUI-014, SUI-045。交付与验收：统一可见性、旧呈现校验规则与参数绑定的边界。绑定及明确默认值应用完再校验最终请求；隐藏且无绑定来源的必填项有结构化错误，隐藏且由绑定提供的合法值可执行。
+  - 交付：验收已由边界定义 + 统一投影 + 既有服务端校验顺序满足，无新增代码。边界定义在 SUI-045（`console_execute.go:196-200` 先 `buildBindingPayloadFromSelectors` 应用绑定与 default transform、后 `validateBindingExecutePayload` 校验最终请求，`console_execute.go:507-521` 结构化 422）；可见性与提交裁剪统一为 `isFieldHidden`/`projectSubmitValues`（2d4825d3c）。证据：`go test ./internal/api/console/ -run 'TestServiceExecuteBinding(RejectsMissingRequiredPayloadField|UsesRowSelectorWithoutPassingWholeRow|RejectsPayloadTypeMismatch|IgnoresUnselectedContextFields)$'` 4/4 通过；`field-validity.test.tsx` 18/18 通过；d775c708d 2d4825d3c ddae70725。
 
 - [ ] **SUI-016 · P1 · 实现 · 对齐两条服务端入口的 schema 校验策略**
   - 依赖：SUI-009。交付与验收：Console 执行与函数直接调用使用同一组对照 fixture。区分缺少 schema 和 schema 编译失败，钉住显式及省略 `additionalProperties` 的契约行为与合法字典数据。
