@@ -170,14 +170,23 @@ class FetchSSEStream implements SSEStream {
     if (!reader) return;
     const decoder = new TextDecoder();
     let buffer = '';
+    // 归一化行尾：SSE 规范允许 CRLF / LF / CR 三种行分隔，服务端可能混用（如
+    // \r\n\n 或纯 \r），统一折成 \n 后按空行 \n\n 分帧，避免事件延迟/粘连/漏解析。
+    // AUD-012：归一化把 \r/\r\n 折成 \n 后，无法区分末尾 \n 原为「\r」还是「\n」。
+    // 若 chunk 以裸 \r 结尾，它可能是跨 chunk 的 \r\n 前半；下一 chunk 若以 \n
+    // 开头则与之合成一个 CRLF，此时须吞掉该 \n（已归一为 \n），否则会拼出假空
+    // 行错切事件。pendingCR 记录上一轮的尾 \r 已归一，待本 chunk 确认。
+    let pendingCR = false;
     for (;;) {
       const { done, value } = await reader.read();
       if (done) return;
-      buffer += decoder.decode(value, { stream: true });
-      // 归一化行尾：SSE 规范允许 CRLF / LF / CR 三种行分隔。服务端可能
-      // 混用（如 \r\n\n 或纯 \r），统一折成 \n 后按空行 \n\n 分帧，避免
-      // 事件延迟/粘连/漏解析。
+      let chunk = decoder.decode(value, { stream: true });
+      if (pendingCR && chunk.startsWith('\n')) chunk = chunk.slice(1);
+      pendingCR = false;
+      buffer += chunk;
+      const endsWithRawCR = buffer.endsWith('\r');
       buffer = buffer.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+      if (endsWithRawCR) pendingCR = true;
       const frames = buffer.split('\n\n');
       buffer = frames.pop() ?? '';
       for (const frame of frames) this.dispatchFrame(frame);
