@@ -77,7 +77,7 @@ pending ──(approved)──▶ executing ──▶ verifying ──▶ done
 - `pending`：请求落库（请求表行，含目标快照 + 动作 + 原因 + 发起人）；建审批记录并回填（`ApprovalID`）。provision 先例：先持久化、再建审批、再回填。
 - `approved → executing`：审批通过；开始执行。pending → executing 的翻转是一次原子条件更新（CAS 领取，PWR-001）：并发 resume/reject 中只有一人完成迁移并启动 provider，落败方收到稳定 409（`power_state_conflict`），动作副作用绝不重复执行。逐机经 provider 尝试；每台机器行记录尝试时间、原始结果、错误。
 - `executing → verifying`：对有可观测效果的动作（power_on、reboot、power_off）轮询确认——BMC `power status`、云 provider 状态、或 agent 会话重连——直到截止（`powerops.verifyTimeout`，默认 120s，逐次退避）。
-- `done` / `partial` / `failed`：终态带逐机结果；`partial` 存在的理由：批量电源是唯一必须区分「部分机器回来了」与「全部回来了」的地方。头部计数（`succeeded`/`failed`）与终态聚合同一口径（PWR-004）：机器仅在「已确认」时计为成功——已验证，或该 provider 无法验证。「动作已发出」与「状态已验证」的区分保留在逐目标字段（`success` 与 `verified`）；动作全部发出但无一验证的请求落 `failed` 且 `failed=total`，绝不出现 `failed=0`。
+- `done` / `partial` / `failed`：终态带逐机结果；`partial` 存在的理由：批量电源是唯一必须区分「部分机器回来了」与「全部回来了」的地方。头部计数（`succeeded`/`failed`）与终态聚合同一口径（PWR-004）：机器仅在「已确认」时计为成功——已验证，或该 provider 无法验证，**WOL 除外**（PWR-006）：魔术包发出绝不等于机器上线，只有 agent 重连（`verified`）才算唤醒确认，无论机器是否登记了 agent 引用（无引用则永不能确认）。「动作已发出」与「状态已验证」的区分保留在逐目标字段（`success` 与 `verified`）；动作全部发出但无一验证的请求落 `failed` 且 `failed=total`，绝不出现 `failed=0`。已派发但未确认的 WOL 唤醒在请求 `errorMsg` 指名原因（「未配置 agent 可确认」vs「agent 未重连」），让「已派发、机器未确认上线」的诚实结果可操作。
 - 拒绝路径：审批拒绝 ⇒ 请求 `rejected`，什么都不执行。
 - status 查询不进本状态机（PWR-005，§5）：`power.status` 是读——每台机器一次有界状态调用，然后请求直接落终态并带逐机结果行；不建审批单、不进 pending/executing/verifying，HTTP 调用同步返回完成的快照。确定性的 on/off 答案计为已确认；未知答案或查询失败不计（诚实的"说不清"不是已确认电源状态），因此头部状态与计数与变更动作同一聚合定义——done/partial/failed。查询延迟由每次调用的 `actionTimeout`（PWR-002）决定，绝不随 `verifyTimeout` 增长。
 - 执行跑在 `context.WithoutCancel` 派生的后台 context（CR-FIX-22 纪律）：HTTP 客户端断开不得把请求卡在 `executing`。
@@ -103,7 +103,7 @@ pending ──(approved)──▶ executing ──▶ verifying ──▶ done
 
 - **CI 内无真实 BMC/WOL/云验证**：没有硬件。provider 行为全部由 mock + 假 ipmitool 二进制（命令拼装）覆盖；**真实 BMC/WOL 验证待有硬件的环境**——如实记录，不含糊。
 - **server 无 IPMI 网络可达性 ⇒ 机器不可达**：平台上报 `unreachable`/`failed`；不伪装，也不借任意 agent 跳板转发电源。
-- **WOL 只能唤醒**：无优雅关机、无状态查询；确认靠 agent 重连，而这要求机器的 agent 配置自启——属平台外部部署前提。
+- **WOL 只能唤醒**：无优雅关机、无状态查询；确认靠 agent 重连，而这要求机器的 agent 配置自启——属平台外部部署前提。WOL 机器的 power 配置未登记 `agentId` 时没有任何可观测面能确认唤醒（PWR-006）：其请求如实落 `failed` 且 `verified=false` 并带指名 `errorMsg`，绝不伪装 `done`。
 - **云动作是命令模板驱动**，不是深度 provider SDK 集成：`powerops.cloud.*` 声明逐动作命令行（如 provider CLI 调用）。provision 的 terraform workspace 管创建/销毁，不管实例 start/stop，powerops 不假装复用它；未来 provider SDK 集成会替换模板层。
 - **无人值守自动开机循环不做**：平台不自动批准、不自动重试电源动作。supervisor 驱动的场景同样从人工批准的请求进入；自动化可以**起草**请求，绝不**批准**。
 - **agent 所在机拒绝 force-off**（通道随宿主一起死）：API 在机器登记了带外 provider 时映射过去；没有则如实失败。

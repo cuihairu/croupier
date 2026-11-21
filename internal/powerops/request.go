@@ -464,10 +464,21 @@ func expectedState(a Action) string {
 }
 
 // verifiable reports whether the provider kind can observe power state at
-// all (WOL cannot — design §3; wake confirmation is agent reconnection and
-// stays honestly unverified in this phase).
+// all (WOL cannot — design §3; wake confirmation is agent reconnection).
 func verifiable(provider string) bool {
 	return provider == ProviderIPMI || provider == ProviderCloud || provider == ProviderAgent
+}
+
+// verifiableFor reports whether a specific machine's post-action state can be
+// observed at all. WOL itself cannot (design §3), but a WOL machine that
+// carries an agent reference is confirmable by agent reconnection (PWR-006):
+// the verify loop polls the referenced agent's session instead of the WOL
+// provider, which is the only proof a wake actually brought the host up.
+func verifiableFor(m Machine) bool {
+	if m.Provider == ProviderWOL {
+		return m.AgentID != ""
+	}
+	return verifiable(m.Provider)
 }
 
 // executeRequest runs the actions, then verifies, then lands the terminal
@@ -667,13 +678,23 @@ func (o *Orchestrator) verify(ctx context.Context, req *model.PowerRequest, mach
 	for o.now().Before(deadline) && ctx.Err() == nil {
 		pending := false
 		for _, t := range targets {
-			if !t.Success || t.Verified || !verifiable(t.Provider) {
+			m := byMachine[t.NodeID]
+			if !t.Success || t.Verified || !verifiableFor(m) {
 				continue
 			}
-			m := byMachine[t.NodeID]
 			p, ok := o.Providers[t.Provider]
 			if !ok || m == (Machine{}) {
 				continue
+			}
+			// PWR-006: a WOL machine cannot observe its own power state; the
+			// wake is confirmed by the referenced agent's session coming back
+			// online, so the poll routes to the agent provider using the WOL
+			// machine's agent id (the only proof the host came up).
+			if t.Provider == ProviderWOL {
+				p, ok = o.Providers[ProviderAgent]
+				if !ok {
+					continue
+				}
 			}
 			st, err := o.statusBounded(ctx, p, m)
 			if err == nil && st == want {
@@ -696,8 +717,41 @@ func (o *Orchestrator) verify(ctx context.Context, req *model.PowerRequest, mach
 	}
 	if ctx.Err() != nil {
 		req.ErrorMsg = truncate("powerops: request exceeded overall bound: "+ctx.Err().Error(), 512)
+	} else if note := wolUnverifiedNote(byMachine, targets); note != "" {
+		// PWR-006: name dispatched-but-unconfirmed WOL wakes so the honest
+		// "packet sent, machine not confirmed up" outcome is actionable
+		// instead of a bare failed/partial.
+		req.ErrorMsg = truncate(note, 512)
 	}
 	o.finish(req, targets, terminalState(action, targets))
+}
+
+// wolUnverifiedNote names the WOL wakes that left but never confirmed
+// (PWR-006), splitting the two causes an operator must act on differently:
+// no agent reference to confirm against, versus a referenced agent that never
+// reconnected. The packet send is not machine-up in either case.
+func wolUnverifiedNote(byMachine map[string]Machine, targets []*model.PowerRequestTarget) string {
+	noAgent, noReconnect := 0, 0
+	for _, t := range targets {
+		if t.Provider != ProviderWOL || !t.Success || t.Verified {
+			continue
+		}
+		if byMachine[t.NodeID].AgentID == "" {
+			noAgent++
+		} else {
+			noReconnect++
+		}
+	}
+	switch {
+	case noAgent > 0 && noReconnect > 0:
+		return fmt.Sprintf("powerops: %d WOL wake(s) dispatched without an agent to confirm, %d not confirmed by agent reconnect", noAgent, noReconnect)
+	case noAgent > 0:
+		return fmt.Sprintf("powerops: %d WOL wake(s) dispatched but no agent configured to confirm (machine left unverified)", noAgent)
+	case noReconnect > 0:
+		return fmt.Sprintf("powerops: %d WOL wake(s) dispatched but agent did not reconnect (machine left unverified)", noReconnect)
+	default:
+		return ""
+	}
 }
 
 // statusBounded bounds one Status call with the same per-call ActionTimeout
@@ -727,15 +781,23 @@ func (o *Orchestrator) statusBounded(ctx context.Context, p Provider, m Machine)
 
 // confirmed reports whether a target row counts as a confirmed outcome for
 // header counters and terminal aggregation (PWR-004 unified definition,
-// extended by the status query path — PWR-005). A mutating action is
-// confirmed when the post-action state was observed (Verified) or the
-// provider cannot observe at all. A status query is its own observation: a
+// extended by the status query path — PWR-005, and the WOL dispatch/confirm
+// split — PWR-006). A mutating action is confirmed when the post-action state
+// was observed (Verified) or the provider cannot observe at all — except WOL,
+// where the packet send is never machine-up: only an agent reconnect
+// (Verified) confirms the wake. A status query is its own observation: a
 // definitive on/off answer confirms the machine; an unknown answer or a
 // failed query does not (the honest answer "I cannot tell" is not a
 // confirmed power state).
 func confirmed(t *model.PowerRequestTarget, a Action) bool {
 	if a == ActionStatus {
 		return t.Success && t.State != "" && t.State != "unknown"
+	}
+	if t.Provider == ProviderWOL {
+		// PWR-006: the magic packet proves the packet left, never that the
+		// host came up — confirmed only on agent reconnection (with or without
+		// an agent reference; without one it can never confirm).
+		return t.Success && t.Verified
 	}
 	return t.Success && (t.Verified || !verifiable(t.Provider))
 }

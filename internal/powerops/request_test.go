@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -714,7 +715,94 @@ func TestVerifyTimeoutKeepsUnverifiedHonest(t *testing.T) {
 	assert.False(t, targets[0].Verified, "unconfirmed machines stay unverified")
 }
 
-func TestWOLWakeIsSuccessButNeverVerified(t *testing.T) {
+// ---- PWR-006: WOL split dispatch (packet sent) from confirmation (agent up) ----
+
+// wolWaker builds a WOL machine that references the agent that comes back up
+// after the wake (agentId "ag-wol"), so a request against "wol-ag-1" exercises
+// the dispatch/confirmation split.
+func wolResolver(agentID string) mapResolver {
+	return mapResolver{m: map[string]Machine{
+		"wol-ag-1": {NodeID: "wol-ag-1", Provider: ProviderWOL, MAC: "aa:bb:cc:dd:ee:02", AgentID: agentID},
+	}}
+}
+
+// wolOrch wires a WOL provider plus an agent provider whose liveness answer is
+// scripted by online (PWR-006: agent reconnection is the wake confirmation).
+func wolOrch(t *testing.T, online *atomic.Bool, verifyTimeout time.Duration) *Orchestrator {
+	t.Helper()
+	store := newTestStore(t)
+	gate := &fakeGate{approvals: map[string]bool{}}
+	wol := NewWOLProvider()
+	wol.Send = func(ctx context.Context, addr string, packet []byte) error { return nil }
+	cmdr := &mockCommander{exec: func(agentID, command string, timeout int) (string, error) {
+		if online != nil && online.Load() {
+			return "ok", nil
+		}
+		return "", context.DeadlineExceeded
+	}}
+	return &Orchestrator{
+		Store:          store,
+		Approval:       gate,
+		Providers:      map[string]Provider{ProviderWOL: wol, ProviderAgent: &AgentProvider{Commander: cmdr}},
+		VerifyTimeout:  verifyTimeout,
+		VerifyInterval: 20 * time.Millisecond,
+	}
+}
+
+// PWR-006：WOL 派发成功只记为已派发；关联 Agent 在窗口内重连即记验证，
+// 请求才落 done（唤醒确认 = agent 会话回来，设计 §3）。
+func TestWOLWakeWithAgentReconnectConfirms(t *testing.T) {
+	var online atomic.Bool
+	time.AfterFunc(120*time.Millisecond, func() { online.Store(true) })
+	orch := wolOrch(t, &online, 500*time.Millisecond)
+	store := orch.Store.(*GormStore)
+	req, err := orch.Submit(context.Background(), wolResolver("ag-wol"), SubmitInput{
+		NodeIDs: []string{"wol-ag-1"}, Action: ActionPowerOn, RequestedBy: "op1",
+	})
+	require.NoError(t, err)
+	orch.Approval.(*fakeGate).approve(req.ApprovalID)
+	_, err = orch.ResumeAsync(context.Background(), req.RequestID)
+	require.NoError(t, err)
+
+	final := awaitTerminal(t, store, req.RequestID)
+	assert.Equal(t, StateDone, final.State)
+	assert.Equal(t, 1, final.Succeeded)
+	assert.Equal(t, 0, final.Failed)
+	targets, _ := store.Targets(req.RequestID)
+	require.Len(t, targets, 1)
+	assert.True(t, targets[0].Success, "the magic packet did leave")
+	assert.True(t, targets[0].Verified, "agent reconnection confirms the wake")
+	assert.Equal(t, "on", targets[0].State)
+}
+
+// PWR-006：关联了 Agent 但窗口内没有重连 —— 派发成功仍不算完成，
+// 请求如实落 failed，errorMsg 指名「包已发、agent 未回来」。
+func TestWOLWakeWithAgentNoReconnectUnverified(t *testing.T) {
+	orch := wolOrch(t, nil, 150*time.Millisecond)
+	store := orch.Store.(*GormStore)
+	req, err := orch.Submit(context.Background(), wolResolver("ag-wol"), SubmitInput{
+		NodeIDs: []string{"wol-ag-1"}, Action: ActionPowerOn, RequestedBy: "op1",
+	})
+	require.NoError(t, err)
+	orch.Approval.(*fakeGate).approve(req.ApprovalID)
+	_, err = orch.ResumeAsync(context.Background(), req.RequestID)
+	require.NoError(t, err)
+
+	final := awaitTerminal(t, store, req.RequestID)
+	assert.Equal(t, StateFailed, final.State)
+	assert.Equal(t, 0, final.Succeeded, "dispatched is not confirmed")
+	assert.Equal(t, 1, final.Failed)
+	assert.Contains(t, final.ErrorMsg, "did not reconnect")
+	targets, _ := store.Targets(req.RequestID)
+	require.Len(t, targets, 1)
+	assert.True(t, targets[0].Success, "the action itself did run")
+	assert.False(t, targets[0].Verified, "unconfirmed machines stay unverified")
+}
+
+// PWR-006：WOL 机器未登记关联 Agent —— 没有任何可观测面能确认唤醒，
+// 不得呈现为完成；诚实落 failed 并指名「已派发但无 agent 可确认」。
+// （原固化了「不可验证即确认」的旧行为，2026-11-21 起按本项纠正。）
+func TestWOLWakeWithoutAgentLandsUnverified(t *testing.T) {
 	store := newTestStore(t)
 	gate := &fakeGate{approvals: map[string]bool{}}
 	wol := NewWOLProvider()
@@ -732,18 +820,16 @@ func TestWOLWakeIsSuccessButNeverVerified(t *testing.T) {
 	gate.approve(req.ApprovalID)
 	_, err = orch.ResumeAsync(context.Background(), req.RequestID)
 	require.NoError(t, err)
+
 	final := awaitTerminal(t, store, req.RequestID)
-	// WOL is unverifiable by design: the packet sent counts as success, the
-	// machine stays unverified, and the terminal state is done (design §3).
-	assert.Equal(t, StateDone, final.State)
-	// PWR-004: an unverifiable provider counts as confirmed (its definition of
-	// success), so the header is done with all succeeded.
-	assert.Equal(t, 1, final.Succeeded)
-	assert.Equal(t, 0, final.Failed)
+	assert.Equal(t, StateFailed, final.State)
+	assert.Equal(t, 0, final.Succeeded)
+	assert.Equal(t, 1, final.Failed)
+	assert.Contains(t, final.ErrorMsg, "no agent configured to confirm")
 	targets, _ := store.Targets(req.RequestID)
 	require.Len(t, targets, 1)
-	assert.True(t, targets[0].Success)
-	assert.False(t, targets[0].Verified)
+	assert.True(t, targets[0].Success, "the magic packet did leave")
+	assert.False(t, targets[0].Verified, "no agent to confirm → unverified")
 }
 
 func TestListLimitClamps(t *testing.T) {
