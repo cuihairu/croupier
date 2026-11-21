@@ -10,20 +10,25 @@
 
 ### OpenAPI 导入与发送
 
-- [ ] **SUI-001 · P0 · 设计 · 定义统一的 OpenAPI 请求表示**
+- [x] **SUI-001 · P0 · 设计 · 定义统一的 OpenAPI 请求表示** ✅ be8c136fe
   - 依赖：—。交付与验收：固定参数位置、名称、必填、序列化方式及请求体媒体类型的表达。用 fixture 表达 path、query、header、cookie，以及同名参数和根数组 body；明确旧平铺契约的兼容边界。
+  - 交付：`internal/dashboard/spec/request_contract.go`（canonical 类型）；设计文档 `docs/architecture/openapi-request-contract.md` + `docs/zh/...`（含投影规则、兼容边界、执行映射）；descriptor-v2 交叉引用。证据：`go build ./internal/dashboard/spec/` 通过；be8c136fe。
 
-- [ ] **SUI-002 · P0 · 实现 · 保真提取 Source 请求契约**
+- [x] **SUI-002 · P0 · 实现 · 保真提取 Source 请求契约** ✅ 45796d6d1
   - 依赖：SUI-001。交付与验收：提取 operation 与 path-item 参数及完整 body schema。回归样例覆盖 query/body 同名、必填 header、根数组和 body 根级约束，派生结果逐项可追溯。
+  - 交付：kin 前端 `ExtractOperationRequestContractKin` + map 前端 `ExtractOperationRequestContractMap`（operation 覆盖 path-item、完整 body schema、序列化默认、$ref 内联）。证据：`TestRequestContract_KinPathItemParamsMergedWithOverride`/`_KinHeaderCookieCaptured`/`_KinRootArrayBodyPreserved`/`_BodyRootConstraintForcesStructured`/`_QueryBodySameNameCollision`；45796d6d1。
 
-- [ ] **SUI-003 · P0 · 实现 · Provider 复用统一请求提取**
+- [x] **SUI-003 · P0 · 实现 · Provider 复用统一请求提取** ✅ 45796d6d1
   - 依赖：SUI-001, SUI-002。交付与验收：同一 3.x fixture 经上传与运行时发现得到相同的规范请求。既有 Provider 配置和 Swagger 2.0 兼容用例通过。
+  - 交付：`provider_discover.go` 复用统一提取（kin 优先、map 兜底）；对拍测试 `TestRequestContract_KinMapParity` + `TestInputSchemaParity_KinMatchesLegacy`；Swagger 2.0 兼容 `TestRequestContract_Swagger20Compat`（in:body / formData / consumes）；既有 config-file provider 用例通过（`TestProviderCallWithRequestBody` 等）。证据：45796d6d1。
 
-- [ ] **SUI-004 · P0 · 实现 · 安全处理旧平铺入参**
+- [x] **SUI-004 · P0 · 实现 · 安全处理旧平铺入参** ✅ 45796d6d1
   - 依赖：SUI-001。交付与验收：已有无歧义对象输入维持原接口。新派生遇到同名冲突或无法保留的约束时给出 operation 与字段级诊断，覆盖旧绑定重读和重新导入。
+  - 交付：`ProjectOperationInputSchema` 三模式（flat/structured/body_only）；字节稳定平铺 `TestRequestContract_FlatProjectionByteStable`；字段级诊断（`DiagRequestParameterCollision`/`DiagRequestBodyShapeNonFlat` 带 `Field`）；api 侧重读/重导 `TestOpenAPIRequestSchemaReimportStable`。证据：45796d6d1。
 
-- [ ] **SUI-005 · P0 · 实现 · 保留根数组和标量 JSON 请求体**
+- [x] **SUI-005 · P0 · 实现 · 保留根数组和标量 JSON 请求体** ✅ 8427322d6
   - 依赖：SUI-002, SUI-003。交付与验收：根数组和标量在存在 query 参数时仍能通过请求映射送达上游，断言实际 HTTP body 的 JSON 类型及值。
+  - 交付：`Provider.Call`/`buildRequest` 消费请求契约解析调用方 payload（`resolveCallInput`），structured/body_only body 原样发送；`TestProviderCall_ContractRootShapePreserved` 断言 query + body JSON 类型与值（数组/标量/对象根 + flat 回归）。证据：8427322d6。
 
 - [ ] **SUI-006 · P1 · 实现 · 按 OpenAPI 序列化参数**
   - 依赖：SUI-002, SUI-003。交付与验收：验证公开声明支持的参数位置和 `style/explode` 组合。fixture 断言 path 替换、query 数组和对象、header 与 cookie 的实际 HTTP 值。无法执行的组合返回诊断。
