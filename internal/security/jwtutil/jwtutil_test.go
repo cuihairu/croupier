@@ -154,7 +154,13 @@ func TestResolveSecret(t *testing.T) {
 		assert.Contains(t, err.Error(), "JWT secret not configured")
 	})
 
-	t.Run("respects CROUPIER_ENV environment variable", func(t *testing.T) {
+	t.Run("production mode is not downgraded by a dev CROUPIER_ENV", func(t *testing.T) {
+		// AUD-008：生产信号（server.mode=production）不被遗留的 dev 环境变量
+		// 降级——这是修复前的漏洞：dev CROUPIER_ENV 曾把生产部署误判为开发态，
+		// 静默回落公开 dev secret。现在必须报错（fail-closed）。
+		oldMode := os.Getenv("CROUPIER_MODE")
+		_ = os.Unsetenv("CROUPIER_MODE")
+		defer func() { _ = os.Setenv("CROUPIER_MODE", oldMode) }()
 		oldEnv := os.Getenv("CROUPIER_ENV")
 		_ = os.Setenv("CROUPIER_ENV", "dev")
 		defer func() { _ = os.Setenv("CROUPIER_ENV", oldEnv) }()
@@ -167,9 +173,9 @@ func TestResolveSecret(t *testing.T) {
 				JWTSecret: "",
 			},
 		}
-		secret, err := ResolveSecret(cfg)
-		require.NoError(t, err)
-		assert.Equal(t, devSecret, secret)
+		_, err := ResolveSecret(cfg)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "JWT secret not configured")
 	})
 }
 
@@ -238,6 +244,37 @@ func TestIsDevelopmentMode(t *testing.T) {
 			},
 		}
 		assert.True(t, isDevelopmentMode(cfg))
+	})
+
+	// AUD-008：裸 server.mode 生产信号（无任何生产环境变量）此前被误判为开发
+	// 态。现在这三个值都必须判为「非开发」。
+	for _, mode := range []string{"prod", "production", "release"} {
+		t.Run("server.mode="+mode+" is production", func(t *testing.T) {
+			oldMode := os.Getenv("CROUPIER_MODE")
+			_ = os.Unsetenv("CROUPIER_MODE")
+			defer func() { _ = os.Setenv("CROUPIER_MODE", oldMode) }()
+			oldEnv := os.Getenv("CROUPIER_ENV")
+			_ = os.Unsetenv("CROUPIER_ENV")
+			defer func() { _ = os.Setenv("CROUPIER_ENV", oldEnv) }()
+
+			cfg := config.Config{
+				Server: config.ServerConfig{Mode: mode},
+			}
+			assert.False(t, isDevelopmentMode(cfg))
+		})
+	}
+
+	// AUD-008：生产信号单调——遗留的 dev server.mode 不能降级显式生产的
+	// CROUPIER_MODE（此前 dev 短路优先，会把生产部署误判为开发态）。
+	t.Run("production CROUPIER_MODE wins over dev server.mode", func(t *testing.T) {
+		oldMode := os.Getenv("CROUPIER_MODE")
+		_ = os.Setenv("CROUPIER_MODE", "production")
+		defer func() { _ = os.Setenv("CROUPIER_MODE", oldMode) }()
+
+		cfg := config.Config{
+			Server: config.ServerConfig{Mode: "dev"},
+		}
+		assert.False(t, isDevelopmentMode(cfg))
 	})
 }
 

@@ -1442,6 +1442,14 @@ func TestIsDevelopmentConfig(t *testing.T) {
 		{"env prod", "", "prod", "prod", false},
 		{"mode prod", "", "", "prod", false},
 		{"mode production", "", "", "production", false},
+		// AUD-008：裸 server.mode 生产信号（无任何生产环境变量）此前被误判为
+		// 开发态。现在这三个值都必须判为「非开发」。
+		{"server.mode prod alone", "prod", "", "", false},
+		{"server.mode production alone", "production", "", "", false},
+		{"server.mode release alone", "release", "", "", false},
+		// AUD-008：生产信号单调——遗留 dev server.mode 不能降级显式生产的
+		// CROUPIER_MODE。
+		{"production CROUPIER_MODE wins over dev server.mode", "dev", "", "production", false},
 	}
 
 	for _, tt := range tests {

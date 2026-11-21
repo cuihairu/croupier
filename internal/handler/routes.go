@@ -15,6 +15,7 @@ import (
 	permissionservice "github.com/cuihairu/croupier/internal/service/permission"
 	"github.com/cuihairu/croupier/internal/svc"
 
+	"fmt"
 	"log/slog"
 
 	"github.com/gin-gonic/gin"
@@ -194,14 +195,15 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 var siteSettingsHandlerRef *settingsapi.Handler
 
 func registerAuthRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	// 与 ServiceContext 启动路径（service_context.go 的 resolveJWTSecret 直接
+	// panic）保持同一 fail-closed 语义（AUD-008）：ResolveSecret 报错 ⟺ secret
+	// 为空且不在开发模式。这里绝不回落公开的 DevSecret——那会把生产环境悄悄
+	// 降级成无签名可伪造的 token。正常启动时 ctx.Config.Auth.JWTSecret 已在
+	// ServiceContext 装配中被回写，本分支只在路由被独立构造（如测试）或配置
+	// 被绕过时可达，panic 是正确终点而非日志降级。
 	jwtSecret, err := jwtutil.ResolveSecret(ctx.Config)
 	if err != nil {
-		// Log error but continue with fallback for compatibility
-		slog.Default().Warn("JWT secret resolution warning, using fallback", "error", err)
-		// Use fallback for backward compatibility
-		if jwtSecret == "" {
-			jwtSecret = jwtutil.DevSecret()
-		}
+		panic(fmt.Sprintf("JWT secret not configured: %v", err))
 	}
 	authSvc := auth.NewService(ctx.AdminModel, permissionservice.NewPermissionService(ctx.DB), jwtSecret, ctx.OpsStateStore).
 		WithGameModel(ctx.GameModel).

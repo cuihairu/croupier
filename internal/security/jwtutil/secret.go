@@ -53,23 +53,34 @@ func ResolveSecret(cfg config.Config) (string, error) {
 	return secret, nil
 }
 
-// isDevelopmentMode checks if the server is running in development mode.
+// isDevelopmentMode reports whether the server runs in development mode.
+//
+// Fail-closed: any production signal — server.mode or the CROUPIER_MODE /
+// CROUPIER_ENV environment variables set to prod/production/release — makes
+// this return false (NOT development), so a leftover development setting
+// cannot downgrade a production deployment to the public dev secret. This is
+// the AUD-008 fix: the previous logic defaulted to development unless
+// CROUPIER_MODE explicitly said prod, so server.mode=prod/production/release
+// with no production env var was misread as development and silently fell back
+// to the public dev JWT secret.
 func isDevelopmentMode(cfg config.Config) bool {
-	// Check server mode configuration
-	if strings.EqualFold(cfg.Server.Mode, "dev") || strings.EqualFold(cfg.Server.Mode, "development") || strings.EqualFold(cfg.Server.Mode, "debug") {
+	return !isProductionSignal(cfg.Server.Mode) &&
+		!isProductionSignal(os.Getenv("CROUPIER_MODE")) &&
+		!isProductionSignal(os.Getenv("CROUPIER_ENV"))
+}
+
+// isProductionSignal reports whether a mode value is an explicit production
+// signal. Matches prod/production/release (case-insensitive, whitespace
+// trimmed). Empty or development values are not production signals. Kept in
+// sync with the svc package's same-named helper: the two development-mode
+// classifiers are asserted equivalent by tests and must never drift.
+func isProductionSignal(value string) bool {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "prod", "production", "release":
 		return true
-	}
-	// Check environment variable
-	if env := strings.TrimSpace(os.Getenv("CROUPIER_ENV")); env != "" {
-		if strings.EqualFold(env, "dev") || strings.EqualFold(env, "development") {
-			return true
-		}
-	}
-	// Default to development if not explicitly set to production
-	if strings.EqualFold(os.Getenv("CROUPIER_MODE"), "prod") || strings.EqualFold(os.Getenv("CROUPIER_MODE"), "production") {
+	default:
 		return false
 	}
-	return true
 }
 
 // DevSecret exposes the fallback secret for other packages that need to compare.

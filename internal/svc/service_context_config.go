@@ -9,23 +9,31 @@ import (
 	"github.com/cuihairu/croupier/internal/runtime"
 )
 
-// isDevelopmentConfig checks if the current configuration is in development mode.
+// isDevelopmentConfig reports whether the current configuration is in
+// development mode.
+//
+// Fail-closed: any production signal — server.mode or the CROUPIER_MODE /
+// CROUPIER_ENV environment variables set to prod/production/release — makes
+// this return false (NOT development), so a leftover development setting
+// cannot downgrade a production deployment. This is the AUD-008 fix and must
+// stay equivalent to jwtutil.isDevelopmentMode (asserted by tests).
 func isDevelopmentConfig(cfg config.Config) bool {
-	// Check server mode configuration
-	if strings.EqualFold(cfg.Server.Mode, "dev") || strings.EqualFold(cfg.Server.Mode, "development") || strings.EqualFold(cfg.Server.Mode, "debug") {
+	return !isProductionSignal(cfg.Server.Mode) &&
+		!isProductionSignal(os.Getenv("CROUPIER_MODE")) &&
+		!isProductionSignal(os.Getenv("CROUPIER_ENV"))
+}
+
+// isProductionSignal reports whether a mode value is an explicit production
+// signal. Matches prod/production/release (case-insensitive, whitespace
+// trimmed). Empty or development values are not production signals. Kept in
+// sync with the jwtutil package's same-named helper.
+func isProductionSignal(value string) bool {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "prod", "production", "release":
 		return true
-	}
-	// Check environment variable
-	if env := strings.TrimSpace(os.Getenv("CROUPIER_ENV")); env != "" {
-		if strings.EqualFold(env, "dev") || strings.EqualFold(env, "development") {
-			return true
-		}
-	}
-	// Default to development if not explicitly set to production
-	if strings.EqualFold(os.Getenv("CROUPIER_MODE"), "prod") || strings.EqualFold(os.Getenv("CROUPIER_MODE"), "production") {
+	default:
 		return false
 	}
-	return true
 }
 
 func resolveBootstrapAuthDir(c config.Config) string {
