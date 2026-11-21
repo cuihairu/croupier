@@ -93,10 +93,10 @@ class _AnalyticsDomainPageState extends ConsumerState<AnalyticsDomainPage> {
       body: widget.pending
           ? _pendingView()
           : _loading
-              ? const Center(child: CircularProgressIndicator())
-              : _error != null
-                  ? _errorView()
-                  : _DataView(data: _data),
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
+          ? _errorView()
+          : _DataView(data: _data),
     );
   }
 
@@ -106,8 +106,11 @@ class _AnalyticsDomainPageState extends ConsumerState<AnalyticsDomainPage> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.construction_outlined,
-              size: 48, color: Colors.orange.withValues(alpha: 0.6)),
+          Icon(
+            Icons.construction_outlined,
+            size: 48,
+            color: Colors.orange.withValues(alpha: 0.6),
+          ),
           const SizedBox(height: 12),
           const Text('数据源待建'),
           const SizedBox(height: 4),
@@ -153,17 +156,17 @@ class _DataView extends StatelessWidget {
     if (data == null ||
         (data is Map && data.isEmpty) ||
         (data is List && data.isEmpty)) {
-      return const Center(key: ValueKey('analytics-domain-empty'), child: Text('暂无数据'));
+      return const Center(
+        key: ValueKey('analytics-domain-empty'),
+        child: Text('暂无数据'),
+      );
     }
     if (data is Map) {
       final rows = <Widget>[];
       data.forEach((key, value) {
         rows.add(_row(key.toString(), _scalar(value)));
       });
-      return ListView(
-        padding: const EdgeInsets.all(16),
-        children: rows,
-      );
+      return ListView(padding: const EdgeInsets.all(16), children: rows);
     }
     if (data is List) {
       return ListView(

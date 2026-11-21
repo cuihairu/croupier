@@ -104,18 +104,17 @@ class AnalyticsService {
     String startDate = '',
     String endDate = '',
   }) async {
-    final data = await client.post<Map<String, Object?>>(queryPath, body: {
-      'domain': domain,
-      'filter': {
-        'gameId': gameId,
-        if (env.isNotEmpty) 'env': env,
-        ...filter,
+    final data = await client.post<Map<String, Object?>>(
+      queryPath,
+      body: {
+        'domain': domain,
+        'filter': {'gameId': gameId, if (env.isNotEmpty) 'env': env, ...filter},
+        'timeRange': {
+          if (startDate.isNotEmpty) 'startDate': startDate,
+          if (endDate.isNotEmpty) 'endDate': endDate,
+        },
       },
-      'timeRange': {
-        if (startDate.isNotEmpty) 'startDate': startDate,
-        if (endDate.isNotEmpty) 'endDate': endDate,
-      },
-    });
+    );
     if (!data.containsKey('data')) {
       throw StateError('invalid analytics query payload');
     }
