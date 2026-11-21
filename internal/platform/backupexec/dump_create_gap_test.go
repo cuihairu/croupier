@@ -2,7 +2,6 @@ package backupexec
 
 import (
 	"context"
-	"os"
 	"path/filepath"
 	"testing"
 
@@ -22,16 +21,17 @@ func TestDumpPostgres_CreateOutputFileFailure(t *testing.T) {
 	assert.Contains(t, err.Error(), "no such file or directory")
 }
 
-// dumpSQLite 的 os.Create(out) 失败分支（executor.go:197）：
-// 源文件存在（os.Open(e.dsn) 成功），out 父目录不存在 → 创建失败。
-func TestDumpSQLite_CreateOutputFileFailure(t *testing.T) {
+// dumpSQLite 的输出目标不可创建分支（AUD-009 后为 VACUUM INTO 的写侧失败）：
+// 源库真实存在，但 out 父目录不存在 → SQLite 无法打开目标库 → 确定性失败，
+// 绝不留下「空库冒充成功」的产物。
+func TestDumpSQLite_OutputTargetUnwritable(t *testing.T) {
 	src := filepath.Join(t.TempDir(), "src.db")
-	require.NoError(t, os.WriteFile(src, []byte("sqlite-bytes"), 0o600))
+	writeSQLiteDB(t, src)
 
 	e := New("sqlite", src, nil, nil, "")
-	out := filepath.Join(t.TempDir(), "missing-dir", "out.sql")
+	out := filepath.Join(t.TempDir(), "missing-dir", "out.sqlite")
 
 	err := e.dumpSQLite(context.Background(), out)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "no such file or directory")
+	assert.Contains(t, err.Error(), "unable to open database")
 }

@@ -8,7 +8,6 @@ package backupexec
 import (
 	"context"
 	"errors"
-	"os"
 	"path/filepath"
 	"testing"
 
@@ -24,7 +23,7 @@ func TestRunBackup_StorePutFails_I(t *testing.T) {
 
 	dir := t.TempDir()
 	src := filepath.Join(dir, "game.db")
-	require.NoError(t, os.WriteFile(src, []byte("sqlite-payload"), 0o600))
+	writeSQLiteDB(t, src)
 
 	putErr := errors.New("object store unavailable")
 	store := newFakeObjStore(putErr)

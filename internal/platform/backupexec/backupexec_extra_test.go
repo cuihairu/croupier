@@ -92,23 +92,23 @@ func TestRunBackup_SQLiteSuccess(t *testing.T) {
 
 	dir := t.TempDir()
 	src := filepath.Join(dir, "game.db")
-	require.NoError(t, os.WriteFile(src, []byte("sqlite-payload"), 0o600))
+	writeSQLiteDB(t, src)
 
 	store := newFakeObjStore(nil)
 	e := New("sqlite", src, m, store, "backups/")
 	require.NoError(t, e.RunBackup(context.Background(), "bk-ok", "daily", "full"))
 
-	// 对象存储收到 sqlite 后缀 key，大小与内容一致。
+	// 对象存储收到 sqlite 后缀 key，大小非零且与记录一致。
 	require.Len(t, store.putKeys, 1)
 	assert.Regexp(t, `^backups/\d{8}/full-bk-ok\.sqlite$`, store.putKeys[0])
 	require.Len(t, store.putSizes, 1)
-	assert.Equal(t, int64(len("sqlite-payload")), store.putSizes[0])
+	assert.Greater(t, store.putSizes[0], int64(0))
 
 	var got model.Backup
 	require.NoError(t, db.Where("backup_id = ?", "bk-ok").First(&got).Error)
 	assert.Equal(t, "succeeded", got.Status)
 	assert.Equal(t, store.putKeys[0], got.Location)
-	assert.Equal(t, int64(len("sqlite-payload")), got.Size)
+	assert.Equal(t, store.putSizes[0], got.Size)
 	assert.Len(t, got.Checksum, 64)
 	assert.Empty(t, got.ErrorMessage)
 	require.NotNil(t, got.CompletedAt)
@@ -159,7 +159,7 @@ func TestRunBackup_StorePutFailureMarksFailed(t *testing.T) {
 
 	dir := t.TempDir()
 	src := filepath.Join(dir, "game.db")
-	require.NoError(t, os.WriteFile(src, []byte("data"), 0o600))
+	writeSQLiteDB(t, src)
 
 	putErr := fmt.Errorf("bucket unavailable")
 	e := New("sqlite", src, m, newFakeObjStore(putErr), "")

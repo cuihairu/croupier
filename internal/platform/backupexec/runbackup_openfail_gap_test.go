@@ -25,7 +25,7 @@ func TestRunBackup_OpenDumpFails(t *testing.T) {
 
 	dir := t.TempDir()
 	src := filepath.Join(dir, "game.db")
-	require.NoError(t, os.WriteFile(src, []byte("sqlite-payload"), 0o600))
+	writeSQLiteDB(t, src)
 
 	store := newFakeObjStore(nil)
 	e := New("sqlite", src, m, store, "backups/")

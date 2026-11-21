@@ -3,8 +3,8 @@
 // 支持的引擎与工具（需在 Server 容器/主机内可用）：
 //   - mysql:    mysqldump
 //   - postgres: pg_dump
-//   - sqlite:   直接文件复制（使用 SQLite backup API 不可行于远端，
-//     走 VACUUM INTO 需要本地路径；此处用文件复制 + 临时锁定说明）
+//   - sqlite:   VACUUM INTO 一致性快照（AUD-009：WAL 下已提交事务可能在
+//     <db>-wal，直接复制主文件会丢行）
 //
 // 流程：创建 Backup(pending) → 子进程导出到临时文件 → sha256 校验 →
 // 上传对象存储（storage.* 配置驱动，file driver 即本地目录）→ 更新
@@ -18,6 +18,7 @@ package backupexec
 import (
 	"context"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -29,6 +30,7 @@ import (
 
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/platform/objstore"
+	_ "github.com/glebarez/go-sqlite" // registers database/sql driver "sqlite"（CGO-free；与 glebarez/sqlite 同源，勿与 modernc.org/sqlite 混用会 double-register）
 )
 
 // Executor 执行一次数据库备份。
@@ -225,21 +227,57 @@ func (e *Executor) dumpPostgres(ctx context.Context, out string) error {
 }
 
 func (e *Executor) dumpSQLite(ctx context.Context, out string) error {
-	// SQLite 单文件：直接复制数据源文件（写入侧锁由 SQLite 自身保证一致性窗口）。
-	src, err := os.Open(e.dsn) // #nosec G304 -- 路径来自配置
+	// AUD-009：WAL 模式下已提交事务可能仍留在 <db>-wal 未 checkpoint 到主文件，
+	// 直接复制主文件会静默丢行（审计实证：源库 1 行、成功备份 0 行）。改用
+	// SQLite 自带的 VACUUM INTO（3.27+）生成一致性紧凑快照：在源库开一个只读
+	// 事务，重放全部已提交 WAL 帧后写出自包含单文件副本；不阻塞并发写者，
+	// 产物可直接作为库打开恢复（checksum 不能替代恢复核对）。
+	//
+	// VACUUM INTO 要求目标路径不存在：dump() 预创建的临时文件须先移除。
+	// 源库缺失/不可读必须失败——不能「备份出一个空库」冒充成功。
+	src := sqliteFilePath(e.dsn)
+	info, err := os.Stat(src)
 	if err != nil {
-		return err
+		return fmt.Errorf("source sqlite file: %w", err)
 	}
-	defer func() { _ = src.Close() }()
-	dst, err := os.Create(out) // #nosec G304 -- 输出路径为函数内生成的临时文件
+	if info.IsDir() {
+		return fmt.Errorf("source sqlite file is a directory: %s", src)
+	}
+	if err := os.Remove(out); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("remove temp target for vacuum into: %w", err)
+	}
+	db, err := sql.Open("sqlite", e.dsn)
 	if err != nil {
-		return err
+		return fmt.Errorf("open source sqlite: %w", err)
 	}
-	defer func() { _ = dst.Close() }()
-	if _, err := dst.ReadFrom(src); err != nil {
-		return err
+	defer func() { _ = db.Close() }()
+	// VACUUM INTO 不接受绑定参数，目标路径须作为 SQL 字面量（单引号转义）。
+	if _, err := db.ExecContext(ctx, "VACUUM INTO "+sqliteStringLiteral(out)); err != nil {
+		return fmt.Errorf("vacuum into: %w", err)
 	}
-	return dst.Sync()
+	return nil
+}
+
+// sqliteFilePath 从 sqlite DSN 提取文件系统路径。DSN 可为 file: 前缀 URI、
+// sqlite:/// 形态或裸路径；剥离查询参数/片段（:memory: 等无文件形态原样返回，
+// 由调用方 os.Stat 判为不存在，备份失败而非产出空库）。
+func sqliteFilePath(dsn string) string {
+	p := strings.TrimSpace(dsn)
+	if strings.HasPrefix(p, "sqlite:///") {
+		p = strings.TrimPrefix(p, "sqlite:///")
+	}
+	if strings.HasPrefix(p, "file:") {
+		p = strings.TrimPrefix(p, "file:")
+	}
+	if i := strings.IndexAny(p, "?#"); i >= 0 {
+		p = p[:i]
+	}
+	return p
+}
+
+// sqliteStringLiteral 把字符串转成 SQLite 单引号字面量（” 转义单引号）。
+func sqliteStringLiteral(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", "''") + "'"
 }
 
 func (e *Executor) run(ctx context.Context, name string, env []string, args ...string) error {

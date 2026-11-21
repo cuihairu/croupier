@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"path/filepath"
 	"strings"
 	"sync/atomic"
@@ -106,10 +105,24 @@ func TestExecutor_UnsupportedDriver(t *testing.T) {
 	assert.Nil(t, env.service.executor(), "不支持的 driver 应回退纯记录模式")
 }
 
+// writeRealSQLiteDB 建一个真实 SQLite 库：备份执行器用 VACUUM INTO 生成一致性
+// 快照，源必须是合法数据库文件（纯文本冒充会直接失败，AUD-009）。
+func writeRealSQLiteDB(t *testing.T, path string) {
+	t.Helper()
+	db, err := gorm.Open(gsqlite.Open(path), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.Exec("CREATE TABLE demo (id INTEGER PRIMARY KEY, name TEXT)").Error)
+	for i := 0; i < 3; i++ {
+		require.NoError(t, db.Exec("INSERT INTO demo (name) VALUES (?)", fmt.Sprintf("row-%d", i)).Error)
+	}
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	require.NoError(t, sqlDB.Close())
+}
+
 func TestService_Create_AsyncRunSucceeds(t *testing.T) {
-	dir := t.TempDir()
-	src := filepath.Join(dir, "game.db")
-	require.NoError(t, os.WriteFile(src, []byte("sqlite-payload"), 0o600))
+	src := filepath.Join(t.TempDir(), "game.db")
+	writeRealSQLiteDB(t, src)
 
 	env := newExecTestEnv(t, "sqlite", src, &execObjStoreStub{})
 	resp, err := env.service.Create(env.authCtx(t), &BackupCreateRequest{Name: "async-ok"})

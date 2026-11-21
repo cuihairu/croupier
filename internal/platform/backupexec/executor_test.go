@@ -2,6 +2,7 @@ package backupexec
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -57,29 +58,130 @@ func TestParsePostgresDSN(t *testing.T) {
 	assert.Error(t, err)
 }
 
-// newTestExecutor 注入假命令执行器（pg_dump 形态验证参数装配）。
+// writeSQLiteDB 在 path 建一个真实 SQLite 库（含 demo 表），返回行数。
+// VACUUM INTO 只能作用于合法数据库文件（旧测试用纯文本冒充 sqlite 文件，
+// 修复后该前提必须是真的库）。
+func writeSQLiteDB(t *testing.T, path string) int {
+	t.Helper()
+	db, err := sql.Open("sqlite", path)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+	require.NoError(t, db.Ping())
+	_, err = db.Exec("CREATE TABLE IF NOT EXISTS demo (id INTEGER PRIMARY KEY, name TEXT)")
+	require.NoError(t, err)
+	n := 3
+	for i := 0; i < n; i++ {
+		_, err = db.Exec("INSERT INTO demo (name) VALUES (?)", fmt.Sprintf("row-%d", i))
+		require.NoError(t, err)
+	}
+	return n
+}
+
+// countSQLiteRows 打开库并数 demo 表行数（恢复核对：快照必须可当库读回）。
+func countSQLiteRows(t *testing.T, path string) int {
+	t.Helper()
+	db, err := sql.Open("sqlite", path)
+	require.NoError(t, err)
+	defer func() { _ = db.Close() }()
+	var n int
+	require.NoError(t, db.QueryRow("SELECT COUNT(*) FROM demo").Scan(&n))
+	return n
+}
+
+// newTestExecutorWithSQLite 建一个真实 SQLite 源库并返回 executor + 源路径。
 func newTestExecutorWithSQLite(t *testing.T, dsn string) (*Executor, string) {
 	t.Helper()
-	dir := t.TempDir()
-	// sqlite 数据源文件。
-	src := filepath.Join(dir, "src.db")
-	require.NoError(t, os.WriteFile(src, []byte("sqlite-database-content"), 0o600))
+	src := filepath.Join(t.TempDir(), "src.db")
+	writeSQLiteDB(t, src)
 	return New("sqlite", src, nil, nil, "backups"), src
 }
 
-func TestDumpSQLite_CopiesFile(t *testing.T) {
+// TestDumpSQLite_ConcurrentWriterDuringDump：dump 期间并发写入不得破坏快照
+// 一致性（VACUUM INTO 以只读事务取一致性快照，WAL 写者不阻塞）。断言快照
+// 至少包含 dump 开始前已提交的行，且是可读回的合法库。
+func TestDumpSQLite_ConcurrentWriterDuringDump(t *testing.T) {
+	dir := t.TempDir()
+	src := filepath.Join(dir, "wal.db")
+
+	writer, err := sql.Open("sqlite", src)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = writer.Close() })
+	_, err = writer.Exec("PRAGMA journal_mode=WAL")
+	require.NoError(t, err)
+	_, err = writer.Exec("CREATE TABLE demo (id INTEGER PRIMARY KEY, name TEXT)")
+	require.NoError(t, err)
+	for i := 0; i < 5; i++ {
+		_, err = writer.Exec("INSERT INTO demo (name) VALUES (?)", fmt.Sprintf("pre-%d", i))
+		require.NoError(t, err)
+	}
+
+	e := New("sqlite", src, nil, nil, "backups")
+	type dumpRes struct {
+		path string
+		err  error
+	}
+	resCh := make(chan dumpRes, 1)
+	go func() {
+		p, _, _, derr := e.dump(context.Background(), "bk-conc")
+		resCh <- dumpRes{path: p, err: derr}
+	}()
+
+	// dump 进行中并发写入（WAL 写者与 VACUUM INTO 读事务并行；锁竞争
+	// SQLITE_BUSY 属正常，计入日志不强求全部成功）。
+	for i := 0; i < 20; i++ {
+		if _, werr := writer.Exec("INSERT INTO demo (name) VALUES (?)", fmt.Sprintf("conc-%d", i)); werr != nil {
+			t.Logf("concurrent insert %d: %v", i, werr)
+		}
+	}
+	res := <-resCh
+	require.NoError(t, res.err)
+	defer func() { _ = os.Remove(res.path) }()
+	assert.GreaterOrEqual(t, countSQLiteRows(t, res.path), 5,
+		"快照必须至少包含 dump 开始前已提交的行")
+}
+
+func TestDumpSQLite_Snapshot(t *testing.T) {
 	e, src := newTestExecutorWithSQLite(t, "")
 	defer func() { _ = os.Remove(src) }()
 
-	// dump 直测：临时文件内容 = 源文件内容。
+	// dump 直测：快照是自包含库，可当库打开并读回全部行。
 	path, size, checksum, err := e.dump(context.Background(), "bk-test")
 	require.NoError(t, err)
 	defer func() { _ = os.Remove(path) }()
-	assert.Equal(t, int64(len("sqlite-database-content")), size)
+	assert.Greater(t, size, int64(0))
 	assert.Len(t, checksum, 64) // sha256 hex
-	content, err := os.ReadFile(path)
+	assert.Equal(t, 3, countSQLiteRows(t, path))
+}
+
+// TestDumpSQLite_WalCommittedRowsIncluded 是 AUD-009 回归：WAL 模式下已提交
+// 事务可能尚未 checkpoint 回主文件，直接复制主文件会静默丢行（审计实证：源库
+// 1 行、备份 0 行）。快照必须包含这些行。写连接全程保持打开，确保 -wal 帧不
+// 被 checkpoint 回主文件（真实服务器长驻连接的形态）。
+func TestDumpSQLite_WalCommittedRowsIncluded(t *testing.T) {
+	dir := t.TempDir()
+	src := filepath.Join(dir, "wal.db")
+
+	writer, err := sql.Open("sqlite", src)
 	require.NoError(t, err)
-	assert.Equal(t, "sqlite-database-content", string(content))
+	t.Cleanup(func() { _ = writer.Close() })
+	_, err = writer.Exec("PRAGMA journal_mode=WAL")
+	require.NoError(t, err)
+	_, err = writer.Exec("CREATE TABLE demo (id INTEGER PRIMARY KEY, name TEXT)")
+	require.NoError(t, err)
+	for i := 0; i < 5; i++ {
+		_, err = writer.Exec("INSERT INTO demo (name) VALUES (?)", fmt.Sprintf("row-%d", i))
+		require.NoError(t, err)
+	}
+	// 前提取证：未 checkpoint 的帧确实留在 -wal（主文件不含这些行）。
+	walInfo, err := os.Stat(src + "-wal")
+	require.NoError(t, err, "WAL file should exist")
+	require.Greater(t, walInfo.Size(), int64(0), "uncheckpointed frames should live in the WAL")
+
+	e := New("sqlite", src, nil, nil, "backups")
+	path, _, _, err := e.dump(context.Background(), "bk-wal")
+	require.NoError(t, err)
+	defer func() { _ = os.Remove(path) }()
+	assert.Equal(t, 5, countSQLiteRows(t, path), "快照必须包含 WAL 中已提交的全部行")
 }
 
 func TestDumpUnsupportedDriver(t *testing.T) {
