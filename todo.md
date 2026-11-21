@@ -1740,9 +1740,12 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 完成证据：commit 3717c7c56（2 文件，21 insertions / 21 deletions）；实现（文档）`sdks/SDK_FEATURE_MATRIX.md`（鉴权行 + 注释回改全 ✅ 并更正行标签），审计记录 `docs/审计-文档一致性.md`（D05 行：复核为误报、45bba54b 标注回改）。
   - 已知边界：本项为文档漂移修复，未改任何 SDK 代码——六语言握手 `authToken` 注入与回归覆盖均已存在（CR-FIX-11），「补齐任何缺失语言实现」经复核无缺失项；行标签把「Bearer」从握手机制中剔除，L3 Invoker 的 `Authorization: Bearer` 是独立的 Server HTTP API 鉴权面（JS `buildInvocationMetadata`、C# `CroupierInvoker`），不在本行覆盖；`docs/审计-文档一致性.md` 的 zh 平行树 D05 行为另一条（pnpm 版本）记录，非本项，未改动。
 
-- [ ] **AUD-006 · P2 · 修复 · 锁定移动端依赖与 CI Dart SDK 的可复现兼容范围**
+- [x] **AUD-006 · P2 · 修复 · 锁定移动端依赖与 CI Dart SDK 的可复现兼容范围**
   - 依赖：—。交付与验收：在 Flutter 3.35.1 / 对应 Dart 工具链下生成并提交一致 lockfile；若依赖确需 Dart 3.11，显式升级 CI Flutter 并同步 `pubspec.yaml` SDK 下界；增加不会静默重写锁文件的 CI 检查。
-  - 状态／条件：当前工作区 lockfile（用户未提交修改）声明 Dart `>=3.11.0-0`，而 CI 固定 Flutter 3.35.1（Dart 3.9 系）且 `pubspec.yaml` 声明 `^3.9.0`。这造成工具链/锁文件不一致风险；需在提交该用户工作区改动前用固定 CI 工具链确认依赖解析，当前尚未执行 Flutter 验证，不能断言流水线已失败。
+  - 状态／条件：LOCAL VERIFIED（2026-11-22，commit 5c342be86 + 7855baf95 + fbd8c120e）：逐包核对 pub cache 全部 50 个托管依赖——无一需要 Dart 3.11（各自 SDK 约束上限 >=3.0.0），`sdks.dart: ">=3.11.0-0"` 完全来自本机 Flutter 3.47.9 框架包（flutter/flutter_test/sky_engine 各自声明 `sdk: ^3.11.0-0`，属 `source: sdk` 约束）；走「依赖无需 3.11 → 不升级 CI」分支：下载与 CI 完全一致的 Flutter 3.35.1（Dart 3.9.0）重解析并提交 lockfile——6 个 SDK 钉版传递依赖降为 3.9 兼容版（characters 1.4.0 / matcher 0.12.17 / material_color_utilities 0.11.1 / meta 1.16.0 / test_api 0.7.6 / vector_math 2.2.0），`sdks.dart` 归位 `">=3.9.0 <4.0.0"`（`sdks.flutter` 保持 `">=3.35.0"`），`pubspec.yaml` 下界与 CI Flutter 版本均不动；CI 两 job 的 `flutter pub get` 改 `--enforce-lockfile`——锁文件与 pubspec.yaml/当前 SDK 不一致时直接失败，不再静默重解析。
+  - 验证：Flutter 3.35.1 下 `flutter analyze` 0 issues；`flutter test --coverage` 238 passed（02:02）；`dart format --set-exit-if-changed` rc=0（4 个 analytics 文件先按 3.9 formatter 对齐）；`flutter build apk --debug` ✓ Built（gradle assembleDebug 718.7s）；`pub get` 二次执行零改写（幂等）；变异自证：放回陈旧 lockfile（>=3.11.0-0）→ `--enforce-lockfile` rc=65 如实失败（「To update pubspec.lock run flutter pub get without --enforce-lockfile」），还原已提交版本后 rc=0 且工作区零改写；`pnpm --dir web run tsc` 0 错、`bash scripts/dashboard_vnext_guard.sh` PASSED（无 web/Go 变更，未跑 go test）。
+  - 完成证据：commit 5c342be86（`mobile/pubspec.lock`，13/13 行：6 个 SDK 钉版包降级 + sdks.dart 归位 3.9）；commit 7855baf95（4 个 analytics 文件 39/45：Dart 3.9 formatter 对齐——AUD-003 文件此前按本机 3.13 formatter 产出致 CI format 门禁红）；commit fbd8c120e（`.github/workflows/ci-mobile.yml`：flutter/apk 两 job 的 pub get 加 `--enforce-lockfile`，6/2 行）。
+  - 已知边界：SDK 钉版传递依赖随工具链硬绑定——本机 Flutter 3.47.9 上 `flutter pub get` 会把 lockfile 改写回 3.13 形态（漂移根因，实证复现），本地改写不得提交（CI `--enforce-lockfile` 会挡下）；lockfile 以 CI 工具链 3.35.1/Dart 3.9 为唯一正典，未来升级 CI Flutter 须用新工具链重解析并同步提交；本机 Flutter 3.47.9 与 CI 3.35.1 的 formatter 风格有差异（3.13 formatter 产物会让 CI 的 3.9 format 门禁报红），本地编辑后须用 3.35.1 的 `dart format` 对齐；iOS 面不涉及。
 
 ### 续审确认项（AUD-007..028）
 
