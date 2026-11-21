@@ -98,11 +98,12 @@ Flags：`-agent`、`-game-id`（默认 `demo-game`）、`-env`（默认 `demo`�
 go run ./cmd/demo-game -agent 127.0.0.1:19091 -seed 7 -dsn /tmp/demo.db
 ```
 
-控制台切到 `demo-game` / `demo` scope（scope 烘焙在 `configs/games.json`）。存量库上烘焙清单不热
-生效——bootstrap 只在 games 表为空的首装跑；且 games REST API 无法产出带连字符的 gameId（从 name
-派生并把 `-` 归一成 `_`，已入账 GAME-013）。GAME-013 落地前，存量部署需一次性按 seed 语义 DB 直插
-（games 行 + game_envs 绑定），192.168.5.5 即此做法。随后打开 player-manage 模板页即可对真实函数
-执行 binding。
+控制台切到 `demo-game` / `demo` scope（scope 烘焙在 `configs/games.json`）。存量库上烘焙清单仅在
+显式设置 `auth.gamesSeedReconcile: true` 时对账补种（默认保持首装仅跑语义）；games REST API 的
+create/update 已支持显式 `gameId`——带连字符的标识如 `demo-game` 原样保留
+（`POST /api/v1/games {"name":"...","gameId":"demo-game"}`，连字符可用，改名仅限未绑定环境的
+游戏；GAME-013 交付）。历史注记：GAME-013 之前 192.168.5.5 曾按 seed 语义一次性 DB 直插（games 行
+与 game_envs 绑定）。随后打开 player-manage 模板页即可对真实函数执行 binding。
 
 ## 6. 部署（192.168.5.5 demo 机）
 
@@ -148,6 +149,7 @@ CI：`.github/workflows/ci-demo-game.yml` 对 `sdks/go/**`、`internal/**`、ser
 5. 分析事件发射是编译期桩（未设 `ANALYTICS_INGEST_SECRET` 即 no-op；HMAC 契约已验证）。
    探针/压测钩子为注释占位。
 6. 种子锚点默认固定 2026-11-01；改 `-anchor` 只改派生时间戳，不改 fixture ID。
-7. 存量库上 games.json 种子不热生效（bootstrap 跳过非空 games 表），dashboard 手建 scope 会把
-   gameId 归一成下划线（`demo-game` → `demo_game`），带连字符的 scope 目前只能 DB 直插（已入账
-   GAME-013）。
+7. games.json bootstrap 默认仍跳过非空 games 表；设置 `auth.gamesSeedReconcile: true` 后按启动
+   幂等补种缺失的烘焙条目（已存在的游戏绝不修改；被刻意删除的烘焙条目重启会被重建，在意此语义时
+   保持开关关闭）。dashboard 手建 scope 已支持显式连字符 gameId（GAME-013）；名称派生的回落路径
+   仍把 `-` 归一成 `_`。

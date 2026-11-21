@@ -22,6 +22,10 @@ var allowedGameStatuses = map[string]struct{}{
 
 var gameNamePattern = regexp.MustCompile(`^[A-Za-z0-9_@-]+$`)
 
+// explicitGameIDPattern 与 svc.sanitizeGameID 语义对齐：小写字母/数字/
+// 下划线/连字符。连字符原样保留（与 SDK 侧注册的 gameId 一致）。
+var explicitGameIDPattern = regexp.MustCompile(`^[a-z0-9_-]+$`)
+
 func parseGameID(id string) (uint, error) {
 	return utils.ParseUintID(id, "游戏ID")
 }
@@ -185,6 +189,24 @@ func sanitizeGameName(name string) (string, error) {
 		return "", errorx.NewBadRequest("游戏名称仅支持字母、数字和 _ - @")
 	}
 	return trimmed, nil
+}
+
+// sanitizeExplicitGameID 归一显式提交的 gameId：留空返回空串（未提交），
+// 其余按 sanitizeGameID 语义小写化、空格折叠为下划线，并限定字符集与
+// 长度（games.game_id 列 size:64）。连字符可用（demo-game）。
+func sanitizeExplicitGameID(raw string) (string, error) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return "", nil
+	}
+	normalized := strings.ReplaceAll(strings.ToLower(trimmed), " ", "_")
+	if !explicitGameIDPattern.MatchString(normalized) {
+		return "", errorx.NewBadRequest("游戏 ID 仅支持小写字母、数字和 _ -（连字符可用）")
+	}
+	if len(normalized) > 64 {
+		return "", errorx.NewBadRequest("游戏 ID 长度不能超过 64 个字符")
+	}
+	return normalized, nil
 }
 
 func sanitizeStatus(status string) (string, error) {

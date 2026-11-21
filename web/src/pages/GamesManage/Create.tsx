@@ -8,6 +8,8 @@ import { notifyGamesChanged } from '@/utils/gamesChanged';
 
 type CreateFormValues = {
   name: string;
+  /** 显式业务标识（X-Game-ID 路由口径）；留空由后端从 name 派生。 */
+  gameId?: string;
   aliasName?: string;
   icon?: string;
   description?: string;
@@ -76,6 +78,32 @@ export default function GameCreatePage() {
             }
           >
             <Input placeholder="e.g. demo_game" maxLength={128} />
+          </Form.Item>
+          <Form.Item
+            name="gameId"
+            label={
+              <FormattedMessage
+                id="pages.gamesManage.form.gameId"
+                defaultMessage="游戏 ID（gameId）"
+              />
+            }
+            rules={[
+              {
+                pattern: /^[A-Za-z0-9_-]+$/,
+                message: intl.formatMessage({
+                  id: 'pages.gamesManage.form.gameIdPattern',
+                  defaultMessage: '仅支持字母、数字和 _ -（提交时统一转为小写）',
+                }),
+              },
+            ]}
+            extra={
+              <FormattedMessage
+                id="pages.gamesManage.form.gameIdExtra"
+                defaultMessage="业务标识，与 SDK 注册的 gameId 对齐（连字符可用）；留空时按名称推导，连字符会归一为下划线"
+              />
+            }
+          >
+            <Input placeholder="demo-game" maxLength={64} />
           </Form.Item>
           <Form.Item
             name="aliasName"

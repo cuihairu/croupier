@@ -31,6 +31,10 @@ export default {
     'Used as the business identifier after creation; cannot be changed.',
   'pages.gamesManage.form.nameRequired': 'Enter a game key (letters, digits, _ - @)',
   'pages.gamesManage.form.namePattern': 'Only letters, digits, _ - @',
+  'pages.gamesManage.form.gameId': 'Game ID (gameId)',
+  'pages.gamesManage.form.gameIdPattern': 'Only letters, digits, _ - (lowercased on submit)',
+  'pages.gamesManage.form.gameIdExtra':
+    'Business identifier aligned with the SDK-registered gameId (hyphens allowed); derived from the key when empty, where hyphens normalize to underscores.',
   'pages.gamesManage.form.aliasName': 'Display Name',
   'pages.gamesManage.form.aliasNameExtra':
     'Used across the console; defaults to the game key when empty.',

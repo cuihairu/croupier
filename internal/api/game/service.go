@@ -2,6 +2,7 @@ package game
 
 import (
 	"context"
+	"errors"
 	"strings"
 
 	"github.com/cuihairu/croupier/internal/common/errorx"
@@ -78,6 +79,20 @@ func (s *Service) Create(ctx context.Context, req *GameCreateRequest) (*GameCrea
 		return nil, errorx.NewConflict("game_id 已存在: " + name)
 	}
 
+	// 显式 gameId：连字符原样保留（与 SDK 侧注册口径一致）；缺省回落
+	// Name 派生（BeforeCreate 把连字符归一为下划线）。
+	explicitID, err := sanitizeExplicitGameID(req.GameID)
+	if err != nil {
+		return nil, err
+	}
+	if explicitID != "" {
+		if _, err := s.svcCtx.GameModel.FindByGameIDString(ctx, explicitID); err == nil {
+			return nil, errorx.NewConflict("game_id 已存在: " + explicitID)
+		} else if !errors.Is(err, model.ErrGameNotFound) {
+			return nil, err
+		}
+	}
+
 	aliasName := strings.TrimSpace(req.AliasName)
 	if aliasName == "" {
 		// 显示名缺省回填游戏标识：alias_name 有唯一索引，多个空串会互相冲突。
@@ -92,6 +107,9 @@ func (s *Service) Create(ctx context.Context, req *GameCreateRequest) (*GameCrea
 		Config:      strings.TrimSpace(req.Config),
 		Status:      "dev",
 		Enabled:     true,
+	}
+	if explicitID != "" {
+		game.GameID = explicitID
 	}
 
 	if err := s.svcCtx.GameModel.Create(ctx, game); err != nil {
@@ -155,6 +173,38 @@ func (s *Service) Update(ctx context.Context, req *GameUpdateRequest) (*GameUpda
 		}
 		updates["name"] = name
 	}
+	// 显式 gameId 变更：仅未绑定环境的游戏允许（绑定后改名会让 game_envs
+	// 与按 game_id 路由的存量数据悬空）。
+	newGameID, err := sanitizeExplicitGameID(req.GameID)
+	if err != nil {
+		return nil, err
+	}
+	oldGameID := ""
+	if newGameID != "" {
+		current, err := s.svcCtx.GameModel.FindOne(ctx, id)
+		if err != nil {
+			return nil, gameLookupErr(req.ID, err)
+		}
+		if current.GameID != newGameID {
+			bindings, err := s.svcCtx.GameModel.ListEnvBindings(ctx, current.GameID)
+			if err != nil {
+				return nil, err
+			}
+			if len(bindings) > 0 {
+				return nil, errorx.NewConflict("游戏已绑定环境，不能修改 game_id；请先清空该游戏的全部环境")
+			}
+			if envs, err := current.GetEnvs(); err == nil && len(envs) > 0 {
+				return nil, errorx.NewConflict("游戏已绑定环境，不能修改 game_id；请先清空该游戏的全部环境")
+			}
+			if found, err := s.svcCtx.GameModel.FindByGameIDString(ctx, newGameID); err == nil && found != nil {
+				return nil, errorx.NewConflict("game_id 已存在: " + newGameID)
+			} else if err != nil && !errors.Is(err, model.ErrGameNotFound) {
+				return nil, err
+			}
+			updates["game_id"] = newGameID
+			oldGameID = current.GameID
+		}
+	}
 	if v := strings.TrimSpace(req.AliasName); v != "" {
 		updates["alias_name"] = v
 	}
@@ -180,6 +230,12 @@ func (s *Service) Update(ctx context.Context, req *GameUpdateRequest) (*GameUpda
 
 	if err := s.svcCtx.GameModel.Update(ctx, id, updates); err != nil {
 		return nil, err
+	}
+
+	// game_id 变更后丢弃路由器缓存的旧 (gameID, env) 连接，防止后续请求
+	// 继续落在旧库名上。
+	if oldGameID != "" && s.svcCtx.Router != nil {
+		_ = s.svcCtx.Router.ForgetGame(oldGameID)
 	}
 
 	s.svcCtx.InvalidateGameCache(ctx, id)

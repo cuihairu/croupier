@@ -105,12 +105,13 @@ go run ./cmd/demo-game -agent 127.0.0.1:19091 -seed 7 -dsn /tmp/demo.db
 ```
 
 The console switches scope to `demo-game` / `demo` (scope baked into `configs/games.json`). On an
-existing database the baked list does not hot-apply — bootstrap only runs when the games table is
-empty — and the games REST API cannot mint a hyphenated gameId (it derives the id from the name and
-collapses `-` to `_`; tracked as GAME-013). Until GAME-013 lands, an existing deployment needs a
-one-time DB insert matching the seed semantics (games row + game_envs binding), as done on
-192.168.5.5. Then it opens the player-manage template page and executes bindings against live
-functions.
+existing database the baked list backfills only when `auth.gamesSeedReconcile: true` is set
+(default keeps first-install-only bootstrap semantics), and the games REST API accepts an explicit
+`gameId` on create/update — hyphenated ids like `demo-game` are preserved verbatim
+(`POST /api/v1/games {"name":"...","gameId":"demo-game"}`, hyphens allowed, rename guarded to
+games without env bindings; delivered as GAME-013). Historical note: before GAME-013 the 192.168.5.5
+deployment needed a one-time DB insert matching the seed semantics (games row + game_envs binding).
+Then it opens the player-manage template page and executes bindings against live functions.
 
 ## 6. Deployment (192.168.5.5 demo host)
 
@@ -158,6 +159,8 @@ server/agent cmd paths. The pagespec fixture is drift-locked to the TSX constant
    HMAC contract already verified). Probe/perf hooks are commented placeholders.
 6. Seed anchor is fixed at 2026-11-01 by default; changing `-anchor` changes derived timestamps
    but not fixture IDs.
-7. On an existing database the games.json seed does not hot-apply (bootstrap skips a non-empty
-   games table), and dashboard manual creation derives an underscored gameId (`demo-game` becomes
-   `demo_game`), so a hyphenated scope currently requires a direct DB insert (tracked as GAME-013).
+7. games.json bootstrap still skips a non-empty games table by default; setting
+   `auth.gamesSeedReconcile: true` backfills missing baked entries idempotently (existing games
+   are never modified; a deliberately deleted baked entry is re-created on restart, so keep the
+   flag off when that matters). Dashboard manual creation now accepts an explicit hyphenated
+   gameId (GAME-013); the name-derived fallback still normalizes `-` to `_`.

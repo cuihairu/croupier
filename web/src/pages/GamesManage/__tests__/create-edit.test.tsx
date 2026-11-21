@@ -94,6 +94,61 @@ describe('GamesManage 新增页', () => {
     await waitFor(() => expect(screen.getByText('仅支持字母、数字和 _ - @')).toBeInTheDocument());
     expect(mockUpsertGame).not.toHaveBeenCalled();
   });
+
+  it('显式游戏 ID 连字符可用并随载荷提交；留空时不提交该字段', async () => {
+    renderNode(<GameCreatePage />);
+
+    fireEvent.change(screen.getByPlaceholderText('e.g. demo_game'), {
+      target: { value: 'DemoGame' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('demo-game'), {
+      target: { value: 'demo-game' },
+    });
+    fireEvent.click(screen.getByTestId('game-create-submit'));
+
+    await waitFor(() =>
+      expect(mockUpsertGame).toHaveBeenCalledWith(
+        expect.objectContaining({ name: 'DemoGame', gameId: 'demo-game' }),
+      ),
+    );
+    // gameId 清空后的载荷该字段为空串（后端归一为未提交）
+    mockUpsertGame.mockClear();
+    fireEvent.change(screen.getByPlaceholderText('e.g. demo_game'), {
+      target: { value: 'another' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('demo-game'), {
+      target: { value: '' },
+    });
+    fireEvent.click(screen.getByTestId('game-create-submit'));
+
+    await waitFor(() =>
+      expect(mockUpsertGame).toHaveBeenCalledWith(
+        expect.objectContaining({ name: 'another', gameId: '' }),
+      ),
+    );
+  });
+
+  it('显式游戏 ID 非法字符本地拦截', async () => {
+    renderNode(<GameCreatePage />);
+
+    fireEvent.change(screen.getByPlaceholderText('e.g. demo_game'), {
+      target: { value: 'valid-name' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('demo-game'), {
+      target: { value: 'bad/id' },
+    });
+    fireEvent.click(screen.getByTestId('game-create-submit'));
+
+    // antd 把 rule message 渲染在 .ant-form-item-explain 内层节点，整串
+    // getByText 会因文案跨节点而失配，改按解释节点 textContent 断言。
+    await waitFor(() => {
+      const explain = document.querySelector(
+        '.ant-form-item-has-error .ant-form-item-explain',
+      ) as HTMLElement | null;
+      expect(explain?.textContent).toContain('提交时统一转为小写');
+    });
+    expect(mockUpsertGame).not.toHaveBeenCalled();
+  });
 });
 
 describe('GamesManage 编辑页', () => {

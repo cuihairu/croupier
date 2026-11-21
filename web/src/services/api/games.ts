@@ -99,7 +99,12 @@ export async function listMyGames() {
 }
 
 export async function upsertGame(
-  game: Pick<Game, 'name' | 'aliasName' | 'description'> & { config?: string; icon?: string },
+  game: Pick<Game, 'name' | 'aliasName' | 'description'> & {
+    config?: string;
+    icon?: string;
+    /** 显式业务标识（X-Game-ID 口径）；缺省由后端从 name 派生（连字符归一为下划线）。 */
+    gameId?: string;
+  },
 ) {
   return request<{ game: Game } | void>('/api/v1/games', {
     method: 'POST',
@@ -109,6 +114,7 @@ export async function upsertGame(
       icon: game.icon,
       description: game.description,
       config: game.config,
+      gameId: game.gameId,
     },
   });
 }

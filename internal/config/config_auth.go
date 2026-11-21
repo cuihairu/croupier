@@ -16,6 +16,10 @@ type AuthConfig struct {
 	// 首次播种检测到出厂默认口令时现场生成随机口令替换，并在启动日志打印
 	// 一次（CR-FIX-27）。
 	AllowDefaultCredentials bool `json:"allowDefaultCredentials,omitempty" yaml:"allowDefaultCredentials,omitempty"`
+	// GamesSeedReconcile 打开存量库的烘焙清单对账：games 表非空时不再整体
+	// 跳过，而是把 games.json 中缺失的条目幂等补种（已存在的 game 绝不
+	// 修改，被删除过的条目会被重新创建）。默认 false 保持首装仅跑语义。
+	GamesSeedReconcile bool `json:"gamesSeedReconcile,omitempty" yaml:"gamesSeedReconcile,omitempty"`
 	// LoginLockout 配置本地账号连续密码失败后的临时锁定策略。
 	// 仅对 local provider 生效；LDAP/OIDC 的失败计数由外部身份源负责。
 	LoginLockout LoginLockoutConfig `json:"loginLockout,omitempty" yaml:"loginLockout,omitempty"`

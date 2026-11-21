@@ -64,6 +64,9 @@ type bootstrapGameSeedEntry struct {
 	Envs        []model.GameEnv `json:"envs"` // preferred, rich metadata
 }
 
+// seedBootstrapGames 播种烘焙 games.json 清单。首装（games 表为空）全量
+// 播种；存量库默认整体跳过（首装仅跑语义），Auth.GamesSeedReconcile
+// 打开后改为对账：缺失条目幂等补种，已存在的 game 绝不修改。
 func seedBootstrapGames(ctx *ServiceContext) error {
 	if ctx == nil || ctx.DB == nil || ctx.GameModel == nil {
 		return nil
@@ -73,8 +76,12 @@ func seedBootstrapGames(ctx *ServiceContext) error {
 	if err := ctx.DB.Model(&model.Game{}).Count(&existing).Error; err != nil {
 		return fmt.Errorf("count games: %w", err)
 	}
+	reconcile := false
 	if existing > 0 {
-		return nil
+		if !ctx.Config.Auth.GamesSeedReconcile {
+			return nil
+		}
+		reconcile = true
 	}
 
 	cfg, err := loadGamesBootstrapConfig(ctx.Config)
@@ -95,11 +102,27 @@ func seedBootstrapGames(ctx *ServiceContext) error {
 			slog.Default().Error("skip bootstrap game entry", "index", idx, "error", err)
 			continue
 		}
+		if reconcile {
+			// 对账模式：game_id 已存在的条目跳过（含被管理员删除后残留
+			// game_envs 行的场景——绝不复活既有行之外的数据）。
+			found, err := ctx.GameModel.FindByGameIDString(bg, record.GameID)
+			if err == nil && found != nil {
+				continue
+			}
+			if err != nil && !errors.Is(err, model.ErrGameNotFound) {
+				slog.Default().Error("failed to reconcile bootstrap game", "gameId", record.GameID, "error", err)
+				continue
+			}
+		}
 		if err := ctx.GameModel.Create(bg, record); err != nil {
 			slog.Default().Error("failed to create bootstrap game", "name", record.Name, "error", err)
 			continue
 		}
-		slog.Default().Info("seed bootstrap game", "name", record.Name, "alias", record.AliasName, "gameId", record.GameID)
+		if reconcile {
+			slog.Default().Info("reconcile bootstrap game", "name", record.Name, "alias", record.AliasName, "gameId", record.GameID)
+		} else {
+			slog.Default().Info("seed bootstrap game", "name", record.Name, "alias", record.AliasName, "gameId", record.GameID)
+		}
 
 		// Create env bindings (game_envs table) for database-per-game routing.
 		envs, _ := record.GetEnvs()

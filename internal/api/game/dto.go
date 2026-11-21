@@ -7,6 +7,10 @@ type GameCreateRequest struct {
 	Icon        string `json:"icon"`
 	Description string `json:"description"`
 	Config      string `json:"config"`
+	// GameID 显式业务标识（X-Game-ID 路由口径）。缺省时从 Name 派生
+	// （连字符会被归一为下划线）；显式提交时原样保留连字符，供 SDK 侧
+	// 注册的 gameId（如 demo-game）与控制台手建 scope 对齐。
+	GameID string `json:"gameId"`
 }
 
 // GameCreateResponse represents the response after creating a game
@@ -124,6 +128,9 @@ type GameUpdateRequest struct {
 	Description string  `json:"description"`
 	Config      string  `json:"config"`
 	Status      string  `json:"status"`
+	// GameID 非空 = 变更业务标识。仅在游戏未绑定任何环境（game_envs 与
+	// envs 元数据均为空）时允许，避免已路由数据的引用悬空。
+	GameID string `json:"gameId"`
 }
 
 // GameUpdateResponse represents the response after updating a game
