@@ -217,7 +217,7 @@ func TestProviderCallBuildRequestErrorV9(t *testing.T) {
 	require.Contains(t, err.Error(), "failed to build request")
 
 	// 直接调用 buildRequest 覆盖同一错误分支
-	_, err = p.buildRequest(context.Background(), p.methodMap["bad"], nil)
+	_, err = p.buildRequest(context.Background(), p.methodMap["bad"], resolvedCallInput{})
 	require.Error(t, err)
 }
 

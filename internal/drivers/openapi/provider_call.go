@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v5"
+	"github.com/cuihairu/croupier/internal/dashboard/spec"
 	"github.com/cuihairu/croupier/internal/platform/provider"
 )
 
@@ -48,15 +49,16 @@ func (p *Provider) Call(ctx context.Context, method string, request []byte) ([]b
 	}
 
 	// Parse request
-	var reqData map[string]interface{}
+	var payload interface{}
 	if len(request) > 0 {
-		if err := json.Unmarshal(request, &reqData); err != nil {
+		if err := json.Unmarshal(request, &payload); err != nil {
 			return nil, fmt.Errorf("invalid request JSON: %w", err)
 		}
 	}
+	in := p.resolveCallInput(apiMethod, payload)
 
 	// Build HTTP request
-	httpReq, err := p.buildRequest(ctx, apiMethod, reqData)
+	httpReq, err := p.buildRequest(ctx, apiMethod, in)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build request: %w", err)
 	}
@@ -126,21 +128,70 @@ func (p *Provider) Call(ctx context.Context, method string, request []byte) ([]b
 	return data, nil
 }
 
-// buildRequest builds an HTTP request from the API method and request data.
-func (p *Provider) buildRequest(ctx context.Context, apiMethod *APIMethod, reqData map[string]interface{}) (*http.Request, error) {
+// resolvedCallInput 是调用方 payload 按请求契约投影模式解析后的结果：
+//   - params：寻址参数（path/query/header 取值来源）；
+//   - body/hasBody：body 槽位的原始 JSON 值（根数组/标量/对象原样发送）；
+//   - bodyFromSlot：body 由契约槽位显式给出——structured 无 body 槽时抑制
+//     旧的 filterConsumedParams 兜底（参数已分离，不能再把 params 当 body）。
+type resolvedCallInput struct {
+	params       map[string]interface{}
+	body         interface{}
+	hasBody      bool
+	bodyFromSlot bool
+}
+
+// resolveCallInput 依据请求契约投影模式解析调用方 payload（SUI-005）：
+//   - body_only：payload 本身即 body（数组/标量原样），无寻址参数；
+//   - structured：{params, body} 命名空间拆分，body 原样发送；
+//   - flat / 无契约：沿用旧 map 语义（reqData 即参数面，body 走
+//     RequestBodyMapping 或过滤兜底）。
+func (p *Provider) resolveCallInput(apiMethod *APIMethod, payload interface{}) resolvedCallInput {
+	reqData, _ := payload.(map[string]interface{})
+	out := resolvedCallInput{params: reqData}
+	if apiMethod == nil || apiMethod.RequestContract == nil {
+		return out
+	}
+	_, mode := ProjectOperationInputSchema(*apiMethod.RequestContract)
+	switch mode {
+	case spec.InputProjectionBodyOnly:
+		return resolvedCallInput{params: map[string]interface{}{}, body: payload, hasBody: true, bodyFromSlot: true}
+	case spec.InputProjectionStructured:
+		params, _ := reqData["params"].(map[string]interface{})
+		if params == nil {
+			params = map[string]interface{}{}
+		}
+		body, hasBody := reqData["body"]
+		return resolvedCallInput{params: params, body: body, hasBody: hasBody, bodyFromSlot: true}
+	default:
+		return out
+	}
+}
+
+// buildRequest builds an HTTP request from the API method and resolved input.
+func (p *Provider) buildRequest(ctx context.Context, apiMethod *APIMethod, in resolvedCallInput) (*http.Request, error) {
+	reqData := in.params
+
 	// Build URL with path and query parameters
 	url := p.buildURL(apiMethod, reqData)
 
 	var body io.Reader
 	var contentType string
 
-	// Build request body if needed
-	if apiMethod.Method == "POST" || apiMethod.Method == "PUT" || apiMethod.Method == "PATCH" {
+	// Contract-driven body slot wins: root arrays/scalars/namespaced bodies
+	// are sent verbatim (SUI-005), regardless of HTTP method.
+	if in.hasBody {
+		data, err := json.Marshal(in.body)
+		if err != nil {
+			return nil, fmt.Errorf("failed to encode request body: %w", err)
+		}
+		body = bytes.NewReader(data)
+		contentType = "application/json"
+	} else if apiMethod.Method == "POST" || apiMethod.Method == "PUT" || apiMethod.Method == "PATCH" {
 		if apiMethod.RequestBody != nil {
 			bodyBytes, ct := p.buildBody(apiMethod.RequestBody, reqData)
 			body = bytes.NewReader(bodyBytes)
 			contentType = ct
-		} else if len(reqData) > 0 {
+		} else if len(reqData) > 0 && !in.bodyFromSlot {
 			// OpenAPI semantics: parameters consumed by path/query/header
 			// addressing must not leak into the request body.
 			data, _ := json.Marshal(filterConsumedParams(apiMethod.Parameters, reqData))
