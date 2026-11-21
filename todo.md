@@ -458,7 +458,7 @@
 
 - [ ] **GAME-009 · P0 · 方案决策 · 评审高风险操作凭据与未知结果协议**
   - 依赖：GAME-001。交付与验收：复用 high-risk-operation-contract-design，决定稳定 operationId、参数/目标指纹、批准快照、游戏持久去重与收据查询职责；明确响应丢失后先查凭据及重试/取消/补偿边界，不重建与 taskId/page idempotency 重复的系统
-  - 状态／条件：**方案已落，待用户拍板**（2026-11-22，LOCAL VERIFIED）：评审文档 `docs/design/high-risk-operation-protocol-review.md`（中文镜像 `docs/zh/design/high-risk-operation-protocol-review.md`）——风险面 6 项（响应丢失重复发放/未知误判/平台幂等≠游戏 exactly-once/取消谎称回滚/参数漂移/无凭据伪造成功）+ 5 项决策方案 D1–D5（operationId=`gameId:env:domain:UUIDv7` 复合编码、专用 `business_operation_credentials` 表、SDK `GameOperationResult` 信封+durableIdempotency 能力声明、未知 60s×10 自动查询+重试上限 8 且不补发、取消强制游戏确认）+ 备选对比表 + 验收映射 + GAME-010 范围（平台侧）/边界（游戏侧待真实环境）。**待用户拍板后才可实现 GAME-010**。验证：`go test ./internal/... -count=1` 全绿（含 AUD-036/037 提交）；`cd docs && CI=true pnpm build` 通过。
+  - 状态／条件：**方案已落，待用户拍板**（2026-11-22，commit b814280c0，LOCAL VERIFIED）：评审文档 `docs/design/high-risk-operation-protocol-review.md`（中文镜像 `docs/zh/design/high-risk-operation-protocol-review.md`）——风险面 6 项（响应丢失重复发放/未知误判/平台幂等≠游戏 exactly-once/取消谎称回滚/参数漂移/无凭据伪造成功）+ 5 项决策方案 D1–D5（operationId=`gameId:env:domain:UUIDv7` 复合编码、专用 `business_operation_credentials` 表、SDK `GameOperationResult` 信封+durableIdempotency 能力声明、未知 60s×10 自动查询+重试上限 8 且不补发、取消强制游戏确认）+ 备选对比表 + 验收映射 + GAME-010 范围（平台侧）/边界（游戏侧待真实环境）。**待用户拍板后才可实现 GAME-010**。验证：`go test ./internal/... -count=1` 全绿（含 AUD-036/037 提交）；`cd docs && CI=true pnpm build` 通过。
 
 - [ ] **GAME-010 · P0 · 实现 · 游戏持久执行凭据与未知结果收敛**
   - 依赖：GAME-009, GAME-008。交付与验收：按批准协议贯通游戏适配器、执行结果和凭据查询；同 operationId 改参数拒绝、响应丢失/服务重启不重复发奖、未知结果可查询收敛；取消不谎称回滚，补偿引用原凭据
