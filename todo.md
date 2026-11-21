@@ -1751,9 +1751,12 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
 
 > 11 月 12 日第一轮报告与 11 月 13 日代码逻辑续审均为待修发现；动态证据不等于修复完成。历史导入清单中同一问题以本编号跟踪，避免重复计数。
 
-- [ ] **AUD-007 · P1 · 修复 · 全局备份接口补齐操作授权**
+- [x] **AUD-007 · P1 · 修复 · 全局备份接口补齐操作授权**（commit dd7d0ad88）
   - 依赖：—。交付与验收：按现有平台权限规则覆盖列表、创建、下载、删除；低权限请求返回 403 且无副作用。
-  - 状态／条件：沿真实 AuthMiddleware 验证：零角色账号可列出、下载和删除临时备份。证据 internal/handler/routes_business.go:66-74、internal/api/backup/service.go:37/177；11-12 报告及 go-probes.log。
+  - 状态／条件：LOCAL VERIFIED（2026-11-22，commit dd7d0ad88）：`internal/api/backup/service.go` 的 List/Create/Delete/Download 四方法顶部各加 `utils.RequireAnyPermission(ctx, s.svcCtx, "无权…", "admin:all", "backup:read|create|delete")`（List+Download→`backup:read`，Create→`backup:create`，Delete→`backup:delete`）；超管/admin:all 直通分支保留，其余按角色权限集合判定，拒绝返回 `NewPermissionDenied`→403 `permission_denied`。守卫置于模型初始化检查之前：低权限请求在触碰数据面前即被拒，零副作用；misconfig（模型未初始化）仍 500。
+  - 验证：`go test ./internal/api/backup/` 全绿（新增 2 用例：`TestBackupService_ZeroRolePermissionDenied` 服务级零角色 4 操作全 403 + 无副作用对照超管可用；`TestHandler_BackupPermission_ZeroRoleDenied` handler/路由级 403 + `permission_denied` 落 HTTP 体 + 数据面不变）；变异自证：移除 List 守卫→`TestHandler_BackupPermission_ZeroRoleDenied` 如实红（200 返回泄露条目而非 403），还原后绿；`go test ./internal/...` 全绿；`go build ./...` 0 错；`bash scripts/dashboard_vnext_guard.sh` PASSED。
+  - 完成证据：commit dd7d0ad88（`internal/api/backup/service.go` 12/0 行四守卫；`internal/api/backup/backup_permission_test.go` 129 行新增回归；`backup_flows_extra_test.go`/`executor_extra_test.go` 测试超管账号 seed + 授权上下文适配）。
+  - 已知边界：`internal/handler/routes_task.go:108-111` 的 `/ops/backups`（游戏域控制台面）走 `internal/api/ops` 自有 BackupService（`internal/api/ops/backups.go`，List/Create/Delete/GetDownloadURL 均无 `RequireAnyPermission`），与本项 routes_business.go 面不同源，**未改**；该项仅按 todo 明确锚点（routes_business.go:66-75 + api/backup/service.go）修复，ops 备份面若需同规应另立审计项。
 
 - [ ] **AUD-008 · P1 · 修复 · 明确生产模式时拒绝公开 JWT 开发密钥回退**
   - 依赖：—。交付与验收：覆盖配置模式与环境变量组合，生产模式空密钥必须启动失败。
