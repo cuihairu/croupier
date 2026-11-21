@@ -44,10 +44,12 @@ jobs:
       - run: flutter test --coverage
       # 覆盖率门禁（CR-FIX-26）：低于阈值即失败，防止移动端质量倒退。
       # 阈值随测试补充缓慢抬升；初值 80% 基于 2026-11-10 实测基线 89.0%。
+      # 覆盖阈值经 env COVERAGE_THRESHOLD 覆盖（AUD-011 修单引号 heredoc
+      # 内 ${...} 不展开的缺陷）；未设时 Python 侧默认 80。
       - name: Coverage gate
         run: |
           python3 - <<'PYEOF'
-          import re
+          import os
           with open("coverage/lcov.info", encoding="utf-8") as f:
               data = f.read()
           total = hit = 0
@@ -59,7 +61,9 @@ jobs:
                       hit += int(line[3:])
           pct = hit / total * 100 if total else 0.0
           print(f"mobile coverage: {hit}/{total} lines = {pct:.1f}%")
-          threshold = float("${COVERAGE_THRESHOLD:-80}")
+          # 单引号 heredoc 内 shell 不展开 ${...}，必须在 Python 侧读 env，
+          # 否则 float() 收到字面量恒 ValueError（AUD-011）。
+          threshold = float(os.environ.get("COVERAGE_THRESHOLD", "80"))
           if pct < threshold:
               raise SystemExit(f"coverage {pct:.1f}% below threshold {threshold}%")
           PYEOF
