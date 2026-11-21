@@ -33,6 +33,9 @@ func NewService(svcCtx *svc.ServiceContext) *Service {
 
 // List retrieves a paginated list of backups
 func (s *Service) List(ctx context.Context, req *BackupsListRequest) (*BackupsListResponse, error) {
+	if _, _, err := utils.RequireAnyPermission(ctx, s.svcCtx, "无权查看备份", "admin:all", "backup:read"); err != nil {
+		return nil, err
+	}
 	if s.svcCtx == nil || s.svcCtx.BackupModel == nil {
 		return nil, errors.New("备份模型未初始化")
 	}
@@ -71,6 +74,9 @@ func (s *Service) List(ctx context.Context, req *BackupsListRequest) (*BackupsLi
 
 // Create creates a new backup
 func (s *Service) Create(ctx context.Context, req *BackupCreateRequest) (*BackupCreateResponse, error) {
+	if _, _, err := utils.RequireAnyPermission(ctx, s.svcCtx, "无权创建备份", "admin:all", "backup:create"); err != nil {
+		return nil, err
+	}
 	if s.svcCtx == nil || s.svcCtx.BackupModel == nil {
 		return nil, errors.New("备份模型未初始化")
 	}
@@ -147,6 +153,9 @@ func (s *Service) executor() *backupexec.Executor {
 
 // Delete deletes a backup
 func (s *Service) Delete(ctx context.Context, req *BackupDeleteRequest) error {
+	if _, _, err := utils.RequireAnyPermission(ctx, s.svcCtx, "无权删除备份", "admin:all", "backup:delete"); err != nil {
+		return err
+	}
 	if s.svcCtx == nil || s.svcCtx.BackupModel == nil {
 		return errors.New("备份模型未初始化")
 	}
@@ -173,6 +182,9 @@ func (s *Service) Delete(ctx context.Context, req *BackupDeleteRequest) error {
 
 // Download downloads a backup file
 func (s *Service) Download(ctx context.Context, req *BackupDownloadRequest) (*DownloadPayload, error) {
+	if _, _, err := utils.RequireAnyPermission(ctx, s.svcCtx, "无权下载备份", "admin:all", "backup:read"); err != nil {
+		return nil, err
+	}
 	if s.svcCtx == nil || s.svcCtx.BackupModel == nil {
 		return nil, errors.New("备份模型未初始化")
 	}
