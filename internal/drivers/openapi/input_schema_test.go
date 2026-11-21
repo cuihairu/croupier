@@ -54,8 +54,19 @@ func TestExtractInputSchema_ParametersAndInlineBody(t *testing.T) {
 	if len(required) != 2 {
 		t.Fatalf("expected required [id name], got %v", required)
 	}
-	if id, _ := props["id"].(map[string]interface{}); id["description"] != "player id" {
-		t.Errorf("parameter description should ride along, got %v", id)
+	// 参数描述留在契约参数级（RequestParameterSpec.Description），不进属性
+	// schema——与旧上传路径（openAPIRequestSchema）的属性形态一致（SUI-003）。
+	if id, _ := props["id"].(map[string]interface{}); len(id) != 1 || id["type"] != "string" {
+		t.Errorf("parameter property must be the schema itself, got %v", id)
+	}
+	var described string
+	for _, param := range methods["player.update"].RequestContract.Parameters {
+		if param.Name == "id" {
+			described = param.Description
+		}
+	}
+	if described != "player id" {
+		t.Errorf("parameter description should ride on the contract, got %q", described)
 	}
 }
 
@@ -112,7 +123,7 @@ func TestExtractInputSchema_CyclicRefTerminates(t *testing.T) {
 	}
 }
 
-func TestExtractInputSchema_NonObjectBodyKeptAsProperty(t *testing.T) {
+func TestExtractInputSchema_NonObjectBodyRootPreserved(t *testing.T) {
 	doc := `{
 	  "openapi": "3.0.3",
 	  "paths": {"/batch": {"post": {
@@ -124,14 +135,17 @@ func TestExtractInputSchema_NonObjectBodyKeptAsProperty(t *testing.T) {
 	`
 	methods := mustParseSpec(t, doc)
 
+	// SUI-002/005：无寻址参数且声明 body → body_only 投影，根数组/标量 body
+	// 以自身形态保留（旧实现曾用 properties.body 包装，丢失根级语义）。
 	var schema map[string]interface{}
 	if err := json.Unmarshal([]byte(methods["batch.import"].InputSchema), &schema); err != nil {
 		t.Fatalf("InputSchema is not valid JSON: %v", err)
 	}
-	props, _ := schema["properties"].(map[string]interface{})
-	body, ok := props["body"].(map[string]interface{})
-	if !ok || body["type"] != "array" {
-		t.Fatalf("non-object body should be kept under properties.body, got %v", schema)
+	if schema["type"] != "array" {
+		t.Fatalf("root array body must be preserved as the root type, got %v", schema)
+	}
+	if items, _ := schema["items"].(map[string]interface{}); items["type"] != "string" {
+		t.Fatalf("array items must survive, got %v", schema)
 	}
 }
 

@@ -1044,13 +1044,13 @@ func TestOpenAPIOperationsByIDToleratesNullPathItems(t *testing.T) {
 func TestOpenAPIRequestSchemaBodyRequiredDedupAndSkips(t *testing.T) {
 	stringSchema := &openapi3.SchemaRef{Value: openapi3.NewStringSchema()}
 
-	bodyRequired := &openapi3.SchemaRef{Value: &openapi3.Schema{
+	bodyProps := &openapi3.SchemaRef{Value: &openapi3.Schema{
 		Type: &openapi3.Types{"object"},
 		Properties: openapi3.Schemas{
 			"force": &openapi3.SchemaRef{Value: openapi3.NewBoolSchema()},
-			"id":    stringSchema,
+			"token": stringSchema,
 		},
-		Required: []string{"force", "id"},
+		Required: []string{"force", "token"},
 	}}
 	op := &openapi3.Operation{
 		Parameters: []*openapi3.ParameterRef{
@@ -1061,18 +1061,19 @@ func TestOpenAPIRequestSchemaBodyRequiredDedupAndSkips(t *testing.T) {
 				return p
 			}()},
 			{Value: func() *openapi3.Parameter {
-				p := openapi3.NewCookieParameter("session")
+				p := openapi3.NewQueryParameter("id")
 				p.Schema = stringSchema
 				return p
 			}()},
 			{Value: func() *openapi3.Parameter {
-				p := openapi3.NewQueryParameter("filter")
-				p.Schema = &openapi3.SchemaRef{}
+				p := openapi3.NewQueryParameter("verbose")
+				p.Schema = nil
 				return p
 			}()},
 		},
 		RequestBody: &openapi3.RequestBodyRef{Value: &openapi3.RequestBody{
-			Content: openapi3.Content{"application/json": {Schema: bodyRequired}},
+			Required: true,
+			Content:  openapi3.Content{"application/json": {Schema: bodyProps}},
 		}},
 	}
 	raw := openAPIRequestSchema(op)
@@ -1081,24 +1082,101 @@ func TestOpenAPIRequestSchemaBodyRequiredDedupAndSkips(t *testing.T) {
 		Required   []string                   `json:"required"`
 	}
 	require.NoError(t, json.Unmarshal([]byte(raw), &parsed))
+	// 跨位置同名参数（path/query 均为 id）+ 参数与 body 属性同名（旧实现在此
+	// 静默覆盖）→ structured 投影：params/body 命名空间化，不覆盖不丢弃。
+	require.Contains(t, parsed.Properties, "params")
+	require.Contains(t, parsed.Properties, "body")
+	paramsProps := decodeSchemaProperties(t, parsed.Properties["params"])
+	assert.Contains(t, paramsProps, "id")
+	assert.Contains(t, paramsProps, "verbose")
+	assert.Contains(t, paramsProps, "id")
+	assert.ElementsMatch(t, []string{"body", "params"}, parsed.Required)
+
+	// 无冲突的 body（属性与参数无同名）→ 平铺投影，body 属性提升进顶层，
+	// required 去重并排序。
+	op.Parameters = []*openapi3.ParameterRef{
+		{Value: func() *openapi3.Parameter {
+			p := openapi3.NewPathParameter("id")
+			p.Required = true
+			p.Schema = stringSchema
+			return p
+		}()},
+	}
+	flat := openAPIRequestSchema(op)
+	var flatParsed struct {
+		Properties map[string]json.RawMessage `json:"properties"`
+		Required   []string                   `json:"required"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(flat), &flatParsed))
+	assert.Contains(t, flatParsed.Properties, "id")
+	assert.Contains(t, flatParsed.Properties, "force")
+	assert.ElementsMatch(t, []string{"force", "id", "token"}, flatParsed.Required)
+}
+
+func decodeSchemaProperties(t *testing.T, raw json.RawMessage) map[string]json.RawMessage {
+	t.Helper()
+	var schema struct {
+		Properties map[string]json.RawMessage `json:"properties"`
+	}
+	require.NoError(t, json.Unmarshal(raw, &schema))
+	return schema.Properties
+}
+
+// SUI-004：旧绑定重读与重新导入同一文档得到字节一致的输入 schema（含
+// path-item 参数并入与 $ref 内联），平铺形态不变——不存在重读/重导漂移。
+func TestOpenAPIRequestSchemaReimportStable(t *testing.T) {
+	specRaw := json.RawMessage(`{
+		"openapi": "3.0.3",
+		"components": {
+			"schemas": {
+				"Player": {
+					"type": "object",
+					"properties": {"name": {"type": "string"}},
+					"required": ["name"]
+				}
+			}
+		},
+		"paths": {
+			"/players/{id}": {
+				"parameters": [
+					{"name": "id", "in": "path", "required": true, "schema": {"type": "string"}}
+				],
+				"put": {
+					"operationId": "player.update",
+					"requestBody": {
+						"required": true,
+						"content": {"application/json": {"schema": {"$ref": "#/components/schemas/Player"}}}
+					}
+				}
+			}
+		}
+	}`)
+	source := &model.OpenAPISource{}
+	source.SetSpec(specRaw)
+	op := openAPIOperationFromSource(source, "player.update")
+	require.NotNil(t, op)
+
+	first := openAPIRequestSchemaWithRoot(op, sourceSpecRoot(source))
+
+	// 旧绑定重读：同一已存 source 再次派生，字节一致。
+	reread := openAPIRequestSchemaWithRoot(openAPIOperationFromSource(source, "player.update"), sourceSpecRoot(source))
+	assert.Equal(t, first, reread)
+
+	// 重新导入：从原始文本重建 source 再派生，字节一致（$ref 内联结果同形）。
+	reimported := &model.OpenAPISource{}
+	reimported.SetSpec(specRaw)
+	assert.Equal(t, first,
+		openAPIRequestSchemaWithRoot(openAPIOperationFromSource(reimported, "player.update"), sourceSpecRoot(reimported)))
+
+	// 平铺形态与首版一致：path-item 参数并入 + body 属性提升，required 去重排序。
+	var parsed struct {
+		Properties map[string]json.RawMessage `json:"properties"`
+		Required   []string                   `json:"required"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(first), &parsed))
 	assert.Contains(t, parsed.Properties, "id")
-	assert.Contains(t, parsed.Properties, "force")
-
-	foundForce := false
-	for name := range parsed.Properties {
-		if name == "force" {
-			foundForce = true
-		}
-	}
-	assert.True(t, foundForce)
-
-	countID := 0
-	for _, name := range parsed.Required {
-		if name == "id" {
-			countID++
-		}
-	}
-	assert.Equal(t, 1, countID, "required entries must be deduplicated")
+	assert.Contains(t, parsed.Properties, "name")
+	assert.ElementsMatch(t, []string{"id", "name"}, parsed.Required)
 }
 
 // ---------------------------------------------------------------------------

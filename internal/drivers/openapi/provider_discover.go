@@ -135,15 +135,16 @@ func (p *Provider) parseOpenAPISpec(spec []byte) error {
 		paths = v
 	}
 
-	// 批次 D：inputSchema 推导优先走 kin-openapi 解析层（对拍锁定同形输出）；
-	// kin 解析失败（Swagger 2.0/悬空 $ref 等）回落下方 map 遍历旧推导。
-	kinDerived := kinInputSchemas(spec, openapi)
+	// SUI-002/003：inputSchema 推导统一走请求契约（对拍锁定同形输出）。
+	// kin 解析失败（Swagger 2.0/悬空 $ref 等）回落下方 map 遍历。
+	kinContracts := kinOperationContracts(spec, openapi)
 
 	for apiPath, pathItem := range paths {
 		pathObj, ok := pathItem.(map[string]interface{})
 		if !ok {
 			continue
 		}
+		pathItemParams, _ := pathObj["parameters"].([]interface{})
 
 		// Iterate over HTTP methods
 		for httpMethod, methodItem := range pathObj {
@@ -196,30 +197,31 @@ func (p *Provider) parseOpenAPISpec(spec []byte) error {
 			versionOverride, _ := methodObj["x-version"].(string)
 
 			// Create APIMethod
-			inputSchema := extractInputSchema(methodObj, openapi)
-			if kinSchema, ok := kinDerived[methodName]; ok {
-				inputSchema = kinSchema
+			contract := ExtractOperationRequestContractMap(methodObj, openapi, pathItemParams)
+			if kinContract, ok := kinContracts[methodName]; ok {
+				contract = kinContract
 			}
 			apiMethod := &APIMethod{
-				Name:         methodName,
-				OperationID:  operationID,
-				Summary:      summary,
-				Description:  desc,
-				Path:         apiPath,
-				Method:       httpMethod,
-				Tags:         tags,
-				Deprecated:   deprecated,
-				Parameters:   p.extractParameters(methodObj),
-				Resource:     resource,
-				Risk:         risk,
-				Operation:    operation,
-				Capability:   capability,
-				Execution:    execution,
-				Enabled:      enabled,
-				Permission:   permission,
-				Version:      strings.TrimSpace(versionOverride),
-				InputSchema:  inputSchema,
-				OutputSchema: extractOutputSchema(methodObj, openapi),
+				Name:            methodName,
+				OperationID:     operationID,
+				Summary:         summary,
+				Description:     desc,
+				Path:            apiPath,
+				Method:          httpMethod,
+				Tags:            tags,
+				Deprecated:      deprecated,
+				Parameters:      p.extractParameters(methodObj),
+				Resource:        resource,
+				Risk:            risk,
+				Operation:       operation,
+				Capability:      capability,
+				Execution:       execution,
+				Enabled:         enabled,
+				Permission:      permission,
+				Version:         strings.TrimSpace(versionOverride),
+				InputSchema:     extractContractInputSchema(contract),
+				OutputSchema:    extractOutputSchema(methodObj, openapi),
+				RequestContract: &contract,
 			}
 
 			p.methodMap[methodName] = apiMethod

@@ -1,7 +1,6 @@
 package openapi
 
 import (
-	"encoding/json"
 	"strings"
 )
 
@@ -28,120 +27,7 @@ const maxSchemaRefDepth = 16
 // The returned text is always a valid JSON object (possibly an empty-object
 // schema when the operation declares no input at all).
 func extractInputSchema(methodObj, root map[string]interface{}) string {
-	properties := make(map[string]interface{})
-	var required []string
-
-	for _, param := range extractParameterSchemas(methodObj, root) {
-		if param.name == "" {
-			continue
-		}
-		if param.required {
-			required = appendUniqueString(required, param.name)
-		}
-		properties[param.name] = param.schema
-	}
-
-	if resolved, ok := extractJSONBodySchema(methodObj, root); ok {
-		if typ, _ := resolved["type"].(string); typ == "object" {
-			if bodyProps, ok := resolved["properties"].(map[string]interface{}); ok {
-				for key, value := range bodyProps {
-					properties[key] = value
-				}
-			}
-			if bodyRequired, ok := resolved["required"].([]interface{}); ok {
-				for _, item := range bodyRequired {
-					if name, ok := item.(string); ok {
-						required = appendUniqueString(required, name)
-					}
-				}
-			}
-		} else {
-			properties["body"] = resolved
-		}
-	}
-
-	schema := map[string]interface{}{"type": "object", "properties": properties}
-	if len(required) > 0 {
-		schema["required"] = required
-	}
-	// Input originates from json.Unmarshal output, so Marshal cannot fail
-	// (same shape as the spec merge in parseOpenAPISpec).
-	encoded, _ := json.Marshal(schema)
-	return string(encoded)
-}
-
-// derivedParam is one caller-facing parameter projected into the input schema.
-type derivedParam struct {
-	name     string
-	required bool
-	schema   map[string]interface{}
-}
-
-// extractParameterSchemas projects operation parameters into schema
-// properties. Parameter-level description/deprecated ride along; the schema
-// object itself is $ref-resolved and defaults to a string when absent.
-func extractParameterSchemas(methodObj, root map[string]interface{}) []derivedParam {
-	paramList, ok := methodObj["parameters"].([]interface{})
-	if !ok {
-		return nil
-	}
-	out := make([]derivedParam, 0, len(paramList))
-	for _, param := range paramList {
-		pObj, ok := param.(map[string]interface{})
-		if !ok {
-			continue
-		}
-		name, _ := pObj["name"].(string)
-		prop := map[string]interface{}{}
-		if schema, ok := pObj["schema"].(map[string]interface{}); ok {
-			if resolved, ok := resolveSchemaRefs(schema, root, 0).(map[string]interface{}); ok {
-				for key, value := range resolved {
-					prop[key] = value
-				}
-			}
-		}
-		if len(prop) == 0 {
-			prop["type"] = "string"
-		}
-		if desc, ok := pObj["description"].(string); ok && desc != "" {
-			prop["description"] = desc
-		}
-		if deprecated, _ := pObj["deprecated"].(bool); deprecated {
-			prop["deprecated"] = true
-		}
-		out = append(out, derivedParam{
-			name:     name,
-			required: pObj["required"] == true,
-			schema:   prop,
-		})
-	}
-	return out
-}
-
-// extractJSONBodySchema returns the $ref-resolved schema of the operation's
-// application/json request body, if any.
-func extractJSONBodySchema(methodObj, root map[string]interface{}) (map[string]interface{}, bool) {
-	requestBody, ok := methodObj["requestBody"].(map[string]interface{})
-	if !ok {
-		return nil, false
-	}
-	content, ok := requestBody["content"].(map[string]interface{})
-	if !ok {
-		return nil, false
-	}
-	jsonContent, ok := content["application/json"].(map[string]interface{})
-	if !ok {
-		return nil, false
-	}
-	schema, ok := jsonContent["schema"].(map[string]interface{})
-	if !ok {
-		return nil, false
-	}
-	resolved, ok := resolveSchemaRefs(schema, root, 0).(map[string]interface{})
-	if !ok {
-		return nil, false
-	}
-	return resolved, true
+	return extractContractInputSchema(ExtractOperationRequestContractMap(methodObj, root, nil))
 }
 
 // resolveSchemaRefs deep-copies node while resolving local $ref pointers

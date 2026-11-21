@@ -531,6 +531,19 @@ func openAPIOperationFromSource(source *model.OpenAPISource, operationID string)
 	return openAPIOperationsByID(source.GetSpec())[strings.TrimSpace(operationID)]
 }
 
+// sourceSpecRoot 把已存的 spec JSON 反序列化为 map，供请求契约提取做 $ref
+// 内联（SUI-002）；反序列化失败返回 nil——提取仍可产出无 $ref 的契约。
+func sourceSpecRoot(source *model.OpenAPISource) map[string]interface{} {
+	if source == nil {
+		return nil
+	}
+	var root map[string]interface{}
+	if err := json.Unmarshal(source.GetSpec(), &root); err != nil {
+		return nil
+	}
+	return root
+}
+
 func openAPIOperationsByID(raw json.RawMessage) map[string]*openapi3.Operation {
 	out := map[string]*openapi3.Operation{}
 	if len(raw) == 0 {
@@ -578,86 +591,22 @@ func mergePathLevelParameters(pathItem *openapi3.PathItem, op *openapi3.Operatio
 	}
 }
 
+// openAPIRequestSchema 把 operation 投影为操作者侧输入 schema（SUI-001/002）。
+// 统一走请求契约：kin 前端提取 → 投影（flat/structured/body_only）。
+// 空输入（无参数无 body）返回 ""，向调用方发出「回退到运行时注册 schema」
+// 信号——与旧实现完全一致。root 为整份文档的 map（$ref 内联用），测试直调
+// 可传 nil（无 $ref 的构造 op 走 kin 值序列化）。
 func openAPIRequestSchema(op *openapi3.Operation) string {
+	return openAPIRequestSchemaWithRoot(op, nil)
+}
+
+func openAPIRequestSchemaWithRoot(op *openapi3.Operation, root map[string]interface{}) string {
 	if op == nil {
 		return ""
 	}
-	properties := map[string]json.RawMessage{}
-	required := make([]string, 0)
-	for _, paramRef := range op.Parameters {
-		if paramRef == nil || paramRef.Value == nil {
-			continue
-		}
-		param := paramRef.Value
-		if param.In != "path" && param.In != "query" {
-			continue
-		}
-		name := strings.TrimSpace(param.Name)
-		if name == "" {
-			continue
-		}
-		schemaRef := param.Schema
-		if schemaRef == nil {
-			schemaRef = &openapi3.SchemaRef{Value: openapi3.NewStringSchema()}
-		}
-		schemaJSON := json.RawMessage(openAPISchemaRefJSON(schemaRef))
-		if len(schemaJSON) == 0 {
-			continue
-		}
-		properties[name] = schemaJSON
-		if param.Required {
-			required = append(required, name)
-		}
-	}
-	bodySchema := ""
-	if op.RequestBody != nil && op.RequestBody.Value != nil {
-		bodySchema = openAPIMediaSchemaJSON(op.RequestBody.Value.Content)
-	}
-	if len(properties) == 0 {
-		return bodySchema
-	}
-	if bodySchema != "" {
-		var body map[string]interface{}
-		if err := json.Unmarshal([]byte(bodySchema), &body); err == nil {
-			if bodyProps, ok := body["properties"].(map[string]interface{}); ok {
-				for name, prop := range bodyProps {
-					raw, err := json.Marshal(prop)
-					if err == nil {
-						properties[name] = raw
-					}
-				}
-			}
-			if bodyRequired, ok := body["required"].([]interface{}); ok {
-				for _, item := range bodyRequired {
-					if name, ok := item.(string); ok {
-						required = append(required, name)
-					}
-				}
-			}
-		}
-	}
-	root := map[string]interface{}{
-		"type":       "object",
-		"properties": properties,
-	}
-	seen := map[string]bool{}
-	deduped := make([]string, 0, len(required))
-	for _, name := range required {
-		if seen[name] {
-			continue
-		}
-		seen[name] = true
-		deduped = append(deduped, name)
-	}
-	sort.Strings(deduped)
-	if len(deduped) > 0 {
-		root["required"] = deduped
-	}
-	// 设计债清理：root 的 properties 值均为 json.Marshal 产物（合法 JSON
-	// 子串），对 map[string]json.RawMessage 再 Marshal 恒成功，
-	// 原 err 分支不可达已删除。
-	raw, _ := json.Marshal(root)
-	return string(raw)
+	contract := driveropenapi.ExtractOperationRequestContractKin(op, nil, root)
+	schema, _ := driveropenapi.ProjectOperationInputSchema(contract)
+	return schema
 }
 
 func openAPIResponseSchema(op *openapi3.Operation) string {

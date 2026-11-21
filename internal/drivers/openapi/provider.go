@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/dashboard/spec"
 	"github.com/cuihairu/croupier/internal/platform/provider"
 	"github.com/cuihairu/croupier/internal/platform/ratelimit"
 )
@@ -199,6 +200,14 @@ type APIMethod struct {
 	// the spec declares no JSON success response — response validation is
 	// skipped for such methods.
 	OutputSchema string `yaml:"output_schema" json:"outputSchema"`
+
+	// RequestContract is the unified request representation of the operation
+	// (docs/architecture/openapi-request-contract.md), carried in memory so the
+	// executor (Call) can read the projection mode and the exact parameter/body
+	// mapping instead of sniffing the caller payload (SUI-002/005). Internal
+	// only: it is not part of the wire contract (GetMethodDetails copies the
+	// exposed fields explicitly).
+	RequestContract *spec.OperationRequestContract `yaml:"-" json:"-"`
 }
 
 // ParameterMapping defines how to map a parameter.
