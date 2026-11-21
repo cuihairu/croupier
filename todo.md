@@ -157,9 +157,9 @@
 
 ### 设计更新与组件审查
 
-- [x] **SUI-045 · P0 · 设计 · 明确展示与调用参数的边界** ✅ e713df883
+- [x] **SUI-045 · P0 · 设计 · 明确展示与调用参数的边界** ✅ d775c708d
   - 依赖：—。交付与验收：更新 [PageSpec 协议](docs/zh/architecture/pagespec-protocol.md#formpresentationspec)，明确展示覆盖项、基础表单与 Binding 的职责、隐藏必填字段的取值来源和最终校验顺序。记录旧页面的 `required`、默认值、可见性和校验覆盖如何兼容。用同一函数的标准与紧凑布局、手填和选中行注入两类绑定，以及缺少必填来源的例子说明预期请求或诊断。
-  - 交付：`docs/zh/architecture/pagespec-protocol.md` + 英文镜像 `docs/architecture/pagespec-protocol.md` 新增「展示与调用参数的边界（SUI-045）」小节：三层职责（jsonSchema/展示覆盖/Binding）、FormFieldSpec 字段两分（纯展示 vs 调用相关）、隐藏字段三出口、客户端+服务端最终校验顺序、旧页面四类覆盖兼容、三例（标准 vs 紧凑、手填 vs 行注入、缺少必填来源）。证据：`go build ./...` 通过；`go test ./internal/drivers/openapi/... ./internal/api/openapi/... ./internal/dashboard/spec/...` 通过；`bash scripts/dashboard_vnext_guard.sh` PASSED；`CI=true pnpm --dir docs build` 通过；`pnpm --dir web run tsc` 0 错误；面向本域 web 套件 33/33 全绿；e713df883。
+  - 交付：`docs/zh/architecture/pagespec-protocol.md` + 英文镜像 `docs/architecture/pagespec-protocol.md` 新增「展示与调用参数的边界（SUI-045）」小节：三层职责（jsonSchema/展示覆盖/Binding）、FormFieldSpec 字段两分（纯展示 vs 调用相关）、隐藏字段三出口、客户端+服务端最终校验顺序、旧页面四类覆盖兼容、三例（标准 vs 紧凑、手填 vs 行注入、缺少必填来源）。并入 origin/main 后按 SUI-014 落地形态复核引用（`projectSubmitValues`/`getSubmitValues`/`isFieldHidden` 唯一提交投影）。证据：`go build ./...` 通过；`go test ./internal/drivers/openapi/... ./internal/api/openapi/... ./internal/dashboard/spec/...` 通过；`bash scripts/dashboard_vnext_guard.sh` PASSED；`CI=true pnpm --dir docs build` 通过；`pnpm --dir web run tsc` 0 错误；面向本域 web 套件（SchemaFormRenderer/Functions/services/Invoke/PageRenderer）在超时提升到 30s 后通过（submit-values/visible-when/widgets-select 三套件 18/18 全绿）；d775c708d。
 
 - [ ] **SUI-046 · P1 · 审查 · 逐项核对现有 UI 组件和组件模板**
   - 依赖：—。交付与验收：对照编辑器注册表、数据库中的内置模板定义和发布渲染器，清点表单、表格、详情、动作等区块与模板。逐项记录属性、函数依赖、参数来源、输出与联动，标注预览和发布差异。用代表模板走一次插入、发布、执行，验证复制后的页面配置及模板更新提醒，记录每个发现的证据。
