@@ -30,8 +30,9 @@
   - 依赖：SUI-002, SUI-003。交付与验收：根数组和标量在存在 query 参数时仍能通过请求映射送达上游，断言实际 HTTP body 的 JSON 类型及值。
   - 交付：`Provider.Call`/`buildRequest` 消费请求契约解析调用方 payload（`resolveCallInput`），structured/body_only body 原样发送；`TestProviderCall_ContractRootShapePreserved` 断言 query + body JSON 类型与值（数组/标量/对象根 + flat 回归）。证据：8427322d6。
 
-- [ ] **SUI-006 · P1 · 实现 · 按 OpenAPI 序列化参数**
+- [x] **SUI-006 · P1 · 实现 · 按 OpenAPI 序列化参数** ✅ 0109f42bf
   - 依赖：SUI-002, SUI-003。交付与验收：验证公开声明支持的参数位置和 `style/explode` 组合。fixture 断言 path 替换、query 数组和对象、header 与 cookie 的实际 HTTP 值。无法执行的组合返回诊断。
+  - 交付：执行器按位置与 style/explode 序列化（`param_serialize.go`：path simple/label/matrix、query form/spaceDelimited/pipeDelimited/deepObject、header simple、cookie form 原始值；逐项转义 + 字面分隔符，spaceDelimited 用 `+`）。支持矩阵公开声明于 `docs/architecture/openapi-request-contract.md#parameter-serialization-sui-006`（+中文镜像）。不可执行组合以诊断 `openapi_parameter_serialization_unsupported` 在两个提取前端记录（`request_contract.go`），执行器同因拒绝请求。契约与 legacy config 方法统一走序列化器，query/path 值补齐 URL 编码。证据：`TestSerializeParamValue_Matrix`（全矩阵单测）；`TestProviderCall_ParameterSerializationWire`（httptest 线上断言 path 替换/转义、query 数组/对象/deepObject、header、cookie 与不可执行报错）；`TestProviderCall_LegacyConfigSerialization`（旧行为不回归）；`TestRequestContract_SerializationDiagnostics`（kin/map 诊断同文）；`go build ./...` 通过；`bash scripts/dashboard_vnext_guard.sh` PASSED；`cd docs && CI=true pnpm build` 通过；0109f42bf。
 
 - [ ] **SUI-007 · P1 · 实现 · 确定性选择请求和响应媒体类型**
   - 依赖：SUI-001。交付与验收：同一多媒体类型文档重复导入结果一致。输入以执行器支持能力选择媒体类型，输出 schema 从声明的成功响应派生，缺少可执行媒体类型时提案记录原因。
