@@ -39,7 +39,12 @@ import SchemaFormErrorBoundary from './ErrorBoundary';
 export interface SchemaFormRendererHandle {
   submit: () => void;
   validate: () => boolean;
+  /** 实时表单值（含隐藏字段）——仅用于状态镜像/回显，禁止直接作提交取值 */
   getValues: () => FormValues;
+  /** SUI-014 统一提交取值：与原生提交（onFinish）共用同一投影规则
+   *  （projectSubmitValues，隐藏键按当前值剔除）。调试页、资源创建/编辑、
+   *  行操作等命令式提交一律取此接口，禁止用 getValues 拼提交 payload。 */
+  getSubmitValues: () => FormValues;
 }
 
 export interface SchemaFormRendererProps {
@@ -420,6 +425,31 @@ function cloneSchema(schema: JSONSchema): RJSFSchema {
   return JSON.parse(JSON.stringify(schema || {})) as RJSFSchema;
 }
 
+/** 统一可见性谓词（SUI-014）：`visible === false` 或 visibleWhen 不满足即隐藏。
+ *  渲染（deriveRuntimeSchema）与提交投影（projectSubmitValues）共用同一判定，
+ *  保证「看到的」与「提交的」对同一份值恒等，两侧永不漂移。 */
+function isFieldHidden(field: FormFieldSpec, values: FormValues): boolean {
+  return field.visible === false || !matchesCondition(field.visibleWhen, values);
+}
+
+/** 当前值下的隐藏字段 key 列表（与 deriveRuntimeSchema 的 hiddenKeys 同源）。 */
+export function computeHiddenKeys(spec: FormPresentationSpec, values: FormValues): string[] {
+  return (spec.fields ?? [])
+    .filter((field) => isFieldHidden(field, values))
+    .map((field) => field.key);
+}
+
+/** SUI-014 唯一提交投影规则：按当前值计算隐藏键并从 payload 剔除，其余键
+ *  原样保留（隐藏字段值继续留在表单态，可见性切回时恢复）。原生提交
+ *  （onSubmit）与命令式 getSubmitValues() 共用，提交 payload 只经此生成。 */
+export function projectSubmitValues(values: FormValues, spec: FormPresentationSpec): FormValues {
+  const hidden = new Set(computeHiddenKeys(spec, values));
+  if (hidden.size === 0) return values;
+  return Object.fromEntries(
+    Object.entries(values).filter(([key]) => !hidden.has(key)),
+  ) as FormValues;
+}
+
 export function deriveRuntimeSchema(
   spec: FormPresentationSpec,
   values: FormValues,
@@ -488,10 +518,10 @@ export function deriveRuntimeSchema(
   const rootSchema = spec.jsonSchema || {};
   const hiddenFields = new Set<string>();
   for (const field of spec.fields || []) {
-    const visible =
-      matchesCondition(field.visibleWhen, values) &&
-      applyFieldPresentation(schema, uiSchema, field, rootSchema);
-    if (!visible) hiddenFields.add(field.key);
+    // 呈现副作用对所有字段生效（隐藏字段仍需 ui 元数据），可见性判定与
+    // computeHiddenKeys/projectSubmitValues 走同一谓词（SUI-014）
+    applyFieldPresentation(schema, uiSchema, field, rootSchema);
+    if (isFieldHidden(field, values)) hiddenFields.add(field.key);
   }
 
   // F8：条件隐藏改为 ui:widget hidden——不再从 schema.properties 删除，
@@ -608,7 +638,7 @@ const SchemaFormRenderer = forwardRef<SchemaFormRendererHandle, SchemaFormRender
       setFormValues(currentValuesRef.current);
     }, [initialValuesJson, seededInitial]);
 
-    const { schema, uiSchema, formContext, hiddenKeys } = useMemo(() => {
+    const { schema, uiSchema, formContext } = useMemo(() => {
       const derived = deriveRuntimeSchema(spec, formValues);
       if (hideSubmit || readonly) {
         derived.uiSchema['ui:submitButtonOptions'] = {
@@ -618,8 +648,9 @@ const SchemaFormRenderer = forwardRef<SchemaFormRendererHandle, SchemaFormRender
       }
       return derived;
     }, [formValues, hideSubmit, readonly, spec]);
-    const hiddenKeysRef = useRef<string[]>(hiddenKeys);
-    hiddenKeysRef.current = hiddenKeys;
+    // handler 引用稳定（见下方 rjsf 注释），spec 经 ref 读取当前值
+    const specRef = useRef(spec);
+    specRef.current = spec;
 
     useImperativeHandle(ref, () => ({
       submit: () => {
@@ -627,6 +658,11 @@ const SchemaFormRenderer = forwardRef<SchemaFormRendererHandle, SchemaFormRender
       },
       validate: () => Boolean(formRef.current?.validateForm()),
       getValues: () => getLiveFormValues(formRef.current, currentValuesRef.current),
+      getSubmitValues: () =>
+        projectSubmitValues(
+          getLiveFormValues(formRef.current, currentValuesRef.current),
+          specRef.current,
+        ),
     }));
 
     // rjsf Form 在任意 props 变化时会把内部 state 重置回 props.formData；
@@ -643,15 +679,10 @@ const SchemaFormRenderer = forwardRef<SchemaFormRendererHandle, SchemaFormRender
     );
     const handleSubmitEvent = useCallback(
       async (event: IChangeEvent<FormValues>) => {
-        // F8：隐藏字段值保留在表单中便于切换恢复，但提交 payload 剔除
-        const hidden = new Set(hiddenKeysRef.current);
-        const raw = normalizeFormValues(event.formData);
-        const next = Object.fromEntries(
-          Object.entries(raw).filter(([key]) => !hidden.has(key)),
-        ) as FormValues;
-        // Don't update currentValuesRef with filtered value — keep all fields
-        // (including hidden) so they're available when visibility conditions change.
-        // Only the onFinish payload excludes hidden fields.
+        // SUI-014：提交 payload 经唯一投影 projectSubmitValues 生成（隐藏键按
+        // 当前值剔除）；隐藏字段值保留在表单态（currentValuesRef 不动），可见性
+        // 切回时恢复。与命令式 getSubmitValues() 完全同一取值逻辑。
+        const next = projectSubmitValues(normalizeFormValues(event.formData), specRef.current);
         await onFinish?.(next);
       },
       [onFinish],
