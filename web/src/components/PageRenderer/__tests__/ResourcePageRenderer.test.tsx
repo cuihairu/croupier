@@ -36,14 +36,15 @@ import type {
   ResourcePageSpec,
 } from '@/types/dashboard';
 
-// SchemaFormRenderer 替身：forwardRef 暴露 validate/getValues（由 formMockState
-// 控制），onValuesChange 场景渲染喂值按钮
+// SchemaFormRenderer 替身：forwardRef 暴露 validate/getValues/getSubmitValues
+// （由 formMockState 控制），onValuesChange 场景渲染喂值按钮
 jest.mock('@/components/SchemaFormRenderer', () => {
   const formMockState = { validate: true, values: {} as Record<string, unknown> };
   const Stub = React.forwardRef<unknown, Record<string, unknown>>((props, ref) => {
     React.useImperativeHandle(ref, () => ({
       validate: () => formMockState.validate,
       getValues: () => formMockState.values,
+      getSubmitValues: () => formMockState.values,
     }));
     return (
       <div>

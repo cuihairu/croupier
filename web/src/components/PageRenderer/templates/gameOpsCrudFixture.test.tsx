@@ -37,6 +37,7 @@ jest.mock('@/components/SchemaFormRenderer', () => {
     React.useImperativeHandle(ref, () => ({
       validate: () => formMockState.validate,
       getValues: () => formMockState.values,
+      getSubmitValues: () => formMockState.values,
     }));
     return <div data-testid="schema-form-stub" />;
   });

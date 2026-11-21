@@ -4,7 +4,10 @@ import { PageContainer } from '@ant-design/pro-components';
 import { Alert, App, Button, Card, Col, Row, Select, Space, Tabs, Tag, Typography } from 'antd';
 import { HistoryOutlined, ReloadOutlined, SendOutlined } from '@ant-design/icons';
 import { FormattedMessage, getLocale, history, useIntl, useLocation } from '@umijs/max';
-import { type SchemaFormRendererHandle } from '@/components/SchemaFormRenderer';
+import {
+  projectSubmitValues,
+  type SchemaFormRendererHandle,
+} from '@/components/SchemaFormRenderer';
 import {
   invokeFunction,
   listDescriptors,
@@ -214,7 +217,12 @@ export default function FunctionInvokePage() {
     try {
       payload =
         inputMode === 'form' && formState.status === 'ready'
-          ? (JSON.parse(JSON.stringify(formRef.current?.getValues() || formValues)) as JSONValue)
+          ? (JSON.parse(
+              JSON.stringify(
+                formRef.current?.getSubmitValues() ||
+                  projectSubmitValues(formValues, formState.spec),
+              ),
+            ) as JSONValue)
           : (JSON.parse(rawJson) as JSONValue);
       if (inputMode === 'form' && formState.status === 'ready' && !formRef.current?.validate())
         throw new Error(
