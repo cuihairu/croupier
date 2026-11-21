@@ -1322,9 +1322,12 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
 
 ## PowerOps 审核待办（2026-11-12）
 
-- [ ] **PWR-001 · P1 · 修复 · 审批后续行必须原子领取，避免重复执行**
+- [x] **PWR-001 · P1 · 修复 · 审批后续行必须原子领取，避免重复执行**
   - 依赖：—。交付与验收：把 pending→executing 改成数据库条件更新/CAS；仅一个并发 resume 能领取并启动 provider，其他请求收到稳定冲突；覆盖批准与 reject 竞争、并发 force_off/reboot 续行，断言副作用调用次数严格为 1。
-  - 状态／条件：已确认 `BeginResume` 存在 Get→状态检查→无条件 Save 的竞态（现 `internal/powerops/request.go:224-253`）；11-12 的真实 GormStore + 审批屏障测试已复现两次并发领取均成功；尚未修复。
+  - 状态／条件：LOCAL VERIFIED（2026-11-21，commit 9a1e64c79）：`RequestStore` 新增 `Transit(requestID, fromState, toState, startedAt) (bool, error)`——一条条件 UPDATE（`WHERE request_id=? AND state=fromState`，RowsAffected>0=胜者），GormStore 实现；`BeginResume` 与 `Reject` 的 pending→executing / pending→rejected 均改走 Transit，CAS 输家经 `claimConflict` 重读当前状态后返回 `ErrRequestNotPending`（API 既有映射 → 409 `power_state_conflict`，稳定冲突），绝不落到副作用。覆盖：并发 resume 双 racer（force_off/reboot × 5 轮）恰一人领取且 provider 动作计数严格 1、终态后再次 resume 仍冲突；批准与 reject 双向竞争（reject 先赢零副作用 / resume 先赢 reject 冲突且照常收敛）
+  - 验证：`go test ./internal/powerops/ -count=1 -race` ok（新增 `TestBeginResumeConcurrentClaimExecutesOnce`、`TestResumeRejectRaceSingleTransition`，均含副作用计数断言；变异自证：Transit 恒真时同测试红 `actual: 2` 复现双领取）；`go test ./internal/api/ops/` ok；`go build ./...` 0 错；`go vet` 干净；gofmt 干净；`bash scripts/dashboard_vnext_guard.sh` PASSED；`cd docs && CI=true pnpm build` 0 错；`pnpm --dir web run tsc` 0 错
+  - 完成证据：commit 9a1e64c79（5 文件，151 insertions / 9 deletions）；实现 `internal/powerops/request.go`（接口 `Transit`、`BeginResume`/`Reject` CAS、`claimConflict`）、`internal/powerops/store_gorm.go`（Transit 条件 UPDATE）；测试 `internal/powerops/request_test.go`（scriptedProvider 增 actionCalls 计数 + 2 个竞态用例）；文档 `docs/design/ops-power-management.md` 与 `docs/zh/design/ops-power-management.md`（`approved → executing` 补 CAS 领取语义）
+  - 已知边界：`go test ./internal/...` 首轮 7 包 `[build failed]` 为 go-build 缓存被并发清空的纯环境性故障（`no such file or directory`），模块缓存重建时 proxy.golang.org 又偶发 EOF，重试后 7 包全 `ok`（缓存补齐），非本改动回归；API 层稳定冲突映射复用既有 `mapPowerError`，未新增 API 用例（sentinel→409 已由 `TestPowerResume_Unapproved_409` 覆盖）
 
 - [ ] **PWR-002 · P1 · 修复 · Provider 动作增加独立超时和有界执行上下文**
   - 依赖：—。交付与验收：后台执行继续不受 HTTP 断连影响，但为每次电源动作及整体请求设置可配置上限；验证超时从实际动作结束后开始；用永不返回的 Provider/Runner 证明请求在上限内落为可观察失败，goroutine 不永久滞留。
