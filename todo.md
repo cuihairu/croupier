@@ -1726,9 +1726,12 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 完成证据：commit 1eb0085e3（2 文件，207 insertions / 30 deletions）；实现 `mobile/lib/features/analytics/analytics_controller.dart`（`_requestSeq` 过期丢弃 + `copyWith` `clearSummary`/`clearError` 显式置空），测试 `mobile/test/features/analytics/analytics_dashboard_page_test.dart`（AUD-003 组 3 用例 + `_ScopeStub`）。
   - 已知边界：请求取消采用序号丢弃而非实际中止网络请求——挂起的旧请求仍会到达服务端，仅其结果被丢弃；会话加载后的首个序号检查放在 `load()` 之后，若作用域恰在会话加载瞬间变化仍可能发一次旧作用域请求（结果被序号守卫丢弃，不写状态）；`ScopeController` 的网络持久化面由测试桩绕过，控制器对 scope 变化的反应是验证主体。
 
-- [ ] **AUD-004 · P2 · 修复 · Agent Stop 超时必须向服务管理器报告未完成**
+- [x] **AUD-004 · P2 · 修复 · Agent Stop 超时必须向服务管理器报告未完成**
   - 依赖：—。交付与验收：达到停止等待上限仍未收到 `done` 时返回可识别错误/超时，并记录 runner 未退出；区分正常退出、runner 错误退出和超时；覆盖 runner 卡住、正常完成及重复 Stop。
-  - 状态／条件：静态审核确认 `Stop` 等待 15 秒后无条件返回 nil（`cmd/sidecar-agent/service.go:163-175`），可能让服务管理器认定已停而后台 runner 仍继续运行；注释虽称兜底防卡死，但超时没有传播。
+  - 状态／条件：LOCAL VERIFIED（2026-11-21，commit f0dbadc44）：`croupierAgentService.Stop` 增加 `stopTimeout` 字段（构造默认 15s，测试注入短值）与 `runErr` 字段（Start 后台 goroutine 在 `close(done)` 前写入，Stop 收到 done 后读取，close/receive happens-before 保证无竞争）；三种结果区分——正常退出日志「已停止」返回 nil、runner 错误退出日志并 `fmt.Errorf("agent runner 以错误退出: %w", runErr)` 返回该错误、超时日志「后台 runner 在 %s 内未退出」并 `errors.New("agent 停止超时：后台 runner 未退出")`；kardianos systemd 的 `run()` 直接返回 `s.i.Stop(s)`，该错误经 `runServiceRun` 向上传播，服务管理器不再把卡死伪装成干净停机（`cmd/sidecar-agent/service.go`）。
+  - 验证：`go build ./...` 0 错；`go test ./cmd/sidecar-agent/ -count=1` 全绿（8.7s）；`go test ./internal/... -count=1` 172 包 0 FAIL；gofmt 干净；`bash scripts/dashboard_vnext_guard.sh` PASSED；变异自证：把 Stop 退回「select 后无条件 return nil」旧代码（含移除 errors import）→ `TestAgentServiceStop_Timeout` 与 `TestAgentServiceStart_RunAgentFailure` 如实红（超时伪装成功、runner 错误被吞），还原后全绿。
+  - 完成证据：commit f0dbadc44（3 文件，96 insertions / 10 deletions）；实现 `cmd/sidecar-agent/service.go`（`stopTimeout`/`runErr` 字段 + 三态 Stop），测试 `cmd/sidecar-agent/service_stop_test.go`（新：runner 卡住超时+重复 Stop、正常完成+重复 Stop）与 `cmd/sidecar-agent/service_test.go`（既有 `TestAgentServiceStart_RunAgentFailure` 契约更新：runner 错误退出时 Stop 返回该错误）。
+  - 已知边界：runner 卡住时 Stop 仅返回超时错误，进程不强杀后台 runner（`os.Exit` 等杀进程手段不在本项范围，kardianos 文档要求 Stop 内不调用 `os.Exit`）；超时默认 15s 为既有防卡死兜底值，本项未改动时长；`runErr` 仅记录 runAgent 返回的错误，Start 期间的 panic 等非返回路径不经过该字段。
 
 - [ ] **AUD-005 · P2 · 修复 · 同步六语言 Provider 鉴权能力矩阵与实现**
   - 依赖：—。交付与验收：复核六种官方 SDK 实际握手 metadata 注入与回归覆盖，更新单一事实矩阵及中英文引用页面；确保鉴权行不把已实现能力标成未实现，并补齐任何缺失语言实现。
