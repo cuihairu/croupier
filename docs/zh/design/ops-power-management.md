@@ -77,7 +77,7 @@ pending ──(approved)──▶ executing ──▶ verifying ──▶ done
 - `pending`：请求落库（请求表行，含目标快照 + 动作 + 原因 + 发起人）；建审批记录并回填（`ApprovalID`）。provision 先例：先持久化、再建审批、再回填。
 - `approved → executing`：审批通过；开始执行。pending → executing 的翻转是一次原子条件更新（CAS 领取，PWR-001）：并发 resume/reject 中只有一人完成迁移并启动 provider，落败方收到稳定 409（`power_state_conflict`），动作副作用绝不重复执行。逐机经 provider 尝试；每台机器行记录尝试时间、原始结果、错误。
 - `executing → verifying`：对有可观测效果的动作（power_on、reboot、power_off）轮询确认——BMC `power status`、云 provider 状态、或 agent 会话重连——直到截止（`powerops.verifyTimeout`，默认 120s，逐次退避）。
-- `done` / `partial` / `failed`：终态带逐机结果；`partial` 存在的理由：批量电源是唯一必须区分「部分机器回来了」与「全部回来了」的地方。
+- `done` / `partial` / `failed`：终态带逐机结果；`partial` 存在的理由：批量电源是唯一必须区分「部分机器回来了」与「全部回来了」的地方。头部计数（`succeeded`/`failed`）与终态聚合同一口径（PWR-004）：机器仅在「已确认」时计为成功——已验证，或该 provider 无法验证。「动作已发出」与「状态已验证」的区分保留在逐目标字段（`success` 与 `verified`）；动作全部发出但无一验证的请求落 `failed` 且 `failed=total`，绝不出现 `failed=0`。
 - 拒绝路径：审批拒绝 ⇒ 请求 `rejected`，什么都不执行。
 - 执行跑在 `context.WithoutCancel` 派生的后台 context（CR-FIX-22 纪律）：HTTP 客户端断开不得把请求卡在 `executing`。
 - 双层时间界（PWR-002）杜绝「永不返回的 provider 挂住请求」：每次 provider 调用——变更动作与状态轮询都算——都跑在 `powerops.actionTimeout`（默认 30s）之下，到点落为该机诚实失败行；整个执行（动作 + 验证）跑在 `powerops.requestTimeout`（默认 5m）之下，超时后请求收敛到可观察终态且 `errorMsg` 指名超出的界，绝不停在 `executing`/`verifying`。

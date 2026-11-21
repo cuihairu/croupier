@@ -634,16 +634,23 @@ func terminalState(a Action, targets []*model.PowerRequestTarget) string {
 }
 
 func (o *Orchestrator) finish(req *model.PowerRequest, targets []*model.PowerRequestTarget, state string) {
-	succeeded := 0
+	// PWR-004: header counters must use the SAME success definition as the
+	// terminal aggregation (terminalState) — a machine counts as succeeded only
+	// when confirmed (verified, or the provider cannot verify at all). Counting
+	// action-sent (Success) instead made a request where every action ran but
+	// none was verified land as state=failed with failed=0. The "action sent"
+	// vs "state verified" distinction stays expressed per-target (Success and
+	// Verified fields).
+	confirmed := 0
 	for _, t := range targets {
-		if t.Success {
-			succeeded++
+		if t.Success && (t.Verified || !verifiable(t.Provider)) {
+			confirmed++
 		}
 	}
 	now := o.now()
 	req.State = state
-	req.Succeeded = succeeded
-	req.Failed = len(targets) - succeeded
+	req.Succeeded = confirmed
+	req.Failed = len(targets) - confirmed
 	req.DoneAt = &now
 	req.UpdatedAt = now
 	if err := o.Store.Update(req); err != nil {

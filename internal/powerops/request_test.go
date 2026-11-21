@@ -497,6 +497,9 @@ func TestHungStatusCutByRequestBound(t *testing.T) {
 	assert.Contains(t, final.ErrorMsg, "overall bound")
 	assert.Less(t, elapsed, 2*time.Second,
 		"the verification loop must stop at the overall request bound")
+	// PWR-004: sent-but-never-verified stays failed with failed>0.
+	assert.Equal(t, 0, final.Succeeded)
+	assert.Equal(t, 1, final.Failed)
 
 	targets, err := h.store.Targets(req.RequestID)
 	require.NoError(t, err)
@@ -691,6 +694,12 @@ func TestVerifyTimeoutKeepsUnverifiedHonest(t *testing.T) {
 	require.NoError(t, err)
 	final := awaitTerminal(t, h.store, req.RequestID)
 	assert.Equal(t, StateFailed, final.State)
+	// PWR-004: header counters share the terminal aggregation definition — an
+	// action that ran but was never verified is not a success (old defect:
+	// state=failed with failed=0).
+	assert.Equal(t, 0, final.Succeeded, "an unverified machine is not a success")
+	assert.Equal(t, 1, final.Failed, "must not land state=failed with failed=0")
+	assert.Equal(t, final.Total, final.Succeeded+final.Failed)
 	targets, _ := h.store.Targets(req.RequestID)
 	require.Len(t, targets, 1)
 	assert.True(t, targets[0].Success, "the action itself did run")
@@ -719,6 +728,10 @@ func TestWOLWakeIsSuccessButNeverVerified(t *testing.T) {
 	// WOL is unverifiable by design: the packet sent counts as success, the
 	// machine stays unverified, and the terminal state is done (design §3).
 	assert.Equal(t, StateDone, final.State)
+	// PWR-004: an unverifiable provider counts as confirmed (its definition of
+	// success), so the header is done with all succeeded.
+	assert.Equal(t, 1, final.Succeeded)
+	assert.Equal(t, 0, final.Failed)
 	targets, _ := store.Targets(req.RequestID)
 	require.Len(t, targets, 1)
 	assert.True(t, targets[0].Success)
