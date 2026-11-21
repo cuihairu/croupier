@@ -81,8 +81,12 @@ func (s *ExternalService) CheckRateLimit(ctx context.Context, name string) error
 }
 
 // RegisterIncident 外部登记事故：复用 incSvc.CreateIncident，Source=external，
-// CreatedBy=ext:<tokenName>，IncidentKey=idempotencyKey。
+// CreatedBy=ext:<tokenName>，IncidentKey=idempotencyKey。写入前按 token 的
+// game/env 允许面强校验（AUD-036）。
 func (s *ExternalService) RegisterIncident(ctx context.Context, req *CreateIncidentFromExternalRequest, token *model.ExternalToken, idempotencyKey string) (*IncidentDTO, bool, error) {
+	if err := s.checkScopeWrite(token, req.GameID, req.Env); err != nil {
+		return nil, false, err
+	}
 	incidentReq := &IncidentCreateRequest{
 		Title:           req.Title,
 		CategoryID:      req.CategoryID,
@@ -115,14 +119,32 @@ func (s *ExternalService) RegisterIncident(ctx context.Context, req *CreateIncid
 
 // ListIncidents 外部事故查询，按 token scope 限可见面：无过滤条件时行级
 // 收窄到 scope 类别集；显式查询 scope 外类别直接返回空（不降级为全量）。
+// AUD-036：同时按 token 的 game/env 允许面强制 SQL 过滤——允许面非空时
+// 显式查面外 game/env 直接返回空，无过滤条件则按允许面收窄。
 func (s *ExternalService) ListIncidents(ctx context.Context, opts model.IncidentQueryOptions, token *model.ExternalToken) (*IncidentListResponse, error) {
 	allowed := s.scopeMap(token)
+	games := token.ScopeGameIDs()
+	envs := token.ScopeEnvs()
 	sqlFilter := opts
 	if len(allowed) > 0 && opts.CategoryID != 0 {
 		cat, err := model.NewIncidentCategoryModel(s.svcCtx.DB).Get(ctx, opts.CategoryID)
 		if err == nil && !allowed[cat.Slug] {
 			return &IncidentListResponse{Items: []IncidentDTO{}}, nil
 		}
+	}
+	// 显式查询允许面外的 game/env → 空（不降级为全量）。
+	if len(games) > 0 && opts.GameID != "" && !containsString(games, opts.GameID) {
+		return &IncidentListResponse{Items: []IncidentDTO{}}, nil
+	}
+	if len(envs) > 0 && opts.Env != "" && !containsString(envs, opts.Env) {
+		return &IncidentListResponse{Items: []IncidentDTO{}}, nil
+	}
+	// 允许面非空 → 强制收窄到允许面（SQL 级，Total 同步收窄）。
+	if len(games) > 0 {
+		sqlFilter.GameIDs = games
+	}
+	if len(envs) > 0 {
+		sqlFilter.Envs = envs
 	}
 	sqlFilter.Normalize()
 	rows, total, err := model.NewIncidentModel(s.svcCtx.DB).List(ctx, sqlFilter)
@@ -148,13 +170,45 @@ func (s *ExternalService) ListIncidents(ctx context.Context, opts model.Incident
 	return &IncidentListResponse{Items: items, Total: total}, nil
 }
 
-// CreateBug 外部注册 bug：透传至 bug.Service.Create。
+// CreateBug 外部注册 bug：透传至 bug.Service.Create。写入前按 token 的
+// game/env 允许面强校验（AUD-036）。
 func (s *ExternalService) CreateBug(ctx context.Context, req *bug.BugCreateRequest, token *model.ExternalToken) (*bug.Bug, error) {
+	if err := s.checkScopeWrite(token, req.GameID, req.Env); err != nil {
+		return nil, err
+	}
 	resp, err := s.bugSvc.Create(ctx, req)
 	if err != nil {
 		return nil, err
 	}
 	return &resp.Bug, nil
+}
+
+// checkScopeWrite 校验写入目标 game/env 落在 token 允许面内（AUD-036）。
+// 允许面为空 = 不限（向后兼容，行为与现状一致）；允许面非空时目标缺省
+// 或落在面外 → 403（缺省无法证明在面内，拒绝而非回落全局）。
+func (s *ExternalService) checkScopeWrite(token *model.ExternalToken, gameID, env string) error {
+	if token == nil {
+		return nil
+	}
+	games := token.ScopeGameIDs()
+	envs := token.ScopeEnvs()
+	if len(games) > 0 && (gameID == "" || !containsString(games, gameID)) {
+		return errorx.NewForbidden("该令牌不允许写入此游戏")
+	}
+	if len(envs) > 0 && (env == "" || !containsString(envs, env)) {
+		return errorx.NewForbidden("该令牌不允许写入此环境")
+	}
+	return nil
+}
+
+// containsString 判断 val 是否在 slice 中。
+func containsString(slice []string, val string) bool {
+	for _, v := range slice {
+		if v == val {
+			return true
+		}
+	}
+	return false
 }
 
 // scopeMap 把 token scope 的 categories 转成集合；空 scope 返回空 map（全量）。

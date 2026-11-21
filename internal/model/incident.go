@@ -99,8 +99,12 @@ type IncidentQueryOptions struct {
 	ResponsibleID   string
 	GameID          string
 	Env             string
-	From            *time.Time
-	To              *time.Time
+	// GameIDs/Envs 是集合过滤（AUD-036 token game/env 允许面）：非空时按
+	// IN 过滤，与 GameID/Env 单值并存（单值优先于集合，见 List）。
+	GameIDs []string
+	Envs    []string
+	From    *time.Time
+	To      *time.Time
 }
 
 // IncidentModel 提供 incidents 的数据访问。
@@ -168,6 +172,12 @@ func (m *IncidentModel) List(ctx context.Context, opts IncidentQueryOptions) ([]
 	}
 	if opts.Env != "" {
 		query = query.Where("env = ?", opts.Env)
+	}
+	if len(opts.GameIDs) > 0 {
+		query = query.Where("game_id IN ?", opts.GameIDs)
+	}
+	if len(opts.Envs) > 0 {
+		query = query.Where("env IN ?", opts.Envs)
 	}
 	if opts.From != nil {
 		query = query.Where("detected_at >= ?", *opts.From)

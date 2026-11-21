@@ -41,16 +41,20 @@ const (
 
 // ExternalToken 对外 REST API 调用令牌（§9）：sha256 哈希存库、明文只在
 // 创建响应返回一次；scope 限可见面（categories 为空 = 全量），GET 过滤与
-// webhook 事件推送共用同一收窄口径。
+// webhook 事件推送共用同一收窄口径。GameAllowlist/EnvAllowlist 是 AUD-036
+// 加的 game/env 允许面：null/空数组 = 不限（与 categories 空=全量同口径）；
+// 非空时签发（写）与查询（读）都强制落在允许面内。
 type ExternalToken struct {
 	gorm.Model
 	Name string `gorm:"size:64;not null;uniqueIndex"` // 调用方标识（审计/限流维度）
 	// TokenHash sha256(token) 十六进制（64 字符定长），uniqueIndex 支持按哈希反查校验。
-	TokenHash  string `gorm:"size:64;not null;uniqueIndex"`
-	Scope      JSON   `gorm:"type:json"` // {categories:[slug...]}；null=全量
-	Enabled    bool   `gorm:"default:true"`
-	LastUsedAt *time.Time
-	CreatedBy  string `gorm:"size:64"`
+	TokenHash     string `gorm:"size:64;not null;uniqueIndex"`
+	Scope         JSON   `gorm:"type:json"` // {categories:[slug...]}；null=全量
+	GameAllowlist JSON   `gorm:"type:json"` // ["game-a","game-b"]；null/空=全量
+	EnvAllowlist  JSON   `gorm:"type:json"` // ["prod","staging"]；null/空=全量
+	Enabled       bool   `gorm:"default:true"`
+	LastUsedAt    *time.Time
+	CreatedBy     string `gorm:"size:64"`
 }
 
 func (ExternalToken) TableName() string { return "external_tokens" }

@@ -182,6 +182,8 @@ func (h *ExternalHandler) CreateToken(c *gin.Context) {
 		if merr == nil {
 			row.Scope = model.JSON(b)
 		}
+		row.GameAllowlist = stringSliceJSON(scopeStrings(req.Scope, "gameIds"))
+		row.EnvAllowlist = stringSliceJSON(scopeStrings(req.Scope, "envs"))
 	}
 	if err := h.svc.tokenMod.Create(ctx, row); err != nil {
 		response.Error(c, err)
@@ -231,6 +233,11 @@ func (h *ExternalHandler) UpdateToken(c *gin.Context) {
 		if merr == nil {
 			updates["scope"] = model.JSON(b)
 		}
+		// game/env 允许面随 scope 整体替换（与 scope 一致的整对象语义）：
+		// 新 scope 未带 gameIds/envs 则清空（不限）——nil 值必须是无类型 nil
+		// （GORM Updates map 会跳过 []byte 零值，只有 interface nil 才落 NULL）。
+		updates["game_allowlist"] = allowlistColumnValue(scopeStrings(*req.Scope, "gameIds"))
+		updates["env_allowlist"] = allowlistColumnValue(scopeStrings(*req.Scope, "envs"))
 	}
 	if len(updates) == 0 {
 		response.Error(c, errorx.NewBadRequest("无可更新字段"))
@@ -319,12 +326,67 @@ func externalTokenDTO(row *model.ExternalToken) ExternalTokenDTO {
 		CreatedAt:  row.CreatedAt,
 		UpdatedAt:  row.UpdatedAt,
 	}
+	scope := map[string]interface{}{}
 	if len(row.Scope) > 0 {
-		var scope map[string]interface{}
-		json.Unmarshal(row.Scope, &scope)
+		var sc map[string]interface{}
+		if json.Unmarshal(row.Scope, &sc) == nil && sc != nil {
+			scope = sc
+		}
+	}
+	// AUD-036：允许面单独列，回读时并入 scope 响应便于客户端感知约束。
+	if games := row.ScopeGameIDs(); len(games) > 0 {
+		scope["gameIds"] = games
+	}
+	if envs := row.ScopeEnvs(); len(envs) > 0 {
+		scope["envs"] = envs
+	}
+	if len(scope) > 0 {
 		dto.Scope = scope
 	}
 	return dto
+}
+
+// scopeStrings 从 scope map 提取 string 数组键（AUD-036 gameIds/envs）。
+// 类型不符、空串跳过；缺失返回 nil。
+func scopeStrings(m map[string]interface{}, key string) []string {
+	raw, ok := m[key].([]interface{})
+	if !ok {
+		return nil
+	}
+	out := make([]string, 0, len(raw))
+	for _, v := range raw {
+		if s, ok := v.(string); ok {
+			if s = strings.TrimSpace(s); s != "" {
+				out = append(out, s)
+			}
+		}
+	}
+	return out
+}
+
+// stringSliceJSON 序列化 string 切片为 model.JSON；空返回 nil。
+func stringSliceJSON(in []string) model.JSON {
+	if len(in) == 0 {
+		return nil
+	}
+	b, err := json.Marshal(in)
+	if err != nil {
+		return nil
+	}
+	return model.JSON(b)
+}
+
+// allowlistColumnValue 生成允许面列更新值：空 → 无类型 nil（GORM 落 NULL），
+// 非空 → model.JSON 数组。
+func allowlistColumnValue(in []string) interface{} {
+	if len(in) == 0 {
+		return nil
+	}
+	b, err := json.Marshal(in)
+	if err != nil {
+		return nil
+	}
+	return model.JSON(b)
 }
 
 func contextWithUsername(ctx context.Context, name string) context.Context {

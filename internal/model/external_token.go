@@ -94,3 +94,37 @@ func (t *ExternalToken) ScopeCategories() []string {
 	}
 	return sc.Categories
 }
+
+// parseAllowlist 解析 game/env 允许面列：空字节、空数组、坏 JSON 一律视为
+// 「不限」（nil，调用方按全量处理）。返回 nil 表示未限制。
+func parseAllowlist(raw JSON) []string {
+	if len(raw) == 0 {
+		return nil
+	}
+	var out []string
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return nil
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+// ScopeGameIDs 解析 game 允许面（AUD-036）：null/空=不限（nil）；nil 接收者
+// 亦返回 nil（ListIncidents 允许 nil token 触发 DB 错误路径的既有契约）。
+func (t *ExternalToken) ScopeGameIDs() []string {
+	if t == nil {
+		return nil
+	}
+	return parseAllowlist(t.GameAllowlist)
+}
+
+// ScopeEnvs 解析 env 允许面（AUD-036）：null/空=不限（nil）；nil 接收者
+// 亦返回 nil（同 ScopeGameIDs）。
+func (t *ExternalToken) ScopeEnvs() []string {
+	if t == nil {
+		return nil
+	}
+	return parseAllowlist(t.EnvAllowlist)
+}

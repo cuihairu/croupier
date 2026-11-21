@@ -151,6 +151,40 @@ func migrateReportDistribution(ctx context.Context, sqlDB *sql.DB) error {
 	return nil
 }
 
+// externalTokenScopeColumnsMigration 为 0066：外部 incident token 绑定
+// game/env 允许面（AUD-036）——external_tokens 加 game_allowlist/env_allowlist
+// 两列（JSON 数组）。存量行两列 NULL = 不限，行为与现状一致（向后兼容）；
+// AddColumn 补列模式（0025/0043/0053）；缺表跳过（fanout 重放到无该表的
+// 库不报错、不建空壳）。
+func externalTokenScopeColumnsMigration() *goose.Migration {
+	return goose.NewGoMigration(66,
+		&goose.GoFunc{RunDB: migrateExternalTokenScopeColumns},
+		nil,
+	)
+}
+
+// migrateExternalTokenScopeColumns 是 0066 的迁移体（抽出便于直测）。
+func migrateExternalTokenScopeColumns(ctx context.Context, sqlDB *sql.DB) error {
+	_ = ctx
+	db, err := wrapGorm(sqlDB)
+	if err != nil {
+		return err
+	}
+	// 缺表的库（multiGame fanout 重放到 game 库）整段跳过：不建空壳
+	if !db.Migrator().HasTable(&model.ExternalToken{}) {
+		return nil
+	}
+	m := db.Migrator()
+	for _, col := range []string{"GameAllowlist", "EnvAllowlist"} {
+		if !m.HasColumn(&model.ExternalToken{}, col) {
+			if err := m.AddColumn(&model.ExternalToken{}, col); err != nil {
+				return fmt.Errorf("migrate: 0066 add external_tokens.%s: %w", col, err)
+			}
+		}
+	}
+	return nil
+}
+
 func provisionRunsTableMigration() *goose.Migration {
 	return goose.NewGoMigration(52,
 		&goose.GoFunc{RunDB: migrateProvisionRunsTable},
