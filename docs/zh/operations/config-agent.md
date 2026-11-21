@@ -50,7 +50,7 @@ tag:
 
 ### tls（本地 `:19091` 监听的入站 TLS）
 
-`tls.enabled / certFile / keyFile / caFile / insecureSkipVerify`——加密 SDK Provider 拨入 Agent 本地网关的连接；TLS 位于分帧之下，线上协议不变。`enabled: true` 时 `certFile` + `keyFile` 必填（缺失 → 启动即报错）；配置 `caFile` 即启用双向 TLS（Provider 必须出示 CA 签发的客户端证书）。单连接握手失败只断该连接（记 warning），不影响 Accept 循环与其他会话。SDK 侧需要 TLS 拨号选项（六语言 SDK 正在逐一跟进；在那之前保持 `enabled: false`）。
+`tls.enabled / certFile / keyFile / caFile / insecureSkipVerify`——加密 SDK Provider 拨入 Agent 本地网关的连接；TLS 位于分帧之下，线上协议不变。`enabled: true` 时 `certFile` + `keyFile` 必填（缺失 → 启动即报错）；配置 `caFile` 即启用双向 TLS（Provider 必须出示 CA 签发的客户端证书）。单连接握手失败只断该连接（记 warning），不影响 Accept 循环与其他会话。SDK 侧需要 TLS 拨号选项（六语言 SDK 正在逐一跟进；在那之前保持 `enabled: false`）。**`agent.providerAuth.require: true` 时本监听必须启用 TLS（除非只绑 loopback）**：`enabled: false` 下手握令牌会经明文链路跨网络（同网段可监听并重放），该组合启动即被拒绝；只绑 loopback（开发默认）仍可保持 `enabled: false`。
 
 ### outboundTLS（Agent → 本地 Provider 出站调用链的 TLS）
 

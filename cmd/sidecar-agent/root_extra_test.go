@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/core/transport/tcp"
+	"github.com/cuihairu/croupier/internal/devcert"
 	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
@@ -726,4 +727,94 @@ outboundTLS:
 	assert.Equal(t, "/c.pem", cfg.TLS.CertFile)
 	assert.True(t, cfg.OutboundTLS.Enabled)
 	assert.Equal(t, "/ca.pem", cfg.OutboundTLS.CAFile)
+}
+
+// TestIsLoopbackAddr（AUD-001）：绑定地址的 loopback 判定——只有回环主机/
+// IP 才算，空 host（全接口）与任意网卡地址都不是。
+func TestIsLoopbackAddr(t *testing.T) {
+	cases := []struct {
+		addr string
+		want bool
+	}{
+		{"127.0.0.1:19091", true},
+		{"127.0.0.1", true},
+		{"localhost:19091", true},
+		{"[::1]:19091", true},
+		{"::1", true},
+		{"0.0.0.0:19091", false},
+		{":19091", false},
+		{"192.168.1.10:19091", false},
+		{"agent:19091", false},
+		{"", false},
+	}
+	for _, tc := range cases {
+		if got := isLoopbackAddr(tc.addr); got != tc.want {
+			t.Errorf("isLoopbackAddr(%q)=%v want %v", tc.addr, got, tc.want)
+		}
+	}
+}
+
+// TestStartAgentCore_ProviderAuthCleartextGuard（AUD-001）：providerAuth.require
+// =true 且本地 listener 绑非 loopback 且 agent.tls 关闭 → 启动即阻断（令牌经
+// 明文链路可被监听重放，不是注释提醒）；loopback 绑定或已启用 TLS 的等价
+// 配置保持可用。
+func TestStartAgentCore_ProviderAuthCleartextGuard(t *testing.T) {
+	saveRootGlobals(t)
+	dir := t.TempDir()
+	cfgFile = filepath.Join(dir, "agent.yaml")
+
+	// TLS 开启分支会加载真实证书（startAgentCore 校验 cert 文件），故为该
+	// 分支生成一对可用的 dev 证书。
+	caCrt, caKey, err := devcert.EnsureDevCA(dir)
+	require.NoError(t, err)
+	srvCrt, srvKey, err := devcert.EnsureServerCert(dir, caCrt, caKey, []string{"localhost"})
+	require.NoError(t, err)
+
+	auth := AgentProviderAuthConfig{Require: true, Token: "secret"}
+
+	cases := []struct {
+		name    string
+		cfg     AgentConfig
+		wantErr string
+	}{
+		{
+			name: "非 loopback + TLS 关闭 → 启动阻断",
+			cfg: AgentConfig{
+				Server: AgentServerConfig{Insecure: true},
+				Agent:  AgentInfoConfig{GameID: "g", Env: "e", LocalAddr: "0.0.0.0:19091", ProviderAuth: auth},
+			},
+			wantErr: "cleartext (replayable)",
+		},
+		{
+			name: "loopback + TLS 关闭 → 可用",
+			cfg: AgentConfig{
+				Server: AgentServerConfig{Insecure: true},
+				Agent:  AgentInfoConfig{GameID: "g", Env: "e", LocalAddr: "127.0.0.1:0", ProviderAuth: auth},
+			},
+			wantErr: "",
+		},
+		{
+			name: "非 loopback + TLS 开启 → 可用",
+			cfg: AgentConfig{
+				Server: AgentServerConfig{Insecure: true},
+				Agent:  AgentInfoConfig{GameID: "g", Env: "e", LocalAddr: "0.0.0.0:0", ProviderAuth: auth},
+				TLS:    AgentTLSConfig{Enabled: true, CertFile: srvCrt, KeyFile: srvKey},
+			},
+			wantErr: "",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			core, _, _, err := startAgentCore(context.Background(), &tc.cfg, dir, nil, "test-agent")
+			if tc.wantErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tc.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			require.NotNil(t, core)
+			core.Stop()
+		})
+	}
 }

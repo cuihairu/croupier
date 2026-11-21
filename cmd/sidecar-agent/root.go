@@ -576,6 +576,25 @@ func runAgent() (retErr error) {
 	}
 }
 
+// isLoopbackAddr reports whether a bind address only binds loopback, so a
+// credential sent to it never crosses a network interface (AUD-001). An empty
+// host ("":port) binds all interfaces and is therefore not loopback.
+func isLoopbackAddr(addr string) bool {
+	host := addr
+	if h, _, err := net.SplitHostPort(addr); err == nil {
+		host = h
+	}
+	host = strings.Trim(host, "[]")
+	switch host {
+	case "":
+		return false
+	case "localhost", "localhost.localdomain":
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
+}
+
 func startAgentCore(ctx context.Context, c *AgentConfig, configDir string, rec otelrec.Recorder, agentID string) (*agentcore.App, string, <-chan error, error) {
 	if c == nil {
 		return nil, "", nil, fmt.Errorf("missing config")
@@ -643,6 +662,13 @@ func startAgentCore(ctx context.Context, c *AgentConfig, configDir string, rec o
 	if providerAuth.Require && providerAuth.Token == "" {
 		return nil, "", nil, fmt.Errorf(
 			"agent.providerAuth.require=true but providerAuth.token is empty: every provider handshake would be rejected (fail-closed); configure a token or disable require")
+	}
+	// AUD-001：require=true 时把手握令牌与传输保密绑定。本地 listener 绑到
+	// 非 loopback 且 agent.tls 关闭时，令牌经明文链路可被同网段监听并重放，
+	// 启动即阻断（不可忽略的配置错误，不是注释提醒）；loopback 开发配置仍可用。
+	if providerAuth.Require && !c.TLS.Enabled && !isLoopbackAddr(localAddr) {
+		return nil, "", nil, fmt.Errorf(
+			"agent.providerAuth.require=true but agent.tls.enabled=false and local listener %q binds non-loopback: the provider handshake token would cross the network in cleartext (replayable); enable agent.tls (certFile+keyFile) or bind only loopback", localAddr)
 	}
 	core.SetProviderAuth(providerAuth.Require, providerAuth.Token)
 	core.WithUpstreamMetadata(agentcore.UpstreamMetadata{
