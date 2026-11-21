@@ -34,7 +34,11 @@ jobs:
           channel: stable
           flutter-version: 3.35.1
           cache: true
-      - run: flutter pub get
+      # AUD-006：锁文件必须与 CI 工具链（Flutter 3.35.1 / Dart 3.9）一致。
+      # --enforce-lockfile 在 pubspec.lock 与 pubspec.yaml/当前 SDK 不一致时
+      # 直接失败（不再静默重解析改写），把本地新版 Flutter 重解析出的
+      # Dart >=3.11 锁文件挡在合并外。
+      - run: flutter pub get --enforce-lockfile
       - run: dart format --set-exit-if-changed --output=none .
       - run: flutter analyze
       - run: flutter test --coverage
@@ -88,7 +92,7 @@ jobs:
           channel: stable
           flutter-version: 3.35.1
           cache: true
-      - run: flutter pub get
+      - run: flutter pub get --enforce-lockfile
       - run: flutter build apk --release
       - uses: actions/upload-artifact@v7.0.2
         with:
