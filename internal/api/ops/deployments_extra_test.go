@@ -260,15 +260,15 @@ func TestDeployServiceRollbackBranches(t *testing.T) {
 	_, err = s.DeploymentRollback(ctx, "r1", &DeploymentRollbackRequest{RollbackPackageID: "pkg-missing"})
 	require.ErrorContains(t, err, "回滚包不存在")
 
-	// 无待回滚目标（全 pending）→ 空转成功
-	rolled, err := s.DeploymentRollback(ctx, "r1", &DeploymentRollbackRequest{RollbackPackageID: "p1"})
-	require.NoError(t, err)
-	require.Equal(t, model.DeploymentStateRolledBack, rolled.Deployment.State)
+	// 无待回滚目标（空/全 pending）→ 不得虚报 rolled_back（AUD-023：零目标
+	// 操作显式报错；此前的「空转成功」断言即缺陷钉，修复后改为断言拒绝）。
+	_, err = s.DeploymentRollback(ctx, "r1", &DeploymentRollbackRequest{RollbackPackageID: "p1"})
+	require.ErrorContains(t, err, "nothing to rollback")
 
 	// 目标 healthy + apply 成功 → rolled back
 	seedDeployment(t, s, "r2", "p1",
 		model.DeploymentTarget{AgentID: "a1", Batch: 1, State: model.DeploymentTargetHealthy})
-	rolled, err = s.DeploymentRollback(ctx, "r2", &DeploymentRollbackRequest{RollbackPackageID: "p1"})
+	rolled, err := s.DeploymentRollback(ctx, "r2", &DeploymentRollbackRequest{RollbackPackageID: "p1"})
 	require.NoError(t, err)
 	require.Equal(t, model.DeploymentStateRolledBack, rolled.Deployment.State)
 

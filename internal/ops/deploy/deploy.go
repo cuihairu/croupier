@@ -233,13 +233,21 @@ func (o *Orchestrator) Advance(ctx context.Context, d *model.Deployment, pkg *mo
 // Rollback 指回上一版本重放：把目标机恢复为上一指纹（由调用方传入 oldFingerprint
 // 包），本编排只标记回滚状态并逐机调用 ApplyUpdate。
 func (o *Orchestrator) Rollback(ctx context.Context, d *model.Deployment, pkg *model.DeployPackage) (*model.Deployment, error) {
+	// AUD-023：正在发版（deploying）不得回滚——发版单尚未收敛，在途批次推进
+	// 与回滚互斥；目标机中间态（pending/deploying）也不可回滚。由调用方在
+	// 发版结束后（complete/paused/failed）重试。
+	if d.State == model.DeploymentStateDeploying {
+		return d, fmt.Errorf("deploy: cannot rollback while state is %s", d.State)
+	}
 	targets := decodeTargets(d.TargetsJSON)
 	var rollbackErr error
+	operated := 0
 	for i := range targets {
 		t := &targets[i]
 		if t.State != model.DeploymentTargetHealthy && t.State != model.DeploymentTargetFailed {
 			continue
 		}
+		operated++
 		staged, err := o.agent.StagePackage(ctx, t.AgentID, pkg)
 		if err != nil {
 			t.Message = "rollback stage: " + err.Error()
@@ -259,6 +267,12 @@ func (o *Orchestrator) Rollback(ctx context.Context, d *model.Deployment, pkg *m
 		t.State = model.DeploymentTargetRolledBack
 		t.Message = "rolled back to " + pkg.Version
 		t.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
+	}
+	// AUD-023：零目标操作不得虚报整体 RolledBack——要么全部目标已是回滚态
+	// （重复回滚），要么无已应用/已失败目标（无可回滚内容）。此时保持原状态
+	// 并显式报错，绝不写 rolled_back。
+	if operated == 0 {
+		return d, errors.New("deploy: nothing to rollback (no healthy/failed targets)")
 	}
 	if rollbackErr != nil {
 		// 部分/全部目标回滚失败：不得虚报整体 RolledBack。
