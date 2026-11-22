@@ -2021,9 +2021,12 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - `go test ./internal/ops/... -count=1` 全绿、`go test ./internal/... -count=1` 全量 **SUITE_EXIT=0**、`go build ./...`、`go vet ./internal/ops/deploy/...`、`gofmt -l` 清洁。既有 `TestRollback_SkipsPendingTargets`（paused 混合目标回滚单目标）与 `TestRollback_ApplyError`（rollback_failed）不受影响。LOCAL VERIFIED。
   - 已知边界：拒绝经既有 `response.Error` 路径上抛（与 Start 的 `cannot start from state` 同型，统一错误映射），未新增独立 409 映射。paused/failed/rollback_failed（重试失败回滚）仍可回滚，属预期语义。
 
-- [ ] **AUD-024 · P2 · 修复 · Runbook 后台恢复循环按服务生命周期共享并关闭**
+- [x] **AUD-024 · P2 · 修复 · Runbook 后台恢复循环按服务生命周期共享并关闭**（commit 80ddfaa66）
   - 依赖：—。交付与验收：终态写入失败重试不应每请求遗留一个后台 worker；写入恢复和服务退出后可正确释放。
   - 状态／条件：ops/runbooks.go:90-101 每请求 runbook.New，runbook.go:398 启动各自 recoveryLoop，405-447 永久等待 wake；所谓共享仅在单个临时编排器内成立。静态跨文件确认，未声称有实际内存泄漏测量。
+  - 修复：(1) `internal/ops/runbook/runbook.go` 的循环类型导出为 `RecoveryLoop` 并加停止面——`NewRecoveryLoop(store)` 构造、`Stop()` 关闭 `stopped` 并等待后台 goroutine 退出（`done`），`loop()` 三处 `<-wake`/退避等待改 `select` 可被 `stopped` 中断；新增 `Orchestrator.WithRecovery(*RecoveryLoop)` 让编排器复用外部共享循环。(2) `internal/svc/service_context.go` 新增 `RegisterCloser`，`Close()` 在释放连接池**之前**先调用全部注册清理函数。(3) `internal/api/ops/runbooks.go` `runbookOrchestrator` 改按服务生命周期共享单实例——`runbookRecoveryOnce` 首次调用建循环并 `RegisterCloser(Stop)`，后续请求 `.WithRecovery(共享循环)` 复用，不再每请求各自启动永不退出的 worker。
+  - 验证：新增 `internal/ops/runbook/recovery_stop_test.go`——`TestRecoveryLoop_StopReleasesWorker`（恒失败 store 驱动循环进退避，Stop 等待 done 收敛，修复前临时回退 loop 为非中断 `<-wake` 复现「Stop 未释放恢复后台 goroutine」）、`TestRecoveryLoop_StopWithoutStartNoBlock`（未启动循环 Stop 不阻塞）、`TestRecoveryLoop_StopIdempotent`、`TestOrchestrator_WithRecoverySharesLoop`（多编排器复用同一循环指针）。新增 `internal/api/ops/runbooks_recovery_test.go`——`TestService_RunbookOrchestratorSharesRecoveryLoop`（两次构造复用同一共享循环，修复前临时回退 per-request New 复现「首次构造必须创建共享恢复循环」）、`TestService_CloseStopsRunbookRecoveryLoop`（Close 触发注册的 Stop）。新增 `internal/svc/service_context_closer_test.go`——`TestServiceContext_CloseRunsRegisteredClosers`（Close 调用全部 closer 且幂等）、`RegisterCloserNilSafe`。`go test ./internal/ops/runbook/... ./internal/svc/... ./internal/api/ops/... -count=1` 全绿、`go build ./...`、`go vet`、`gofmt -l` 清洁。LOCAL VERIFIED。
+  - 已知边界：`Stop()` 不冲刷残余 pending（未及写入的终态由下次启动 `RecoverStaleRunbookRuns` 收敛，避免关闭竞态中依赖正在释放的 DB 池）。默认 `runbook.New` 仍自带独立循环（库语义不变）；生产服务路径经 `runbookOrchestrator` 注入共享循环。每 ops Service 实例一个共享循环（启动期固定少数实例，非每请求）。
 
 - [ ] **AUD-025 · P2 · 修复 · Runbook 启动宽限内的遗留运行需要后续恢复机会**
   - 依赖：—。交付与验收：重启时不足 24 小时的遗留 running 行，超过宽限后仍能巡检收敛；不能误收另一实例的活跃运行。
