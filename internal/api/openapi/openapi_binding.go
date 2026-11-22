@@ -101,11 +101,12 @@ func (s *Service) functionMetaInputForBinding(
 	runtimeMeta reg.FunctionMeta,
 ) dashboardservice.FunctionMetaInput {
 	openAPIOp := openAPIOperationFromSource(source, operation.OperationID)
-	inputSchema := openAPIRequestSchemaWithRoot(openAPIOp, sourceSpecRoot(source))
+	specRoot := sourceSpecRoot(source)
+	inputSchema := openAPIRequestSchemaWithRoot(openAPIOp, specRoot)
 	if inputSchema == "" {
 		inputSchema = strings.TrimSpace(runtimeMeta.InputSchema)
 	}
-	outputSchema := openAPIResponseSchema(openAPIOp)
+	outputSchema := openAPIResponseSchemaWithRoot(openAPIOp, specRoot)
 	if outputSchema == "" {
 		outputSchema = strings.TrimSpace(runtimeMeta.OutputSchema)
 	}
@@ -263,7 +264,7 @@ func (s *Service) functionMetaInputForOperation(
 		Summary:           firstNonEmpty(operation.Summary, operation.OperationID),
 		Description:       operation.Description,
 		InputSchema:       openAPIRequestSchemaWithRoot(openAPIOp, sourceSpecRoot(source)),
-		OutputSchema:      openAPIResponseSchema(openAPIOp),
+		OutputSchema:      openAPIResponseSchemaWithRoot(openAPIOp, sourceSpecRoot(source)),
 		Resource:          strings.TrimSpace(operation.Resource),
 		Operation:         strings.TrimSpace(operation.Operation),
 		Capability:        strings.TrimSpace(string(operation.Capability)),

@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/cuihairu/croupier/internal/dashboard/spec"
 	"github.com/santhosh-tekuri/jsonschema/v6"
 )
 
@@ -71,6 +72,9 @@ func extractOutputSchema(methodObj, root map[string]interface{}) string {
 		if !ok {
 			continue
 		}
+		// SUI-009：输出 schema 与输入同机归一（3.0 nullable / 3.1 联合类型），
+		// 否则响应校验器（jsonschema Draft 7）不认 `nullable`、会拒合法 null。
+		resolved = spec.NormalizeSchemaDialect(resolved, spec.DetectSchemaDialect(root), nil)
 		// Input originates from json.Unmarshal output, so Marshal cannot
 		// fail (same shape as the spec merge in parseOpenAPISpec).
 		encoded, _ := json.Marshal(resolved)

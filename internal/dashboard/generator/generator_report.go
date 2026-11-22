@@ -400,8 +400,28 @@ func schemaRootType(outputSchema spec.JSONSchema) string {
 	return schemaTypeFromObject(parseJSONObject(jsonRaw(outputSchema)))
 }
 
+// schemaTypeFromObject 返回 schema 的主类型。与前端 primarySchemaType 一致
+// （SUI-009 判定一致）：单类型原样返回；3.1 `type` 数组取首个非 null 主
+// 类型（归一后 "null" 恒在末位），全部为 null 返回 "null"。
 func schemaTypeFromObject(obj map[string]json.RawMessage) string {
-	return rawString(obj["type"])
+	raw := obj["type"]
+	if len(raw) == 0 {
+		return ""
+	}
+	var single string
+	if err := json.Unmarshal(raw, &single); err == nil {
+		return single
+	}
+	var types []string
+	if err := json.Unmarshal(raw, &types); err == nil {
+		for _, t := range types {
+			if t != "null" {
+				return t
+			}
+		}
+		return "null"
+	}
+	return ""
 }
 
 func jsonRaw(schema spec.JSONSchema) json.RawMessage {

@@ -14,6 +14,7 @@ import { FormattedMessage, useIntl } from '@umijs/max';
 import type { UploadFile } from 'antd';
 import type { FieldProps, GenericObjectType, UiSchema, WidgetProps } from '@rjsf/utils';
 import { getUiOptions } from '@rjsf/utils';
+import { primarySchemaType } from '@/utils/schemaDialect';
 
 type WidgetPropsAlias = WidgetProps;
 
@@ -78,7 +79,8 @@ export function UploadWidget({
 }: WidgetPropsAlias) {
   const intl = useIntl();
   const props = (options ?? {}) as GenericObjectType;
-  const multiple = props.multiple === true || schema.type === 'array';
+  // SUI-009：type 数组（可空/联合）以主类型判定多值。
+  const multiple = props.multiple === true || primarySchemaType(schema) === 'array';
   const action = typeof props.action === 'string' ? props.action : undefined;
   const listType = typeof props.listType === 'string' ? props.listType : 'text';
   const maxCount = typeof props.maxCount === 'number' ? props.maxCount : undefined;

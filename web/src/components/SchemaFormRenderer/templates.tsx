@@ -16,6 +16,7 @@ import type {
 } from '@rjsf/utils';
 import type { FormGroupSpec } from '@/types/dashboard';
 import { localizedText } from '@/utils/localizedText';
+import { primarySchemaType } from '@/utils/schemaDialect';
 
 type TemplateProps = ObjectFieldTemplateProps;
 
@@ -29,8 +30,9 @@ interface GroupedFormContext {
 
 function fieldSchemaType(element: ObjectFieldTemplatePropertyType): string | undefined {
   const schema = (element.content as { props?: { schema?: RJSFSchema } }).props?.schema;
-  const type = schema?.type;
-  return Array.isArray(type) ? type[0] : type;
+  // SUI-009：type 数组（3.1 联合/可空）取首个非 null 主类型，与
+  // primarySchemaType 一致（"null" 归一后恒在末位）。
+  return primarySchemaType(schema);
 }
 
 function isTextarea(element: ObjectFieldTemplatePropertyType): boolean {

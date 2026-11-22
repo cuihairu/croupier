@@ -610,16 +610,21 @@ func openAPIRequestSchemaWithRoot(op *openapi3.Operation, root map[string]interf
 }
 
 func openAPIResponseSchema(op *openapi3.Operation) string {
+	return openAPIResponseSchemaWithRoot(op, nil)
+}
+
+func openAPIResponseSchemaWithRoot(op *openapi3.Operation, root map[string]interface{}) string {
 	if op == nil || op.Responses == nil {
 		return ""
 	}
+	dialect := spec.DetectSchemaDialect(root)
 	responses := op.Responses.Map()
 	// 既有优先级：200、201、default；其余状态码升序兜底。map 迭代顺序
 	// 不定，任何一次导入都必须推导出同一 schema（SUI-007 确定性）——
 	// 兜底按状态码排序，不再遍历 map。
 	for _, code := range []string{"200", "201", "default"} {
 		if ref := responses[code]; ref != nil && ref.Value != nil {
-			if schema := openAPIMediaSchemaJSON(ref.Value.Content); schema != "" {
+			if schema := openAPIMediaSchemaJSONWithDialect(ref.Value.Content, dialect); schema != "" {
 				return schema
 			}
 		}
@@ -633,7 +638,7 @@ func openAPIResponseSchema(op *openapi3.Operation) string {
 	sort.Strings(codes)
 	for _, code := range codes {
 		if ref := responses[code]; ref != nil && ref.Value != nil {
-			if schema := openAPIMediaSchemaJSON(ref.Value.Content); schema != "" {
+			if schema := openAPIMediaSchemaJSONWithDialect(ref.Value.Content, dialect); schema != "" {
 				return schema
 			}
 		}
@@ -641,12 +646,18 @@ func openAPIResponseSchema(op *openapi3.Operation) string {
 	return ""
 }
 
+// openAPIMediaSchemaJSON 是测试/旧调用面的单参封装：无根文档时按 Unknown
+// 方言归一（等价 3.0，无 nullable 的 schema 逐字节不变）。
 func openAPIMediaSchemaJSON(content openapi3.Content) string {
+	return openAPIMediaSchemaJSONWithDialect(content, spec.SchemaDialectUnknown)
+}
+
+func openAPIMediaSchemaJSONWithDialect(content openapi3.Content, dialect spec.SchemaDialect) string {
 	if len(content) == 0 {
 		return ""
 	}
 	if media := content.Get("application/json"); media != nil && media.Schema != nil {
-		return openAPISchemaRefJSON(media.Schema)
+		return openAPISchemaRefJSONWithDialect(media.Schema, dialect)
 	}
 	// 无 application/json：按媒体类型排序取第一个带 schema 的条目（确定性，
 	// 不再遍历 map）。
@@ -657,13 +668,18 @@ func openAPIMediaSchemaJSON(content openapi3.Content) string {
 	sort.Strings(keys)
 	for _, key := range keys {
 		if media := content[key]; media != nil && media.Schema != nil {
-			return openAPISchemaRefJSON(media.Schema)
+			return openAPISchemaRefJSONWithDialect(media.Schema, dialect)
 		}
 	}
 	return ""
 }
 
+// openAPISchemaRefJSON 是测试/旧调用面的单参封装（见 openAPIMediaSchemaJSON）。
 func openAPISchemaRefJSON(ref *openapi3.SchemaRef) string {
+	return openAPISchemaRefJSONWithDialect(ref, spec.SchemaDialectUnknown)
+}
+
+func openAPISchemaRefJSONWithDialect(ref *openapi3.SchemaRef, dialect spec.SchemaDialect) string {
 	if ref == nil {
 		return ""
 	}
@@ -678,6 +694,14 @@ func openAPISchemaRefJSON(ref *openapi3.SchemaRef) string {
 	}
 	if err != nil {
 		return ""
+	}
+	// SUI-009：输出 schema 与输入同机归一（3.0 nullable / 3.1 联合类型），
+	// 否则响应校验器不认 `nullable`、会拒合法 null。
+	var node map[string]interface{}
+	if json.Unmarshal(raw, &node) == nil && node != nil {
+		if normalized, err := json.Marshal(spec.NormalizeSchemaDialect(node, dialect, nil)); err == nil {
+			return string(normalized)
+		}
 	}
 	return string(raw)
 }

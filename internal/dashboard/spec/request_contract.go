@@ -140,3 +140,43 @@ func ParseRequestBodySchemaJSON(body *RequestBodySpec) json.RawMessage {
 	}
 	return json.RawMessage(body.Schema)
 }
+
+// NormalizeRequestContractDialect normalizes every schema carried by a request
+// contract (parameters and body) to the canonical dialect-independent form and
+// appends the capability diagnostics for keywords that are not directly
+// formable (SUI-009). It returns a new contract; the input is not mutated.
+// Both extraction front-ends call this with the document dialect so the stored
+// contract, the operator form and the server validator share one form.
+func NormalizeRequestContractDialect(contract OperationRequestContract, dialect SchemaDialect) OperationRequestContract {
+	notes := []DialectNote{}
+	out := contract
+	out.Parameters = make([]RequestParameterSpec, len(contract.Parameters))
+	copy(out.Parameters, contract.Parameters)
+	for i, param := range out.Parameters {
+		out.Parameters[i].Schema = normalizeJSONSchemaDialect(param.Schema, dialect, &notes)
+	}
+	if out.Body != nil {
+		body := *out.Body
+		body.Schema = normalizeJSONSchemaDialect(body.Schema, dialect, &notes)
+		out.Body = &body
+	}
+	if len(notes) > 0 {
+		out.Diagnostics = append(out.Diagnostics, DialectNotesToDiagnostics(notes)...)
+	}
+	return out
+}
+
+func normalizeJSONSchemaDialect(schema JSONSchema, dialect SchemaDialect, notes *[]DialectNote) JSONSchema {
+	if len(schema) == 0 {
+		return schema
+	}
+	var node map[string]interface{}
+	if err := json.Unmarshal(schema, &node); err != nil || node == nil {
+		return schema
+	}
+	encoded, err := json.Marshal(NormalizeSchemaDialect(node, dialect, notes))
+	if err != nil {
+		return schema
+	}
+	return JSONSchema(encoded)
+}

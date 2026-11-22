@@ -45,7 +45,8 @@ func ExtractOperationRequestContractMap(
 	}
 	contract.Diagnostics = append(contract.Diagnostics, refIssuesToDiagnostics(issues)...)
 	contract.Diagnostics = append(contract.Diagnostics, requestContractDiagnostics(contract)...)
-	return contract
+	// SUI-009：与 kin 前端同机的方言归一（见 request_contract.go 注释）。
+	return spec.NormalizeRequestContractDialect(contract, spec.DetectSchemaDialect(root))
 }
 
 // appendMapParameterList 把一份 parameters 列表并入契约（仅固定位置参数；
