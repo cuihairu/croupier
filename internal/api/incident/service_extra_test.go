@@ -192,9 +192,9 @@ func TestUpdateIncident_FieldSweepAndGuards(t *testing.T) {
 		Title: "初版", CategoryID: qa.ID, Severity: model.IncidentSeverityInfo}, "tester")
 	require.NoError(t, err)
 
-	// 全字段更新（info→critical 触发升级路径）。注意不带 Details：
-	// model.Update 走 map 更新绕过 JSON 序列化器，details 会炸
-	// 「unsupported type map[string]interface {}」——生产缺陷，另录 todo。
+	// 全字段更新（info→critical 触发升级路径）。Details 路径由
+	// TestUpdateIncident_DetailsJSONRoundtrip 覆盖（AUD-020：裸 map 进
+	// Updates 会炸 unsupported type，现已先 JSON 编码为 model.JSON 再写）。
 	upd, err := s.UpdateIncident(ctx, inc.ID, &IncidentUpdateRequest{
 		Title: strPtr("改后"), Subcategory: strPtr("子类B"), Severity: strPtr(model.IncidentSeverityCritical),
 		ResponsibleType: strPtr(model.IncidentRespOperator), ResponsibleID: strPtr("op-1"),

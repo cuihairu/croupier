@@ -185,20 +185,21 @@ func TestGetIncident_GetError(t *testing.T) {
 	require.ErrorIs(t, err, errFailpoint)
 }
 
-// Details 更新（map 更新路径绕过 JSON 序列化器）当前会触发
-// 「unsupported type map[string]interface {}」——生产缺陷（另录 todo），
-// 本测试钉住该行为：缺陷修复后此断言应改为成功落库。
-func TestUpdateIncident_DetailsMapUpdateDefectPinned(t *testing.T) {
+// AUD-020 修复后的契约：Details 更新经 JSON 编码落库并回读。此前该路径因 map
+// 更新绕过 JSON 序列化器报「unsupported type map[string]interface {}」，本处
+// 曾钉住缺陷行为，缺陷修复后改为成功落库断言。
+func TestUpdateIncident_DetailsJSONPersisted(t *testing.T) {
 	s := setupService(t)
 	ctx := context.Background()
 	qa := mustCategory(t, s, model.IncidentCatQA)
 	inc, _, err := s.CreateIncident(ctx, &IncidentCreateRequest{Title: "d", CategoryID: qa.ID}, "tester")
 	require.NoError(t, err)
 
-	_, err = s.UpdateIncident(ctx, inc.ID, &IncidentUpdateRequest{
+	upd, err := s.UpdateIncident(ctx, inc.ID, &IncidentUpdateRequest{
 		Details: map[string]interface{}{"zone": "cn"},
 	})
-	require.ErrorContains(t, err, "unsupported type")
+	require.NoError(t, err)
+	require.Equal(t, "cn", upd.Details["zone"])
 }
 
 func TestUpdateIncident_UpdateErrorAndReGetError(t *testing.T) {

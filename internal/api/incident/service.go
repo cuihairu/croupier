@@ -372,7 +372,14 @@ func (s *Service) UpdateIncident(ctx context.Context, id uint, req *IncidentUpda
 		updates["ref_id"] = strings.TrimSpace(*req.RefID)
 	}
 	if req.Details != nil {
-		updates["details"] = req.Details
+		// AUD-020：详情列是 JSON 类型（模型 Details datatypes.JSONMap），裸
+		// map 进 Updates 无法序列化（sql: unsupported type map[...]）；与
+		// exec_log_ids 同型，先 JSON 编码为 model.JSON 再写。
+		raw, err := json.Marshal(req.Details)
+		if err != nil {
+			return nil, errorx.NewBadRequest("无效的详情数据: " + err.Error())
+		}
+		updates["details"] = model.JSON(raw)
 	}
 	if len(updates) == 0 {
 		dto := s.toIncidentDTO(ctx, row)
