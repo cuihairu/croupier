@@ -184,11 +184,49 @@ Operations that cannot be represented losslessly by the flat projection are
 | `openapi_request_parameter_collision` | Two parameters share a name across positions, or a parameter name equals a flat-able body property name | `$.paths.<p>.<method>.parameters` (and the conflicting parameter/property name in the message) |
 | `openapi_request_body_shape_nonflat` | The body root is an array/scalar, or an object body carries root-level constraints outside the flat-preservable set | `$.paths.<p>.<method>.requestBody` |
 | `openapi_request_body_no_executable_media` | The operation declares a request body whose media types are all outside the executor capability (SUI-007) | `$.paths.<p>.<method>.requestBody` (the declared media types and the executable set are named in the message) |
+| `openapi_schema_reference_unresolved` | A schema `$ref` cannot be fully inlined into the standalone contract: the target is missing, the reference is cyclic (past the inlining depth cap), or it points outside the document (SUI-008) | the `$ref` pointer as declared (the boundary that stopped the inlining is named in the message) |
 
 The projection still produces a usable input schema (`structured` or
 `body_only`) — the diagnostic is informational and does not fail the upload.
 Nothing is dropped: the body keeps its shape under the `body` slot and every
 parameter keeps its position.
+
+## Schema reference resolution (SUI-008)
+
+A contract is **standalone**: once detached from the OpenAPI document, every
+schema it carries must be self-contained or explicitly marked for review.
+The extraction inlines local `$ref` pointers (`#/components/...`) against the
+full document, so nested references resolve and the stored schema needs no
+document to be read.
+
+The three boundaries that cannot be inlined are recorded as a warning
+diagnostic `openapi_schema_reference_unresolved` instead of degrading
+silently (the `$ref` pointer is the `field`, the boundary is named in the
+message):
+
+1. **Missing target** — the pointer names a node the document does not have
+   (for example `#/components/schemas/DoesNotExist`); the reference collapses
+   to `{ "type": "object" }` and the diagnostic says `missing target in the
+   document`.
+2. **Cyclic reference** — a schema referencing itself (directly or through
+   other components) recurses to the inlining depth cap (16) and truncates to
+   `{ "type": "object" }`; the diagnostic says `cyclic reference past the
+   inlining depth cap`. The truncation is deterministic and identical across
+   the kin and map front-ends.
+3. **External reference** — a `$ref` outside the document (`other.yaml#/...` or
+   a URL) is preserved verbatim as `{ "$ref": ... }` (not dropped) and the
+   diagnostic says `reference outside the document`.
+
+A `$ref` that resolves (nested local references) emits no diagnostic and is
+fully inlined. The same unresolved reference is deduplicated per contract
+(one diagnostic per `$ref` + boundary). The diagnostic is informational — the
+schema is still usable (the operation still projects and executes), but the
+schema **enters review** so the operator sees which part of it could not be
+resolved instead of mistaking the truncated object for a real schema. The
+kin front-end loads nested and cyclic references; the kin loader refuses
+dangling and external references (the document falls back to the map
+front-end), so those two boundaries surface through the map front-end, which
+records the same diagnostic.
 
 ## Execution-time mapping
 
@@ -318,3 +356,9 @@ executor keeps the legacy behaviour.
   diagnostic (legacy "no schema → no body" behaviour); the
   `openapi_request_body_no_executable_media` diagnostic is only emitted when
   schemas are declared but none of their media types is executable.
+- A reference chain deeper than the inlining cap (16) truncates at the cap and
+  records `openapi_schema_reference_unresolved` with the cyclic-reason wording
+  even if the chain is acyclic (a genuine cycle and an over-deep chain are
+  indistinguishable at the cap). The truncation is deterministic and the
+  diagnostic marks the schema for review either way, so the operator is never
+  left with a silently degraded object.

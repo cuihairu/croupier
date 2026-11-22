@@ -82,8 +82,9 @@ func extractInputSchemaKin(op *openapi3.Operation, root map[string]interface{}) 
 
 // schemaRefToMap 把 kin SchemaRef 序列化回通用 map，再复用既有 $ref 内联
 // 机器：kin 对内部引用回吐 {"$ref":"#/..."}（悬空/外链在 loader 层已失败、
-// 走回落），resolveSchemaRefs 对根文档内联后与旧实现的输出逐键同形。
-func schemaRefToMap(ref *openapi3.SchemaRef, root map[string]interface{}) (map[string]interface{}, bool) {
+// 走回落），resolveSchemaRefs 对根文档内联后与旧实现的输出逐键同形。无法
+// 内联的引用记入 issues（SUI-008）。
+func schemaRefToMap(ref *openapi3.SchemaRef, root map[string]interface{}, issues *[]refIssue) (map[string]interface{}, bool) {
 	encoded, err := json.Marshal(ref)
 	if err != nil {
 		return nil, false
@@ -92,6 +93,6 @@ func schemaRefToMap(ref *openapi3.SchemaRef, root map[string]interface{}) (map[s
 	if err := json.Unmarshal(encoded, &raw); err != nil {
 		return nil, false
 	}
-	resolved, ok := resolveSchemaRefs(raw, root, 0).(map[string]interface{})
+	resolved, ok := resolveSchemaRefs(raw, root, 0, issues).(map[string]interface{})
 	return resolved, ok
 }

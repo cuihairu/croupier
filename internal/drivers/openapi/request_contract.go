@@ -26,14 +26,15 @@ func ExtractOperationRequestContractKin(
 		return contract
 	}
 	seenParam := map[string]int{} // "in:name" -> index into Parameters
+	issues := []refIssue{}
 	for _, paramRef := range op.Parameters {
-		appendKinParameter(&contract, paramRef, root, seenParam)
+		appendKinParameter(&contract, paramRef, root, seenParam, &issues)
 	}
 	for _, paramRef := range pathItemParams {
-		appendKinParameter(&contract, paramRef, root, seenParam)
+		appendKinParameter(&contract, paramRef, root, seenParam, &issues)
 	}
 	if op.RequestBody != nil && op.RequestBody.Value != nil {
-		content := kinBodyContentSchemas(op.RequestBody.Value.Content, root)
+		content := kinBodyContentSchemas(op.RequestBody.Value.Content, root, &issues)
 		// 媒体类型按执行器能力选择（SUI-007）：同一份多媒体类型文档的
 		// 重复导入恒选出同一条目；声明了 schema 但无一可执行时提案记录
 		// 原因（声明条目缺 schema 保持旧「无 schema 即无 body」静默口径）。
@@ -48,6 +49,7 @@ func ExtractOperationRequestContractKin(
 			contract.Diagnostics = append(contract.Diagnostics, spec.RequestBodyMediaDiagnostic(reason))
 		}
 	}
+	contract.Diagnostics = append(contract.Diagnostics, refIssuesToDiagnostics(issues)...)
 	contract.Diagnostics = append(contract.Diagnostics, requestContractDiagnostics(contract)...)
 	return contract
 }
@@ -57,6 +59,7 @@ func appendKinParameter(
 	paramRef *openapi3.ParameterRef,
 	root map[string]interface{},
 	seenParam map[string]int,
+	issues *[]refIssue,
 ) {
 	if paramRef == nil || paramRef.Value == nil {
 		return
@@ -77,13 +80,13 @@ func appendKinParameter(
 		return
 	}
 	seenParam[key] = len(contract.Parameters)
-	contract.Parameters = append(contract.Parameters, kinParameterSpec(param, root))
+	contract.Parameters = append(contract.Parameters, kinParameterSpec(param, root, issues))
 }
 
-func kinParameterSpec(param *openapi3.Parameter, root map[string]interface{}) spec.RequestParameterSpec {
+func kinParameterSpec(param *openapi3.Parameter, root map[string]interface{}, issues *[]refIssue) spec.RequestParameterSpec {
 	schemaText := "{\"type\":\"string\"}"
 	if param.Schema != nil {
-		schemaText = kinSchemaText(param.Schema, root)
+		schemaText = kinSchemaText(param.Schema, root, issues)
 	}
 	style := strings.TrimSpace(param.Style)
 	explode := false
@@ -112,24 +115,25 @@ func kinParameterSpec(param *openapi3.Parameter, root map[string]interface{}) sp
 // kinBodyContentSchemas 收集 requestBody 声明内容条目为 media type -> body
 // schema（含 $ref 内联）的映射，供执行器能力媒体类型选择（SUI-007）。声明
 // 了内容但 schema 缺失/退化（无 schema 的条目）被跳过——与 map 前端同口径。
-func kinBodyContentSchemas(content openapi3.Content, root map[string]interface{}) map[string]spec.JSONSchema {
+// 无法内联的 schema 引用记入 issues（SUI-008）。
+func kinBodyContentSchemas(content openapi3.Content, root map[string]interface{}, issues *[]refIssue) map[string]spec.JSONSchema {
 	out := make(map[string]spec.JSONSchema, len(content))
 	for mediaType, media := range content {
-		if text, ok := kinMediaSchemaText(media, root); ok {
+		if text, ok := kinMediaSchemaText(media, root, issues); ok {
 			out[mediaType] = spec.JSONSchema(text)
 		}
 	}
 	return out
 }
 
-func kinMediaSchemaText(media *openapi3.MediaType, root map[string]interface{}) (string, bool) {
+func kinMediaSchemaText(media *openapi3.MediaType, root map[string]interface{}, issues *[]refIssue) (string, bool) {
 	if media == nil || media.Schema == nil {
 		return "", false
 	}
 	if isDegenerateSchemaRef(media.Schema) {
 		return "", false
 	}
-	return kinSchemaText(media.Schema, root), true
+	return kinSchemaText(media.Schema, root, issues), true
 }
 
 // isDegenerateSchemaRef 报告既无指针又无值的 SchemaRef——kin 的 MarshalJSON
@@ -142,11 +146,11 @@ func isDegenerateSchemaRef(ref *openapi3.SchemaRef) bool {
 // schemaRefToMap（$ref 经根文档内联，与 map 前端逐键同形）；root 为 nil 时
 // （直调构造 op 的测试路径）用 kin 自身解析出的 Value——两种序列化均为
 // 键序归一的等价 JSON。
-func kinSchemaText(ref *openapi3.SchemaRef, root map[string]interface{}) string {
+func kinSchemaText(ref *openapi3.SchemaRef, root map[string]interface{}, issues *[]refIssue) string {
 	if ref == nil || isDegenerateSchemaRef(ref) {
 		return "{\"type\":\"string\"}"
 	}
-	if resolved, ok := schemaRefToMap(ref, root); ok {
+	if resolved, ok := schemaRefToMap(ref, root, issues); ok {
 		if encoded, err := json.Marshal(resolved); err == nil {
 			return string(encoded)
 		}

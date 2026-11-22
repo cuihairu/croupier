@@ -2,6 +2,8 @@ package openapi
 
 import (
 	"strings"
+
+	"github.com/cuihairu/croupier/internal/dashboard/spec"
 )
 
 // maxSchemaRefDepth bounds $ref resolution depth to guard against cyclic
@@ -9,6 +11,41 @@ import (
 // the limit the subtree collapses to an empty object instead of recursing
 // forever.
 const maxSchemaRefDepth = 16
+
+// Resolution boundary reasons (SUI-008): the distinct ways a $ref can fail to
+// inline into the standalone contract. They are recorded verbatim in the
+// diagnostic message, so the proposal shows the reason instead of silently
+// degrading the schema to an anonymous object.
+const (
+	refReasonMissing  = "missing target in the document"
+	refReasonCyclic   = "cyclic reference past the inlining depth cap"
+	refReasonExternal = "reference outside the document"
+)
+
+// refIssue records one schema $ref that resolveSchemaRefs could not fully
+// inline into the standalone request contract (SUI-008). Ref is the reference
+// pointer as declared; reason names the boundary that stopped the inlining.
+type refIssue struct {
+	ref    string
+	reason string
+}
+
+// refIssuesToDiagnostics converts unresolved references into proposal-level
+// diagnostics, deduplicated by (reference, reason): one document commonly
+// references the same missing or external schema from several operations.
+func refIssuesToDiagnostics(issues []refIssue) []spec.Diagnostic {
+	out := make([]spec.Diagnostic, 0, len(issues))
+	seen := map[string]bool{}
+	for _, issue := range issues {
+		key := issue.ref + "\x00" + issue.reason
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		out = append(out, spec.SchemaReferenceUnresolvedDiagnostic(issue.ref, issue.reason))
+	}
+	return out
+}
 
 // extractInputSchema derives a JSON Schema (as JSON text) describing the
 // caller-facing input of one operation, so the platform can generate a real
@@ -22,7 +59,9 @@ const maxSchemaRefDepth = 16
 //     under the "body" property;
 //   - local $ref pointers (#/components/...) are resolved against the full
 //     document; dangling refs collapse to an empty schema and non-local refs
-//     are preserved as-is.
+//     are preserved as-is. Each boundary that stops the inlining is recorded
+//     as a contract diagnostic (SUI-008) so the standalone schema enters
+//     review instead of degrading silently.
 //
 // The returned text is always a valid JSON object (possibly an empty-object
 // schema when the operation declares no input at all).
@@ -31,22 +70,24 @@ func extractInputSchema(methodObj, root map[string]interface{}) string {
 }
 
 // resolveSchemaRefs deep-copies node while resolving local $ref pointers
-// against root. Scalars pass through untouched.
-func resolveSchemaRefs(node interface{}, root map[string]interface{}, depth int) interface{} {
+// against root. Scalars pass through untouched. issues collects the references
+// that could not be inlined (SUI-008); it may be nil for callers that do not
+// surface the boundary (output-schema derivation, legacy input projection).
+func resolveSchemaRefs(node interface{}, root map[string]interface{}, depth int, issues *[]refIssue) interface{} {
 	switch typed := node.(type) {
 	case map[string]interface{}:
 		if ref, ok := typed["$ref"].(string); ok {
-			return resolveRefPointer(ref, root, depth)
+			return resolveRefPointer(ref, root, depth, issues)
 		}
 		out := make(map[string]interface{}, len(typed))
 		for key, value := range typed {
-			out[key] = resolveSchemaRefs(value, root, depth)
+			out[key] = resolveSchemaRefs(value, root, depth, issues)
 		}
 		return out
 	case []interface{}:
 		out := make([]interface{}, len(typed))
 		for i, value := range typed {
-			out[i] = resolveSchemaRefs(value, root, depth)
+			out[i] = resolveSchemaRefs(value, root, depth, issues)
 		}
 		return out
 	default:
@@ -56,14 +97,22 @@ func resolveSchemaRefs(node interface{}, root map[string]interface{}, depth int)
 
 // resolveRefPointer follows one local JSON pointer ("#/a/b"), then resumes
 // deep resolution with an incremented depth so cyclic refs terminate at
-// maxSchemaRefDepth.
-func resolveRefPointer(ref string, root map[string]interface{}, depth int) interface{} {
+// maxSchemaRefDepth. Every boundary that stops the inlining is recorded on
+// issues (SUI-008) instead of degrading the schema silently.
+func resolveRefPointer(ref string, root map[string]interface{}, depth int, issues *[]refIssue) interface{} {
+	record := func(reason string) {
+		if issues != nil {
+			*issues = append(*issues, refIssue{ref: ref, reason: reason})
+		}
+	}
 	if depth >= maxSchemaRefDepth {
+		record(refReasonCyclic)
 		return map[string]interface{}{"type": "object"}
 	}
 	if !strings.HasPrefix(ref, "#/") {
 		// Non-local references (other documents / URLs) cannot be resolved
 		// here; keep them for downstream tooling instead of dropping input.
+		record(refReasonExternal)
 		return map[string]interface{}{"$ref": ref}
 	}
 	var current interface{} = root
@@ -72,15 +121,17 @@ func resolveRefPointer(ref string, root map[string]interface{}, depth int) inter
 		segment = strings.ReplaceAll(segment, "~0", "~")
 		obj, ok := current.(map[string]interface{})
 		if !ok {
+			record(refReasonMissing)
 			return map[string]interface{}{"type": "object"}
 		}
 		next, ok := obj[segment]
 		if !ok {
+			record(refReasonMissing)
 			return map[string]interface{}{"type": "object"}
 		}
 		current = next
 	}
-	return resolveSchemaRefs(current, root, depth+1)
+	return resolveSchemaRefs(current, root, depth+1, issues)
 }
 
 func appendUniqueString(list []string, value string) []string {

@@ -27,21 +27,23 @@ func ExtractOperationRequestContractMap(
 		return contract
 	}
 	seenParam := map[string]int{}
-	appendMapParameterList(&contract, methodObj["parameters"], root, seenParam)
-	appendMapParameterList(&contract, pathItemParams, root, seenParam)
+	issues := []refIssue{}
+	appendMapParameterList(&contract, methodObj["parameters"], root, seenParam, &issues)
+	appendMapParameterList(&contract, pathItemParams, root, seenParam, &issues)
 
-	if body, reason := extractMapRequestBody(methodObj, root); body != nil {
+	if body, reason := extractMapRequestBody(methodObj, root, &issues); body != nil {
 		contract.Body = body
 	} else if reason != "" {
 		// 声明了 body schema 但无一媒体类型可执行（SUI-007）：记录原因，
 		// 不落入 2.0 回落（3.x requestBody 已存在）。
 		contract.Diagnostics = append(contract.Diagnostics, spec.RequestBodyMediaDiagnostic(reason))
-	} else if body, reason := extractSwagger20Body(methodObj, root); body != nil {
+	} else if body, reason := extractSwagger20Body(methodObj, root, &issues); body != nil {
 		contract.Body = body
 	} else if reason != "" {
 		// Swagger 2.0：consumes 声明了条目但无一可执行（SUI-007）——记录原因。
 		contract.Diagnostics = append(contract.Diagnostics, spec.RequestBodyMediaDiagnostic(reason))
 	}
+	contract.Diagnostics = append(contract.Diagnostics, refIssuesToDiagnostics(issues)...)
 	contract.Diagnostics = append(contract.Diagnostics, requestContractDiagnostics(contract)...)
 	return contract
 }
@@ -53,6 +55,7 @@ func appendMapParameterList(
 	list interface{},
 	root map[string]interface{},
 	seenParam map[string]int,
+	issues *[]refIssue,
 ) {
 	paramList, ok := list.([]interface{})
 	if !ok {
@@ -80,7 +83,7 @@ func appendMapParameterList(
 			continue
 		}
 		seenParam[key] = len(contract.Parameters)
-		contract.Parameters = append(contract.Parameters, mapParameterSpec(pObj, root, position, name))
+		contract.Parameters = append(contract.Parameters, mapParameterSpec(pObj, root, position, name, issues))
 	}
 }
 
@@ -89,6 +92,7 @@ func mapParameterSpec(
 	root map[string]interface{},
 	position spec.ParameterPosition,
 	name string,
+	issues *[]refIssue,
 ) spec.RequestParameterSpec {
 	required, _ := pObj["required"].(bool)
 	deprecated, _ := pObj["deprecated"].(bool)
@@ -103,7 +107,7 @@ func mapParameterSpec(
 	}
 	schemaText := "{\"type\":\"string\"}"
 	if schema, ok := pObj["schema"].(map[string]interface{}); ok {
-		if resolved, ok := resolveSchemaRefs(schema, root, 0).(map[string]interface{}); ok && resolved != nil {
+		if resolved, ok := resolveSchemaRefs(schema, root, 0, issues).(map[string]interface{}); ok && resolved != nil {
 			if encoded, err := json.Marshal(resolved); err == nil {
 				schemaText = string(encoded)
 			}
@@ -123,8 +127,9 @@ func mapParameterSpec(
 // extractMapRequestBody 提取 3.x requestBody 的 body 槽位。媒体类型按执行器
 // 支持能力选择（SUI-007，与 kin 前端同源）：无可执行媒体类型时返回
 // (nil, reason)，由调用方记入提案诊断。声明了 requestBody 但无可用
-// schema（条目缺 schema）返回 (nil, "")，保持旧静默口径。
-func extractMapRequestBody(methodObj, root map[string]interface{}) (*spec.RequestBodySpec, string) {
+// schema（条目缺 schema）返回 (nil, "")，保持旧静默口径。无法内联的
+// schema 引用记入 issues（SUI-008）。
+func extractMapRequestBody(methodObj, root map[string]interface{}, issues *[]refIssue) (*spec.RequestBodySpec, string) {
 	requestBody, ok := methodObj["requestBody"].(map[string]interface{})
 	if !ok {
 		return nil, ""
@@ -143,7 +148,7 @@ func extractMapRequestBody(methodObj, root map[string]interface{}) (*spec.Reques
 		if !ok {
 			continue
 		}
-		resolved, ok := resolveSchemaRefs(schema, root, 0).(map[string]interface{})
+		resolved, ok := resolveSchemaRefs(schema, root, 0, issues).(map[string]interface{})
 		if !ok || resolved == nil {
 			continue
 		}
@@ -173,7 +178,7 @@ func extractMapRequestBody(methodObj, root map[string]interface{}) (*spec.Reques
 // method 级或文档级 `consumes` 的第一个可执行条目（缺省 application/json，
 // 执行器能力选择见 swagger20MediaType）。无可执行媒体类型时返回
 // (nil, reason)；两者都缺时返回 (nil, "")。
-func extractSwagger20Body(methodObj, root map[string]interface{}) (*spec.RequestBodySpec, string) {
+func extractSwagger20Body(methodObj, root map[string]interface{}, issues *[]refIssue) (*spec.RequestBodySpec, string) {
 	var bodyParam map[string]interface{}
 	formProps := map[string]interface{}{}
 	var formRequired []string
@@ -209,7 +214,7 @@ func extractSwagger20Body(methodObj, root map[string]interface{}) (*spec.Request
 	required := false
 	if bodyParam != nil {
 		if s, ok := bodyParam["schema"].(map[string]interface{}); ok {
-			if resolved, ok := resolveSchemaRefs(s, root, 0).(map[string]interface{}); ok && resolved != nil {
+			if resolved, ok := resolveSchemaRefs(s, root, 0, issues).(map[string]interface{}); ok && resolved != nil {
 				schema = resolved
 			}
 		}

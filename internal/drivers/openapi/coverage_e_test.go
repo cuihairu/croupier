@@ -95,7 +95,7 @@ func TestCoverageE_ResolveRefPointerThroughNonMapNode(t *testing.T) {
 	root := map[string]interface{}{
 		"a": map[string]interface{}{"b": "scalar"},
 	}
-	res := resolveRefPointer("#/a/b/c", root, 0)
+	res := resolveRefPointer("#/a/b/c", root, 0, nil)
 	assert.Equal(t, map[string]interface{}{"type": "object"}, res)
 }
 

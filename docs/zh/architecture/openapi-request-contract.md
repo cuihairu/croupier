@@ -152,9 +152,34 @@
 | `openapi_request_parameter_collision` | 两个参数跨位置同名，或参数名等于某个可平铺 body 属性名 | `$.paths.<p>.<method>.parameters`（冲突的参数/属性名在 message 中） |
 | `openapi_request_body_shape_nonflat` | body 根是数组/标量，或 object body 携带平铺可保留集合之外的根级约束 | `$.paths.<p>.<method>.requestBody` |
 | `openapi_request_body_no_executable_media` | 声明的请求体媒体类型全部超出执行器能力（SUI-007） | `$.paths.<p>.<method>.requestBody`（message 中列出声明的媒体类型与可执行集合） |
+| `openapi_schema_reference_unresolved` | schema `$ref` 无法完整内联进独立契约：目标缺失、引用循环（超出内联深度上限）、或指向文档之外（SUI-008） | 声明的 `$ref` 指针原文（message 中命名阻断内联的边界） |
 
 投影仍产出可用的输入 schema（`structured` 或 `body_only`）—— 诊断是信息性的，不会让上传
 失败。没有任何内容被丢弃：body 保持其形态挂在 `body` 槽位，每个参数保持其位置。
+
+## schema 引用解析（SUI-008）
+
+契约是**独立**的：脱离 OpenAPI 文档后，它携带的每一条 schema 要么自足，要么
+明确标记待审。提取期把本地 `$ref` 指针（`#/components/...`）对着整份文档内联，
+因此嵌套引用可以解析，存下来的 schema 无需文档即可读。
+
+无法内联的三种边界都会记成一条 warning 诊断 `openapi_schema_reference_unresolved`，
+而不是静默降级（`$ref` 指针即 `field`，message 命名阻断内联的边界）：
+
+1. **目标缺失** —— 指针指向文档中不存在的节点（例如
+   `#/components/schemas/DoesNotExist`）；引用坍缩为 `{ "type": "object" }`，
+   诊断为 `missing target in the document`。
+2. **循环引用** —— 直接或间接指向自身递归到内联深度上限（16）后截断为
+   `{ "type": "object" }`，诊断为 `cyclic reference past the inlining depth cap`。
+   截断是确定性的，kin 与 map 两个前端同深同形。
+3. **外部引用** —— 文档之外的 `$ref`（`other.yaml#/...` 或 URL）原样保留为
+   `{ "$ref": ... }`（不丢弃），诊断为 `reference outside the document`。
+
+能解析的 `$ref`（嵌套本地引用）不发诊断、完整内联。同一契约内的同一未解析引用
+按 `$ref` + 边界去重（一条）。诊断是信息性的 —— schema 仍可用（操作照常投影与执行），
+但 schema **进入待审**，操作者能看到哪一部分没解析成功，不会把截断出的对象当成真
+schema。kin 前端能载入嵌套与循环引用；kin loader 拒绝悬空与外部引用（整份文档回落
+map 前端），因此后两个边界由 map 前端记录同样的诊断。
 
 ## 执行期映射
 
@@ -253,3 +278,7 @@ body 槽位。
 - 声明了 content 条目但 schema 缺失的条目不产生 body 槽位也不发诊断（旧
   「无 schema 即无 body」口径）；`openapi_request_body_no_executable_media`
   仅在声明了 schema 且无一媒体类型可执行时发出。
+- 引用链深度超过内联上限（16）时在上限处截断并以循环原因的措辞记录
+  `openapi_schema_reference_unresolved`，即使该链其实无环（真循环与过深链在
+  上限处不可区分）。截断是确定性的，诊断两种情形都把 schema 标记为待审，操作者
+  永远不会面对一个静默降级的对象。
