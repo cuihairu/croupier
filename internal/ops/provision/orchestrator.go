@@ -39,7 +39,9 @@ type RunStore interface {
 	Get(ctx context.Context, id string) (*Run, error)
 	List(ctx context.Context, limit int) ([]*Run, error)
 	// CompareAndSwapState 仅当当前 state == from 时原子更新为 to（含整行回读）。
-	// 返回 (成功, 当前行)；ok=false 表示并发已把 state 改走（状态闸）。
+	// 返回 (成功, 当前行)；ok=false 表示并发已把 state 改走（状态闸），此时
+	// 当前行为 CAS 失败时的实际行，行已被并发删除时为 nil（调用方不得直接
+	// deref，须经 casConflict 安全格式化）。
 	CompareAndSwapState(ctx context.Context, id, from, to string) (bool, *Run, error)
 }
 
@@ -91,6 +93,17 @@ var (
 	// ErrRunNotDestroyable 直接销毁时运行已非 adopted（非纳管/已销毁/在途）。
 	ErrRunNotDestroyable = errors.New("provision: run not destroyable")
 )
+
+// casConflict 把 CAS 失败（并发已把 state 改走）格式化为稳定冲突错误。
+// current 为 nil 表示行已被并发删除（RunStore 契约允许）——不得 deref
+// （AUD-027：真实 DB 适配器曾在此丢弃当前行，Resume/Destroy/DestroyResume
+// 三处失败分支 nil pointer panic）。
+func casConflict(base error, runID string, current *Run) error {
+	if current == nil {
+		return fmt.Errorf("%w: run %s", base, runID)
+	}
+	return fmt.Errorf("%w: run %s (state=%s)", base, runID, current.State)
+}
 
 const (
 	defaultRegisterTimeout = 5 * time.Minute
@@ -388,7 +401,7 @@ func (o *Orchestrator) beginResume(ctx context.Context, runID string) (*Run, err
 		return nil, fmt.Errorf("provision: cas applying: %w", err)
 	}
 	if !ok {
-		return nil, fmt.Errorf("%w: run %s (state=%s)", ErrRunNotPending, runID, current.State)
+		return nil, casConflict(ErrRunNotPending, runID, current)
 	}
 	// CAS 回读的 current 不含注入的敏感/拓扑参数（不入库），须把已校验的
 	// HubAddr/BootstrapToken 覆盖到 current，供 apply 渲染（#657）。
@@ -427,7 +440,7 @@ func (o *Orchestrator) Destroy(ctx context.Context, runID string) error {
 		return fmt.Errorf("provision: cas destroying: %w", err)
 	}
 	if !ok {
-		return fmt.Errorf("%w: run %s (state=%s)", ErrRunNotDestroyable, runID, current.State)
+		return casConflict(ErrRunNotDestroyable, runID, current)
 	}
 	o.applyMu.Lock()
 	defer o.applyMu.Unlock()
@@ -490,7 +503,7 @@ func (o *Orchestrator) DestroyResume(ctx context.Context, runID string) (*Run, e
 		return nil, fmt.Errorf("provision: cas destroying: %w", err)
 	}
 	if !ok {
-		return nil, fmt.Errorf("%w: run %s (state=%s)", ErrRunNotDestroyPending, runID, current.State)
+		return nil, casConflict(ErrRunNotDestroyPending, runID, current)
 	}
 	o.applyMu.Lock()
 	defer o.applyMu.Unlock()

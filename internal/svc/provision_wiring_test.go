@@ -78,11 +78,13 @@ func TestProvisionDBStoreRoundtripAndCAS(t *testing.T) {
 	require.Len(t, runs, 1)
 	require.Equal(t, "run-1", runs[0].ID)
 
-	// CAS：from 不匹配 → false（适配层不回传当前行，调用方自行回查）
+	// CAS：from 不匹配 → false + 当前行（AUD-027：适配层不再丢弃当前行，调用方
+	// 失败分支须读 current.State 报稳定冲突；行仍存在时 current 非 nil）
 	ok, cur, err := store.CompareAndSwapState(ctx, "run-1", "pending-x", "applying")
 	require.NoError(t, err)
 	require.False(t, ok)
-	require.Nil(t, cur)
+	require.NotNil(t, cur)
+	require.Equal(t, provision.StatePending, cur.State)
 
 	// CAS：命中 → true + 新状态运行体
 	ok, cur, err = store.CompareAndSwapState(ctx, "run-1", "pending", "applying")
@@ -93,6 +95,28 @@ func TestProvisionDBStoreRoundtripAndCAS(t *testing.T) {
 	// 不存在的 run
 	_, err = store.Get(ctx, "no-such-run")
 	require.Error(t, err)
+}
+
+// TestProvisionDBStoreCASDeletedRow 覆盖 AUD-027 的「行已被并发删除」边：模型
+// 在 RowsAffected==0 且行已删时回传 (false, nil, nil)，适配层必须如实透传
+// nil 当前行（调用方经 casConflict 安全格式化，不得 deref 报 panic）。
+func TestProvisionDBStoreCASDeletedRow(t *testing.T) {
+	ctx := context.Background()
+	// 自建 db 句柄：模拟并发删除需绕过模型直写（模型未暴露 Delete）。
+	db, err := gorm.Open(gsqlite.Open(filepath.Join(t.TempDir(), "prov-del.db")), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&model.ProvisionRun{}))
+	store := newProvisionDBStore(model.NewProvisionRunModel(db))
+	run := wiringRunFixture()
+	require.NoError(t, store.Create(ctx, run))
+
+	// 模拟另一调用在 CAS 窗口内删除该行（并发删除）。
+	require.NoError(t, db.WithContext(ctx).Where("run_id = ?", "run-1").Delete(&model.ProvisionRun{}).Error)
+
+	ok, cur, err := store.CompareAndSwapState(ctx, "run-1", "pending", "applying")
+	require.NoError(t, err)
+	require.False(t, ok)
+	require.Nil(t, cur, "行已删时 CAS 失败回传 nil 当前行，调用方须安全处理")
 }
 
 // AUD-019：适配器 Update 按业务键回写既有记录。复刻生产编排形态——Create

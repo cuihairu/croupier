@@ -29,8 +29,17 @@ func (s *provisionDBStore) Update(ctx context.Context, r *provision.Run) error {
 
 func (s *provisionDBStore) CompareAndSwapState(ctx context.Context, id, from, to string) (bool, *provision.Run, error) {
 	ok, row, err := s.m.CompareAndSwapState(ctx, id, from, to)
-	if err != nil || !ok {
-		return ok, nil, err
+	if err != nil {
+		return false, nil, err
+	}
+	if !ok {
+		// 并发已把 state 改走（或行已被并发删除）：如实回读当前行——调用方
+		// 失败分支读 current.State 报稳定冲突（AUD-027，此前丢弃导致 nil
+		// deref panic）。行已删时 current 为 nil，调用方须安全处理。
+		if row == nil {
+			return false, nil, nil
+		}
+		return false, runFromModel(row), nil
 	}
 	return true, runFromModel(row), nil
 }
