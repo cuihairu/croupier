@@ -1818,7 +1818,7 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 状态／条件：完成（2026-11-16 codex exec read-only 静态审计 + 2026-11-17 逐条人工复核）。LOCAL VERIFIED
   - 完成证据：报告 `docs/review/aud-cov-001-go-api-2026-11-16.md`（3 P0/8 P1/7 P2/6 P3 + 处置记录附注）；当场修 4 条 `9bc08d56a`/`5b0fee15f`/`ce667c63d`/`8dbf59c53`（各带新用例，`go test ./internal/api/... -count=1` 全绿）；遗留 21 条落 AUD-036..056 排期。
 - [ ] AUD-COV-002 · 复核 · DB/迁移/缓存/队列一致性：核对 meta/game DB 路由、事务边界、迁移升级/回滚、异步任务状态与进程重启恢复；覆盖 internal/model、internal/db、internal/tasks、internal/cache、internal/analytics/mq（仓内无 internal/queue）。
-  - 进度（2026-11-21）：本轮核对了 GameDB 首开/关闭、Redis 消费进度及任务留痕，见 DATA-019～023、AUD-057～058、AUD-077。续审追加调度状态、事件游标与迁移上下文、会话锁，见 AUD-086～091、AUD-098。缓存层另外确认管理员凭据字段被序列化，见 AUD-100。本轮补查分析发布、消费进度与读仓失败，见 DATA-043～049。 已补查 Worker 批量写入、确认、重试与跨组检查点，见 DATA-050～055。已补查首开、环境更新和编号 Go 迁移，见 AUD-108～115。迁移回滚、真实驱动故障和任务恢复全链仍待复核。
+  - 进度（2026-11-22）：已核对 GameDB 首开/关闭、Redis 消费进度及任务留痕，见 DATA-019～023、AUD-057～058、AUD-077。调度状态、事件游标、迁移上下文与会话锁见 AUD-086～091、AUD-098。管理员凭据缓存见 AUD-100。分析发布、消费进度与读仓失败见 DATA-043～049，Worker 写入、确认、重试与跨组检查点见 DATA-050～055。首开、环境更新和编号 Go 迁移见 AUD-108～115。任务冷库巡检、事件回写和重启收敛见 AUD-116～123。迁移回滚、真实驱动故障及真实多进程重启验收仍待复核。
 - [ ] AUD-COV-003 · 复核 · Agent 与消息传输/协议：沿 Server→Agent→Provider 全链路检查鉴权、TLS、帧解析、并发/背压、重连、取消、错误传播与关闭；覆盖 core、agents、internal/agent、internal/transport、core/transport。
   - 进度（2026-11-21）：本轮补查 Provider 与互联的关闭边界，见 AUD-070～075、AUD-081。续审复现 Agent 注册就绪、停止后重连与配置版本回退问题，见 AUD-092～094。历史复核补记下次协议升版前的协商缺口 AUD-101。控制面真实装配、重连与背压组合仍待复核。
 - [ ] AUD-COV-004 · 复核 · 六语言 SDK 与插件：逐语言核对协议实现、API/配置解析、生命周期、TLS/auth、重试/超时、错误语义及功能矩阵；覆盖 Go/Python/Java/JS/C++/C# 和 plugins。
@@ -1840,7 +1840,7 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
 | 范围             | 仍需审核的源码与入口                                                                                                                                                                                                                                                                | 仍需运行的验收                                                                                  |
 | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
 | 数据分析         | Worker 写入、确认和回收已复核一批故障，仍需真实 Redis/ClickHouse 多进程复验。继续核对 `internal/api/analytics/{payments,retention,behavior}.go` 其余时区、退款及跨窗口口径，以及 Web、Mobile 分析页其余空态与失败映射。日期、付费、过滤、导出及作用域已复核一轮，见 DATA-059～070。 | 入站 → Redis → ClickHouse → API → 页面逐指标对账，覆盖重启、重复、退款和晚到数据。见 DATA-031。 |
-| 数据库与后台任务 | `internal/db/migrate/migrations/` 的方言分支和回滚关键链，`internal/db/router/` 的多库打开失败与重试，以及 `internal/tasks/store.go` 的冷库任务恢复。                                                                                                                               | 真实数据库升级、失败恢复和多进程重启演练。                                                      |
+| 数据库与后台任务 | `internal/db/migrate/migrations/` 的方言分支和回滚关键链，`internal/db/router/` 其余多库打开失败与重试。任务冷库巡检、断连收敛和事件恢复已复核，见 AUD-116～123。                                                                                                                   | 真实数据库升级、失败恢复和多进程重启演练。                                                      |
 | Agent 与协议     | `cmd/{sidecar-agent,devops-agent}/` 的运行装配，`agents/{capture,devops,synthetics}/` 的 connector、session、pluginhost 边界，`core/transport/tcp/` 与 `internal/transport/tcp/` 的控制车道、关闭、背压组合。                                                                       | 用真实连接验证高负载、重连与停止，核对消息和任务状态收敛。                                      |
 | SDK 与插件       | `sdks/java/spring-boot-starter/` 的 Spring 上下文集成，`sdks/cpp/skynet/` 的桥接，`sdks/python/croupier/integrations/`、`sdks/plugins/{js,python}/` 的扩展装配，以及六语言 examples 和边界 wire 行为。                                                                              | Go 与 Java 固定依赖环境，跨 SDK/TLS 组合和安装发布产物验证。                                    |
 | 移动端           | `mobile/lib/features/` 中会话与作用域以外的操作链、原生插件装配，以及 `mobile/android/`、`mobile/ios/` 的 release 入口。                                                                                                                                                            | Android 合并 manifest 与正式签名包，iOS 构建和实机冒烟。                                        |
@@ -2463,6 +2463,36 @@ SQLite 定向探针复现了解绑后旧连接池仍发布，以及同一快照�
 - [ ] **AUD-115 · P2 · 修复 · 迁移按 meta、game 和单库模式选择表集**
   - 依赖：—。交付与验收：为新增编号迁移明确适用 scope，使新建和历史库升级都保持同一表集。无适用变更时版本仍可按统一契约推进，单库模式覆盖两套表。不自动删除已有多余表，先盘点现存数据再决定迁移。证据：`internal/db/migrate/migrate.go:35,238` scope 只用于诊断，meta 和 game 使用相同 Provider 迁移。作为明确的例子，`internal/svc/migrations_runtime.go:13,17` 标注为 MetaModels 的调度表会在 GameDB 的编号迁移中创建。
   - 状态／条件：为新增编号迁移明确适用 scope，使新建和历史库升级都保持同一表集
+
+### 后台任务冷启动与事件恢复续审（2026-11-22）
+
+本轮沿普通异步任务的派发记录、Agent 上行事件、冷库巡检、断线恢复和事件订阅读取核对。AUD-015 已覆盖休眠库发现，以下补查故障下的有界性与任务状态收敛。定时调度和 Runbook 的恢复各沿用现有条目。
+
+定向验证使用文件 SQLite 和可控的作用域解析替身。分库探针复现正常 Agent 的完成上报误写 meta，游戏库任务保持 `running`。故障巡检探针在额度为 8 时尝试了 12 个失败库，并复现单库连续三轮耗尽预算。事件探针复现收割后任务历史无变化、迟到进度恢复为带结束时间的 `running`，以及 Dispatcher 实时流漏发已经提交的最终事件。REST 取消探针确认事件写入失败后，状态仍变为 `cancel_requested`。真实数据库和多进程重启组合仍待验收。
+
+- [ ] **AUD-116 · P1 · 修复 · Agent 上行任务事件路由到任务所属游戏库**
+  - 依赖：—。交付与验收：从已验证的 Agent 会话及任务归属解析 game/env，持久化时使用对应游戏库。覆盖 meta 无任务表、两个游戏库、Agent 重连后完成上报及单库兼容。证据：`cmd/server/root.go:555–567` 从 meta 构造任务模型；`internal/server/tcp_listener.go:459–464` 把会话作用域带到 handler，`internal/server/control_handler.go:409,432` 和 `internal/server/control_events_task.go:74` 未将其解析成游戏库连接。
+
+- [ ] **AUD-117 · P2 · 修复 · 冷库巡检额度计入每次尝试**
+  - 依赖：AUD-015。交付与验收：休眠库的连接、迁移或写入失败均消耗一次额度，上下文取消后停止新尝试。验证休眠库全不可用、混合成功失败时，单轮首开尝试数均受配置上限约束，失败仍计入巡检报告。证据：`internal/tasks/store.go:181–197` 两个错误分支都跳过 `budget--`，额度实际只限制成功数。
+
+- [ ] **AUD-118 · P1 · 修复 · 慢库无法长期阻塞健康库的任务巡检**
+  - 依赖：AUD-015。交付与验收：给数据库探测和收割分配每库预算，确保跨轮次公平推进，包括已打开库和休眠库。将已打开库挂住，连续执行短周期 watchdog，健康库的超时任务应在可预期轮数内收敛。证据：`internal/server/control_background.go:121–124` 整轮共享 30 秒上下文，`internal/tasks/store.go:149–150,216–217` 依次同步扫描已打开库再扫休眠库。`cmd/server/root.go:832–834` 注册库列表查询也未继承整轮上下文。
+
+- [ ] **AUD-119 · P1 · 修复 · 断连与超时收敛同步写入任务事件**
+  - 依赖：ARCH-015。交付与验收：状态收敛与对应的恢复或超时事件在同一事务提交，重复巡检不生成重复事件，事件写失败可重试。覆盖断连 `unknown`、超时 `timed_out` 及订阅者只读取事件历史的场景。证据：`internal/model/task_model.go:141–186` 两类收割均只更新 `task_runs`。恢复事件契约见 `docs/design/task-retry-recovery-protocol.md` D3。
+
+- [ ] **AUD-120 · P1 · 修复 · 断连后的迟到进度保留取消意图与一致时间戳**
+  - 依赖：ARCH-014。交付与验收：明确定义 soft `unknown` 接受哪些迟到证据。允许恢复为活动状态时，同时处理旧结束时间与持久化的取消意图；仍可接收确切的完成或取消结果。覆盖取消请求后断连、重连先收到进度再收到终态。证据：`internal/model/task_model.go:153–158` 把含 `cancel_requested` 的活动任务改成 `unknown` 并填写结束时间，`internal/server/control_events_task.go:42–49` 只按当前 status 挡取消回退，迟到进度可以把 `unknown` 改为 `running`，既有结束时间仍保留。
+
+- [ ] **AUD-121 · P2 · 修复 · Dispatcher 任务流在报告完成前交付并发提交的终态事件**
+  - 依赖：—。交付与验收：任务状态与事件列表使用一致快照，或观察到终态后按最后已读序号补读并发提交的事件。将终态事务安排在首次读事件后、读状态前，验证实时流送出最终事件恰好一次再报告完成，Dispatcher 单次读取接口也保持一致。证据：`internal/platform/dispatch/dispatcher_task.go:231–248,277–307` 先查事件，再查状态并据此结束。已复现 Dispatcher 方法的竞态，仓内尚未找到生产调用方。REST 游标另见 AUD-089。
+
+- [ ] **AUD-122 · P1 · 修复 · REST 取消意图与取消事件原子持久化**
+  - 依赖：—。交付与验收：取消意图与事件共用带状态 guard 的原子操作，事务成功后才发出取消请求。注入事件表写失败，任务保持原状态；并发完成时，取消事件与接受的状态转换次序一致。证据：`internal/api/task/service.go:228–249` 分开更新任务和追加事件，追加失败直接返回，前一步状态仍存在，取消转发也未执行。
+
+- [ ] **AUD-123 · P1 · 修复 · Agent 注册按进程代际收敛旧任务**
+  - 依赖：ARCH-014、AUD-119。交付与验收：保存可用于跨 Server 重启辨识的 Agent 进程标识，只在确认进程换代时收敛上一代任务，重连仍保留当前进程的在途任务。覆盖旧连接清理先于和晚于新注册、Server 重启以及缺标识的兼容客户端。证据：`internal/server/tcp_listener.go:248–269,509–536` 仅在旧会话成功移除时触发断连收割，注册直接写新会话，没有 D3 文档所述的 `bootId` 对照。旧会话先被替换时，清理亦跳过收割。此项为源码核对。
 
 ## Codex 深审发现（2026-11-13，luna profile 近5 commit 审核，6C/22M/5m，待修）
 
