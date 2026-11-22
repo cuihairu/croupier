@@ -1972,9 +1972,13 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 完成证据：commit cf10d0310（`internal/api/ops/powerops.go`：+`requirePowerPermission` 并接入 OpsPowerSubmit/Resume/Reject/Get/List/ConfigPut；`aud017_permission_test.go`：+`seedPowerViewer`/`seedPowerScopedOperator`/`powerCtx`/`assertPowerForbidden` 两回归用例；`powerops_test.go`：harness AutoMigrate 增 Admin/Role/AdminRole/RolePermission + `seedPowerSuperAdmin` 身份面；`handler_test.go`：`newOpsTestContext` 统一注入超管用户名）。
   - 已知边界：门禁只认超管域 `admin:all`——权限目录无电源/硬件管理键，授予更低权限的角色（如仅游戏侧权限）一律拒绝；新增专用 `power:*` 键需改 `configs/permissions.json`+`roles.json` 目录（未做，避免目录外键）。未配置（powerops.enabled=false）仍如实报 503（授权在装配检查前，未配置部署对超管也报 503）。
 
-- [ ] **AUD-018 · P2 · 修复 · Python reader 所有退出路径统一清理连接和 pending**
+- [x] **AUD-018 · P2 · 修复 · Python reader 所有退出路径统一清理连接和 pending**（commit 96b9cde91）
   - 依赖：—。交付与验收：异常退出后连接立即不可用，在途调用及时失败，重连不被虚假 connected 阻断。
   - 状态／条件：sdks/python/croupier/transport/tcp.py:336 通用异常只日志后退出；超长帧后 connected/running 仍 true 且 pending 未收到错误。
+  - 修复：`_reader_loop` 通用异常分支改为与连接丢失共用 `_fail_pending_and_disconnect(err)`——置 `_connected=False`、逐个 fail 在途 pending 并清空（`ConnectionError("reader terminated: ...")`）；四个退出路径（close 清 sock / 连接丢失 / 通用异常 / `_running=False` 自然退出）清理语义一致。
+  - 验证：全量 `pytest`（sdks/python）**556 passed, 17 skipped**；新增两回归：fatal reader 错误（parse_message 注入 RuntimeError）与超长帧（裸 33MB 长度前缀直发）均断言 reader 退出、`is_connected()=False`、在途 call 快速收到 `reader terminated`、`_pending` 清空、重连后数据面可用；mutation 自测（临时还原旧行为）两用例均红，证明测试抓得住回归。mutation 已还原。LOCAL VERIFIED。
+  - 完成证据：commit 96b9cde91（`croupier/transport/tcp.py`：+`_fail_pending_and_disconnect` 并接进两异常分支；`tests/test_tcp_transport_e2e.py`：`test_reader_stops_on_unexpected_internal_error` 从「BUG（记录未修）」改为断言修复不变量 + 新增 `test_reader_oversize_frame_disconnects_and_fails_pending`）。
+  - 已知边界：通用异常路径 fail 的错误统一包装为 `ConnectionError("reader terminated: ...")`（原始异常类型不透传，诊断进日志）；超长帧场景对端已消费的前缀帧无法恢复——重连由调用方（上层 session/provider 循环）负责，transport 自身不自动重连。
 
 - [ ] **AUD-019 · P1 · 修复 · 供给运行的数据库适配器按业务键更新既有记录**
   - 依赖：—。交付与验收：Create→Update→Get 必须成功且只保留一行；覆盖 ticket 审批关联和 apply 后各状态持久化。
