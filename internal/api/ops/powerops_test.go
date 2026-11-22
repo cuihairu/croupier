@@ -124,7 +124,9 @@ func newPowerHarness(t *testing.T, enabled bool, statuses []string) *powerHarnes
 	sqlDB, err := db.DB()
 	require.NoError(t, err)
 	sqlDB.SetMaxOpenConns(1) // :memory: 单连接（test 基建坑）
-	require.NoError(t, db.AutoMigrate(&model.PowerRequest{}, &model.PowerRequestTarget{}, &model.Node{}))
+	require.NoError(t, db.AutoMigrate(&model.PowerRequest{}, &model.PowerRequestTarget{}, &model.Node{},
+		&model.Admin{}, &model.Role{}, &model.AdminRole{}, &model.RolePermission{}))
+	seedPowerSuperAdmin(t, db) // AUD-017：电源域权限门禁读身份面
 
 	approvalsStore := approvals.NewMemStore()
 	provider := &fakePowerProvider{statuses: statuses}
@@ -132,6 +134,8 @@ func newPowerHarness(t *testing.T, enabled bool, statuses []string) *powerHarnes
 		Config:         config.Config{Powerops: config.PoweropsConfig{Enabled: enabled}},
 		DB:             db,
 		NodeModel:      model.NewNodeModel(db),
+		AdminModel:     model.NewAdminModel(db),
+		RoleModel:      model.NewRoleModel(db),
 		ApprovalsStore: approvalsStore,
 	}
 	h := &powerHarness{
@@ -170,6 +174,40 @@ func seedPowerNode(t *testing.T, db *gorm.DB, nodeID, provider, bmcAddr, mac str
 		meta["power"].(map[string]interface{})["mac"] = mac
 	}
 	require.NoError(t, db.Create(&model.Node{NodeID: nodeID, Name: nodeID, Status: "online", Meta: meta}).Error)
+}
+
+// powerSuperAdminUsername 是超管账号：电源域权限门禁（AUD-017）只认超管域
+// admin:all，超管经 HasAdminRole 直通；用作既有链路的身份对照。
+const powerSuperAdminUsername = "power_superadmin"
+
+// seedPowerSuperAdmin 幂等创建超管账号（AUD-017）：电源域新增服务层授权后，
+// 既有用例统一携带该身份调用，验证数据面仍可用（拒绝不是「环境缺失」）。
+func seedPowerSuperAdmin(t *testing.T, db *gorm.DB) {
+	t.Helper()
+	ctx := context.Background()
+	adminModel := model.NewAdminModel(db)
+	roleModel := model.NewRoleModel(db)
+
+	admin, err := adminModel.FindByUsername(ctx, powerSuperAdminUsername)
+	if err != nil {
+		admin = &model.Admin{Username: powerSuperAdminUsername, Status: 1}
+		require.NoError(t, adminModel.Create(ctx, admin, "password123"))
+	}
+
+	hasSuperAdmin := false
+	roles, err := adminModel.GetAdminRoles(ctx, admin.ID)
+	require.NoError(t, err)
+	for _, r := range roles {
+		if r.Name == "super_admin" {
+			hasSuperAdmin = true
+			break
+		}
+	}
+	if !hasSuperAdmin {
+		role := &model.Role{Name: "super_admin"}
+		require.NoError(t, roleModel.Create(ctx, role))
+		require.NoError(t, adminModel.AssignRole(ctx, admin.ID, role.ID))
+	}
 }
 
 func withParam(c *gin.Context, key, value string) *gin.Context {

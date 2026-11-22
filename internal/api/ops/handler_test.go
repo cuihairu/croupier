@@ -1,6 +1,7 @@
 package ops
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -14,6 +15,9 @@ func newOpsTestContext(method, target, body string) (*gin.Context, *httptest.Res
 	ctx, _ := gin.CreateTestContext(rec)
 	req := httptest.NewRequest(method, target, strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
+	// AUD-017：电源域权限门禁读请求上下文身份（gin Set 不进 request
+	// context），统一注入超管用户名作为既有链路的身份对照。
+	req = req.WithContext(context.WithValue(req.Context(), "username", powerSuperAdminUsername))
 	ctx.Request = req
 	return ctx, rec
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/cuihairu/croupier/internal/audit"
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/common/response"
+	"github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/powerops"
 	"github.com/cuihairu/croupier/internal/svc"
@@ -90,6 +91,19 @@ func (s *Service) powerOrchestrator() (*powerops.Orchestrator, error) {
 	return s.svcCtx.Powerops, nil
 }
 
+// requirePowerPermission 是电源域操作授权（AUD-017）：权限目录
+// （configs/permissions.json）无电源/硬件管理键，故只认超管域 admin:all
+// （HasAdminRole 直通，或显式授予 admin:all 的角色）。合法游戏/环境作用域
+// 不等同硬件管理权限——此前仅凭认证与 GameDBMiddleware 即可修改全局节点
+// BMC 配置。
+func (s *Service) requirePowerPermission(ctx context.Context) error {
+	if s.svcCtx == nil {
+		return errorx.NewInternalError("电源管理服务未初始化")
+	}
+	_, _, err := utils.RequireAnyPermission(ctx, s.svcCtx, "无权操作电源管理", "admin:all")
+	return err
+}
+
 // powerResolver 以 svcCtx.DB 直查 nodes.meta.power（wiring 侧同源解析）。
 func (s *Service) powerResolver() powerops.MachineResolver {
 	return svc.NodePowerResolver{DB: s.svcCtx.DB}
@@ -120,6 +134,9 @@ func mapPowerError(err error) error {
 // 审批单、不进 executing/verifying，一次状态查询后直接返回终态请求与逐机结果
 // （targets 非空即为查询快照）；变更动作仍走审批链，targets 为空。
 func (s *Service) OpsPowerSubmit(ctx context.Context, req *OpsPowerSubmitRequest, requestedBy string) (*model.PowerRequest, []*model.PowerRequestTarget, error) {
+	if err := s.requirePowerPermission(ctx); err != nil {
+		return nil, nil, err
+	}
 	orch, err := s.powerOrchestrator()
 	if err != nil {
 		return nil, nil, err
@@ -160,6 +177,9 @@ func (s *Service) OpsPowerSubmit(ctx context.Context, req *OpsPowerSubmitRequest
 // OpsPowerResume 审批通过后续行（不阻塞：后台执行 + 验证闭环）。
 // 未批准/非 pending 返回 409（资源状态冲突，非客户端输入错误）。
 func (s *Service) OpsPowerResume(ctx context.Context, requestID string) (*model.PowerRequest, error) {
+	if err := s.requirePowerPermission(ctx); err != nil {
+		return nil, err
+	}
 	orch, err := s.powerOrchestrator()
 	if err != nil {
 		return nil, err
@@ -174,6 +194,9 @@ func (s *Service) OpsPowerResume(ctx context.Context, requestID string) (*model.
 // OpsPowerReject 拒绝 pending 请求（两宽规则的人为出口：审批单拒绝后请求
 // 侧同步落 rejected，不再可执行）。
 func (s *Service) OpsPowerReject(ctx context.Context, requestID string) (*model.PowerRequest, error) {
+	if err := s.requirePowerPermission(ctx); err != nil {
+		return nil, err
+	}
 	orch, err := s.powerOrchestrator()
 	if err != nil {
 		return nil, err
@@ -191,6 +214,9 @@ func (s *Service) OpsPowerReject(ctx context.Context, requestID string) (*model.
 // OpsPowerGet 查询单请求（含每台机器结果）。pending 请求惰性同步审批拒绝：
 // 审批服务里已 rejected 的单据在此落 rejected（无轮询依赖，读时收敛）。
 func (s *Service) OpsPowerGet(ctx context.Context, requestID string) (*model.PowerRequest, []*model.PowerRequestTarget, error) {
+	if err := s.requirePowerPermission(ctx); err != nil {
+		return nil, nil, err
+	}
 	orch, err := s.powerOrchestrator()
 	if err != nil {
 		return nil, nil, err
@@ -213,6 +239,9 @@ func (s *Service) OpsPowerGet(ctx context.Context, requestID string) (*model.Pow
 
 // OpsPowerList 列出请求（limit<=0 用默认 50）。
 func (s *Service) OpsPowerList(ctx context.Context, limit int) ([]*model.PowerRequest, error) {
+	if err := s.requirePowerPermission(ctx); err != nil {
+		return nil, err
+	}
 	orch, err := s.powerOrchestrator()
 	if err != nil {
 		return nil, err
@@ -241,6 +270,9 @@ func (s *Service) syncRejectedFromApproval(ctx context.Context, orch *powerops.O
 // OpsPowerConfigPut 写入机器电源信息（nodes.meta.power 子对象；读-改-写
 // 合并，不覆盖 meta 里其它键）。域未装配报 503，节点不存在报 404。
 func (s *Service) OpsPowerConfigPut(ctx context.Context, nodeID string, req *OpsPowerConfigRequest) error {
+	if err := s.requirePowerPermission(ctx); err != nil {
+		return err
+	}
 	if _, err := s.powerOrchestrator(); err != nil {
 		return err
 	}
