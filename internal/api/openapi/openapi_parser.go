@@ -696,10 +696,20 @@ func openAPISchemaRefJSONWithDialect(ref *openapi3.SchemaRef, dialect spec.Schem
 		return ""
 	}
 	// SUI-009：输出 schema 与输入同机归一（3.0 nullable / 3.1 联合类型），
-	// 否则响应校验器不认 `nullable`、会拒合法 null。
+	// 否则响应校验器不认 `nullable`、会拒合法 null；SUI-010：响应侧剔除
+	// `writeOnly` 字段（必填集同步收缩），与 map 前端 extractOutputSchema 同机。
 	var node map[string]interface{}
 	if json.Unmarshal(raw, &node) == nil && node != nil {
-		if normalized, err := json.Marshal(spec.NormalizeSchemaDialect(node, dialect, nil)); err == nil {
+		filtered := spec.FilterSchemaDirection(
+			spec.NormalizeSchemaDialect(node, dialect, nil),
+			spec.SchemaDirectionResponse, nil,
+		)
+		if filtered == nil {
+			// 整个响应 schema 属请求侧（writeOnly）：无可校验的输出 schema，
+			// 返回空让调用方按「无 JSON 成功响应」处理。
+			return ""
+		}
+		if normalized, err := json.Marshal(filtered); err == nil {
 			return string(normalized)
 		}
 	}

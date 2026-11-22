@@ -75,6 +75,14 @@ func extractOutputSchema(methodObj, root map[string]interface{}) string {
 		// SUI-009：输出 schema 与输入同机归一（3.0 nullable / 3.1 联合类型），
 		// 否则响应校验器（jsonschema Draft 7）不认 `nullable`、会拒合法 null。
 		resolved = spec.NormalizeSchemaDialect(resolved, spec.DetectSchemaDialect(root), nil)
+		// SUI-010：响应侧剔除 `writeOnly` 字段（必填集同步收缩）——服务器不得
+		// 返回 writeOnly 字段，输出 schema 必须与请求侧字段方向一致。
+		resolved = spec.FilterSchemaDirection(resolved, spec.SchemaDirectionResponse, nil)
+		if len(resolved) == 0 {
+			// 整个响应 schema 属请求侧（writeOnly）：无输出 schema 可校验，
+			// 继续尝试下一个 2xx 候选。
+			continue
+		}
 		// Input originates from json.Unmarshal output, so Marshal cannot
 		// fail (same shape as the spec merge in parseOpenAPISpec).
 		encoded, _ := json.Marshal(resolved)

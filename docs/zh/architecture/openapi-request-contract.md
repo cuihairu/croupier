@@ -57,37 +57,40 @@
   "body": {
     "mediaType": "application/json",
     "required": true,
-    "schema": { "type": "object", "properties": { "name": { "type": "string" } } }
+    "schema": {
+      "type": "object",
+      "properties": { "name": { "type": "string" } }
+    }
   },
   "diagnostics": []
 }
 ```
 
-| 字段 | 类型 | 含义 |
-|---|---|---|
-| `parameters` | `RequestParameterSpec[]` | 固定位置参数，声明顺序（operation 级在前、path-item 级在后；operation 级参数覆盖同 `(in, name)` 的 path-item 级参数）。 |
-| `body` | `RequestBodySpec \| null` | 请求体槽位，operation 声明了请求体时存在。 |
-| `diagnostics` | `Diagnostic[]` | 提取期诊断（同名冲突、非平铺形态）。见 [兼容边界](#兼容边界)。 |
+| 字段          | 类型                      | 含义                                                                                                                    |
+| ------------- | ------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `parameters`  | `RequestParameterSpec[]`  | 固定位置参数，声明顺序（operation 级在前、path-item 级在后；operation 级参数覆盖同 `(in, name)` 的 path-item 级参数）。 |
+| `body`        | `RequestBodySpec \| null` | 请求体槽位，operation 声明了请求体时存在。                                                                              |
+| `diagnostics` | `Diagnostic[]`            | 提取期诊断（同名冲突、非平铺形态）。见 [兼容边界](#兼容边界)。                                                          |
 
 ### `RequestParameterSpec`
 
-| 字段 | 类型 | 含义 |
-|---|---|---|
-| `name` | `string` | 参数名。 |
-| `in` | `path \| query \| header \| cookie` | 固定位置。 |
-| `required` | `bool` | 是否必填。 |
-| `deprecated` | `bool` | 是否已废弃。 |
-| `description` | `string` | 人类可读描述。 |
-| `serialization` | `RequestSerialization` | 该位置的 OpenAPI `style` / `explode`（缺省取规范默认：path `simple`、query `form`、header `simple`、cookie `form`）。 |
-| `schema` | `JSON Schema` | 参数 schema（对文档 `$ref` 内联后）。 |
+| 字段            | 类型                                | 含义                                                                                                                  |
+| --------------- | ----------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `name`          | `string`                            | 参数名。                                                                                                              |
+| `in`            | `path \| query \| header \| cookie` | 固定位置。                                                                                                            |
+| `required`      | `bool`                              | 是否必填。                                                                                                            |
+| `deprecated`    | `bool`                              | 是否已废弃。                                                                                                          |
+| `description`   | `string`                            | 人类可读描述。                                                                                                        |
+| `serialization` | `RequestSerialization`              | 该位置的 OpenAPI `style` / `explode`（缺省取规范默认：path `simple`、query `form`、header `simple`、cookie `form`）。 |
+| `schema`        | `JSON Schema`                       | 参数 schema（对文档 `$ref` 内联后）。                                                                                 |
 
 ### `RequestBodySpec`
 
-| 字段 | 类型 | 含义 |
-|---|---|---|
-| `mediaType` | `string` | 载荷媒体类型，按执行器支持能力选择（SUI-007）：`application/json` 与 RFC-6839 `application/*+json` 后缀类型可执行；`application/json` 优先，其次 `+json` 后缀，其余字典序。见 [媒体类型选择](#媒体类型选择sui-007)。 |
-| `required` | `bool` | 请求体是否必填。 |
-| `schema` | `JSON Schema` | **完整** body schema，原样保留，含根 `type`（`object`/`array`/标量）与全部根级约束（`minProperties`、`additionalProperties` 等）。 |
+| 字段        | 类型          | 含义                                                                                                                                                                                                                 |
+| ----------- | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `mediaType` | `string`      | 载荷媒体类型，按执行器支持能力选择（SUI-007）：`application/json` 与 RFC-6839 `application/*+json` 后缀类型可执行；`application/json` 优先，其次 `+json` 后缀，其余字典序。见 [媒体类型选择](#媒体类型选择sui-007)。 |
+| `required`  | `bool`        | 请求体是否必填。                                                                                                                                                                                                     |
+| `schema`    | `JSON Schema` | **完整** body schema，原样保留，含根 `type`（`object`/`array`/标量）与全部根级约束（`minProperties`、`additionalProperties` 等）。                                                                                   |
 
 ## 提取规则
 
@@ -115,11 +118,11 @@
 
 函数契约的输入 schema（操作者在表单里填写的内容）是请求契约的确定性投影。三种模式：
 
-| 模式 | 条件 | 输入 schema |
-|---|---|---|
-| `flat` | 无 body，或可平铺 object body 且无参数同名冲突 | `{ "type": "object", "properties": { <参数> + <body 属性> }, "required": [...] }` |
+| 模式         | 条件                                                                                      | 输入 schema                                                                                              |
+| ------------ | ----------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `flat`       | 无 body，或可平铺 object body 且无参数同名冲突                                            | `{ "type": "object", "properties": { <参数> + <body 属性> }, "required": [...] }`                        |
 | `structured` | body 不可平铺（根数组/标量，或带不可保留根级约束的 object），**或**参数名与 body 属性同名 | `{ "type": "object", "properties": { "params": { <参数> }, "body": <body schema> }, "required": [...] }` |
-| `body_only` | 无参数且声明了 body | body schema 原样。 |
+| `body_only`  | 无参数且声明了 body                                                                       | body schema 原样。                                                                                       |
 
 **可平铺** body：`application/json` 的 object schema，其根键全部落在
 `{ type, properties, required, description, title, default, example }` 内。其余
@@ -147,13 +150,15 @@
 无法由平铺投影无损表达的 operation **不被静默降级** —— 提取会输出 operation 级诊断
 （`SeverityWarning`）并带字段级指针：
 
-| 代码 | 条件 | 字段 |
-|---|---|---|
-| `openapi_request_parameter_collision` | 两个参数跨位置同名，或参数名等于某个可平铺 body 属性名 | `$.paths.<p>.<method>.parameters`（冲突的参数/属性名在 message 中） |
-| `openapi_request_body_shape_nonflat` | body 根是数组/标量，或 object body 携带平铺可保留集合之外的根级约束 | `$.paths.<p>.<method>.requestBody` |
-| `openapi_request_body_no_executable_media` | 声明的请求体媒体类型全部超出执行器能力（SUI-007） | `$.paths.<p>.<method>.requestBody`（message 中列出声明的媒体类型与可执行集合） |
-| `openapi_schema_reference_unresolved` | schema `$ref` 无法完整内联进独立契约：目标缺失、引用循环（超出内联深度上限）、或指向文档之外（SUI-008） | 声明的 `$ref` 指针原文（message 中命名阻断内联的边界） |
-| `openapi_schema_dialect_keyword` | schema keyword 无法被 schema 驱动表单渲染成真实控件：多类型联合（非 `"null"`）、条件 schema（`if`/`then`/`else`、`dependentSchemas`）、或元组（`prefixItems`、`items` 为数组）（SUI-009） | schema JSON 指针（keyword 与所需处理方式——JSON 编辑或手工绑定——在 message 中命名） |
+| 代码                                       | 条件                                                                                                                                                                                      | 字段                                                                               |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `openapi_request_parameter_collision`      | 两个参数跨位置同名，或参数名等于某个可平铺 body 属性名                                                                                                                                    | `$.paths.<p>.<method>.parameters`（冲突的参数/属性名在 message 中）                |
+| `openapi_request_body_shape_nonflat`       | body 根是数组/标量，或 object body 携带平铺可保留集合之外的根级约束                                                                                                                       | `$.paths.<p>.<method>.requestBody`                                                 |
+| `openapi_request_body_no_executable_media` | 声明的请求体媒体类型全部超出执行器能力（SUI-007）                                                                                                                                         | `$.paths.<p>.<method>.requestBody`（message 中列出声明的媒体类型与可执行集合）     |
+| `openapi_schema_reference_unresolved`      | schema `$ref` 无法完整内联进独立契约：目标缺失、引用循环（超出内联深度上限）、或指向文档之外（SUI-008）                                                                                   | 声明的 `$ref` 指针原文（message 中命名阻断内联的边界）                             |
+| `openapi_schema_dialect_keyword`           | schema keyword 无法被 schema 驱动表单渲染成真实控件：多类型联合（非 `"null"`）、条件 schema（`if`/`then`/`else`、`dependentSchemas`）、或元组（`prefixItems`、`items` 为数组）（SUI-009） | schema JSON 指针（keyword 与所需处理方式——JSON 编辑或手工绑定——在 message 中命名） |
+| `openapi_schema_readonly_dropped`          | `readOnly` 字段（或被标记的子 schema 槽位）已从请求 schema 剔除，`required` 集同步收缩（SUI-010）                                                                                         | 被剔除字段的 schema JSON 指针（如 `/properties/id`）                               |
+| `openapi_schema_writeonly_dropped`         | 同上，针对从响应 schema 剔除的 `writeOnly` 字段（SUI-010）                                                                                                                                | 被剔除字段的 schema JSON 指针                                                      |
 
 投影仍产出可用的输入 schema（`structured` 或 `body_only`）—— 诊断是信息性的，不会让上传
 失败。没有任何内容被丢弃：body 保持其形态挂在 `body` 槽位，每个参数保持其位置。
@@ -213,14 +218,14 @@ placeholder 推导都读主类型，所以 `["string","null"]` 渲染成可空�
 schema 驱动表单无法直接渲染成真实控件的 keyword 按能力归类，而不是静默误渲染。
 每个 keyword 对应一个 `DialectCapability`：
 
-| Keyword | 判定 | 处理 |
-|---|---|---|
-| `nullable: true` / `type: [T, "null"]` | supported | 归一；可空控件 |
-| 普通 `type` / `properties` / `items`（对象）/ `enum` / `format` | supported | 直接表单控件 |
-| `type` 数组含 >1 个非 null 类型（联合） | degraded | JSON 编辑或手工绑定 / discriminator |
-| 条件 schema（`if` / `then` / `else`、`dependentSchemas`、schema 形 `dependencies`） | degraded | JSON 编辑或手工绑定 |
-| 元组（`prefixItems`、`items` 为数组） | degraded | JSON 编辑或手工绑定 |
-| 执行器无法运行的部分 | unsupported | 不执行；进待审 |
+| Keyword                                                                             | 判定        | 处理                                |
+| ----------------------------------------------------------------------------------- | ----------- | ----------------------------------- |
+| `nullable: true` / `type: [T, "null"]`                                              | supported   | 归一；可空控件                      |
+| 普通 `type` / `properties` / `items`（对象）/ `enum` / `format`                     | supported   | 直接表单控件                        |
+| `type` 数组含 >1 个非 null 类型（联合）                                             | degraded    | JSON 编辑或手工绑定 / discriminator |
+| 条件 schema（`if` / `then` / `else`、`dependentSchemas`、schema 形 `dependencies`） | degraded    | JSON 编辑或手工绑定                 |
+| 元组（`prefixItems`、`items` 为数组）                                               | degraded    | JSON 编辑或手工绑定                 |
+| 执行器无法运行的部分                                                                | unsupported | 不执行；进待审                      |
 
 degraded keyword 记为一条 **warning** 诊断 `openapi_schema_dialect_keyword`
 （`field` = schema JSON 指针），schema 照样进入待审，操作者能看到哪一部分需要
@@ -232,6 +237,69 @@ Go 判定器与 web 镜像对共享样例集判定一致（两侧 parity 测试�
 
 dialect note 转诊断时按 `(path, keyword)` 排序，同一份文档反复重导入产出的
 契约逐字节一致 —— SUI-007 的确定性保证延伸到 dialect note。
+
+## schema 字段方向（SUI-010）
+
+`readOnly` / `writeOnly` 决定字段属于契约的哪一侧，两侧都不能携带对方的字段：
+
+- **请求 schema 剔除 `readOnly` 字段。** 客户端不得发送服务端拥有的值，表单
+  也不得为它提供输入控件。
+- **响应 schema 剔除 `writeOnly` 字段。** 服务端不得返回客户端提供的密钥，
+  输出 schema 也不得宣称它是响应的一部分。
+
+过滤在**两个**提取前端（kin 与 map）中执行，位于 `$ref` 内联（SUI-008）与
+方言归一（SUI-009）之后，因此它看到的是独立的规范 schema。普通字段、嵌套字段
+与引用内联后的字段同规则 —— 指向含 `readOnly` 属性的对象的 `$ref` 先内联再
+过滤，所以没有任何 `$ref` 通道能让 `readOnly` 字段从请求侧漏过。
+
+### required 集
+
+每次剔除都同步从所在层的 `required` 列表中移除该字段。必填的 `readOnly`
+字段不得令请求无法发送：`required` 集收缩跳过它，收缩为空时该键从 schema 中
+删除（空 `required` 是无效 schema）。收缩只发生在实际剔除了字段的那一层，
+且只在真有剔除时发生 —— 没有任何对侧关键字的 schema 结构原样返回，其
+`required` 从不被改写。
+
+### 过滤递归的范围
+
+| 位置                                                          | 行为                                                                           |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `properties` 条目                                             | 属性本身携带对侧关键字时剔除；幸存者递归                                       |
+| `items` / `additionalProperties`（对象形式）                  | 元素/附加值 schema 被标记时该槽位删除；否则递归                                |
+| `allOf` / `anyOf` / `oneOf` 成员                              | 被标记的成员移除，幸存者递归                                                   |
+| `dependentSchemas` 条目                                       | 被标记时剔除；幸存者递归                                                       |
+| `if` / `then` / `else` / `not` / `contains` / `propertyNames` | **递归但永不移除** —— 分支本身留在原位（移除会改变条件语义），只过滤其内部字段 |
+| 元组（`prefixItems`、`items` 为数组）                         | **递归但永不移除** —— 改变元组成员位置会改变元组语义                           |
+| `$defs` / `definitions` 条目                                  | 不动 —— 内联后它们是未用素材，不是渲染 schema                                  |
+
+与方向**匹配**的标记存活：请求侧的 `writeOnly` 字段保留其 `writeOnly`，响应侧
+的 `readOnly` 字段保留其 `readOnly`。校验器与表单忽略未知关键字，标记让方向
+依然可读。
+
+**根级标记**意味着整份载荷属于另一侧：请求体 schema 标记 `readOnly` 时整个
+body 槽位被剔除（没有请求体可发）；响应 schema 标记 `writeOnly` 时不产生任何
+输出 schema。
+
+### 诊断
+
+| 代码                               | 条件                                                                                   | 字段                                                                                       |
+| ---------------------------------- | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `openapi_schema_readonly_dropped`  | `readOnly` 字段（或被标记的子 schema 槽位）已从请求 schema 剔除，`required` 集同步调整 | 被剔除字段的 schema JSON 指针（如 `/properties/id`、`/properties/profile/properties/ssn`） |
+| `openapi_schema_writeonly_dropped` | 同上，针对从响应 schema 剔除的 `writeOnly` 字段                                        | 被剔除字段的 schema JSON 指针                                                              |
+
+两者均为 **warning** 级别。请求侧把它们记入
+`OperationRequestContract.Diagnostics`，操作者能看到某字段为何不在输入表单中，
+不会把剔除误当描述符缺陷。方向 note 转诊断时按 `(path, keyword)` 排序 ——
+SUI-007 的确定性保证延伸到它们。
+
+平铺投影诊断（SUI-004）在过滤**之后**计算：与参数同名的 body 属性一旦被剔除
+就不再构成冲突；整体 `readOnly` 的 body 也不是「非平铺」的 body —— 它只是不存在。
+
+### 确定性
+
+方向 note 转诊断时按 `(path, keyword)` 排序，同一份文档反复重导入产出的
+契约逐字节一致 —— SUI-007 的确定性保证延伸到方向 note。没有对侧关键字的
+schema 结构原样返回。
 
 ## 执行期映射
 
@@ -252,21 +320,21 @@ dialect note 转诊断时按 `(path, keyword)` 排序，同一份文档反复重
 执行器按 OpenAPI style/explode 规则序列化每个参数（参数值百分号编码，分隔符按
 OpenAPI 附录保持字面）。公开声明、可执行的矩阵：
 
-| 位置 | `style` | `explode` | 值形状 | 线上形态 |
-|---|---|---|---|---|
-| `path` | `simple` | 均支持 | 原始值 | `/users/{id}` → `/users/5` |
-| `path` | `simple` | 均支持 | 数组 | `/users/1,2,3` |
-| `path` | `simple` | `false` | 对象 | `/users/id,1,tag,alice` |
-| `path` | `simple` | `true` | 对象 | `/users/id=1,tag=alice` |
-| `path` | `label` | 均支持 | 原始值/数组/对象 | `/users/.5`（`.1,2` / `.1.2` / `.id=1.tag=alice`） |
-| `path` | `matrix` | 均支持 | 原始值/数组/对象 | `/users/;id=5`（`;id=1;id=2` / `;id=1,tag=alice`） |
-| `query` | `form` | `false` | 数组/对象 | `?list=1,2`（`?u=id,1,tag,alice`） |
-| `query` | `form` | `true` | 数组/对象 | `?list=1&list=2`（`?id=1&tag=alice`） |
-| `query` | `spaceDelimited` | `false` | 数组/对象 | `?s=1+2`（`?u=id+1+tag+alice`） |
-| `query` | `pipeDelimited` | `false` | 数组/对象 | `?p=1\|2`（`?u=id\|1\|tag\|alice`） |
-| `query` | `deepObject` | `true` | 对象 | `?m[key]=1&m[k2]=2` |
-| `header` | `simple` | 均支持 | 原始值/数组/对象 | `X: 5`（`X: 1,2,3` / `X: id=1,tag=alice`） |
-| `cookie` | `form` | 均支持 | 原始值 | `Cookie: token=8` |
+| 位置     | `style`          | `explode` | 值形状           | 线上形态                                           |
+| -------- | ---------------- | --------- | ---------------- | -------------------------------------------------- |
+| `path`   | `simple`         | 均支持    | 原始值           | `/users/{id}` → `/users/5`                         |
+| `path`   | `simple`         | 均支持    | 数组             | `/users/1,2,3`                                     |
+| `path`   | `simple`         | `false`   | 对象             | `/users/id,1,tag,alice`                            |
+| `path`   | `simple`         | `true`    | 对象             | `/users/id=1,tag=alice`                            |
+| `path`   | `label`          | 均支持    | 原始值/数组/对象 | `/users/.5`（`.1,2` / `.1.2` / `.id=1.tag=alice`） |
+| `path`   | `matrix`         | 均支持    | 原始值/数组/对象 | `/users/;id=5`（`;id=1;id=2` / `;id=1,tag=alice`） |
+| `query`  | `form`           | `false`   | 数组/对象        | `?list=1,2`（`?u=id,1,tag,alice`）                 |
+| `query`  | `form`           | `true`    | 数组/对象        | `?list=1&list=2`（`?id=1&tag=alice`）              |
+| `query`  | `spaceDelimited` | `false`   | 数组/对象        | `?s=1+2`（`?u=id+1+tag+alice`）                    |
+| `query`  | `pipeDelimited`  | `false`   | 数组/对象        | `?p=1\|2`（`?u=id\|1\|tag\|alice`）                |
+| `query`  | `deepObject`     | `true`    | 对象             | `?m[key]=1&m[k2]=2`                                |
+| `header` | `simple`         | 均支持    | 原始值/数组/对象 | `X: 5`（`X: 1,2,3` / `X: id=1,tag=alice`）         |
+| `cookie` | `form`           | 均支持    | 原始值           | `Cookie: token=8`                                  |
 
 `explode` 按位置取默认：`path`/`header` 默认 `false`，`query`/`cookie` 默认 `true`。
 不可执行的组合（style 不属于该位置——`path` 里的 `form`、`query` 里的 `simple` 等；
@@ -339,3 +407,12 @@ body 槽位。
   discriminator。它们绝不静默误渲染 —— `openapi_schema_dialect_keyword` warning
   把 schema 标记为待审（SUI-009）。kin 可载入的 degraded schema 在 kin 前端归一；
   draft-07 元组（`items` 为数组）被 kin 拒绝、回落 map 前端，map 前端记录同样的 note。
+- **响应**侧的方向剔除不发诊断（SUI-010）：输出 schema 路径
+  （`extractOutputSchema`、上传管线的 `openAPIResponseSchema`）对响应 schema 套用
+  同一 `writeOnly` 规则，但它们自身没有诊断通道，因此被剔除的 `writeOnly`
+  字段不会被记录。`openapi_schema_writeonly_dropped` 代码存在于带通道的响应过滤
+  （`FilterJSONSchemaDirection` 接收 `notes` 收集器）；请求侧始终把
+  `readOnly` 剔除记入 `OperationRequestContract.Diagnostics`。
+- 根级标记 `readOnly` 的请求体 schema 整体剔除 body 槽位（该操作随后没有
+  请求体可发）；schema 根被标记 `readOnly` 的参数保留参数本身、但其 schema 变为
+  空 —— 寻址（必填 path 参数）绝不被破坏，且该剔除记入契约诊断。

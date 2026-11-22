@@ -50,12 +50,15 @@ func ExtractOperationRequestContractKin(
 		}
 	}
 	contract.Diagnostics = append(contract.Diagnostics, refIssuesToDiagnostics(issues)...)
-	contract.Diagnostics = append(contract.Diagnostics, requestContractDiagnostics(contract)...)
 	// SUI-009：把 3.0 `nullable` / 3.1 联合类型归一为同一方言无关形态，并
-	// 为条件 schema、元组等不可直接渲染的关键字记录能力诊断。两个前端
-	// 对同一文档产出相同归一契约（对拍由 TestRequestContract_KinMapParity
-	// 及方言专项对拍锁定）。
-	return spec.NormalizeRequestContractDialect(contract, spec.DetectSchemaDialect(root))
+	// 为条件 schema、元组等不可直接渲染的关键字记录能力诊断；SUI-010：
+	// 剔除 `readOnly` 字段（必填集同步收缩）。两个前端对同一文档产出相同
+	// 归一契约（对拍由 TestRequestContract_KinMapParity 及方言专项对拍锁定）。
+	contract = spec.CanonicalizeRequestContract(contract, spec.DetectSchemaDialect(root))
+	// 平铺/序列化诊断在方向过滤后计算：readOnly 字段被剔除后，其属性名不再
+	// 与参数冲突，也不影响 body 根的可平铺判定（SUI-004 诊断反映真实契约）。
+	contract.Diagnostics = append(contract.Diagnostics, requestContractDiagnostics(contract)...)
+	return contract
 }
 
 func appendKinParameter(

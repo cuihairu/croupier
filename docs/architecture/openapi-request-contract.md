@@ -70,37 +70,40 @@ naming convention.
   "body": {
     "mediaType": "application/json",
     "required": true,
-    "schema": { "type": "object", "properties": { "name": { "type": "string" } } }
+    "schema": {
+      "type": "object",
+      "properties": { "name": { "type": "string" } }
+    }
   },
   "diagnostics": []
 }
 ```
 
-| Field | Type | Meaning |
-|---|---|---|
-| `parameters` | `RequestParameterSpec[]` | Fixed-position parameters, in declaration order (operation-level first, then path-item-level; an operation-level parameter overrides a path-item-level one with the same `(in, name)`). |
-| `body` | `RequestBodySpec \| null` | The request body slot, if the operation declares a request body. |
-| `diagnostics` | `Diagnostic[]` | Extraction-time diagnostics (collision, non-flat shape). See [Compatibility boundary](#compatibility-boundary). |
+| Field         | Type                      | Meaning                                                                                                                                                                                 |
+| ------------- | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `parameters`  | `RequestParameterSpec[]`  | Fixed-position parameters, in declaration order (operation-level first, then path-item-level; an operation-level parameter overrides a path-item-level one with the same `(in, name)`). |
+| `body`        | `RequestBodySpec \| null` | The request body slot, if the operation declares a request body.                                                                                                                        |
+| `diagnostics` | `Diagnostic[]`            | Extraction-time diagnostics (collision, non-flat shape). See [Compatibility boundary](#compatibility-boundary).                                                                         |
 
 ### `RequestParameterSpec`
 
-| Field | Type | Meaning |
-|---|---|---|
-| `name` | `string` | Parameter name. |
-| `in` | `path \| query \| header \| cookie` | Fixed position. |
-| `required` | `bool` | Whether the parameter is required. |
-| `deprecated` | `bool` | Whether the parameter is deprecated. |
-| `description` | `string` | Human-readable description. |
-| `serialization` | `RequestSerialization` | OpenAPI `style` / `explode` for this position (defaults per the spec: path `simple`, query `form`, header `simple`, cookie `form`). |
-| `schema` | `JSON Schema` | The parameter schema (`$ref`-resolved against the document). |
+| Field           | Type                                | Meaning                                                                                                                             |
+| --------------- | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `name`          | `string`                            | Parameter name.                                                                                                                     |
+| `in`            | `path \| query \| header \| cookie` | Fixed position.                                                                                                                     |
+| `required`      | `bool`                              | Whether the parameter is required.                                                                                                  |
+| `deprecated`    | `bool`                              | Whether the parameter is deprecated.                                                                                                |
+| `description`   | `string`                            | Human-readable description.                                                                                                         |
+| `serialization` | `RequestSerialization`              | OpenAPI `style` / `explode` for this position (defaults per the spec: path `simple`, query `form`, header `simple`, cookie `form`). |
+| `schema`        | `JSON Schema`                       | The parameter schema (`$ref`-resolved against the document).                                                                        |
 
 ### `RequestBodySpec`
 
-| Field | Type | Meaning |
-|---|---|---|
-| `mediaType` | `string` | The media type of the payload, selected under the executor capability (SUI-007): `application/json` and the RFC-6839 `application/*+json` suffix types are executable; `application/json` wins, then the `+json` suffix types, then the rest lexicographically. See [Media type selection](#media-type-selection-sui-007). |
-| `required` | `bool` | Whether the request body is required. |
-| `schema` | `JSON Schema` | The **full** body schema, verbatim, including the root `type` (`object` / `array` / scalar) and all root-level constraints (`minProperties`, `additionalProperties`, …). |
+| Field       | Type          | Meaning                                                                                                                                                                                                                                                                                                                    |
+| ----------- | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `mediaType` | `string`      | The media type of the payload, selected under the executor capability (SUI-007): `application/json` and the RFC-6839 `application/*+json` suffix types are executable; `application/json` wins, then the `+json` suffix types, then the rest lexicographically. See [Media type selection](#media-type-selection-sui-007). |
+| `required`  | `bool`        | Whether the request body is required.                                                                                                                                                                                                                                                                                      |
+| `schema`    | `JSON Schema` | The **full** body schema, verbatim, including the root `type` (`object` / `array` / scalar) and all root-level constraints (`minProperties`, `additionalProperties`, …).                                                                                                                                                   |
 
 ## Extraction rules
 
@@ -134,11 +137,11 @@ the agreement is locked by a parity test. The rules:
 The function-contract input schema — what the operator fills in a form — is a
 deterministic projection of the request contract. Three modes:
 
-| Mode | Condition | Input schema |
-|---|---|---|
-| `flat` | No body, or a flat-able object body with no parameter collision | `{ "type": "object", "properties": { <params> + <body props> }, "required": [...] }` |
+| Mode         | Condition                                                                                                                                              | Input schema                                                                                               |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
+| `flat`       | No body, or a flat-able object body with no parameter collision                                                                                        | `{ "type": "object", "properties": { <params> + <body props> }, "required": [...] }`                       |
 | `structured` | Body is non-flat-able (root array/scalar, or object with non-preservable root constraints), **or** a parameter name collides with a body property name | `{ "type": "object", "properties": { "params": { <params> }, "body": <body schema> }, "required": [...] }` |
-| `body_only` | No parameters and a body is present | The body schema verbatim. |
+| `body_only`  | No parameters and a body is present                                                                                                                    | The body schema verbatim.                                                                                  |
 
 A **flat-able** body is an `application/json` object schema whose root keys are
 all within `{ type, properties, required, description, title, default,
@@ -179,13 +182,15 @@ Operations that cannot be represented losslessly by the flat projection are
 **not** silently degraded — the extraction emits an operation-level diagnostic
 (`SeverityWarning`) with a field-level pointer:
 
-| Code | Condition | Field |
-|---|---|---|
-| `openapi_request_parameter_collision` | Two parameters share a name across positions, or a parameter name equals a flat-able body property name | `$.paths.<p>.<method>.parameters` (and the conflicting parameter/property name in the message) |
-| `openapi_request_body_shape_nonflat` | The body root is an array/scalar, or an object body carries root-level constraints outside the flat-preservable set | `$.paths.<p>.<method>.requestBody` |
-| `openapi_request_body_no_executable_media` | The operation declares a request body whose media types are all outside the executor capability (SUI-007) | `$.paths.<p>.<method>.requestBody` (the declared media types and the executable set are named in the message) |
-| `openapi_schema_reference_unresolved` | A schema `$ref` cannot be fully inlined into the standalone contract: the target is missing, the reference is cyclic (past the inlining depth cap), or it points outside the document (SUI-008) | the `$ref` pointer as declared (the boundary that stopped the inlining is named in the message) |
-| `openapi_schema_dialect_keyword` | A schema keyword cannot be rendered as a real form control by the schema-driven form: a multi-type union (no `"null"`), a conditional schema (`if`/`then`/`else`, `dependentSchemas`), or a tuple (`prefixItems`, `items` as an array) (SUI-009) | the schema JSON pointer; the keyword and the required handling (JSON editing or a manual binding) are named in the message |
+| Code                                       | Condition                                                                                                                                                                                                                                        | Field                                                                                                                      |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| `openapi_request_parameter_collision`      | Two parameters share a name across positions, or a parameter name equals a flat-able body property name                                                                                                                                          | `$.paths.<p>.<method>.parameters` (and the conflicting parameter/property name in the message)                             |
+| `openapi_request_body_shape_nonflat`       | The body root is an array/scalar, or an object body carries root-level constraints outside the flat-preservable set                                                                                                                              | `$.paths.<p>.<method>.requestBody`                                                                                         |
+| `openapi_request_body_no_executable_media` | The operation declares a request body whose media types are all outside the executor capability (SUI-007)                                                                                                                                        | `$.paths.<p>.<method>.requestBody` (the declared media types and the executable set are named in the message)              |
+| `openapi_schema_reference_unresolved`      | A schema `$ref` cannot be fully inlined into the standalone contract: the target is missing, the reference is cyclic (past the inlining depth cap), or it points outside the document (SUI-008)                                                  | the `$ref` pointer as declared (the boundary that stopped the inlining is named in the message)                            |
+| `openapi_schema_dialect_keyword`           | A schema keyword cannot be rendered as a real form control by the schema-driven form: a multi-type union (no `"null"`), a conditional schema (`if`/`then`/`else`, `dependentSchemas`), or a tuple (`prefixItems`, `items` as an array) (SUI-009) | the schema JSON pointer; the keyword and the required handling (JSON editing or a manual binding) are named in the message |
+| `openapi_schema_readonly_dropped`          | A `readOnly` field (or flagged subschema slot) was removed from a request schema and the `required` set was adjusted (SUI-010)                                                                                                                   | the schema JSON pointer of the removed field (e.g. `/properties/id`)                                                       |
+| `openapi_schema_writeonly_dropped`         | The same, for a `writeOnly` field removed from a response schema (SUI-010)                                                                                                                                                                       | the schema JSON pointer of the removed field                                                                               |
 
 The projection still produces a usable input schema (`structured` or
 `body_only`) — the diagnostic is informational and does not fail the upload.
@@ -208,11 +213,11 @@ message):
 1. **Missing target** — the pointer names a node the document does not have
    (for example `#/components/schemas/DoesNotExist`); the reference collapses
    to `{ "type": "object" }` and the diagnostic says `missing target in the
-   document`.
+document`.
 2. **Cyclic reference** — a schema referencing itself (directly or through
    other components) recurses to the inlining depth cap (16) and truncates to
    `{ "type": "object" }`; the diagnostic says `cyclic reference past the
-   inlining depth cap`. The truncation is deterministic and identical across
+inlining depth cap`. The truncation is deterministic and identical across
    the kin and map front-ends.
 3. **External reference** — a `$ref` outside the document (`other.yaml#/...` or
    a URL) is preserved verbatim as `{ "$ref": ... }` (not dropped) and the
@@ -264,14 +269,14 @@ The two are distinct and the UI keeps them distinct:
 Schema keywords that the schema-driven form cannot render as a real control are
 classified instead of silently mis-rendered. Each carries a `DialectCapability`:
 
-| Keyword | Classification | Handling |
-|---|---|---|
-| `nullable: true` / `type: [T, "null"]` | supported | canonicalized; nullable control |
-| plain `type` / `properties` / `items` (object) / `enum` / `format` | supported | direct form control |
-| `type` array with >1 non-null type (union) | degraded | JSON editing or manual binding / discriminator |
-| conditional schema (`if` / `then` / `else`, `dependentSchemas`, schema-valued `dependencies`) | degraded | JSON editing or manual binding |
-| tuple (`prefixItems`, `items` as an array) | degraded | JSON editing or manual binding |
-| anything the executor cannot run | unsupported | not executed; surfaced in review |
+| Keyword                                                                                       | Classification | Handling                                       |
+| --------------------------------------------------------------------------------------------- | -------------- | ---------------------------------------------- |
+| `nullable: true` / `type: [T, "null"]`                                                        | supported      | canonicalized; nullable control                |
+| plain `type` / `properties` / `items` (object) / `enum` / `format`                            | supported      | direct form control                            |
+| `type` array with >1 non-null type (union)                                                    | degraded       | JSON editing or manual binding / discriminator |
+| conditional schema (`if` / `then` / `else`, `dependentSchemas`, schema-valued `dependencies`) | degraded       | JSON editing or manual binding                 |
+| tuple (`prefixItems`, `items` as an array)                                                    | degraded       | JSON editing or manual binding                 |
+| anything the executor cannot run                                                              | unsupported    | not executed; surfaced in review               |
 
 A degraded keyword is recorded as a **warning** diagnostic
 `openapi_schema_dialect_keyword` (`field` = the schema JSON pointer), so the
@@ -287,6 +292,81 @@ identically (locked by the parity tests on both sides).
 Dialect notes are converted to diagnostics sorted by `(path, keyword)`, so a
 document re-imported repeatedly yields the same contract byte-for-byte — the
 SUI-007 determinism guarantee extends to dialect notes.
+
+## Schema field direction (SUI-010)
+
+`readOnly` / `writeOnly` decide which side of the contract a field belongs to,
+and the two sides must not carry each other's fields:
+
+- **Request schemas drop `readOnly` fields.** The client must not send a
+  server-owned value, and the form must not offer an input for it.
+- **Response schemas drop `writeOnly` fields.** The server must not return a
+  client-supplied secret, and the output schema must not claim it.
+
+The filter runs in **both** extraction front-ends (kin and map), after
+`$ref` inlining (SUI-008) and dialect normalization (SUI-009), so it sees the
+standalone canonical schema. Plain fields, nested fields and
+reference-inlined fields follow the same rule — a `$ref` to an object with a
+`readOnly` property is inlined first and then filtered, so no
+`$/components` escape hatch keeps a `readOnly` field reachable from the
+request side.
+
+### Required set
+
+Every removal also removes the field from the enclosing `required` list. A
+required `readOnly` field must not make the request unsendable: the required
+set shrinks past it, and a required list that becomes empty is deleted from
+the schema (an empty `required` is an invalid schema). The shrink happens only
+at the level where a field was actually removed, and only when something was
+removed — a schema without any opposite-side flag is returned
+structurally unchanged, so its `required` is never rewritten.
+
+### Where the filter recurses
+
+| Position                                                      | Behaviour                                                                                                                                                 |
+| ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `properties` entries                                          | dropped when the property itself carries the opposite-side keyword; survivors recursed                                                                    |
+| `items` / `additionalProperties` (object form)                | the slot is removed when the element/added-value schema is flagged; otherwise recursed                                                                    |
+| `allOf` / `anyOf` / `oneOf` members                           | flagged members removed, survivors recursed                                                                                                               |
+| `dependentSchemas` entries                                    | dropped when flagged; survivors recursed                                                                                                                  |
+| `if` / `then` / `else` / `not` / `contains` / `propertyNames` | **recursed but never removed** — the branch itself stays in place (removing it changes the conditional semantics), only the fields inside it are filtered |
+| tuples (`prefixItems`, `items` as an array)                   | **recursed but never removed** — repositioning a tuple member changes tuple semantics                                                                     |
+| `$defs` / `definitions` entries                               | untouched — after inlining they are unused material, not rendered schema                                                                                  |
+
+The flag that **matches** the direction survives: a `writeOnly` field keeps
+its `writeOnly` on the request side, and a `readOnly` field keeps its
+`readOnly` on the response side. Validators and the form ignore unknown
+keywords, and the flag keeps the direction readable.
+
+A **flagged root** means the whole payload belongs to the other side: a
+request body schema flagged `readOnly` drops the body slot itself (there is
+no request body to send), and a response schema flagged `writeOnly` yields
+no output schema.
+
+### Diagnostics
+
+| Code                               | Condition                                                                                                                         | Field                                                                                                      |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `openapi_schema_readonly_dropped`  | A `readOnly` field (or flagged subschema slot) was removed from a request schema, and the `required` set was adjusted accordingly | the schema JSON pointer of the removed field (e.g. `/properties/id`, `/properties/profile/properties/ssn`) |
+| `openapi_schema_writeonly_dropped` | The same for a `writeOnly` field removed from a response schema                                                                   | the schema JSON pointer of the removed field                                                               |
+
+Both are **warning** severity. The request side surfaces them in
+`OperationRequestContract.Diagnostics`, so the operator sees why a field is
+absent from the input form instead of mistaking the drop for a descriptor bug.
+Direction notes are converted to diagnostics sorted by `(path, keyword)` — the
+SUI-007 determinism guarantee extends to them.
+
+The flat-projection diagnostics (SUI-004) are computed **after** the filter:
+a body property that collides with a parameter name is no longer a collision
+once the property was dropped, and a body that is entirely `readOnly` is not a
+non-flat body — it is simply absent.
+
+### Determinism
+
+Direction notes are converted to diagnostics sorted by `(path, keyword)`, so
+repeated imports of the same document yield the same contract byte-for-byte
+— the SUI-007 determinism guarantee extends to direction notes. A schema with
+no opposite-side keyword is returned structurally unchanged.
 
 ## Execution-time mapping
 
@@ -314,21 +394,21 @@ The executor serializes each parameter per the OpenAPI style/explode rules
 (parameter values are percent-encoded; separators stay literal per the OpenAPI
 appendix). The publicly declared, executable matrix:
 
-| Position | `style` | `explode` | Value shape | Wire form |
-|---|---|---|---|---|
-| `path` | `simple` | both | primitive | `/users/{id}` → `/users/5` |
-| `path` | `simple` | both | array | `/users/1,2,3` |
-| `path` | `simple` | `false` | object | `/users/id,1,tag,alice` |
-| `path` | `simple` | `true` | object | `/users/id=1,tag=alice` |
-| `path` | `label` | both | primitive / array / object | `/users/.5` (`.1,2` / `.1.2` / `.id=1.tag=alice`) |
-| `path` | `matrix` | both | primitive / array / object | `/users/;id=5` (`;id=1;id=2` / `;id=1,tag=alice`) |
-| `query` | `form` | `false` | array / object | `?list=1,2` (`?u=id,1,tag,alice`) |
-| `query` | `form` | `true` | array / object | `?list=1&list=2` (`?id=1&tag=alice`) |
-| `query` | `spaceDelimited` | `false` | array / object | `?s=1+2` (`?u=id+1+tag+alice`) |
-| `query` | `pipeDelimited` | `false` | array / object | `?p=1\|2` (`?u=id\|1\|tag\|alice`) |
-| `query` | `deepObject` | `true` | object | `?m[key]=1&m[k2]=2` |
-| `header` | `simple` | both | primitive / array / object | `X: 5` (`X: 1,2,3` / `X: id=1,tag=alice`) |
-| `cookie` | `form` | both | primitive | `Cookie: token=8` |
+| Position | `style`          | `explode` | Value shape                | Wire form                                         |
+| -------- | ---------------- | --------- | -------------------------- | ------------------------------------------------- |
+| `path`   | `simple`         | both      | primitive                  | `/users/{id}` → `/users/5`                        |
+| `path`   | `simple`         | both      | array                      | `/users/1,2,3`                                    |
+| `path`   | `simple`         | `false`   | object                     | `/users/id,1,tag,alice`                           |
+| `path`   | `simple`         | `true`    | object                     | `/users/id=1,tag=alice`                           |
+| `path`   | `label`          | both      | primitive / array / object | `/users/.5` (`.1,2` / `.1.2` / `.id=1.tag=alice`) |
+| `path`   | `matrix`         | both      | primitive / array / object | `/users/;id=5` (`;id=1;id=2` / `;id=1,tag=alice`) |
+| `query`  | `form`           | `false`   | array / object             | `?list=1,2` (`?u=id,1,tag,alice`)                 |
+| `query`  | `form`           | `true`    | array / object             | `?list=1&list=2` (`?id=1&tag=alice`)              |
+| `query`  | `spaceDelimited` | `false`   | array / object             | `?s=1+2` (`?u=id+1+tag+alice`)                    |
+| `query`  | `pipeDelimited`  | `false`   | array / object             | `?p=1\|2` (`?u=id\|1\|tag\|alice`)                |
+| `query`  | `deepObject`     | `true`    | object                     | `?m[key]=1&m[k2]=2`                               |
+| `header` | `simple`         | both      | primitive / array / object | `X: 5` (`X: 1,2,3` / `X: id=1,tag=alice`)         |
+| `cookie` | `form`           | both      | primitive                  | `Cookie: token=8`                                 |
 
 Explode is applied per position: `path`/`header` default to `false`, `query`/
 `cookie` default to `true`. Non-executable combinations (a style not allowed for
@@ -430,3 +510,16 @@ executor keeps the legacy behaviour.
   A kin-loadable degraded schema is normalized in the kin front-end; a draft-07
   tuple (`items` as an array) is rejected by kin and falls back to the map
   front-end, which records the same notes.
+- Direction drops on the **response** side are not surfaced as diagnostics
+  (SUI-010): the output-schema paths (`extractOutputSchema`, the upload
+  pipeline's `openAPIResponseSchema`) filter a response schema through the same
+  `writeOnly` rule, but they have no diagnostic channel of their own, so a
+  removed `writeOnly` field is not recorded. The `openapi_schema_writeonly_dropped`
+  code exists for a response filter with a channel (`FilterJSONSchemaDirection`
+  takes a `notes` collector); the request side always records its
+  `readOnly` drops in `OperationRequestContract.Diagnostics`.
+- A request-body schema flagged `readOnly` at its root drops the body slot
+  entirely (the operation then has no body to send), and a parameter whose
+  schema root is flagged `readOnly` keeps the parameter but ends up with an
+  empty schema — addressing (a required path parameter) is never broken, and
+  the removal is recorded in the contract diagnostics.

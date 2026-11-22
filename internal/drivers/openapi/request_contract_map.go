@@ -44,9 +44,12 @@ func ExtractOperationRequestContractMap(
 		contract.Diagnostics = append(contract.Diagnostics, spec.RequestBodyMediaDiagnostic(reason))
 	}
 	contract.Diagnostics = append(contract.Diagnostics, refIssuesToDiagnostics(issues)...)
+	// SUI-009 / SUI-010：与 kin 前端同机的方言归一 + 请求方向过滤
+	// （readOnly 剔除，见 request_contract.go 注释）；平铺/序列化诊断在
+	// 过滤后计算（同 kin 前端）。
+	contract = spec.CanonicalizeRequestContract(contract, spec.DetectSchemaDialect(root))
 	contract.Diagnostics = append(contract.Diagnostics, requestContractDiagnostics(contract)...)
-	// SUI-009：与 kin 前端同机的方言归一（见 request_contract.go 注释）。
-	return spec.NormalizeRequestContractDialect(contract, spec.DetectSchemaDialect(root))
+	return contract
 }
 
 // appendMapParameterList 把一份 parameters 列表并入契约（仅固定位置参数；

@@ -180,3 +180,79 @@ func normalizeJSONSchemaDialect(schema JSONSchema, dialect SchemaDialect, notes 
 	}
 	return JSONSchema(encoded)
 }
+
+// CanonicalizeRequestContract applies both extraction canonicalizations in
+// order: dialect normalization (SUI-009) then direction filtering (SUI-010).
+// Both extraction front-ends call it, so the stored contract, the operator
+// form and the server validator share one schema — `readOnly` fields never
+// reach the request side.
+func CanonicalizeRequestContract(contract OperationRequestContract, dialect SchemaDialect) OperationRequestContract {
+	return FilterRequestContractDirection(NormalizeRequestContractDialect(contract, dialect))
+}
+
+// FilterRequestContractDirection removes `readOnly` fields from every schema
+// a request contract carries (SUI-010). A flagged body root drops the body
+// slot itself — a read-only payload has no request body to send. Returns a
+// new contract; the input is not mutated.
+func FilterRequestContractDirection(contract OperationRequestContract) OperationRequestContract {
+	notes := []DirectionNote{}
+	out := contract
+	out.Parameters = make([]RequestParameterSpec, len(contract.Parameters))
+	copy(out.Parameters, contract.Parameters)
+	for i, param := range out.Parameters {
+		out.Parameters[i].Schema = filterJSONSchemaDirection(param.Schema, SchemaDirectionRequest, &notes)
+	}
+	if out.Body != nil {
+		body := *out.Body
+		body.Schema = filterJSONSchemaDirection(body.Schema, SchemaDirectionRequest, &notes)
+		out.Body = &body
+		if len(body.Schema) == 0 {
+			out.Body = nil
+		}
+	}
+	if len(notes) > 0 {
+		out.Diagnostics = append(out.Diagnostics, DirectionNotesToDiagnostics(notes)...)
+	}
+	return out
+}
+
+func filterJSONSchemaDirection(schema JSONSchema, direction SchemaDirection, notes *[]DirectionNote) JSONSchema {
+	if len(schema) == 0 {
+		return schema
+	}
+	var node map[string]interface{}
+	if err := json.Unmarshal(schema, &node); err != nil || node == nil {
+		return schema
+	}
+	filtered := FilterSchemaDirection(node, direction, notes)
+	if filtered == nil {
+		return JSONSchema("")
+	}
+	encoded, err := json.Marshal(filtered)
+	if err != nil {
+		return schema
+	}
+	return JSONSchema(encoded)
+}
+
+// FilterJSONSchemaDirection removes the fields a schema must not carry for the
+// direction and reports the removals. The response-side output schema callers
+// use it; a nil result means the whole schema belongs to the other side.
+func FilterJSONSchemaDirection(schema JSONSchema, direction SchemaDirection, notes *[]DirectionNote) JSONSchema {
+	if len(schema) == 0 {
+		return schema
+	}
+	var node map[string]interface{}
+	if err := json.Unmarshal(schema, &node); err != nil || node == nil {
+		return schema
+	}
+	filtered := FilterSchemaDirection(node, direction, notes)
+	if filtered == nil {
+		return JSONSchema("")
+	}
+	encoded, err := json.Marshal(filtered)
+	if err != nil {
+		return schema
+	}
+	return JSONSchema(encoded)
+}
