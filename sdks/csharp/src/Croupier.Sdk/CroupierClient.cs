@@ -674,6 +674,16 @@ public partial class CroupierClient : IDisposable
 
     private async Task ConnectAndRegisterAsync(CancellationToken cancellationToken)
     {
+        // AUD-014：请求安全模式（Insecure=false，注册时向 Agent 声明 tls）时
+        // C# TCP transport 未实现 TLS——显式拒绝连接而非静默降级明文（矩阵
+        // 已同步标注）。Insecure=true（默认）保持明文直连不变。
+        if (!_config.Insecure)
+        {
+            throw new NotSupportedException(
+                "C# SDK TCP transport does not implement TLS: Insecure=false requested secure " +
+                "mode; refusing plaintext connection (set Insecure=true for plaintext)");
+        }
+
         // Remove tcp:// prefix if present, as TCPTransport expects raw "host:port" format
         var address = _config.AgentAddr.StartsWith("tcp://")
             ? _config.AgentAddr["tcp://".Length..]
@@ -765,6 +775,15 @@ public partial class CroupierClient : IDisposable
         if (string.IsNullOrWhiteSpace(_config.ControlAddr))
         {
             return;
+        }
+
+        // AUD-014：控制面 transport 与主连接同一安全策略——secure 模式未
+        // 实现 TLS，显式拒绝（重连路径不经 ConnectAsync，须在此复检）。
+        if (!_config.Insecure)
+        {
+            throw new NotSupportedException(
+                "C# SDK TCP transport does not implement TLS: Insecure=false requested secure " +
+                "mode; refusing plaintext connection (set Insecure=true for plaintext)");
         }
 
         // Remove tcp:// prefix if present, as TCPTransport expects raw "host:port" format

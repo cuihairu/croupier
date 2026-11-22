@@ -225,6 +225,29 @@ public class CroupierClientTests
     }
 
     [Fact]
+    public async Task CroupierClient_ConnectAsync_SecureModeRejectsTlsNotImplemented()
+    {
+        // AUD-014：Insecure=false（请求 secure 模式，注册时向 Agent 声明 tls）
+        // 时 C# TCP transport 未实现 TLS——必须显式拒绝连接而非静默降级明文
+        // （矩阵已同步标注）。guard 在任何网络 I/O 前触发，无需可达 Agent。
+        var config = CreateTestConfig();
+        config.Insecure = false;
+        using var client = new CroupierClient(config);
+        client.RegisterFunction(
+            new FunctionDescriptor
+            {
+                Id = "test.secure",
+                Resource = "test",
+                Operation = "invoke"
+            },
+            (ctx, payload) => Task.FromResult("{}"));
+
+        var act = async () => await client.ConnectAsync();
+        (await act.Should().ThrowAsync<NotSupportedException>())
+            .WithMessage("*does not implement TLS*");
+    }
+
+    [Fact]
     public void CroupierClient_UnregisterFunction_RemovesFunction()
     {
         // Arrange

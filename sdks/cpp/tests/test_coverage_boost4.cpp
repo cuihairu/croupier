@@ -1599,6 +1599,21 @@ TEST(ConfigLoaderBoost4Test, ValidateConfigCollectsSecurityErrors) {
     EXPECT_TRUE(contains("server_name is required"));
 }
 
+TEST(ClientSecurityBoost4Test, SecureModeRejectsTlsNotImplemented) {
+    // AUD-014：insecure=false（请求 secure 模式，注册时向 Agent 声明 tls）
+    // 时 C++ TCP transport 未实现 TLS——必须显式拒绝连接而非静默降级明文
+    // （矩阵已同步标注）。地址可解析即可：guard 在任何网络 I/O 前触发，
+    // 无需可达 Agent（127.0.0.1:1 不可达，但 guard 先于 Connect 抛出）。
+    ClientConfig config = Boost4ProviderConfig("127.0.0.1:1");
+    config.insecure = false;
+    CroupierClient client(config);
+    ASSERT_TRUE(client.RegisterFunction(MakeEchoDescriptor(),
+                                        [](const std::string&, const std::string& p) { return p; }));
+    EXPECT_FALSE(client.Connect());
+    EXPECT_NE(client.LastError().find("does not implement TLS"), std::string::npos)
+        << "LastError=" << client.LastError();
+}
+
 // ---------------------------------------------------------------------------
 // 8) OpenAPI importer variants
 // ---------------------------------------------------------------------------

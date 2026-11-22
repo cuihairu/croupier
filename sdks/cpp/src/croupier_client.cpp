@@ -413,6 +413,7 @@ public:
         }
         try {
             const auto agent_address = ParseTCPAddress(config_.agent_addr);
+            ensureTransportSecurityAllowed();  // AUD-014：secure 模式未实现 TLS，显式拒绝
             std::unique_ptr<TCPTransport> replacement =
                 std::make_unique<TCPTransport>(agent_address.host, agent_address.port, config_.timeout_seconds * 1000);
             replacement->SetConnectTimeout(config_.connect_timeout_seconds * 1000);
@@ -577,6 +578,19 @@ public:
         return {};
     }
 
+    // AUD-014：请求安全模式（insecure=false，注册时向 Agent 声明 tls）时
+    // C++ TCP transport 未实现 TLS——显式拒绝连接而非静默降级明文（矩阵
+    // 已同步标注）。insecure=true（默认）保持明文直连不变。
+    void ensureTransportSecurityAllowed() const {
+        if (!config_.insecure) {
+            throw std::runtime_error(
+                "C++ SDK TCP transport does not implement TLS: insecure=false requested secure "
+                "mode; refusing plaintext connection (set insecure=true for plaintext)");
+        }
+    }
+
+    const std::string& LastError() const { return last_error_; }
+
     bool Connect() {
         if (connected_)
             return true;
@@ -588,6 +602,7 @@ public:
 
         try {
             const auto agent_address = ParseTCPAddress(config_.agent_addr);
+            ensureTransportSecurityAllowed();  // AUD-014：secure 模式未实现 TLS，显式拒绝
             auto transport =
                 std::make_unique<TCPTransport>(agent_address.host, agent_address.port, config_.timeout_seconds * 1000);
             transport->SetInboundHandler([this](uint32_t msg_id, uint32_t req_id, const std::vector<uint8_t>& body) {
@@ -740,6 +755,7 @@ public:
         }
         try {
             const auto address = ParseTCPAddress(config_.control_addr);
+            ensureTransportSecurityAllowed();  // AUD-014：secure 模式未实现 TLS，显式拒绝
             TCPTransport control(address.host, address.port, 5000);
             control.Connect();
 
@@ -978,6 +994,12 @@ bool CroupierClient::Connect() {
 
 bool CroupierClient::IsConnected() const {
     return impl_->IsConnected();
+}
+
+// AUD-014：最近一次连接/注册失败原因（空=无失败）。secure 模式（insecure
+// =false）拒绝信息经此暴露，供调用方区分「TLS 未实现被拒」与网络失败。
+const std::string& CroupierClient::LastError() const {
+    return impl_->LastError();
 }
 
 bool CroupierClient::IsDraining() const {

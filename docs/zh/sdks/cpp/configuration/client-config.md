@@ -60,6 +60,13 @@
 - `tls` 是 TCP session 的安全配置，不是新的传输类型。
 - 重连应默认开启，避免 Agent 短暂重启导致业务进程长时间不可用。
 
+## 已知边界（AUD-014）
+
+C++ TCP transport **尚未实现** TLS。请求安全会话（`insecure=false`，注册时向 Agent 声明 `transport_security_mode=tls`）时，SDK **显式拒绝连接**而非静默降级明文——`Connect()` 返回 `false`，`LastError()` 携带原因（"does not implement TLS"）。这避免了在明文 socket 上谎称 TLS 会话。
+
+- `SDK <-> Agent` 明文连接请用 `insecure=true`（默认）。
+- 完整 TLS（OpenSSL 握手、CA/cert/key 校验）为后续跟进项；特征矩阵已如实标注。
+
 ## 禁用字段
 
 以下字段属于旧版 callback 或 local-listener 模型，不得出现在新配置中：

@@ -60,6 +60,13 @@ This page is the canonical entry point for C++ SDK configuration semantics. Conf
 - `tls` is the security configuration of the TCP session, not a new transport kind.
 - Reconnection should be on by default so a brief Agent restart does not leave the business process unavailable for long.
 
+## Known Boundary (AUD-014)
+
+The C++ TCP transport does **not** implement TLS yet. When a secure session is requested (`insecure=false`, which registers the provider with `transport_security_mode=tls`), the SDK **explicitly rejects the connection** instead of silently downgrading to plaintext — `Connect()` returns `false` and `LastError()` carries the reason ("does not implement TLS"). This prevents the false claim of a TLS session over a plaintext socket.
+
+- Use `insecure=true` (the default) for plaintext `SDK <-> Agent` connections.
+- Full TLS (OpenSSL handshake, CA/cert/key verification) is a follow-up; the feature matrix is marked accordingly.
+
 ## Prohibited Fields
 
 The following fields belong to the legacy callback or local-listener models and must not appear in new configurations:

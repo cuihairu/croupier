@@ -259,6 +259,10 @@ public:
     // Check if the client is connected to the agent
     bool IsConnected() const;
 
+    // 最近一次连接/注册失败原因（空=无失败）。AUD-014：secure 模式
+    // （insecure=false）未实现 TLS 时连接被显式拒绝，原因经此暴露。
+    const std::string& LastError() const;
+
     // 是否处于 drain 状态（收到 Agent 的 ProviderDrainRequest 后为 true，
     // 恢复完成或停止后为 false）
     bool IsDraining() const;
