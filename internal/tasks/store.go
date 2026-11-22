@@ -43,6 +43,26 @@ type ScopeResolver interface {
 	ScopeContext(ctx context.Context, gameID, env string) (context.Context, error)
 }
 
+// RegisteredScopeSource optionally enumerates ALL registered (gameID, env)
+// scopes — including dormant ones whose physical database is not currently
+// open (never accessed by a user this process). The watchdog ReapStale uses
+// it to converge stale tasks in dormant game databases (AUD-015); the
+// event-triggered ReapAgentNonTerminal keeps the open-scope-only fan-out so
+// a disconnect stays cheap. A resolver that does not implement this
+// interface keeps the pre-AUD-015 behavior (open scopes only).
+type RegisteredScopeSource interface {
+	// RegisteredScopes lists every registered game scope from the meta
+	// database's game_envs binding (authoritative routing truth, ARCH-006).
+	RegisteredScopes() ([]TaskScope, error)
+}
+
+// dormantScopeBudget bounds how many registered-but-not-open scopes one
+// watchdog sweep opens per call, so first-open (connect + migrate) side
+// effects for dormant games are rate-limited rather than burst on cold
+// start. Each opened scope joins the router cache and is swept as an open
+// scope on subsequent sweeps — the dormant set shrinks monotonically.
+const dormantScopeBudget = 8
+
 // SetScopeResolver wires the multi-game reap fan-out. Nil (default) keeps
 // the single-database behavior: one sweep on the store's own DB, where the
 // ScopeSingle migration baseline creates task_runs.
@@ -117,11 +137,66 @@ func (s *Store) ReapAgentNonTerminal(ctx context.Context, agentID, status, messa
 
 // ReapStale 收割超过预算仍无事件的非终态任务到目标状态（ARCH-018 D3
 // 看门狗：updated_at 早于 now-budget 的活动行 → timed_out）。Rows already
-// terminal, unknown, or fresh are left untouched.
+// terminal, unknown, or fresh are left untouched. In multi-game mode it
+// sweeps every OPEN scope (existing fan-out) plus a bounded set of dormant
+// registered scopes (AUD-015) — a game database never opened by a user still
+// converges its stale tasks, with first-open side effects rate-limited per
+// call by dormantScopeBudget.
 func (s *Store) ReapStale(ctx context.Context, budget time.Duration, status, message string) (int64, error) {
-	return s.reapAcrossScopes(ctx, func(ctx context.Context) (int64, error) {
+	sweep := func(ctx context.Context) (int64, error) {
 		return s.runs.ReapStale(ctx, ReapableStatuses(), time.Now().Add(-budget), status, message)
-	})
+	}
+	total, err := s.reapAcrossScopes(ctx, sweep)
+	dTotal, dErr := s.reapDormantScopes(ctx, sweep)
+	return total + dTotal, errors.Join(err, dErr)
+}
+
+// reapDormantScopes sweeps registered-but-not-open game scopes, capped at
+// dormantScopeBudget per call. Each visited scope is opened via ScopeContext
+// (which, through the real router, adds it to the cache so subsequent sweeps
+// treat it as open) and immediately swept; failures are aggregated, never
+// silently dropped. A resolver without RegisteredScopeSource (or a nil
+// resolver) is a no-op.
+func (s *Store) reapDormantScopes(ctx context.Context, sweep func(context.Context) (int64, error)) (int64, error) {
+	if s.scopes == nil {
+		return 0, nil
+	}
+	src, ok := s.scopes.(RegisteredScopeSource)
+	if !ok {
+		return 0, nil
+	}
+	registered, err := src.RegisteredScopes()
+	if err != nil {
+		return 0, fmt.Errorf("registered scopes: %w", err)
+	}
+	openSet := make(map[TaskScope]struct{}, len(s.scopes.OpenScopes()))
+	for _, sc := range s.scopes.OpenScopes() {
+		openSet[sc] = struct{}{}
+	}
+	total := int64(0)
+	var errs []error
+	budget := dormantScopeBudget
+	for _, sc := range registered {
+		if budget <= 0 {
+			break
+		}
+		if _, isOpen := openSet[sc]; isOpen {
+			continue
+		}
+		scopedCtx, err := s.scopes.ScopeContext(ctx, sc.GameID, sc.Env)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("reap dormant scope %s/%s: %w", sc.GameID, sc.Env, err))
+			continue
+		}
+		n, err := sweep(scopedCtx)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("reap dormant scope %s/%s: %w", sc.GameID, sc.Env, err))
+			continue
+		}
+		total += n
+		budget--
+	}
+	return total, errors.Join(errs...)
 }
 
 // reapAcrossScopes runs one reap sweep per open game database and sums the

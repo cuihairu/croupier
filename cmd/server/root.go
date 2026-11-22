@@ -819,6 +819,24 @@ func (a routerTaskScopes) OpenScopes() []tasks.TaskScope {
 	return out
 }
 
+// RegisteredScopes lists every registered game scope from the meta
+// database's game_envs binding (authoritative routing truth, ARCH-006) —
+// including dormant scopes whose physical database is not open. The task
+// watchdog (AUD-015) uses it to converge stale tasks in games never accessed
+// by a user this process; a query failure surfaces as an error so the sweep
+// is not silently skipped (best-effort reap never drops failures).
+func (a routerTaskScopes) RegisteredScopes() ([]tasks.TaskScope, error) {
+	var rows []model.GameEnvBinding
+	if err := a.router.MetaDB().Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	out := make([]tasks.TaskScope, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, tasks.TaskScope{GameID: r.GameID, Env: r.Env})
+	}
+	return out, nil
+}
+
 func (a routerTaskScopes) ScopeContext(ctx context.Context, gameID, env string) (context.Context, error) {
 	scopedCtx, _, err := a.router.Resolve(ctx, gameID, env)
 	return scopedCtx, err
