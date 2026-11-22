@@ -209,18 +209,23 @@ func (o *Orchestrator) Advance(ctx context.Context, d *model.Deployment, pkg *mo
 		t.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
 	}
 
-	// 当前批全部健康：标记批完成，等待后进入下一批。
+	// 当前批全部健康：先把本批目标事实落库，再进入可取消的批次等待
+	// （AUD-022）。落库用 WithoutCancel——批次等待是取消点，取消恰好与
+	// 本次写入并发时不能吃掉已换包/已健康的事实（否则 DB 停在 pending，
+	// 已换包目标被静默重放）。
+	d.UpdatedAt = time.Now()
+	_ = saveTargets(d, targets)
+	if err := o.store.Update(context.WithoutCancel(ctx), d); err != nil {
+		return d, err
+	}
 	if o.BatchWait > 0 {
 		select {
 		case <-ctx.Done():
+			// 收敛策略：本批目标事实已落库，发版单保持 deploying；再次
+			// Advance 时本批已健康目标被跳过、按 nextBatch 推进下一批。
 			return d, ctx.Err()
 		case <-time.After(o.BatchWait):
 		}
-	}
-	_ = saveTargets(d, targets)
-	d.UpdatedAt = time.Now()
-	if err := o.store.Update(ctx, d); err != nil {
-		return d, err
 	}
 	return o.Advance(ctx, d, pkg)
 }

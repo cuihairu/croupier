@@ -59,6 +59,9 @@ type fakeAgent struct {
 	healthyMsg map[string]string
 	applied    []string
 	stageCount map[string]int
+	// onHealthy 在 Healthy 返回前回调（AUD-022 用：在指定机的健康确认点
+	// 取消 ctx，驱动「批完成换包后、批次等待中被取消」的确定性时序）。
+	onHealthy func(agentID string)
 }
 
 func newFakeAgent() *fakeAgent {
@@ -87,6 +90,9 @@ func (f *fakeAgent) ApplyUpdate(_ context.Context, agentID, _, _, fp string) (st
 	return "fp-" + fp[:8], nil
 }
 func (f *fakeAgent) Healthy(_ context.Context, agentID string) (bool, string) {
+	if f.onHealthy != nil {
+		f.onHealthy(agentID)
+	}
 	return f.healthy[agentID], f.healthyMsg[agentID]
 }
 
