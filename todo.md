@@ -940,7 +940,7 @@
   - 状态／条件：若保留应用检查点，则将消费组纳入持久键，明确旧无分组键的迁移规则
 
 - [ ] **DATA-056 · P1 · 修复 · 按周和月的实际窗口去重付费人数**
-  - 依赖：DATA-004。交付与验收：天、ISO 周、月分别按请求作用域及身份粒度进行区间去重。跨日重复购买的同一玩家在周或月内只计算一次，收入与订单数仍保持原语义。证据：`internal/api/analytics/payments.go:181,316,356` 先查日去重数，再按周或月相加，无法识别跨日重复用户。SQLite 对账采用生产 SQL，同一人两天各支付一次时日去重相加得到 2，周内 DISTINCT 得到 1。完整 Go API 定向测试在限时内未完成。
+  - 依赖：DATA-004。交付与验收：天、ISO 周、月分别按请求作用域及身份粒度进行区间去重。跨日重复购买的同一玩家在周或月内只计算一次，收入与订单数仍保持原语义。证据：`internal/api/analytics/payments.go:181,316,356` 先查日去重数，再按周或月相加，无法识别跨日重复用户。SQLite 对账采用生产 SQL，同一人两天各支付一次时日去重相加得到 2，周内 DISTINCT 得到 1。Web 适配器 `web/src/services/api/analytics.ts:255` 还会直接相加日付费人数作为总人数。完整 Go API 定向测试在限时内未完成。
   - 状态／条件：天、ISO 周、月分别按请求作用域及身份粒度进行区间去重
 
 - [ ] **DATA-057 · P1 · 修复 · 付费指标在活跃分母不可用时显式降级**
@@ -950,6 +950,46 @@
 - [ ] **DATA-058 · P1 · 修复 · 以同批关卡尝试统计完成率**
   - 依赖：DATA-001、DATA-024。交付与验收：按稳定尝试标识关联开始与完成事件，给仅有完成数据的窗口定义不可用或明确的跨窗归属。验收重复上报、前一天开始当天完成、异步到达及零次尝试。证据：`internal/api/analytics/retention.go:100,112,128` 独立计数后使用 max(attempts, 1) 作分母。没有开始记录的窗口含两次完成时公式得到 200%，当前为源码确认。
   - 状态／条件：按稳定尝试标识关联开始与完成事件，给仅有完成数据的窗口定义不可用或明确的跨窗归属
+
+#### 分析 API、Web 与移动端契约续审（2026-11-22）
+
+核对日期绑定、分析配置、付费、概览、留存、行为采用及移动端详情的请求与展示。Web 运行现有适配器组与 5 个定向探针，共 28 例通过。适配器探针使用按 Go DTO 构造的响应，验证当前错误映射。另外用组件轻量渲染替身验证概览导出和 SVG。完整 Jest 页面探针在限时内未完成。页面生命周期与移动端详情为源码复核。
+
+- [ ] **DATA-059 · P1 · 修复 · 分析日期选择器和 API 共用明确的查询边界**
+  - 依赖：DATA-001、DATA-006。交付与验收：区分日历日与精确时间戳，按选定业务时区转换，统一半开窗口语义。选中结束日必须覆盖整天，下一天零点不重复计入；验收 UTC、UTC+8 和夏令时切换日，覆盖支付、行为、关卡与留存。证据：`web/src/pages/Analytics/Retention/index.tsx:43` 和关卡页提交日期选择器值的 ISO 字符串，`internal/api/analytics/retention.go:349` 不扩展结束日，`internal/helper/date.go:41` 则凭时间是否为午夜推断加一天，模型用 `<=` 过滤结束时间。 Go 探针确认 UTC 午夜的 RFC3339 结束值被加一天，而 UTC+8 本地午夜序列化得到的 UTC 16:00 未扩展。
+
+- [ ] **DATA-060 · P1 · 修复 · 运营分析过滤器对齐服务端读写格式**
+  - 依赖：—。交付与验收：真实 GET 结果填入表单，保存请求符合后端格式。确认页面所选游戏/环境与配置存储键的契约一致，按两个游戏和两个环境回读，覆盖无配置和历史记录。证据：`internal/api/analytics/dto.go:177,181` 定义 `{items:[{gameId,filters}]}` 与必填 `filters`，`web/src/services/api/analytics.ts:386,396,406` 展平读写；替身接口复现真实响应被读成默认值，写请求缺少 filters。
+
+- [ ] **DATA-061 · P1 · 修复 · 支付明细过滤、维度报表与环比使用可用的数据契约**
+  - 依赖：DATA-004、DATA-006。交付与验收：各维度控件以实际支持的查询参数及分组为准，无来源时明确不可用。验证两渠道和两商品样本的筛选、维度榜、环比和导出一致。证据：`web/src/services/api/analytics.ts:241,258` 的支付摘要把所有维度固定为空数组，`web/src/pages/Analytics/Payments/index.tsx:95` 提交多种后端 DTO 未绑定的过滤项，`DeltaSection.tsx:69` 依赖这些空维度计算环比。
+
+- [ ] **DATA-062 · P1 · 修复 · 交易表格和导出使用相同字段及金额币种**
+  - 依赖：DATA-004。交付与验收：订单号、用户、金额、币种以及可选渠道与原因在表格和 CSV 同口径，明确导出的页范围。以 EUR 和 USD 样本核对原金额和表头。证据：`web/src/services/api/analytics.ts:286` 产出 `orderId,userId,amount,currency`，`web/src/pages/Analytics/Payments/index.tsx:859,866,873,911` 表格读下划线字段，导出读未返回的 `amountCents`；适配器探针验证这些键缺失。Go DTO 的 `PaymentMethod` 也被页面当作渠道。
+
+- [ ] **DATA-063 · P1 · 修复 · SKU 趋势使用真实分桶数据**
+  - 依赖：DATA-004。交付与验收：在有来源的情况下按所选商品及分钟或小时返回真实时间、销量、营收和可计算的成功率。同一结果供图表和导出；无来源时标记不可用。证据：`internal/api/analytics/dto.go:224` 不接收 SKU 筛选和粒度，`web/src/services/api/analytics.ts:341` 将聚合项包装为时间为空的单点，`web/src/pages/Analytics/Payments/index.tsx:819` 把营收当成功笔数。适配器探针确认时间为空。
+
+- [ ] **DATA-064 · P1 · 修复 · 概览趋势按时间键对齐导出**
+  - 依赖：DATA-006、DATA-028。交付与验收：用时间键关联各序列，验证不齐、乱序、缺测和真实零值。导出列名、币种与单位和页面的指标来源一致。证据：`web/src/pages/Analytics/Overview/index.tsx:66` 按数组位置拼接日期和值，序列起点不同时会将值放入另一日；`web/src/services/api/analytics.ts:68` 接入日活序列，导出列仍标 `peak_online`。组件探针用三个不同日期的单点序列，复现三个值写入同一日期行。
+
+- [ ] **DATA-065 · P2 · 修复 · 概览小图正确解析 API 日期**
+  - 依赖：DATA-059。交付与验收：真实 API 返回的日历日期及兼容时间戳都能按时间排序并生成有限 SVG 坐标，缺测明确显示。证据：`web/src/services/api/analytics.ts:52` 保留日期字符串，`web/src/pages/Analytics/Overview/index.tsx:91` 直接使用 Number。Jest 适配器探针确认实际日期字符串转成 NaN，原页面测试使用的主要是数字时间戳。组件探针直接观察到三个 SVG path 都含 NaN。
+
+- [ ] **DATA-066 · P2 · 修复 · 留存页保留有效的零留存值**
+  - 依赖：DATA-005。交付与验收：页面和导出均区分 0%、无样本和观察窗未成熟；验证零值、缺值和稀疏观察天数。证据：`web/src/pages/Analytics/Retention/index.tsx:58,63,111` 将每个 0 经 `|| null` 映射为缺值，且导出复用该处理后的行。
+
+- [ ] **DATA-067 · P1 · 修复 · 行为采用分群使用对应维度与有来源的分母**
+  - 依赖：DATA-024。交付与验收：按地区、平台、角色的标签与实际分群一致，只有取得分母时展示采用率。用地区、角色互不相同的样本核对图表和导出。证据：`web/src/services/api/analytics.ts:234,239` 把国家选择映射到 roles，把渠道等映射到 regions，并将分母与比率填成 0。Jest 探针复现国家视图显示角色名。
+
+- [ ] **DATA-068 · P1 · 修复 · Web 分析页切换游戏环境时刷新并撤销旧结果**
+  - 依赖：—。交付与验收：复用现有 scope 订阅和请求作废机制，覆盖概览、留存、付款、仓库及行为主视图。切换后立即撤销旧表和旧导出，旧响应晚到也不会覆盖新数据。证据：`web/src/app.tsx:230,325` 刷新菜单状态但没有给页面按 scope 重挂载，`web/src/pages/Analytics/Overview/index.tsx:36,45` 固定加载一次，服务适配器只在请求发出时读取 scope。当前为源码确认。
+
+- [ ] **DATA-069 · P1 · 修复 · 移动端分析详情使用一致的会话与作用域快照**
+  - 依赖：AUD-003。交付与验收：一次读取取得 serverUrl、gameId 和 env，并隔离详情加载与重试的过期响应。用可控 Future 验证退出页面、换服、作用域切换和快速重试，已离开详情不再 setState。证据：`mobile/lib/features/analytics/analytics_domain_page.dart:44,60,71` 两次读会话，第二次 await 后直接 setState，只在请求前后部分位置检查 mounted。当前为源码确认。
+
+- [ ] **DATA-070 · P1 · 修复 · 分析过滤配置并发保存不丢其他作用域改动**
+  - 依赖：DATA-060。交付与验收：以独立作用域记录、事务内合并或带版本冲突检查的方式提交更新；文件兼容路径写入采用原子替换。两个游戏并发保存后都可回读，读取不会拿到半成品。证据：`internal/api/analytics/overview.go:310,327,346,390` 文件分支的锁只覆盖读取，扩展配置分支则将此前读出的全量配置交给整份更新；`internal/helper/analytics_filters.go:52` 直接覆盖文件。当前为源码确认。
 
 ## 前端审核复验
 
@@ -1766,7 +1806,7 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 状态／条件：完成（2026-11-16 codex exec read-only 静态审计 + 2026-11-17 逐条人工复核）。LOCAL VERIFIED
   - 完成证据：报告 `docs/review/aud-cov-001-go-api-2026-11-16.md`（3 P0/8 P1/7 P2/6 P3 + 处置记录附注）；当场修 4 条 `9bc08d56a`/`5b0fee15f`/`ce667c63d`/`8dbf59c53`（各带新用例，`go test ./internal/api/... -count=1` 全绿）；遗留 21 条落 AUD-036..056 排期。
 - [ ] AUD-COV-002 · 复核 · DB/迁移/缓存/队列一致性：核对 meta/game DB 路由、事务边界、迁移升级/回滚、异步任务状态与进程重启恢复；覆盖 internal/model、internal/db、internal/tasks、internal/cache、internal/analytics/mq（仓内无 internal/queue）。
-  - 进度（2026-11-21）：本轮核对了 GameDB 首开/关闭、Redis 消费进度及任务留痕，见 DATA-019～023、AUD-057～058、AUD-077。续审追加调度状态、事件游标与迁移上下文、会话锁，见 AUD-086～091、AUD-098。缓存层另外确认管理员凭据字段被序列化，见 AUD-100。本轮补查分析发布、消费进度与读仓失败，见 DATA-043～049。 已补查 Worker 批量写入、确认、重试与跨组检查点，见 DATA-050～055。迁移回滚、真实驱动故障和任务恢复全链仍待复核。
+  - 进度（2026-11-21）：本轮核对了 GameDB 首开/关闭、Redis 消费进度及任务留痕，见 DATA-019～023、AUD-057～058、AUD-077。续审追加调度状态、事件游标与迁移上下文、会话锁，见 AUD-086～091、AUD-098。缓存层另外确认管理员凭据字段被序列化，见 AUD-100。本轮补查分析发布、消费进度与读仓失败，见 DATA-043～049。 已补查 Worker 批量写入、确认、重试与跨组检查点，见 DATA-050～055。已补查首开、环境更新和编号 Go 迁移，见 AUD-108～115。迁移回滚、真实驱动故障和任务恢复全链仍待复核。
 - [ ] AUD-COV-003 · 复核 · Agent 与消息传输/协议：沿 Server→Agent→Provider 全链路检查鉴权、TLS、帧解析、并发/背压、重连、取消、错误传播与关闭；覆盖 core、agents、internal/agent、internal/transport、core/transport。
   - 进度（2026-11-21）：本轮补查 Provider 与互联的关闭边界，见 AUD-070～075、AUD-081。续审复现 Agent 注册就绪、停止后重连与配置版本回退问题，见 AUD-092～094。历史复核补记下次协议升版前的协商缺口 AUD-101。控制面真实装配、重连与背压组合仍待复核。
 - [ ] AUD-COV-004 · 复核 · 六语言 SDK 与插件：逐语言核对协议实现、API/配置解析、生命周期、TLS/auth、重试/超时、错误语义及功能矩阵；覆盖 Go/Python/Java/JS/C++/C# 和 plugins。
@@ -1785,15 +1825,15 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
 
 下表列出当前台账缺少完整复核证据的源码入口，以及需要补做的运行验证。分析与 SDK 已核对的部分见本轮新增条目。
 
-| 范围             | 仍需审核的源码与入口                                                                                                                                                                                                  | 仍需运行的验收                                                                                  |
-| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| 数据分析         | Worker 写入、确认和回收已复核一批故障，仍需真实 Redis/ClickHouse 多进程复验。继续核对 `internal/api/analytics/{payments,retention,behavior}.go` 其余时区、退款及跨窗口口径，以及 Web、Mobile 分析页的空态与失败映射。 | 入站 → Redis → ClickHouse → API → 页面逐指标对账，覆盖重启、重复、退款和晚到数据。见 DATA-031。 |
-| 数据库与后台任务 | `internal/db/migrate/migrations/` 的方言分支和回滚关键链，`internal/db/router/` 的多库打开失败与重试，以及 `internal/tasks/store.go` 的冷库任务恢复。                                                                 | 真实数据库升级、失败恢复和多进程重启演练。                                                      |
-| Agent 与协议     | `cmd/{sidecar-agent,devops-agent}/` 的运行装配，`agents/{capture,devops,synthetics}/` 的 connector、session、pluginhost 边界，`core/transport/tcp/` 与 `internal/transport/tcp/` 的控制车道、关闭、背压组合。         | 用真实连接验证高负载、重连与停止，核对消息和任务状态收敛。                                      |
-| SDK 与插件       | `sdks/java/spring-boot-starter/` 的 Spring 上下文集成，`sdks/cpp/skynet/` 的桥接，`sdks/python/croupier/integrations/`、`sdks/plugins/{js,python}/` 的扩展装配，以及六语言 examples 和边界 wire 行为。                | Go 与 Java 固定依赖环境，跨 SDK/TLS 组合和安装发布产物验证。                                    |
-| 移动端           | `mobile/lib/features/` 中会话与作用域以外的操作链、原生插件装配，以及 `mobile/android/`、`mobile/ios/` 的 release 入口。                                                                                              | Android 合并 manifest 与正式签名包，iOS 构建和实机冒烟。                                        |
-| 发布与恢复       | `.github/workflows/` 各平台实际发布，`docker/`、`configs/`、`scripts/` 的运行配置组合，`internal/platform/backupexec/` 的恢复衔接。                                                                                   | 发布演练、真实部署和隔离库恢复，留存结果与提交的对应关系。                                      |
-| 历史审核         | `docs/review/` 中 11 月 1–10 日仍未对照的条目。                                                                                                                                                                       | 按当前 HEAD 标记已修、仍存在及暂无法验证，关联现有待办。                                        |
+| 范围             | 仍需审核的源码与入口                                                                                                                                                                                                                                                                | 仍需运行的验收                                                                                  |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| 数据分析         | Worker 写入、确认和回收已复核一批故障，仍需真实 Redis/ClickHouse 多进程复验。继续核对 `internal/api/analytics/{payments,retention,behavior}.go` 其余时区、退款及跨窗口口径，以及 Web、Mobile 分析页其余空态与失败映射。日期、付费、过滤、导出及作用域已复核一轮，见 DATA-059～070。 | 入站 → Redis → ClickHouse → API → 页面逐指标对账，覆盖重启、重复、退款和晚到数据。见 DATA-031。 |
+| 数据库与后台任务 | `internal/db/migrate/migrations/` 的方言分支和回滚关键链，`internal/db/router/` 的多库打开失败与重试，以及 `internal/tasks/store.go` 的冷库任务恢复。                                                                                                                               | 真实数据库升级、失败恢复和多进程重启演练。                                                      |
+| Agent 与协议     | `cmd/{sidecar-agent,devops-agent}/` 的运行装配，`agents/{capture,devops,synthetics}/` 的 connector、session、pluginhost 边界，`core/transport/tcp/` 与 `internal/transport/tcp/` 的控制车道、关闭、背压组合。                                                                       | 用真实连接验证高负载、重连与停止，核对消息和任务状态收敛。                                      |
+| SDK 与插件       | `sdks/java/spring-boot-starter/` 的 Spring 上下文集成，`sdks/cpp/skynet/` 的桥接，`sdks/python/croupier/integrations/`、`sdks/plugins/{js,python}/` 的扩展装配，以及六语言 examples 和边界 wire 行为。                                                                              | Go 与 Java 固定依赖环境，跨 SDK/TLS 组合和安装发布产物验证。                                    |
+| 移动端           | `mobile/lib/features/` 中会话与作用域以外的操作链、原生插件装配，以及 `mobile/android/`、`mobile/ios/` 的 release 入口。                                                                                                                                                            | Android 合并 manifest 与正式签名包，iOS 构建和实机冒烟。                                        |
+| 发布与恢复       | `.github/workflows/` 各平台实际发布，`docker/`、`configs/`、`scripts/` 的运行配置组合，`internal/platform/backupexec/` 的恢复衔接。                                                                                                                                                 | 发布演练、真实部署和隔离库恢复，留存结果与提交的对应关系。                                      |
+| 历史审核         | `docs/review/` 中 11 月 1–10 日仍未对照的条目。                                                                                                                                                                                                                                     | 按当前 HEAD 标记已修、仍存在及暂无法验证，关联现有待办。                                        |
 
 - [x] **AUD-001 · P1 · 修复 · Provider 握手令牌启用时强制保护明文链路**
   - 依赖：—。交付与验收：当 `providerAuth.require=true` 且本地 listener 绑定非 loopback 地址时，拒绝 `tls.enabled=false` 的配置，或提供明确且不可忽略的启动阻断；保持 loopback 开发配置可用；加入启动配置组合验证与部署文档说明。
@@ -2319,6 +2359,36 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
 - [ ] **AUD-107 · P1 · 修复 · 将 Java Provider 安全配置接入默认 TCP transport**
   - 依赖：—。交付与验收：显式安全模式下为首连和重连启用已有的 TLS factory 与主机名验证，读取 CA、客户端证书、私钥和 server name。Spring 入口映射同一套字段。验收证书正确时注册成功，主机名或 CA 错误时拒绝连接，开发模式行为按原配置工作。证据：`sdks/java/src/main/java/io/github/cuihairu/croupier/sdk/CroupierClientImpl.java:65,69,75` 的默认工厂忽略 ClientConfig 中安全设置，直接使用明文构造函数，`transport/TCPTransport.java:116` 的 TLS 构造入口没有从该工厂调用。使用现有 Java 构建产物实例化 Provider，检查到 insecure=false 下默认 transport 的 TLS factory 仍为空。
   - 状态／条件：显式安全模式下为首连和重连启用已有的 TLS factory 与主机名验证，读取 CA、客户端证书、私钥和 server name
+
+### 多游戏数据库首开、环境变更与迁移续审（2026-11-22）
+
+本轮从 `game_envs` 绑定追到 Router 首开、游戏环境管理和编号迁移。AUD-077 继续跟踪 Router 整体关闭，本节另跟踪单环境失效。AUD-090、AUD-091、AUD-098 保留 baseline 上下文、单连接与解锁问题的原范围。
+
+SQLite 定向探针复现了解绑后旧连接池仍发布，以及同一快照发出的两次环境更新让 `games.envs` 与 `game_envs` 分叉。PostgreSQL 回环替身复现了探测连接未关闭和握手超过调用方截止时间。另用 pgx 解析两种省略库名的合法 DSN，确认绑定库名没有生效。AUD-112、AUD-114、AUD-115 来自源码核对。
+
+- [ ] **AUD-108 · P1 · 修复 · 环境解绑时阻止在途首开发布旧连接池**
+  - 依赖：—。交付与验收：解绑或切换绑定后，在途首开只能以有效绑定发布，否则收尾并关闭池。阻塞迁移后调用 EnvDelete，再让迁移完成，验证旧请求归类为失效、OpenScopes 不再出现旧环境，同名环境随后能正常打开。证据：`internal/api/game/service.go:525,538` 先删绑定再 Forget。`internal/db/router/router.go:234,267,432` 的 Forget 只扫描已经发布的缓存，在途任务仍然可以发布。
+
+- [ ] **AUD-109 · P1 · 修复 · 数据库存在性探测释放临时连接池**
+  - 依赖：—。交付与验收：PostgreSQL、MySQL 和 SQL Server 的探测结果明确归属，复用或关闭探测池，覆盖已存在、探测失败及建库后重试。以连接数对账验证 Router 关闭业务池后，无首开探测连接残留。证据：`internal/svc/db.go:616,634,652` 丢弃成功返回的 GORM 句柄，随后 Router 通过独立 Open 创建业务池。
+
+- [ ] **AUD-110 · P1 · 修复 · 首开预算覆盖数据库探测和建库**
+  - 依赖：ARCH-009。交付与验收：将 Router 的首开上下文传到底层连接、探测、CREATE 及存在性复查，区分失败和结果未知。阻塞握手或建库命令时验证按预算退出，重复首开按同一物理库收敛。证据：`internal/svc/db.go:616,622,634,640,652,658` 探测及建库未接收上下文，三种建库 helper 使用普通 Exec/QueryRow。Router 在 `internal/db/router/router.go:501` 同步等待 Ensure。
+
+- [ ] **AUD-111 · P1 · 修复 · PostgreSQL 游戏库 DSN 始终应用绑定的库名**
+  - 依赖：—。交付与验收：使用驱动兼容的 DSN 解析方式，保留传输参数与凭据，并明确设置连接库名。检查 URL 无路径、键值串未写 dbname、带引号 dbname 及查询参数等合法输入，连接前核对解析后的目标与权威绑定匹配。证据：`internal/svc/db.go:456,579` 用正则替换已有库名，缺少匹配时原样返回，驱动继续采用默认数据库名。在这种配置下不同 game/env 可能实际打开同一数据库。
+
+- [ ] **AUD-112 · P1 · 修复 · 环境改名保留现有物理数据库和可读数据**
+  - 依赖：—。交付与验收：明确逻辑改名和物理库迁移的契约，已有自定义绑定、数据及缓存需按一致策略处理。先向原环境写入固定样本，再改名并核对新环境仍能读取；覆盖同名冲突和过程失败。证据：`internal/api/game/service.go:457,461,468` 仅在名字未变时保留已绑定库名，改名会删除旧绑定、计算新物理库名，且更新路径不清理旧 Router 缓存。部分游戏表还按 env 列筛选，验收应同时检查这类历史行的可见性。
+
+- [ ] **AUD-113 · P1 · 修复 · 并发环境变更保持绑定与旧列表一致**
+  - 依赖：—。交付与验收：事务内合并当前环境状态，或用版本检查显式报告冲突。两次从同一游戏快照发起的新增、改名或删除最终不得让 `games.envs` 与 `game_envs` 分叉。证据：`internal/api/game/service.go:372` 在事务外从读出的快照构造完整 envs，`internal/model/game_model.go:255` 事务直接整列写入，再增删单条绑定。事务能保证单次变更原子性，无法识别调用方的陈旧快照。
+
+- [ ] **AUD-114 · P1 · 修复 · 编号 Go 迁移继承执行器的上下文**
+  - 依赖：AUD-090。交付与验收：将迁移上下文传入方言探测、GORM 桥接及编号迁移的 DDL 与回填 SQL。覆盖已取消和探测或 DDL 在途时取消；取消后不记录成功版本，复跑仍能收敛。证据：`internal/svc/migrations_contract.go:537,557` 的桥接没有上下文参数，探测调用无 Context 的 QueryRow；`internal/svc/migrations_runtime.go:18` 接收 ctx 却以未绑定上下文的 GORM 执行建表。本条覆盖编号 Go 迁移，baseline 继续跟踪 AUD-090。
+
+- [ ] **AUD-115 · P2 · 修复 · 迁移按 meta、game 和单库模式选择表集**
+  - 依赖：—。交付与验收：为新增编号迁移明确适用 scope，使新建和历史库升级都保持同一表集。无适用变更时版本仍可按统一契约推进，单库模式覆盖两套表。不自动删除已有多余表，先盘点现存数据再决定迁移。证据：`internal/db/migrate/migrate.go:35,238` scope 只用于诊断，meta 和 game 使用相同 Provider 迁移。作为明确的例子，`internal/svc/migrations_runtime.go:13,17` 标注为 MetaModels 的调度表会在 GameDB 的编号迁移中创建。
 
 ## Codex 深审发现（2026-11-13，luna profile 近5 commit 审核，6C/22M/5m，待修）
 
