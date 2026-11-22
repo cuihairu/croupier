@@ -1964,9 +1964,13 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 完成证据：commit ce46f9a59（`internal/api/storage/service.go`：+`storagePermission`/`requirePermission`/`requireStoragePermission`/`requireSignedPermission`/`protectedStoragePrefixes`/`protectedPrefixKind`/`guardWritablePath` 并接进六个方法；`aud016_harness_test.go`：包级共享 sqlite 播种超管/仅持 uploads:write 操作员/零角色三身份 + `identitySvcCtx`/`authCtx`/`operatorCtx`/`viewerCtx`；`aud016_permission_test.go`：五个回归用例；既有 service/handler 测试统一升级经身份面）。
   - 已知边界：ListObjects 仅认证未加门禁（只读，不在验收面）；`releases/` 签名访问归 admin:all（发布链自身无独立权限定义，未新造 catalog 外权限键）；`archives/`、`exports/` 为防御性前缀（当前无子系统写）；门禁仅在通用对象接口，子系统（backupexec/release 服务）直写 ObjectStore 不经此路径，其自身授权不变；权限键 `uploads:write` 为既有 catalog 权限，未新造。
 
-- [ ] **AUD-017 · P1 · 修复 · 全局电源配置操作补齐平台权限检查**
+- [x] **AUD-017 · P1 · 修复 · 全局电源配置操作补齐平台权限检查**（commit cf10d0310）
   - 依赖：—。交付与验收：合法游戏/环境作用域不等同硬件管理权限；覆盖 power-config 写入及其他 PowerOps 操作入口。
   - 状态／条件：ops/powerops.go:221-263 更新全局节点不检查操作权限；真实 Auth+GameDBMiddleware 下零角色、合法单游戏 scope 账号可修改全局节点 BMC 配置。
+  - 修复：六个 PowerOps 入口（提交/续行/拒绝/查询/列表/机器电源信息写入）在服务层加 `requirePowerPermission`（`utils.RequireAnyPermission`，只认超管域 `admin:all`，HasAdminRole 直通）；授权先于编排器/资源存在性检查（无权限不触子系统）。权限目录（configs/permissions.json 39 键）无电源/硬件管理键，故未新造目录外键。
+  - 验证：`go test ./internal/api/ops/... -count=1` 全绿（新增 AUD-017 回归：零角色与仅持 function:invoke 的游戏侧账号在六入口一律 403 permission_denied 且提交不落请求行、BMC 配置不变；超管对照六入口数据面可用、续行未批准报 409 证明已过授权门）；`go vet` 与 `go build ./internal/...` 通过；`gofmt -l` 清洁。LOCAL VERIFIED。
+  - 完成证据：commit cf10d0310（`internal/api/ops/powerops.go`：+`requirePowerPermission` 并接入 OpsPowerSubmit/Resume/Reject/Get/List/ConfigPut；`aud017_permission_test.go`：+`seedPowerViewer`/`seedPowerScopedOperator`/`powerCtx`/`assertPowerForbidden` 两回归用例；`powerops_test.go`：harness AutoMigrate 增 Admin/Role/AdminRole/RolePermission + `seedPowerSuperAdmin` 身份面；`handler_test.go`：`newOpsTestContext` 统一注入超管用户名）。
+  - 已知边界：门禁只认超管域 `admin:all`——权限目录无电源/硬件管理键，授予更低权限的角色（如仅游戏侧权限）一律拒绝；新增专用 `power:*` 键需改 `configs/permissions.json`+`roles.json` 目录（未做，避免目录外键）。未配置（powerops.enabled=false）仍如实报 503（授权在装配检查前，未配置部署对超管也报 503）。
 
 - [ ] **AUD-018 · P2 · 修复 · Python reader 所有退出路径统一清理连接和 pending**
   - 依赖：—。交付与验收：异常退出后连接立即不可用，在途调用及时失败，重连不被虚假 connected 阻断。
