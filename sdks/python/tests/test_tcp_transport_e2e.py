@@ -307,6 +307,26 @@ class TestReaderLoopRobustness:
         transport.connect()
         thread = transport._reader_thread
 
+        # 让一个请求保持 pending（peer 静默），随后注入致命 reader 错误，
+        # 断言 AUD-018 清理不变量：连接不可用、在途调用及时失败、可重连。
+        silent = [True]
+
+        def handler(msg_id, req_id, body):
+            return None if silent[0] else b""
+
+        peer.handle_message = handler
+        outcome = {}
+
+        def caller():
+            try:
+                transport.call(protocol.MSG_INVOKE_REQUEST, b"in-flight")
+            except Exception as exc:  # pragma: no cover - captured via outcome
+                outcome["err"] = exc
+
+        ct = threading.Thread(target=caller)
+        ct.start()
+        peer.wait_requests(1)  # 在途请求已被 peer 消费（返回 None 保持 pending）
+
         with mock.patch.object(
             protocol, "parse_message", side_effect=RuntimeError("corrupted state")
         ):
@@ -314,9 +334,64 @@ class TestReaderLoopRobustness:
             thread.join(timeout=3)
 
         assert not thread.is_alive()
+        # AUD-018：不再虚假 connected —— 此前 fatal reader 错误后仍报已连接。
+        assert transport.is_connected() is False
 
-        # BUG (recorded, not fixed): the transport still reports connected and
-        # does not fail pending calls after a fatal reader error.
+        ct.join(timeout=3)
+        assert isinstance(outcome.get("err"), ConnectionError)
+        assert "reader terminated" in str(outcome["err"])
+        assert transport._pending == {}
+
+        # AUD-018：重连不被虚假 connected 阻断。
+        silent[0] = False
+        transport.connect()
+        assert transport.is_connected() is True
+        assert transport._reader_thread.is_alive()
+        resp_msg_id, _ = transport.call(protocol.MSG_INVOKE_REQUEST, b"after-reconnect")
+        assert resp_msg_id == protocol.MSG_INVOKE_RESPONSE
+
+        transport.close()
+
+    def test_reader_oversize_frame_disconnects_and_fails_pending(self, peer):
+        """AUD-018：超长帧（超过 32MB 上限）令 reader 抛 ValueError，必须
+        与连接丢失同等清理——此前 connected/running 仍为 true 且 pending
+        未收到错误，重连被阻断。"""
+        transport = TCPTransport(address=peer.addr(), timeout_ms=3000)
+        transport.connect()
+        thread = transport._reader_thread
+
+        peer.handle_message = lambda msg_id, req_id, body: None  # keep pending
+        outcome = {}
+
+        def caller():
+            try:
+                transport.call(protocol.MSG_INVOKE_REQUEST, b"in-flight")
+            except Exception as exc:  # pragma: no cover - captured via outcome
+                outcome["err"] = exc
+
+        ct = threading.Thread(target=caller)
+        ct.start()
+        peer.wait_requests(1)
+
+        # 只写 4 字节裸长度前缀（33MB > 32MB 上限），让 _read_frame 抛
+        # ValueError（push_raw 会再套一层前缀，须直发 sendall）。
+        peer._latest_conn().sendall(struct.pack(">I", 33 * 1024 * 1024))
+        thread.join(timeout=3)
+
+        assert not thread.is_alive()
+        assert transport.is_connected() is False
+        ct.join(timeout=3)
+        assert isinstance(outcome.get("err"), ConnectionError)
+        assert "reader terminated" in str(outcome["err"])
+        assert transport._pending == {}
+
+        # 重连后数据面可用（默认 handler 响应空 body）。
+        peer.handle_message = lambda msg_id, req_id, body: b""
+        transport.connect()
+        assert transport.is_connected() is True
+        resp_msg_id, _ = transport.call(protocol.MSG_INVOKE_REQUEST, b"ok")
+        assert resp_msg_id == protocol.MSG_INVOKE_RESPONSE
+
         transport.close()
 
 

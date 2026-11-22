@@ -326,17 +326,28 @@ class TCPTransport:
             except (ConnectionError, OSError):
                 if self._running:
                     LOG.warning("Connection lost")
-                    self._connected = False
-                    # fail all pending so callers don't hang
-                    with self._pending_lock:
-                        for p in self._pending.values():
-                            p.fail(ConnectionError("connection lost"))
-                        self._pending.clear()
+                    self._fail_pending_and_disconnect(ConnectionError("connection lost"))
                 break
             except Exception as exc:
                 if self._running:
                     LOG.error("Reader error: %s", exc)
+                    # AUD-018：通用异常（如超长帧 ValueError / parse 错误）
+                    # 必须与连接丢失同等清理——否则 _connected 仍为 True
+                    # 会阻断重连，在途调用只能等到自身超时。
+                    self._fail_pending_and_disconnect(
+                        ConnectionError(f"reader terminated: {exc}")
+                    )
                 break
+
+    def _fail_pending_and_disconnect(self, err: Exception) -> None:
+        """读线程退出统一清理（AUD-018）：标记连接不可用并让在途调用立即
+        失败。连接丢失与通用异常（如超长帧、解析失败）共用，保证重连不被
+        虚假 connected 阻断、在途调用及时失败而不是干等超时。"""
+        self._connected = False
+        with self._pending_lock:
+            for p in self._pending.values():
+                p.fail(err)
+            self._pending.clear()
 
     def _handle_inbound(self, msg_id: int, req_id: int, body: bytes) -> None:
         """读线程只投递；双车道派发（对齐 Go MuxConn）：
