@@ -117,6 +117,12 @@ type Controller[Impl any] struct {
 	active  map[string]*process[Impl]
 	health  map[string]*pluginHealth
 	stopped bool
+	// startLocks serializes the first subprocess start per plugin name so
+	// concurrent first-use callers of the same plugin share one subprocess
+	// while distinct plugins start in parallel. The start itself runs
+	// OUTSIDE mu (AUD-026): a slow handshake must not hold the state lock
+	// other calls — and their own deadlines — wait on.
+	startLocks map[string]*sync.Mutex
 }
 
 // pluginHealth is the crash-backoff and circuit-breaker state for one
@@ -161,6 +167,7 @@ func NewController[Impl any](cfgs []Config, ct Contract[Impl], k Knobs) *Control
 		openWindow:    k.OpenWindow,
 		active:        map[string]*process[Impl]{},
 		health:        map[string]*pluginHealth{},
+		startLocks:    map[string]*sync.Mutex{},
 	}
 	for _, pc := range cfgs {
 		c.cfgs[pc.Name] = pc
@@ -207,16 +214,18 @@ func (c *Controller[Impl]) Call(ctx context.Context, name string, timeout time.D
 		return cause
 	}
 	defer release()
-	p, cause := c.ensure(name)
-	if cause != "" {
-		return cause
-	}
 	// timeout<=0 means "no engine-side deadline": the caller context (for
-	// function calls, the dispatch budget) governs on its own.
+	// function calls, the dispatch budget) governs on its own. The deadline
+	// also bounds the first-use start (ensure) so a caller's budget is not
+	// spent waiting on a slow subprocess handshake (AUD-026).
 	if timeout > 0 {
 		callCtx, cancel := context.WithTimeout(ctx, timeout)
 		defer cancel()
 		ctx = callCtx
+	}
+	p, cause := c.ensure(ctx, name)
+	if cause != "" {
+		return cause
 	}
 	if err := fn(ctx, p.impl); err != nil {
 		return c.fail(name, p, c.callFailureCause(p, err))
@@ -264,50 +273,140 @@ func (c *Controller[Impl]) callFailureCause(p *process[Impl], err error) string 
 
 // ensure returns the resident process for the plugin, honoring the
 // switch/backoff/circuit gates and starting the process on first use.
-func (c *Controller[Impl]) ensure(name string) (*process[Impl], string) {
+//
+// AUD-026: the subprocess start + Describe handshake run OUTSIDE the
+// controller-wide state mutex — a slow-starting plugin must not hold the
+// lock that other calls (and their own deadlines) wait on. First-use
+// callers of the SAME plugin serialize on a per-plugin start lock and
+// share one subprocess; distinct plugins start in parallel. The caller
+// context bounds the handshake budget on top of the configured start
+// timeout. The returned process is resident once this call succeeds.
+func (c *Controller[Impl]) ensure(ctx context.Context, name string) (*process[Impl], string) {
+	stoppedCause := fmt.Sprintf("%s: controller stopped", CauseDisabled)
+
+	// Fast path: gates and resident process under the short state lock.
+	var dead *process[Impl]
+	var deadCause string
 	c.mu.Lock()
-	defer c.mu.Unlock()
 	if c.stopped {
-		return nil, fmt.Sprintf("%s: controller stopped", CauseDisabled)
+		c.mu.Unlock()
+		return nil, stoppedCause
 	}
 	pc, ok := c.cfgs[name]
 	if !ok {
+		c.mu.Unlock()
 		return nil, fmt.Sprintf("%s: no plugin named %q declared in config", CauseNotConfigured, name)
 	}
 	if !pc.Enabled {
+		c.mu.Unlock()
 		return nil, fmt.Sprintf("%s: plugin %q declared disabled in config", CauseDisabled, name)
 	}
+	lock := c.startLockLocked(name)
 	st := c.healthStateLocked(name)
 	now := time.Now()
 	if st.openUntil.After(now) {
-		return nil, fmt.Sprintf("%s: circuit open; degrading for %.1fs", CauseCircuitOpen, time.Until(st.openUntil).Seconds())
+		cause := fmt.Sprintf("%s: circuit open; degrading for %.1fs", CauseCircuitOpen, time.Until(st.openUntil).Seconds())
+		c.mu.Unlock()
+		return nil, cause
 	}
 	if now.Before(st.nextAttempt) {
-		return nil, fmt.Sprintf("%s: restart of failed plugin in %.1fs", CauseBackoff, time.Until(st.nextAttempt).Seconds())
+		cause := fmt.Sprintf("%s: restart of failed plugin in %.1fs", CauseBackoff, time.Until(st.nextAttempt).Seconds())
+		c.mu.Unlock()
+		return nil, cause
 	}
 	if p, ok := c.active[name]; ok {
 		if !p.client.Exited() {
+			c.mu.Unlock()
 			return p, ""
 		}
 		// Previous instance crashed between calls; the single lifecycle
 		// owner (this controller) tears it down and records the failure
 		// so the next attempts back off instead of tight-loop restarts.
-		p.client.Kill()
+		// The Kill (which waits on the subprocess) runs after unlocking.
 		delete(c.active, name)
-		return nil, c.failLocked(name, fmt.Sprintf("%s: plugin process exited", CauseUnavailable))
+		dead = p
+		deadCause = c.failLocked(name, fmt.Sprintf("%s: plugin process exited", CauseUnavailable))
 	}
-	p, cause := c.startLocked(pc)
+	c.mu.Unlock()
+	if dead != nil {
+		dead.client.Kill()
+		return nil, deadCause
+	}
+
+	// Slow path: start outside the state lock. The per-plugin start lock
+	// serializes concurrent first-use callers of the same plugin so they
+	// share one subprocess rather than racing to start two.
+	lock.Lock()
+	defer lock.Unlock()
+
+	// Re-check under the state lock: a peer may have installed a process
+	// while we waited on the start lock, or the controller stopped.
+	c.mu.Lock()
+	if c.stopped {
+		c.mu.Unlock()
+		return nil, stoppedCause
+	}
+	if p, ok := c.active[name]; ok && !p.client.Exited() {
+		c.mu.Unlock()
+		return p, ""
+	}
+	c.mu.Unlock()
+
+	p, cause := c.start(ctx, pc)
 	if cause != "" {
-		return nil, c.failLocked(name, cause)
+		c.mu.Lock()
+		// A start abandoned by this caller (its own deadline/cancel, not a
+		// plugin fault) leaves backoff and breaker state untouched so other
+		// callers may start immediately instead of waiting the backoff.
+		if ctx.Err() == nil {
+			cause = c.failLocked(name, cause)
+		}
+		c.mu.Unlock()
+		return nil, cause
+	}
+	c.mu.Lock()
+	if c.stopped {
+		c.mu.Unlock()
+		p.client.Kill()
+		return nil, stoppedCause
+	}
+	if cur, ok := c.active[name]; ok && !cur.client.Exited() {
+		// Defensive: a peer won the install race while we started; ours is
+		// redundant. Under the per-plugin start lock this is unreachable,
+		// kept so the invariant does not depend on the lock discipline.
+		c.mu.Unlock()
+		p.client.Kill()
+		return cur, ""
 	}
 	c.active[name] = p
+	c.mu.Unlock()
 	return p, ""
 }
 
-// startLocked launches the plugin subprocess, dispenses the client and
-// runs the Describe handshake; any failure releases the process and
-// reports CauseUnavailable.
-func (c *Controller[Impl]) startLocked(pc Config) (*process[Impl], string) {
+// startLockLocked returns the per-plugin first-start serializer, creating
+// it lazily. Called with c.mu held (like healthStateLocked).
+func (c *Controller[Impl]) startLockLocked(name string) *sync.Mutex {
+	l, ok := c.startLocks[name]
+	if !ok {
+		l = &sync.Mutex{}
+		c.startLocks[name] = l
+	}
+	return l
+}
+
+// start launches the plugin subprocess, dispenses the client and runs the
+// Describe handshake. Called WITHOUT the controller state mutex (AUD-026:
+// a slow handshake must not block unrelated calls); the caller context
+// bounds the budget on top of the configured start timeout — a caller that
+// gives up early stops paying for the handshake. Any failure kills the
+// process and reports CauseUnavailable.
+func (c *Controller[Impl]) start(ctx context.Context, pc Config) (*process[Impl], string) {
+	unavailable := func(step string, err error) string {
+		return fmt.Sprintf("%s: %s %q: %v", CauseUnavailable, step, pc.Command, err)
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, unavailable("start", err)
+	}
 	cmd := exec.Command(pc.Command, pc.Args...)
 	var zero Impl // the host never serves the contract; only the dispense key matters here
 	client := plugin.NewClient(&plugin.ClientConfig{
@@ -322,25 +421,31 @@ func (c *Controller[Impl]) startLocked(pc Config) (*process[Impl], string) {
 	rpcClient, err := client.Client()
 	if err != nil {
 		client.Kill()
-		return nil, fmt.Sprintf("%s: connect %q: %v", CauseUnavailable, pc.Command, err)
+		return nil, unavailable("connect", err)
+	}
+	if err := ctx.Err(); err != nil {
+		client.Kill()
+		return nil, unavailable("start", err)
 	}
 	raw, err := rpcClient.Dispense(c.ct.Key)
 	if err != nil {
 		client.Kill()
-		return nil, fmt.Sprintf("%s: dispense %q: %v", CauseUnavailable, pc.Command, err)
+		return nil, unavailable("dispense", err)
 	}
 	impl, err := c.ct.Client(raw)
 	if err != nil {
 		client.Kill()
-		return nil, fmt.Sprintf("%s: client %q: %v", CauseUnavailable, pc.Command, err)
+		return nil, unavailable("client", err)
 	}
 	p := &process[Impl]{pc: pc, client: client, impl: impl}
-	ctx, cancel := context.WithTimeout(context.Background(), pc.Timeout)
+	// The handshake budget respects the caller context and is capped by the
+	// configured start timeout (AUD-026).
+	dctx, cancel := context.WithTimeout(ctx, pc.Timeout)
 	defer cancel()
-	name, version, err := c.ct.Describe(ctx, impl)
+	name, version, err := c.ct.Describe(dctx, impl)
 	if err != nil {
 		client.Kill()
-		return nil, fmt.Sprintf("%s: describe handshake %q: %v", CauseUnavailable, pc.Command, err)
+		return nil, unavailable("describe handshake", err)
 	}
 	p.name, p.version = name, version
 	c.log.Info("plugin started", "plugin", name, "version", version, "command", pc.Command)
