@@ -1956,9 +1956,13 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 完成证据：commit 0d9340bb4（`internal/tasks/store.go`：+`RegisteredScopeSource` 接口、`dormantScopeBudget` const、`reapDormantScopes` 方法、`ReapStale` 扩展两路收割并 `errors.Join`；`cmd/server/root.go`：`routerTaskScopes.RegisteredScopes()` 经 `MetaDB().Find` 查 `[]model.GameEnvBinding`；`internal/tasks/store_scopes_test.go`：`fakeScopes` 增 `registered` 字段+`RegisteredScopes()`+`ScopeContext` 模拟 router 首开缓存 add，+121 行两新用例）。
   - 已知边界：休眠收割依赖 resolver 实现 `RegisteredScopeSource`（当前仅 `cmd/server/root.go` 的 `routerTaskScopes` 实现，经 meta 库 `game_envs` 绑定枚举）；`game_envs` 绑定与物理库名映射存在 legacy/自定义映射需核验（ARCH-006），休眠库名解析失败该 scope 收割报错聚合不静默丢弃。`dormantScopeBudget=8` 逐次上限：冷启动若休眠库 >8，需多轮看门狗周期才全部收敛（有界不突发是有意权衡）。`ReapAgentNonTerminal` 保持 open-only（断开路径便宜），非 open 库的 agent 断开收敛不在本次范围。
 
-- [ ] **AUD-016 · P1 · 修复 · 对象存储写入补齐权限和保留前缀边界**
+- [x] **AUD-016 · P1 · 修复 · 对象存储写入补齐权限和保留前缀边界**（commit ce46f9a59）
   - 依赖：—。交付与验收：按现有权限定义控制上传、覆盖、删除、目录变更与签名访问，保护备份/发布对象。
   - 状态／条件：storage/service.go:122-175 直接用输入 path 写全局存储；临时夹具确认只有登录身份即可覆盖 backups/ 对象。
+  - 修复：服务层权限门禁 `utils.RequireAnyPermission`（`uploads:write`，超管经 HasAdminRole 直通）接进 SignedUrl/UploadObject/DeleteObject/BatchDeleteObjects/CreateDirectory/RenameDirectory；受保护前缀 `backups/`、`releases/`、`archives/`、`exports/` 的写/删/改名一律 403 `retention_prefix_forbidden`（超管也不豁免），批量删除整单拒绝无部分执行。签名访问按路径域镜像子系统授权：`backups/`→`backup:read`、`releases/`→仅超管，其余路径走 `uploads:write`。
+  - 验证：`go test ./internal/api/storage/... -count=1` 全绿（零角色六操作面 403 无副作用、仅持 uploads:write 操作员常规可用且不能触保留前缀/签发备份链接、超管不能触保留前缀、批量整单拒绝、预存备份对象不被覆盖/删除/改名）；`go vet` 与 `go build ./internal/...` 通过；`gofmt -l` 清洁。LOCAL VERIFIED。
+  - 完成证据：commit ce46f9a59（`internal/api/storage/service.go`：+`storagePermission`/`requirePermission`/`requireStoragePermission`/`requireSignedPermission`/`protectedStoragePrefixes`/`protectedPrefixKind`/`guardWritablePath` 并接进六个方法；`aud016_harness_test.go`：包级共享 sqlite 播种超管/仅持 uploads:write 操作员/零角色三身份 + `identitySvcCtx`/`authCtx`/`operatorCtx`/`viewerCtx`；`aud016_permission_test.go`：五个回归用例；既有 service/handler 测试统一升级经身份面）。
+  - 已知边界：ListObjects 仅认证未加门禁（只读，不在验收面）；`releases/` 签名访问归 admin:all（发布链自身无独立权限定义，未新造 catalog 外权限键）；`archives/`、`exports/` 为防御性前缀（当前无子系统写）；门禁仅在通用对象接口，子系统（backupexec/release 服务）直写 ObjectStore 不经此路径，其自身授权不变；权限键 `uploads:write` 为既有 catalog 权限，未新造。
 
 - [ ] **AUD-017 · P1 · 修复 · 全局电源配置操作补齐平台权限检查**
   - 依赖：—。交付与验收：合法游戏/环境作用域不等同硬件管理权限；覆盖 power-config 写入及其他 PowerOps 操作入口。
