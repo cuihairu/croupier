@@ -1988,9 +1988,13 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 完成证据：`git show b9c7bcb59 --stat`（3 files, 134 insertions, 5 deletions，新增 1 测试文件）。
   - 已知边界：行为修复非 schema 变更，无 goose 迁移。Update 现对不存在行报错（此前 Save(ID=0) 对全新 run_id 会静默 INSERT）；已核验无调用点依赖该隐式插入。
 
-- [ ] **AUD-020 · P1 · 修复 · 事故详情更新使用数据库可序列化的 JSON 类型**
+- [x] **AUD-020 · P1 · 修复 · 事故详情更新使用数据库可序列化的 JSON 类型**（commit 5f266d019）
   - 依赖：—。交付与验收：正常提交 details 对象可保存并读回，兼容空对象与嵌套值。
   - 状态／条件：incident/service.go:331-333 把裸 map 放进 Updates；普通详情更新返回 sql unsupported type map[string]interface{}。创建路径的 datatypes.JSONMap 不存在该问题。
+  - 修复：`internal/api/incident/service.go` UpdateIncident 对 `req.Details` 先 `json.Marshal` 为 `model.JSON` 再写入 updates（与 exec_log_ids/audience 同型）；marshal 失败返回 400 而非静默丢弃。
+  - 验证：新增 `internal/api/incident/service_details_aud020_test.go`（`TestUpdateIncident_DetailsJSONRoundtrip`：正常对象/嵌套列表与对象/空对象保存并读回）；原钉住缺陷的 `TestUpdateIncident_DetailsMapUpdateDefectPinned` 按注释约定改为成功落库断言 `TestUpdateIncident_DetailsJSONPersisted`（修复前先临时回退验证其精确复现 `sql: unsupported type map[string]interface {}`）；`go test ./internal/... -count=1` 全绿（SUITE_EXIT=0）、`go vet ./internal/api/incident/...` 与 `go build ./...` 通过、`gofmt -l` 清洁。LOCAL VERIFIED。
+  - 完成证据：`git show 5f266d019 --stat`（4 files, 82 insertions, 10 deletions，新增 1 测试文件）。
+  - 已知边界：行为修复非 schema 变更，无 goose 迁移。仅 `details` 更新路径修复；创建路径原本就走 `datatypes.JSONMap`（无此缺陷）。marshal 失败仅可能在程序化构造非 JSON 值入参时发生（HTTP 解码的 map 恒可序列化）。
 
 - [ ] **AUD-021 · P2 · 修复 · IPv6 ICMP 请求和响应使用正确的类型**
   - 依赖：—。交付与验收：合法 IPv6 echo reply 的 ID/序号/载荷匹配时通过，与 IPv4 分支分别验证。
