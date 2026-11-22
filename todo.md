@@ -1980,9 +1980,13 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 完成证据：commit 96b9cde91（`croupier/transport/tcp.py`：+`_fail_pending_and_disconnect` 并接进两异常分支；`tests/test_tcp_transport_e2e.py`：`test_reader_stops_on_unexpected_internal_error` 从「BUG（记录未修）」改为断言修复不变量 + 新增 `test_reader_oversize_frame_disconnects_and_fails_pending`）。
   - 已知边界：通用异常路径 fail 的错误统一包装为 `ConnectionError("reader terminated: ...")`（原始异常类型不透传，诊断进日志）；超长帧场景对端已消费的前缀帧无法恢复——重连由调用方（上层 session/provider 循环）负责，transport 自身不自动重连。
 
-- [ ] **AUD-019 · P1 · 修复 · 供给运行的数据库适配器按业务键更新既有记录**
+- [x] **AUD-019 · P1 · 修复 · 供给运行的数据库适配器按业务键更新既有记录**（commit b9c7bcb59）
   - 依赖：—。交付与验收：Create→Update→Get 必须成功且只保留一行；覆盖 ticket 审批关联和 apply 后各状态持久化。
   - 状态／条件：provision_wiring.go:26/67 每次重新转换得到 ID=0；provision_model.go:63 Save 实际 INSERT 并触发 run_id 唯一键冲突。正常更新回归用例已失败，见 11-13 代码审核报告。
+  - 修复：`internal/model/provision_model.go` Update 改为按业务键 `run_id` 解析既有行主键再 `Save`（全字段写回语义保留）；行不存在返回 `gorm.ErrRecordNotFound`（调用方语义=更新已建/已读的运行，绝无隐式插入）。所有编排 Update 调用点（CreateTicket 审批关联、apply 各状态、destroy 流程）均落在 Create/Get 之后，无合法隐式插入路径。
+  - 验证：新增 `internal/model/provision_model_update_test.go`（Create→ID=0 行 Update 写回 approval/state/outputs/agent_ids、主键不变、恒一行、缺行报 ErrRecordNotFound 不插入）与 `internal/svc/provision_wiring_test.go` 的 `TestProvisionDBStoreUpdateByBusinessKey`（ticket 审批关联 + waiting_register→adopted 状态持久化，适配层全程一行）；`go test ./internal/... -count=1` 全绿、`go vet ./...` 与 `go build ./...` 通过、`gofmt -l` 清洁。LOCAL VERIFIED。
+  - 完成证据：`git show b9c7bcb59 --stat`（3 files, 134 insertions, 5 deletions，新增 1 测试文件）。
+  - 已知边界：行为修复非 schema 变更，无 goose 迁移。Update 现对不存在行报错（此前 Save(ID=0) 对全新 run_id 会静默 INSERT）；已核验无调用点依赖该隐式插入。
 
 - [ ] **AUD-020 · P1 · 修复 · 事故详情更新使用数据库可序列化的 JSON 类型**
   - 依赖：—。交付与验收：正常提交 details 对象可保存并读回，兼容空对象与嵌套值。
