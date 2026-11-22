@@ -1996,9 +1996,13 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 完成证据：`git show 5f266d019 --stat`（4 files, 82 insertions, 10 deletions，新增 1 测试文件）。
   - 已知边界：行为修复非 schema 变更，无 goose 迁移。仅 `details` 更新路径修复；创建路径原本就走 `datatypes.JSONMap`（无此缺陷）。marshal 失败仅可能在程序化构造非 JSON 值入参时发生（HTTP 解码的 map 恒可序列化）。
 
-- [ ] **AUD-021 · P2 · 修复 · IPv6 ICMP 请求和响应使用正确的类型**
+- [x] **AUD-021 · P2 · 修复 · IPv6 ICMP 请求和响应使用正确的类型**（commit 88ef0f821）
   - 依赖：—。交付与验收：合法 IPv6 echo reply 的 ID/序号/载荷匹配时通过，与 IPv4 分支分别验证。
   - 状态／条件：core/healthprobe/icmp.go:100 将 IPv6 类型强转为 ipv4.ICMPType；解析返回 ipv6.ICMPType，接口比较始终不相等。正常应答回归用例失败。
+  - 修复：`core/healthprobe/icmp.go` pingOnce 的 request/reply 类型改由 `icmp.Type` 接口承载（IPv4 分支=ipv4.ICMPType、IPv6 分支=ipv6.ICMPType），消除错误强转。
+  - 验证：原钉住缺陷的 `TestICMPPingOnceEchoReplySuccess` IPv6 分支改为断言成功（修复前临时回退验证其精确复现「network: ICMP echo reply code 0」），新增 `TestICMPPingOnceIPv6MismatchedReplies`（IPv6 非应答类型显式报错、序号错配超时，证明修复未放宽校验）；`go test ./core/... -count=1` 全绿、`go build ./...` 与 `go vet ./core/healthprobe/...` 通过、`gofmt -l` 清洁。LOCAL VERIFIED。
+  - 完成证据：`git show 88ef0f821 --stat`（2 files, 31 insertions, 9 deletions）。
+  - 已知边界：行为修复非 schema 变更，无 goose 迁移。IPv4 分支行为不变。测试走 open seam 的 fake PacketConn，未覆盖真实 raw socket 回包（本环境无 CAP_NET_RAW，`TestICMPCheckerLoopbackSuccessWithRawCapability` 本就 SKIP）。
 
 - [ ] **AUD-022 · P2 · 修复 · 部署编排在可取消等待前持久化已完成目标**
   - 依赖：—。交付与验收：编排器被取消时保留已换包/已健康的目标事实，不能退回 pending；明确中断后的收敛策略。
