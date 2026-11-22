@@ -92,6 +92,8 @@ func extraRouter(handler *Handler) *gin.Engine {
 
 func doExtraReq(t *testing.T, router *gin.Engine, r *http.Request) *httptest.ResponseRecorder {
 	t.Helper()
+	// AUD-016：权限门禁要求登录身份，统一注入超管（对照）用户名。
+	r = r.WithContext(context.WithValue(r.Context(), "username", storageSuperAdminUsername))
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, r)
 	return rec
@@ -200,7 +202,7 @@ func TestExtraHandler_UploadObject_NoFile_Returns400(t *testing.T) {
 
 func TestExtraHandler_RenameDirectory_OK(t *testing.T) {
 	svcObj := NewService(setupSvcCtxWithStore(t))
-	require.NoError(t, firstErr(svcObj.CreateDirectory(context.Background(), &CreateDirectoryRequest{Prefix: "old"})))
+	require.NoError(t, firstErr(svcObj.CreateDirectory(authCtx(), &CreateDirectoryRequest{Prefix: "old"})))
 	handler := NewHandler(svcObj)
 	router := extraRouter(handler)
 
@@ -247,7 +249,7 @@ func TestExtraService_NormalizeStoragePath_DotOnly(t *testing.T) {
 
 func TestExtraService_NotConfigured_AllMethodsRejected(t *testing.T) {
 	svcObj := NewService(&svc.ServiceContext{})
-	ctx := context.Background()
+	ctx := authCtx()
 
 	for name, call := range map[string]func() (*string, error){
 		"SignedUrl": func() (*string, error) {
@@ -307,9 +309,9 @@ func TestExtraService_NotConfigured_AllMethodsRejected(t *testing.T) {
 
 func TestExtraService_SignedURL_StoreError(t *testing.T) {
 	store := &failingStore{signedURLErr: errors.New("sign denied")}
-	svcObj := NewService(&svc.ServiceContext{ObjectStore: store})
+	svcObj := NewService(identitySvcCtx(t, store))
 
-	resp, err := svcObj.SignedUrl(context.Background(), &SignedUrlRequest{Path: "doc.txt"})
+	resp, err := svcObj.SignedUrl(authCtx(), &SignedUrlRequest{Path: "doc.txt"})
 	assert.Error(t, err)
 	assert.Nil(t, resp)
 	assert.Contains(t, err.Error(), "获取签名链接失败")
@@ -317,9 +319,9 @@ func TestExtraService_SignedURL_StoreError(t *testing.T) {
 
 func TestExtraService_ListObjects_StoreError(t *testing.T) {
 	store := &failingStore{listErr: errors.New("list boom")}
-	svcObj := NewService(&svc.ServiceContext{ObjectStore: store})
+	svcObj := NewService(identitySvcCtx(t, store))
 
-	resp, err := svcObj.ListObjects(context.Background(), &ListObjectsRequest{Prefix: "p"})
+	resp, err := svcObj.ListObjects(authCtx(), &ListObjectsRequest{Prefix: "p"})
 	assert.Error(t, err)
 	assert.Nil(t, resp)
 	assert.Contains(t, err.Error(), "获取对象列表失败")
@@ -327,9 +329,9 @@ func TestExtraService_ListObjects_StoreError(t *testing.T) {
 
 func TestExtraService_ListObjects_PrefixAndLimitHandling(t *testing.T) {
 	store := &failingStore{}
-	svcObj := NewService(&svc.ServiceContext{ObjectStore: store})
+	svcObj := NewService(identitySvcCtx(t, store))
 
-	resp, err := svcObj.ListObjects(context.Background(), &ListObjectsRequest{
+	resp, err := svcObj.ListObjects(authCtx(), &ListObjectsRequest{
 		Prefix: "folder/sub/", Marker: "../x", Delimiter: "/", MaxKeys: 7,
 	})
 	require.NoError(t, err)
@@ -337,15 +339,15 @@ func TestExtraService_ListObjects_PrefixAndLimitHandling(t *testing.T) {
 	assert.Equal(t, "a.txt", resp.Objects[0].Key)
 
 	// MaxKeys <= 0 falls back to Limit.
-	_, err = svcObj.ListObjects(context.Background(), &ListObjectsRequest{Prefix: "folder/", Limit: 3})
+	_, err = svcObj.ListObjects(authCtx(), &ListObjectsRequest{Prefix: "folder/", Limit: 3})
 	require.NoError(t, err)
 }
 
 func TestExtraService_UploadObject_StorePutError(t *testing.T) {
 	store := &failingStore{putErr: errors.New("put rejected")}
-	svcObj := NewService(&svc.ServiceContext{ObjectStore: store})
+	svcObj := NewService(identitySvcCtx(t, store))
 
-	resp, err := svcObj.UploadObject(context.Background(), &UploadObjectRequest{
+	resp, err := svcObj.UploadObject(authCtx(), &UploadObjectRequest{
 		Path: "a.txt", File: strings.NewReader("data"), Size: 4,
 	})
 	assert.Error(t, err)
@@ -355,9 +357,9 @@ func TestExtraService_UploadObject_StorePutError(t *testing.T) {
 
 func TestExtraService_UploadObject_SeekError(t *testing.T) {
 	store := &failingStore{}
-	svcObj := NewService(&svc.ServiceContext{ObjectStore: store})
+	svcObj := NewService(identitySvcCtx(t, store))
 
-	resp, err := svcObj.UploadObject(context.Background(), &UploadObjectRequest{
+	resp, err := svcObj.UploadObject(authCtx(), &UploadObjectRequest{
 		Path: "a.txt", File: errSeeker{}, Size: 1,
 	})
 	assert.Error(t, err)
@@ -367,8 +369,8 @@ func TestExtraService_UploadObject_SeekError(t *testing.T) {
 
 func TestExtraService_UploadObject_PathFallbacks(t *testing.T) {
 	store := &failingStore{}
-	svcObj := NewService(&svc.ServiceContext{ObjectStore: store})
-	ctx := context.Background()
+	svcObj := NewService(identitySvcCtx(t, store))
+	ctx := authCtx()
 
 	// Falls back to PreassignedID when Path empty.
 	resp, err := svcObj.UploadObject(ctx, &UploadObjectRequest{
@@ -393,9 +395,9 @@ func TestExtraService_UploadObject_PathFallbacks(t *testing.T) {
 
 func TestExtraService_DeleteObject_StoreError(t *testing.T) {
 	store := &failingStore{deleteErr: errors.New("delete denied")}
-	svcObj := NewService(&svc.ServiceContext{ObjectStore: store})
+	svcObj := NewService(identitySvcCtx(t, store))
 
-	resp, err := svcObj.DeleteObject(context.Background(), &DeleteObjectRequest{Path: "gone.txt"})
+	resp, err := svcObj.DeleteObject(authCtx(), &DeleteObjectRequest{Path: "gone.txt"})
 	assert.Error(t, err)
 	assert.Nil(t, resp)
 	assert.Contains(t, err.Error(), "删除对象失败")
@@ -403,9 +405,9 @@ func TestExtraService_DeleteObject_StoreError(t *testing.T) {
 
 func TestExtraService_BatchDeleteObjects_PartialFailure(t *testing.T) {
 	store := &failingStore{deleteErr: errors.New("locked")}
-	svcObj := NewService(&svc.ServiceContext{ObjectStore: store})
+	svcObj := NewService(identitySvcCtx(t, store))
 
-	resp, err := svcObj.BatchDeleteObjects(context.Background(), &BatchDeleteObjectsRequest{
+	resp, err := svcObj.BatchDeleteObjects(authCtx(), &BatchDeleteObjectsRequest{
 		Paths: []string{"a.txt", "", "dir/b.txt"},
 	})
 	require.NoError(t, err)
@@ -416,9 +418,9 @@ func TestExtraService_BatchDeleteObjects_PartialFailure(t *testing.T) {
 
 func TestExtraService_CreateDirectory_StoreError(t *testing.T) {
 	store := &failingStore{createPrefErr: errors.New("mkdir denied")}
-	svcObj := NewService(&svc.ServiceContext{ObjectStore: store})
+	svcObj := NewService(identitySvcCtx(t, store))
 
-	resp, err := svcObj.CreateDirectory(context.Background(), &CreateDirectoryRequest{Prefix: "assets"})
+	resp, err := svcObj.CreateDirectory(authCtx(), &CreateDirectoryRequest{Prefix: "assets"})
 	assert.Error(t, err)
 	assert.Nil(t, resp)
 	assert.Contains(t, err.Error(), "创建目录失败")
@@ -426,7 +428,7 @@ func TestExtraService_CreateDirectory_StoreError(t *testing.T) {
 
 func TestExtraService_RenameDirectory_MissingPrefixes(t *testing.T) {
 	svcObj := NewService(&svc.ServiceContext{ObjectStore: &failingStore{}})
-	ctx := context.Background()
+	ctx := authCtx()
 
 	for _, req := range []*RenameDirectoryRequest{
 		{},
@@ -443,9 +445,9 @@ func TestExtraService_RenameDirectory_MissingPrefixes(t *testing.T) {
 
 func TestExtraService_RenameDirectory_StoreError(t *testing.T) {
 	store := &failingStore{renamePrefErr: errors.New("rename denied")}
-	svcObj := NewService(&svc.ServiceContext{ObjectStore: store})
+	svcObj := NewService(identitySvcCtx(t, store))
 
-	resp, err := svcObj.RenameDirectory(context.Background(), &RenameDirectoryRequest{
+	resp, err := svcObj.RenameDirectory(authCtx(), &RenameDirectoryRequest{
 		OldPrefix: "old", NewPrefix: "new",
 	})
 	assert.Error(t, err)

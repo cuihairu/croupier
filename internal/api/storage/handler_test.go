@@ -38,6 +38,7 @@ func newRouter(handler *Handler) *gin.Engine {
 func doReq(t *testing.T, router *gin.Engine, method, target, body string) *httptest.ResponseRecorder {
 	t.Helper()
 	req := httptest.NewRequest(method, target, bytes.NewBufferString(body))
+	req = req.WithContext(context.WithValue(req.Context(), "username", storageSuperAdminUsername))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
@@ -109,7 +110,7 @@ func TestHandler_BatchDeleteObjects_OK(t *testing.T) {
 	router := newRouter(handler)
 
 	for _, p := range []string{"del-1.txt", "del-2.txt"} {
-		_, err := svc.UploadObject(context.Background(), &UploadObjectRequest{
+		_, err := svc.UploadObject(authCtx(), &UploadObjectRequest{
 			Path: p, File: strings.NewReader("x"), Size: 1,
 		})
 		require.NoError(t, err)

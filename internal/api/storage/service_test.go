@@ -1,12 +1,12 @@
 package storage
 
 import (
-	"context"
 	"encoding/json"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
+	"github.com/cuihairu/croupier/internal/model"
 	objstore "github.com/cuihairu/croupier/internal/platform/objstore"
 	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/stretchr/testify/assert"
@@ -16,7 +16,7 @@ import (
 // newFileStore returns a file-backed object store rooted at a fresh temp dir.
 func newFileStore(t *testing.T) objstore.Store {
 	t.Helper()
-	store, err := objstore.OpenFile(context.Background(), objstore.Config{
+	store, err := objstore.OpenFile(authCtx(), objstore.Config{
 		Driver:  "file",
 		BaseDir: t.TempDir(),
 	})
@@ -26,12 +26,24 @@ func newFileStore(t *testing.T) objstore.Store {
 
 func setupSvcCtxWithStore(t *testing.T) *svc.ServiceContext {
 	t.Helper()
-	return &svc.ServiceContext{ObjectStore: newFileStore(t)}
+	db := storageSharedDB(t)
+	return &svc.ServiceContext{
+		DB:          db,
+		AdminModel:  model.NewAdminModel(db),
+		RoleModel:   model.NewRoleModel(db),
+		ObjectStore: newFileStore(t),
+	}
 }
 
 func setupSvcCtxNoStore(t *testing.T) *svc.ServiceContext {
 	t.Helper()
-	return &svc.ServiceContext{ObjectStore: nil}
+	db := storageSharedDB(t)
+	return &svc.ServiceContext{
+		DB:          db,
+		AdminModel:  model.NewAdminModel(db),
+		RoleModel:   model.NewRoleModel(db),
+		ObjectStore: nil,
+	}
 }
 
 func assertStatus(t *testing.T, rec *httptest.ResponseRecorder, want int) {
@@ -54,7 +66,7 @@ func assertErrorShape(t *testing.T, rec *httptest.ResponseRecorder) {
 func TestService_ListObjects_Empty(t *testing.T) {
 	svc := NewService(setupSvcCtxWithStore(t))
 
-	resp, err := svc.ListObjects(context.Background(), &ListObjectsRequest{})
+	resp, err := svc.ListObjects(authCtx(), &ListObjectsRequest{})
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	assert.Empty(t, resp.Objects)
@@ -64,17 +76,17 @@ func TestService_NotConfigured_ReturnsBadRequest(t *testing.T) {
 	svc := NewService(setupSvcCtxNoStore(t))
 
 	// Every method calls requireStore() first and must reject gracefully.
-	_, err := svc.ListObjects(context.Background(), &ListObjectsRequest{})
+	_, err := svc.ListObjects(authCtx(), &ListObjectsRequest{})
 	require.Error(t, err)
 
-	_, err = svc.SignedUrl(context.Background(), &SignedUrlRequest{Path: "x"})
+	_, err = svc.SignedUrl(authCtx(), &SignedUrlRequest{Path: "x"})
 	require.Error(t, err)
 }
 
 func TestService_UploadThenList_RoundTrip(t *testing.T) {
 	svc := NewService(setupSvcCtxWithStore(t))
 
-	uploadResp, err := svc.UploadObject(context.Background(), &UploadObjectRequest{
+	uploadResp, err := svc.UploadObject(authCtx(), &UploadObjectRequest{
 		Path:        "folder/file.txt",
 		File:        strings.NewReader("hello world"),
 		Size:        11,
@@ -84,7 +96,7 @@ func TestService_UploadThenList_RoundTrip(t *testing.T) {
 	require.NotNil(t, uploadResp)
 	assert.Equal(t, "folder/file.txt", uploadResp.Path)
 
-	listResp, err := svc.ListObjects(context.Background(), &ListObjectsRequest{Prefix: "folder/"})
+	listResp, err := svc.ListObjects(authCtx(), &ListObjectsRequest{Prefix: "folder/"})
 	require.NoError(t, err)
 	require.NotEmpty(t, listResp.Objects)
 	assert.Equal(t, "folder/file.txt", listResp.Objects[0].Key)
@@ -93,7 +105,7 @@ func TestService_UploadThenList_RoundTrip(t *testing.T) {
 func TestService_UploadObject_MissingFileAndPath(t *testing.T) {
 	svc := NewService(setupSvcCtxWithStore(t))
 
-	resp, err := svc.UploadObject(context.Background(), &UploadObjectRequest{})
+	resp, err := svc.UploadObject(authCtx(), &UploadObjectRequest{})
 	require.Error(t, err)
 	assert.Nil(t, resp)
 }
@@ -101,7 +113,7 @@ func TestService_UploadObject_MissingFileAndPath(t *testing.T) {
 func TestService_DeleteObject_MissingPath(t *testing.T) {
 	svc := NewService(setupSvcCtxWithStore(t))
 
-	resp, err := svc.DeleteObject(context.Background(), &DeleteObjectRequest{})
+	resp, err := svc.DeleteObject(authCtx(), &DeleteObjectRequest{})
 	require.Error(t, err)
 	assert.Nil(t, resp)
 }
@@ -109,7 +121,7 @@ func TestService_DeleteObject_MissingPath(t *testing.T) {
 func TestService_BatchDeleteObjects_EmptyPaths(t *testing.T) {
 	svc := NewService(setupSvcCtxWithStore(t))
 
-	resp, err := svc.BatchDeleteObjects(context.Background(), &BatchDeleteObjectsRequest{Paths: []string{}})
+	resp, err := svc.BatchDeleteObjects(authCtx(), &BatchDeleteObjectsRequest{Paths: []string{}})
 	require.Error(t, err)
 	assert.Nil(t, resp)
 }
@@ -119,13 +131,13 @@ func TestService_BatchDeleteObjects_OK(t *testing.T) {
 
 	// Seed two objects.
 	for _, p := range []string{"a.txt", "b.txt"} {
-		_, err := svc.UploadObject(context.Background(), &UploadObjectRequest{
+		_, err := svc.UploadObject(authCtx(), &UploadObjectRequest{
 			Path: p, File: strings.NewReader("x"), Size: 1,
 		})
 		require.NoError(t, err)
 	}
 
-	resp, err := svc.BatchDeleteObjects(context.Background(), &BatchDeleteObjectsRequest{
+	resp, err := svc.BatchDeleteObjects(authCtx(), &BatchDeleteObjectsRequest{
 		Paths: []string{"a.txt", "b.txt"},
 	})
 	require.NoError(t, err)
@@ -137,7 +149,7 @@ func TestService_BatchDeleteObjects_OK(t *testing.T) {
 func TestService_CreateDirectory_OK(t *testing.T) {
 	svc := NewService(setupSvcCtxWithStore(t))
 
-	resp, err := svc.CreateDirectory(context.Background(), &CreateDirectoryRequest{Prefix: "album"})
+	resp, err := svc.CreateDirectory(authCtx(), &CreateDirectoryRequest{Prefix: "album"})
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	assert.Equal(t, "album/", resp.Prefix)
@@ -146,7 +158,7 @@ func TestService_CreateDirectory_OK(t *testing.T) {
 func TestService_CreateDirectory_MissingPrefix(t *testing.T) {
 	svc := NewService(setupSvcCtxWithStore(t))
 
-	resp, err := svc.CreateDirectory(context.Background(), &CreateDirectoryRequest{})
+	resp, err := svc.CreateDirectory(authCtx(), &CreateDirectoryRequest{})
 	require.Error(t, err)
 	assert.Nil(t, resp)
 }
@@ -154,7 +166,7 @@ func TestService_CreateDirectory_MissingPrefix(t *testing.T) {
 func TestService_SignedUrl_MissingPath(t *testing.T) {
 	svc := NewService(setupSvcCtxWithStore(t))
 
-	resp, err := svc.SignedUrl(context.Background(), &SignedUrlRequest{})
+	resp, err := svc.SignedUrl(authCtx(), &SignedUrlRequest{})
 	require.Error(t, err)
 	assert.Nil(t, resp)
 }
@@ -162,7 +174,7 @@ func TestService_SignedUrl_MissingPath(t *testing.T) {
 func TestService_SignedUrl_OK(t *testing.T) {
 	svc := NewService(setupSvcCtxWithStore(t))
 
-	resp, err := svc.SignedUrl(context.Background(), &SignedUrlRequest{Path: "doc.txt", Expire: 60})
+	resp, err := svc.SignedUrl(authCtx(), &SignedUrlRequest{Path: "doc.txt", Expire: 60})
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	assert.NotEmpty(t, resp.URL)

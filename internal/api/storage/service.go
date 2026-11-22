@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/internal/common/errorx"
+	"github.com/cuihairu/croupier/internal/logic/utils"
 	objstore "github.com/cuihairu/croupier/internal/platform/objstore"
 	"github.com/cuihairu/croupier/internal/svc"
 )
@@ -27,6 +28,82 @@ func (s *Service) requireStore() (objstore.Store, error) {
 		return nil, errorx.NewBadRequest("对象存储未配置")
 	}
 	return s.svcCtx.ObjectStore, nil
+}
+
+// 通用对象接口的权限 ID（AUD-016）：catalog 见 configs/permissions.json 的
+// uploads:write（文件上传）；超管经 HasAdminRole 直通，无需具体权限行。
+// 该权限同时把守写类操作（上传/覆盖/删除/目录变更）与常规签名访问——
+// 签名链接会下发对象的临时下载能力，属同一操作域。
+const storagePermission = "uploads:write"
+
+// requirePermission 是服务层权限门禁（AUD-016，与 backup 域同范式）：登录
+// 身份本身不等于操作权——此前仅凭认证即可覆盖共享备份/发布对象。
+func (s *Service) requirePermission(ctx context.Context, message string, required ...string) error {
+	if s == nil || s.svcCtx == nil {
+		return errorx.NewInternalError("对象存储服务未初始化")
+	}
+	_, _, err := utils.RequireAnyPermission(ctx, s.svcCtx, message, required...)
+	return err
+}
+
+// requireStoragePermission 拒绝对通用对象存储的操作（AUD-016）。
+func (s *Service) requireStoragePermission(ctx context.Context) error {
+	return s.requirePermission(ctx, "无权操作对象存储", "admin:all", storagePermission)
+}
+
+// requireSignedPermission 按路径域决定签名访问所需权限（AUD-016）：受保护
+// 前缀的读能力镜像所属子系统的既有授权（backups/ → backup:read，与备份
+// 下载一致；releases/ → 仅超管），其余路径走存储域权限。否则仅持
+// uploads:write 的操作员也能为备份对象签发下载链接，绕过备份下载授权。
+func (s *Service) requireSignedPermission(ctx context.Context, p string) error {
+	if kind, ok := protectedPrefixKind(p); ok {
+		switch kind {
+		case "backups":
+			return s.requirePermission(ctx, "无权下载备份对象", "admin:all", "backup:read")
+		case "releases":
+			return s.requirePermission(ctx, "无权访问发布产物", "admin:all")
+		}
+	}
+	return s.requireStoragePermission(ctx)
+}
+
+// 受保护前缀（AUD-016）：这些前缀下的对象由平台服务写入（备份执行器、
+// 发布上传、归档导出），通用对象接口不得覆盖、删除或目录变更，避免低权限
+// 账号或误操作破坏平台的恢复/发布能力。读取（列表/签名下载）不在此限制内，
+// 由读权限把关。
+var protectedStoragePrefixes = []string{
+	"backups/",
+	"releases/",
+	"archives/",
+	"exports/",
+}
+
+// protectedPrefixKind 返回路径命中的受保护前缀（按目录边界匹配）并附上
+// 该前缀代表的对象类别。匹配规则：路径恰为该前缀的目录，或落在该前缀之下
+// （含通配符或尾部斜杠写法），均视为命中；仅按字面前缀相等。
+func protectedPrefixKind(path string) (string, bool) {
+	for _, prefix := range protectedStoragePrefixes {
+		// 匹配裸目录名（"backups"）与目录前缀（"backups/"、"backups/x"）两种
+		// 写法：目录标记对象与目录下对象都属于平台保留命名空间。
+		trimmed := strings.TrimSuffix(prefix, "/")
+		if path == trimmed || strings.HasPrefix(path, prefix) {
+			return trimmed, true
+		}
+	}
+	return "", false
+}
+
+// guardWritablePath 拒绝一切指向受保护前缀的写类操作（AUD-016）。调用方
+// 传入已归一化的路径；空路径由各操作自身的必填校验先行拦截。
+func guardWritablePath(path string) error {
+	if path == "" {
+		return nil
+	}
+	if kind, ok := protectedPrefixKind(path); ok {
+		return errorx.NewForbiddenWithCode("retention_prefix_forbidden",
+			fmt.Sprintf("%s 对象由平台维护，通用对象接口不允许写入或变更", kind), nil)
+	}
+	return nil
 }
 
 // joinStoragePath 是 path.Join 的测试缝隙：空参数切片时 Join 返回 ""，
@@ -71,6 +148,9 @@ func (s *Service) SignedUrl(ctx context.Context, req *SignedUrlRequest) (*Signed
 	path := normalizeStoragePath(req.Path)
 	if path == "" {
 		return nil, errorx.NewBadRequest("path is required")
+	}
+	if err := s.requireSignedPermission(ctx, path); err != nil {
+		return nil, err
 	}
 	expiry := time.Duration(req.Expire) * time.Second
 	url, err := store.SignedURL(ctx, path, "GET", expiry)
@@ -135,6 +215,12 @@ func (s *Service) UploadObject(ctx context.Context, req *UploadObjectRequest) (*
 	if path == "" {
 		return nil, errorx.NewBadRequest("path is required")
 	}
+	if err := s.requireStoragePermission(ctx); err != nil {
+		return nil, err
+	}
+	if err := guardWritablePath(path); err != nil {
+		return nil, err
+	}
 
 	reader := req.File
 	size := req.Size
@@ -173,6 +259,12 @@ func (s *Service) DeleteObject(ctx context.Context, req *DeleteObjectRequest) (*
 	if path == "" {
 		return nil, errorx.NewBadRequest("path is required")
 	}
+	if err := s.requireStoragePermission(ctx); err != nil {
+		return nil, err
+	}
+	if err := guardWritablePath(path); err != nil {
+		return nil, err
+	}
 	if strings.HasSuffix(req.Path, "/") && !strings.HasSuffix(path, "/") {
 		path += "/"
 	}
@@ -190,6 +282,16 @@ func (s *Service) BatchDeleteObjects(ctx context.Context, req *BatchDeleteObject
 	}
 	if len(req.Paths) == 0 {
 		return nil, errorx.NewBadRequest("paths is required")
+	}
+	if err := s.requireStoragePermission(ctx); err != nil {
+		return nil, err
+	}
+	// 受保护前缀整单拒绝而非逐条跳过：避免「其余已删、受保护条目失败」的
+	// 部分执行状态，调用方可以拆单重试。
+	for _, rawPath := range req.Paths {
+		if err := guardWritablePath(normalizeStoragePath(rawPath)); err != nil {
+			return nil, err
+		}
 	}
 
 	resp := &BatchDeleteObjectsResponse{
@@ -225,6 +327,12 @@ func (s *Service) CreateDirectory(ctx context.Context, req *CreateDirectoryReque
 	if prefix == "" {
 		return nil, errorx.NewBadRequest("prefix is required")
 	}
+	if err := s.requireStoragePermission(ctx); err != nil {
+		return nil, err
+	}
+	if err := guardWritablePath(prefix); err != nil {
+		return nil, err
+	}
 	if !strings.HasSuffix(prefix, "/") {
 		prefix += "/"
 	}
@@ -248,6 +356,16 @@ func (s *Service) RenameDirectory(ctx context.Context, req *RenameDirectoryReque
 	newPrefix := normalizeStoragePath(req.NewPrefix)
 	if oldPrefix == "" || newPrefix == "" {
 		return nil, errorx.NewBadRequest("oldPrefix and newPrefix are required")
+	}
+	if err := s.requireStoragePermission(ctx); err != nil {
+		return nil, err
+	}
+	// 重命名双向边界：移出受保护前缀同样改变平台命名空间布局。
+	if err := guardWritablePath(oldPrefix); err != nil {
+		return nil, err
+	}
+	if err := guardWritablePath(newPrefix); err != nil {
+		return nil, err
 	}
 	if !strings.HasSuffix(oldPrefix, "/") {
 		oldPrefix += "/"

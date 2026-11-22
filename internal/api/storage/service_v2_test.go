@@ -19,7 +19,7 @@ import (
 
 func TestServiceV2_UploadObject_ContentString(t *testing.T) {
 	svc := NewService(setupSvcCtxWithStore(t))
-	resp, err := svc.UploadObject(context.Background(), &UploadObjectRequest{
+	resp, err := svc.UploadObject(authCtx(), &UploadObjectRequest{
 		Path:    "content-test.txt",
 		Content: "hello from content field",
 	})
@@ -30,7 +30,7 @@ func TestServiceV2_UploadObject_ContentString(t *testing.T) {
 
 func TestServiceV2_UploadObject_NoPath_UsePreassignedID(t *testing.T) {
 	svc := NewService(setupSvcCtxWithStore(t))
-	resp, err := svc.UploadObject(context.Background(), &UploadObjectRequest{
+	resp, err := svc.UploadObject(authCtx(), &UploadObjectRequest{
 		PreassignedID: "pre-assigned.txt",
 		Content:       "data",
 	})
@@ -41,7 +41,7 @@ func TestServiceV2_UploadObject_NoPath_UsePreassignedID(t *testing.T) {
 
 func TestServiceV2_UploadObject_NoPath_UseOriginalName(t *testing.T) {
 	svc := NewService(setupSvcCtxWithStore(t))
-	resp, err := svc.UploadObject(context.Background(), &UploadObjectRequest{
+	resp, err := svc.UploadObject(authCtx(), &UploadObjectRequest{
 		OriginalName: "from-header.txt",
 		Content:      "data",
 	})
@@ -52,7 +52,7 @@ func TestServiceV2_UploadObject_NoPath_UseOriginalName(t *testing.T) {
 
 func TestServiceV2_UploadObject_EmptyContentAndNoFile(t *testing.T) {
 	svc := NewService(setupSvcCtxWithStore(t))
-	_, err := svc.UploadObject(context.Background(), &UploadObjectRequest{
+	_, err := svc.UploadObject(authCtx(), &UploadObjectRequest{
 		Path:    "some/path.txt",
 		Content: "  ",
 	})
@@ -62,7 +62,7 @@ func TestServiceV2_UploadObject_EmptyContentAndNoFile(t *testing.T) {
 
 func TestServiceV2_UploadObject_NoContentType_DefaultsToOctetStream(t *testing.T) {
 	svc := NewService(setupSvcCtxWithStore(t))
-	resp, err := svc.UploadObject(context.Background(), &UploadObjectRequest{
+	resp, err := svc.UploadObject(authCtx(), &UploadObjectRequest{
 		Path: "bin.dat",
 		File: strings.NewReader("binary data"),
 		Size: 11,
@@ -73,7 +73,7 @@ func TestServiceV2_UploadObject_NoContentType_DefaultsToOctetStream(t *testing.T
 
 func TestServiceV2_UploadObject_ContentTypeEmptyWithContent(t *testing.T) {
 	svc := NewService(setupSvcCtxWithStore(t))
-	resp, err := svc.UploadObject(context.Background(), &UploadObjectRequest{
+	resp, err := svc.UploadObject(authCtx(), &UploadObjectRequest{
 		Path:    "text.txt",
 		Content: "text content",
 	})
@@ -83,19 +83,19 @@ func TestServiceV2_UploadObject_ContentTypeEmptyWithContent(t *testing.T) {
 
 func TestServiceV2_SignedUrl_NotConfigured(t *testing.T) {
 	svc := NewService(setupSvcCtxNoStore(t))
-	_, err := svc.SignedUrl(context.Background(), &SignedUrlRequest{Path: "x"})
+	_, err := svc.SignedUrl(authCtx(), &SignedUrlRequest{Path: "x"})
 	assert.Error(t, err)
 }
 
 func TestServiceV2_ListObjects_WithPrefix(t *testing.T) {
 	svc := NewService(setupSvcCtxWithStore(t))
 	// Seed
-	_, err := svc.UploadObject(context.Background(), &UploadObjectRequest{
+	_, err := svc.UploadObject(authCtx(), &UploadObjectRequest{
 		Path: "dir/file.txt", Content: "x",
 	})
 	require.NoError(t, err)
 
-	resp, err := svc.ListObjects(context.Background(), &ListObjectsRequest{Prefix: "dir/"})
+	resp, err := svc.ListObjects(authCtx(), &ListObjectsRequest{Prefix: "dir/"})
 	require.NoError(t, err)
 	assert.NotEmpty(t, resp.Objects)
 }
@@ -104,13 +104,13 @@ func TestServiceV2_ListObjects_MaxKeysVsLimit(t *testing.T) {
 	svc := NewService(setupSvcCtxWithStore(t))
 	// Seed files
 	for i := 0; i < 5; i++ {
-		_, err := svc.UploadObject(context.Background(), &UploadObjectRequest{
+		_, err := svc.UploadObject(authCtx(), &UploadObjectRequest{
 			Path: fmt.Sprintf("items/file%d.txt", i), Content: "x",
 		})
 		require.NoError(t, err)
 	}
 	// Use MaxKeys
-	resp, err := svc.ListObjects(context.Background(), &ListObjectsRequest{
+	resp, err := svc.ListObjects(authCtx(), &ListObjectsRequest{
 		Prefix:  "items/",
 		MaxKeys: 2,
 	})
@@ -118,7 +118,7 @@ func TestServiceV2_ListObjects_MaxKeysVsLimit(t *testing.T) {
 	assert.LessOrEqual(t, len(resp.Objects), 2)
 
 	// Use Limit instead
-	resp2, err := svc.ListObjects(context.Background(), &ListObjectsRequest{
+	resp2, err := svc.ListObjects(authCtx(), &ListObjectsRequest{
 		Prefix: "items/",
 		Limit:  3,
 	})
@@ -128,25 +128,25 @@ func TestServiceV2_ListObjects_MaxKeysVsLimit(t *testing.T) {
 
 func TestServiceV2_ListObjects_PrefixTrailingSlash(t *testing.T) {
 	svc := NewService(setupSvcCtxWithStore(t))
-	_, err := svc.UploadObject(context.Background(), &UploadObjectRequest{
+	_, err := svc.UploadObject(authCtx(), &UploadObjectRequest{
 		Path: "pfx/file.txt", Content: "x",
 	})
 	require.NoError(t, err)
 
 	// Prefix with trailing slash in req should be preserved
-	resp, err := svc.ListObjects(context.Background(), &ListObjectsRequest{Prefix: "pfx/"})
+	resp, err := svc.ListObjects(authCtx(), &ListObjectsRequest{Prefix: "pfx/"})
 	require.NoError(t, err)
 	assert.NotEmpty(t, resp.Objects)
 }
 
 func TestServiceV2_DeleteObject_Success(t *testing.T) {
 	svc := NewService(setupSvcCtxWithStore(t))
-	_, err := svc.UploadObject(context.Background(), &UploadObjectRequest{
+	_, err := svc.UploadObject(authCtx(), &UploadObjectRequest{
 		Path: "to-delete.txt", Content: "x",
 	})
 	require.NoError(t, err)
 
-	resp, err := svc.DeleteObject(context.Background(), &DeleteObjectRequest{Path: "to-delete.txt"})
+	resp, err := svc.DeleteObject(authCtx(), &DeleteObjectRequest{Path: "to-delete.txt"})
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	assert.Equal(t, "to-delete.txt", resp.Path)
@@ -154,7 +154,7 @@ func TestServiceV2_DeleteObject_Success(t *testing.T) {
 
 func TestServiceV2_DeleteObject_TrailingSlashPreserved(t *testing.T) {
 	svc := NewService(setupSvcCtxWithStore(t))
-	resp, err := svc.DeleteObject(context.Background(), &DeleteObjectRequest{Path: "nonexist/"})
+	resp, err := svc.DeleteObject(authCtx(), &DeleteObjectRequest{Path: "nonexist/"})
 	// The file doesn't exist but the path normalization should keep the trailing slash
 	// store.Delete may error for non-existent file, but path should be "nonexist/"
 	if err != nil {
@@ -166,12 +166,12 @@ func TestServiceV2_DeleteObject_TrailingSlashPreserved(t *testing.T) {
 
 func TestServiceV2_BatchDeleteObjects_SkipsEmptyPaths(t *testing.T) {
 	svc := NewService(setupSvcCtxWithStore(t))
-	_, err := svc.UploadObject(context.Background(), &UploadObjectRequest{
+	_, err := svc.UploadObject(authCtx(), &UploadObjectRequest{
 		Path: "keep.txt", Content: "x",
 	})
 	require.NoError(t, err)
 
-	resp, err := svc.BatchDeleteObjects(context.Background(), &BatchDeleteObjectsRequest{
+	resp, err := svc.BatchDeleteObjects(authCtx(), &BatchDeleteObjectsRequest{
 		Paths: []string{"", "keep.txt"},
 	})
 	require.NoError(t, err)
@@ -182,7 +182,7 @@ func TestServiceV2_BatchDeleteObjects_SkipsEmptyPaths(t *testing.T) {
 
 func TestServiceV2_BatchDeleteObjects_NotConfigured(t *testing.T) {
 	svc := NewService(setupSvcCtxNoStore(t))
-	_, err := svc.BatchDeleteObjects(context.Background(), &BatchDeleteObjectsRequest{
+	_, err := svc.BatchDeleteObjects(authCtx(), &BatchDeleteObjectsRequest{
 		Paths: []string{"a.txt"},
 	})
 	assert.Error(t, err)
@@ -190,20 +190,20 @@ func TestServiceV2_BatchDeleteObjects_NotConfigured(t *testing.T) {
 
 func TestServiceV2_CreateDirectory_NotConfigured(t *testing.T) {
 	svc := NewService(setupSvcCtxNoStore(t))
-	_, err := svc.CreateDirectory(context.Background(), &CreateDirectoryRequest{Prefix: "x"})
+	_, err := svc.CreateDirectory(authCtx(), &CreateDirectoryRequest{Prefix: "x"})
 	assert.Error(t, err)
 }
 
 func TestServiceV2_CreateDirectory_WithTrailingSlash(t *testing.T) {
 	svc := NewService(setupSvcCtxWithStore(t))
-	resp, err := svc.CreateDirectory(context.Background(), &CreateDirectoryRequest{Prefix: "assets/"})
+	resp, err := svc.CreateDirectory(authCtx(), &CreateDirectoryRequest{Prefix: "assets/"})
 	require.NoError(t, err)
 	assert.Equal(t, "assets/", resp.Prefix)
 }
 
 func TestServiceV2_RenameDirectory_NotConfigured(t *testing.T) {
 	svc := NewService(setupSvcCtxNoStore(t))
-	_, err := svc.RenameDirectory(context.Background(), &RenameDirectoryRequest{
+	_, err := svc.RenameDirectory(authCtx(), &RenameDirectoryRequest{
 		OldPrefix: "old", NewPrefix: "new",
 	})
 	assert.Error(t, err)
@@ -212,10 +212,10 @@ func TestServiceV2_RenameDirectory_NotConfigured(t *testing.T) {
 func TestServiceV2_RenameDirectory_Success(t *testing.T) {
 	svc := NewService(setupSvcCtxWithStore(t))
 	// Create old dir
-	_, err := svc.CreateDirectory(context.Background(), &CreateDirectoryRequest{Prefix: "old-dir"})
+	_, err := svc.CreateDirectory(authCtx(), &CreateDirectoryRequest{Prefix: "old-dir"})
 	require.NoError(t, err)
 
-	resp, err := svc.RenameDirectory(context.Background(), &RenameDirectoryRequest{
+	resp, err := svc.RenameDirectory(authCtx(), &RenameDirectoryRequest{
 		OldPrefix: "old-dir", NewPrefix: "new-dir",
 	})
 	require.NoError(t, err)
@@ -226,7 +226,7 @@ func TestServiceV2_RenameDirectory_Success(t *testing.T) {
 
 func TestServiceV2_RenameDirectory_MissingOldPrefix(t *testing.T) {
 	svc := NewService(setupSvcCtxWithStore(t))
-	_, err := svc.RenameDirectory(context.Background(), &RenameDirectoryRequest{
+	_, err := svc.RenameDirectory(authCtx(), &RenameDirectoryRequest{
 		OldPrefix: "", NewPrefix: "new",
 	})
 	assert.Error(t, err)
@@ -234,7 +234,7 @@ func TestServiceV2_RenameDirectory_MissingOldPrefix(t *testing.T) {
 
 func TestServiceV2_RenameDirectory_MissingNewPrefix(t *testing.T) {
 	svc := NewService(setupSvcCtxWithStore(t))
-	_, err := svc.RenameDirectory(context.Background(), &RenameDirectoryRequest{
+	_, err := svc.RenameDirectory(authCtx(), &RenameDirectoryRequest{
 		OldPrefix: "old", NewPrefix: "",
 	})
 	assert.Error(t, err)
@@ -271,6 +271,7 @@ func newRouterV2(handler *Handler) *gin.Engine {
 func doReqV2(t *testing.T, router *gin.Engine, method, target, body string) *httptest.ResponseRecorder {
 	t.Helper()
 	req := httptest.NewRequest(method, target, bytes.NewBufferString(body))
+	req = req.WithContext(context.WithValue(req.Context(), "username", storageSuperAdminUsername))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
@@ -338,7 +339,7 @@ func TestHandlerV2_UploadObject_NoStore(t *testing.T) {
 func TestHandlerV2_ListObjects_WithObjects(t *testing.T) {
 	svcCtx := setupSvcCtxWithStore(t)
 	svc := NewService(svcCtx)
-	_, err := svc.UploadObject(context.Background(), &UploadObjectRequest{
+	_, err := svc.UploadObject(authCtx(), &UploadObjectRequest{
 		Path: "listed/file.txt", Content: "data",
 	})
 	require.NoError(t, err)
@@ -357,7 +358,7 @@ func TestHandlerV2_ListObjects_WithObjects(t *testing.T) {
 func TestHandlerV2_DeleteObject_Success(t *testing.T) {
 	svcCtx := setupSvcCtxWithStore(t)
 	svc := NewService(svcCtx)
-	_, err := svc.UploadObject(context.Background(), &UploadObjectRequest{
+	_, err := svc.UploadObject(authCtx(), &UploadObjectRequest{
 		Path: "del-me.txt", Content: "x",
 	})
 	require.NoError(t, err)

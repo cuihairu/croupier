@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	objstore "github.com/cuihairu/croupier/internal/platform/objstore"
-	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -78,9 +77,9 @@ func TestGapfixService_ListObjects_PrefixSlashGuard(t *testing.T) {
 	withSlashStrippingNormalizer(t)
 
 	store := &gapfixStore{}
-	svcObj := NewService(&svc.ServiceContext{ObjectStore: store})
+	svcObj := NewService(identitySvcCtx(t, store))
 
-	resp, err := svcObj.ListObjects(context.Background(), &ListObjectsRequest{Prefix: "dir/"})
+	resp, err := svcObj.ListObjects(authCtx(), &ListObjectsRequest{Prefix: "dir/"})
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	assert.Equal(t, []string{"dir/"}, store.listedPrefixes)
@@ -92,9 +91,9 @@ func TestGapfixService_DeleteObject_SlashGuard(t *testing.T) {
 	withSlashStrippingNormalizer(t)
 
 	store := &gapfixStore{}
-	svcObj := NewService(&svc.ServiceContext{ObjectStore: store})
+	svcObj := NewService(identitySvcCtx(t, store))
 
-	resp, err := svcObj.DeleteObject(context.Background(), &DeleteObjectRequest{Path: "dir/"})
+	resp, err := svcObj.DeleteObject(authCtx(), &DeleteObjectRequest{Path: "dir/"})
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	assert.Equal(t, "dir/", resp.Path)
@@ -107,9 +106,9 @@ func TestGapfixService_BatchDeleteObjects_SlashGuard(t *testing.T) {
 	withSlashStrippingNormalizer(t)
 
 	store := &gapfixStore{}
-	svcObj := NewService(&svc.ServiceContext{ObjectStore: store})
+	svcObj := NewService(identitySvcCtx(t, store))
 
-	resp, err := svcObj.BatchDeleteObjects(context.Background(), &BatchDeleteObjectsRequest{
+	resp, err := svcObj.BatchDeleteObjects(authCtx(), &BatchDeleteObjectsRequest{
 		Paths: []string{"dir/", "a.txt"},
 	})
 	require.NoError(t, err)
