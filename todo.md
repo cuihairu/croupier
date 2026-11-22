@@ -2035,9 +2035,12 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 验证：新增 `internal/api/ops/runbooks_extra_test.go`——`TestRecoverStaleRunbookRuns_WithinGraceSkippedThenReScanConverges`（宽限内跳过→越过宽限重扫收敛→活跃运行保留）、`TestStartRunbookStaleRecoverySweep_ConvergesAndStops`（真实 DB + 短间隔后台重扫把越宽限行收敛为 failed、取消停止）、`TestStartRunbookStaleRecoverySweep_Guards`（nil/未装配 DB/interval<=0 早退）。修复前临时回退 `StartRunbookStaleRecoverySweep` 为 no-op 复现「周期重扫必须把越过宽限的遗留行收敛为 failed」。`go test ./internal/... -count=1` 全量 SUITE_EXIT=0、`go build ./...`、`go vet ./internal/api/ops/... ./cmd/server/...`、`gofmt -l` 清洁。LOCAL VERIFIED。
   - 已知边界：周期重扫收敛延迟最长为 `RunbookStaleSweepInterval`（越过宽限后下一周期）。宽限 `RunbookStaleRunGrace=24h` 不变——单个 runbook 合法运行超过宽限仍不被自动收敛（属策略决策，需人工处置），与既有语义一致。重扫失败仅记录告警（与启动恢复一致），不阻断后续周期。
 
-- [ ] **AUD-026 · P2 · 修复 · 插件启动不能阻塞其他调用的 deadline**
+- [x] **AUD-026 · P2 · 修复 · 插件启动不能阻塞其他调用的 deadline**（commit 2384f8e06）
   - 依赖：—。交付与验收：启动/Describe 的慢插件不应持全控制器状态锁阻塞所有调用；队列等待和启动预算应遵守调用方上下文。
   - 状态／条件：pluginhost/engine.go:267-350 在全局 mutex 内启动与 Describe；Call 开头 isStopped 也取该锁。真实测试插件慢启动时，另一个 10ms deadline 调用在 100ms 后仍未返回。
+  - 修复：`core/pluginhost/engine.go` (1) `ensure` 拆快/慢路径——门禁与驻留进程检查在短状态锁内完成，子进程启动+Describe 握手移到锁外执行；同插件首启动经 per-plugin `startLocks` 串行化（并发首调用共享一个子进程），不同插件并行启动互不阻塞；启动后重查状态锁安装（含 stopped/已安装兜底，锁序恒为 startLock→mu 无死锁）。(2) `startLocked` 改名 `start(ctx, pc)`——Describe 预算改为 `min(调用方 ctx, pc.Timeout)`，各握手步骤边界检查 ctx，调用方放弃即中止后续步骤。(3) `Call` 的 per-call deadline 提前到 ensure 之前生效（acquire 排队仍由 queueWindow+调用方 ctx 界定，语义不变）。调用方 ctx 已过期的启动失败不计退避/熔断（非插件故障），其他调用方可立即再启动。
+  - 验证：新增 `core/pluginhost/engine_start_aud026_test.go`——`TestSlowStartDoesNotBlockOtherPlugins`（真实 echo 子进程；slow 插件 Describe 挂起期间另一插件 quick 的调用不被阻塞且正常成功；修复前临时给 start 加回全局锁复现「call for another plugin was blocked by the slow plugin's start」）、`TestCallStartBudgetFollowsCallerContext`（调用方 50ms deadline 对挂起握手，调用在 deadline 量级返回而非挂满 10s 配置超时；修复前临时回退 Describe 用 Background 复现「start budget did not follow the caller context: returned after 10.03s」）。既有 `engine_extra_test.go` 10 处 ensure 调用点随签名更新（ctx 首参）。`go test ./core/... ./internal/... -count=1` 全量 190 包全绿（FULL3_EXIT=0）、`go build ./...`、`go vet ./core/...`、`gofmt -l` 清洁。LOCAL VERIFIED。
+  - 已知边界：go-plugin 的 `client.Client()`（进程 spawn+握手）不受调用方 ctx 中断，仅在步骤边界检查——调用方放弃时该步完成后即中止后续；start 的 Dispense 失败臂因恒可达键仍按既有注释跳过（原有限制不变）。调用方 ctx 过期导致的启动中止不记退避（区分于插件自身故障）。Stop 排水窗口内未完成的启动由安装路径的 stopped 兜底杀死，不泄漏子进程。
 
 - [ ] **AUD-027 · P1 · 修复 · 供给 CAS 竞争失败返回稳定冲突而不是 panic**
   - 依赖：—。交付与验收：统一 RunStore 的 CAS 返回契约；Resume/Destroy/DestroyResume 的失败分支安全处理 nil current。
