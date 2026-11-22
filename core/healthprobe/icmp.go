@@ -93,11 +93,16 @@ func (c *ICMPChecker) Check(ctx context.Context) error {
 }
 
 func (c *ICMPChecker) pingOnce(ctx context.Context, ip *net.IPAddr) error {
+	// AUD-021：request/reply 类型以 icmp.Type 接口承载，IPv4 分支用
+	// ipv4.ICMPType、IPv6 分支用 ipv6.ICMPType——此前 IPv6 强转为
+	// ipv4.ICMPType，而 icmp.ParseMessage(protocol=58) 产出的动态类型是
+	// ipv6.ICMPType，接口比较恒不等，合法 IPv6 回声应答被误判失败。
 	network, protocol := "ip4:icmp", icmpProtocolIPv4
-	requestType, replyType := ipv4.ICMPTypeEcho, ipv4.ICMPTypeEchoReply
+	var requestType, replyType icmp.Type
+	requestType, replyType = ipv4.ICMPTypeEcho, ipv4.ICMPTypeEchoReply
 	if ip.IP.To4() == nil {
 		network, protocol = "ip6:ipv6-icmp", icmpProtocolIPv6
-		requestType, replyType = ipv4.ICMPType(ipv6.ICMPTypeEchoRequest), ipv4.ICMPType(ipv6.ICMPTypeEchoReply)
+		requestType, replyType = ipv6.ICMPTypeEchoRequest, ipv6.ICMPTypeEchoReply
 	}
 
 	conn, err := c.open(network, localICMPAddress(ip.IP.To4() != nil))

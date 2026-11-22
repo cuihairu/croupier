@@ -135,11 +135,7 @@ func TestICMPPingOnceEchoReplySuccess(t *testing.T) {
 	}, 1)
 	require.NoError(t, c.Check(ctx))
 
-	// IPv6：open 参数走 ip6 形态。注意（生产缺陷，已录 todo 续批记录）：
-	// pingOnce 的 replyType 为 ipv4.ICMPType(ipv6.ICMPTypeEchoReply)，而
-	// ParseMessage(proto 58) 产出 ipv6.ICMPType 动态类型，接口比较恒不等 →
-	// 正确的 IPv6 回声应答被误判为失败。此处断言现状；修复方向（replyType
-	// 直接用 ipv6.ICMPType）待用户定夺，本批只加测试不改行为。
+	// IPv6（AUD-021 修复后）：open 参数走 ip6 形态，合法 echo reply 通过。
 	var gotNetwork, gotAddr string
 	c6 := NewICMPChecker("::1", 200*time.Millisecond, 1)
 	c6.open = func(network, address string) (net.PacketConn, error) {
@@ -150,10 +146,31 @@ func TestICMPPingOnceEchoReplySuccess(t *testing.T) {
 			},
 		}, nil
 	}
-	err6 := c6.Check(ctx)
-	require.ErrorContains(t, err6, "network: ICMP echo reply code 0")
+	require.NoError(t, c6.Check(ctx))
 	require.Equal(t, "ip6:ipv6-icmp", gotNetwork)
 	require.Equal(t, "::", gotAddr)
+}
+
+// AUD-021：IPv6 分支与 IPv4 分支分别验证——类型比较用 ipv6 具体类型后，
+// 非应答类型仍显式报错、序号错配仍超时（修复不得放宽校验）。
+func TestICMPPingOnceIPv6MismatchedReplies(t *testing.T) {
+	ctx := context.Background()
+
+	c := newStubbedICMP(t, "::1", &fakeICMPConn{
+		reply: func(req []byte) ([]byte, error) {
+			return echoReplyOf(t, icmpProtocolIPv6, req, nil, ipv6.ICMPTypeEchoRequest), nil
+		},
+	}, 1)
+	err := c.Check(ctx)
+	require.ErrorContains(t, err, "network: ICMP")
+	require.ErrorContains(t, err, "code 0")
+
+	c = newStubbedICMP(t, "::1", &fakeICMPConn{
+		reply: func(req []byte) ([]byte, error) {
+			return echoReplyOf(t, icmpProtocolIPv6, req, func(e *icmp.Echo) { e.Seq++ }, ipv6.ICMPTypeEchoReply), nil
+		},
+	}, 1)
+	require.ErrorContains(t, c.Check(ctx), "timeout: no ICMP reply")
 }
 
 func TestICMPPingOnceRejectsMismatchedReplies(t *testing.T) {
