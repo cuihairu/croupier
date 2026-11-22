@@ -33,12 +33,19 @@ func ExtractOperationRequestContractKin(
 		appendKinParameter(&contract, paramRef, root, seenParam)
 	}
 	if op.RequestBody != nil && op.RequestBody.Value != nil {
-		if mediaType, schemaText, ok := firstKinMediaSchema(op.RequestBody.Value.Content, root); ok {
+		content := kinBodyContentSchemas(op.RequestBody.Value.Content, root)
+		// 媒体类型按执行器能力选择（SUI-007）：同一份多媒体类型文档的
+		// 重复导入恒选出同一条目；声明了 schema 但无一可执行时提案记录
+		// 原因（声明条目缺 schema 保持旧「无 schema 即无 body」静默口径）。
+		mediaType, schemaText, reason := spec.SelectRequestBodyMediaType(content)
+		if mediaType != "" {
 			contract.Body = &spec.RequestBodySpec{
 				MediaType: mediaType,
 				Required:  op.RequestBody.Value.Required,
 				Schema:    spec.JSONSchema(schemaText),
 			}
+		} else if len(content) > 0 {
+			contract.Diagnostics = append(contract.Diagnostics, spec.RequestBodyMediaDiagnostic(reason))
 		}
 	}
 	contract.Diagnostics = append(contract.Diagnostics, requestContractDiagnostics(contract)...)
@@ -102,33 +109,17 @@ func kinParameterSpec(param *openapi3.Parameter, root map[string]interface{}) sp
 	}
 }
 
-func firstKinMediaSchema(content openapi3.Content, root map[string]interface{}) (string, string, bool) {
-	if len(content) == 0 {
-		return "", "", false
-	}
-	ordered := make([]string, 0, len(content))
-	for key := range content {
-		ordered = append(ordered, key)
-	}
-	sort.Strings(ordered)
-	// 优先 application/json；否则取排序后第一个 content 条目（确定性）。
-	preferred := "application/json"
-	if media, ok := content[preferred]; ok {
+// kinBodyContentSchemas 收集 requestBody 声明内容条目为 media type -> body
+// schema（含 $ref 内联）的映射，供执行器能力媒体类型选择（SUI-007）。声明
+// 了内容但 schema 缺失/退化（无 schema 的条目）被跳过——与 map 前端同口径。
+func kinBodyContentSchemas(content openapi3.Content, root map[string]interface{}) map[string]spec.JSONSchema {
+	out := make(map[string]spec.JSONSchema, len(content))
+	for mediaType, media := range content {
 		if text, ok := kinMediaSchemaText(media, root); ok {
-			return preferred, text, true
+			out[mediaType] = spec.JSONSchema(text)
 		}
 	}
-	for _, key := range ordered {
-		if key == preferred {
-			continue
-		}
-		if media, ok := content[key]; ok {
-			if text, ok := kinMediaSchemaText(media, root); ok {
-				return key, text, true
-			}
-		}
-	}
-	return "", "", false
+	return out
 }
 
 func kinMediaSchemaText(media *openapi3.MediaType, root map[string]interface{}) (string, bool) {

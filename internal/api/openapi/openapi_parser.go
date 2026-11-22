@@ -613,15 +613,26 @@ func openAPIResponseSchema(op *openapi3.Operation) string {
 	if op == nil || op.Responses == nil {
 		return ""
 	}
+	responses := op.Responses.Map()
+	// 既有优先级：200、201、default；其余状态码升序兜底。map 迭代顺序
+	// 不定，任何一次导入都必须推导出同一 schema（SUI-007 确定性）——
+	// 兜底按状态码排序，不再遍历 map。
 	for _, code := range []string{"200", "201", "default"} {
-		if ref := op.Responses.Value(code); ref != nil && ref.Value != nil {
+		if ref := responses[code]; ref != nil && ref.Value != nil {
 			if schema := openAPIMediaSchemaJSON(ref.Value.Content); schema != "" {
 				return schema
 			}
 		}
 	}
-	for _, ref := range op.Responses.Map() {
-		if ref != nil && ref.Value != nil {
+	codes := make([]string, 0, len(responses))
+	for code := range responses {
+		if code != "200" && code != "201" && code != "default" {
+			codes = append(codes, code)
+		}
+	}
+	sort.Strings(codes)
+	for _, code := range codes {
+		if ref := responses[code]; ref != nil && ref.Value != nil {
 			if schema := openAPIMediaSchemaJSON(ref.Value.Content); schema != "" {
 				return schema
 			}
@@ -637,8 +648,15 @@ func openAPIMediaSchemaJSON(content openapi3.Content) string {
 	if media := content.Get("application/json"); media != nil && media.Schema != nil {
 		return openAPISchemaRefJSON(media.Schema)
 	}
-	for _, media := range content {
-		if media != nil && media.Schema != nil {
+	// 无 application/json：按媒体类型排序取第一个带 schema 的条目（确定性，
+	// 不再遍历 map）。
+	keys := make([]string, 0, len(content))
+	for key := range content {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		if media := content[key]; media != nil && media.Schema != nil {
 			return openAPISchemaRefJSON(media.Schema)
 		}
 	}

@@ -85,7 +85,7 @@
 
 | 字段 | 类型 | 含义 |
 |---|---|---|
-| `mediaType` | `string` | 载荷媒体类型（优先 `application/json`，否则第一个 content 条目）。 |
+| `mediaType` | `string` | 载荷媒体类型，按执行器支持能力选择（SUI-007）：`application/json` 与 RFC-6839 `application/*+json` 后缀类型可执行；`application/json` 优先，其次 `+json` 后缀，其余字典序。见 [媒体类型选择](#媒体类型选择sui-007)。 |
 | `required` | `bool` | 请求体是否必填。 |
 | `schema` | `JSON Schema` | **完整** body schema，原样保留，含根 `type`（`object`/`array`/标量）与全部根级约束（`minProperties`、`additionalProperties` 等）。 |
 
@@ -106,8 +106,9 @@
 2. **参数 schema**：对文档做 `$ref` 内联；无 schema 的参数兜底 `{ "type": "string" }`。
 3. **序列化**：从参数推导 `style` / `explode`；缺省回退到该位置的 OpenAPI 默认
    （`path`→`simple`、`query`→`form`、`header`→`simple`、`cookie`→`form`）。
-4. **请求体**：取第一个 content 条目、优先 `application/json`；body schema 原样保留
-   （含根数组、标量与根级约束）。
+4. **请求体**：取执行器可执行的 content 条目（SUI-007；见
+   [媒体类型选择](#媒体类型选择sui-007)）；body schema 原样保留（含根数组、
+   标量与根级约束）。
 5. **诊断**：见 [兼容边界](#兼容边界)。
 
 ## 面向操作者的输入投影
@@ -150,6 +151,7 @@
 |---|---|---|
 | `openapi_request_parameter_collision` | 两个参数跨位置同名，或参数名等于某个可平铺 body 属性名 | `$.paths.<p>.<method>.parameters`（冲突的参数/属性名在 message 中） |
 | `openapi_request_body_shape_nonflat` | body 根是数组/标量，或 object body 携带平铺可保留集合之外的根级约束 | `$.paths.<p>.<method>.requestBody` |
+| `openapi_request_body_no_executable_media` | 声明的请求体媒体类型全部超出执行器能力（SUI-007） | `$.paths.<p>.<method>.requestBody`（message 中列出声明的媒体类型与可执行集合） |
 
 投影仍产出可用的输入 schema（`structured` 或 `body_only`）—— 诊断是信息性的，不会让上传
 失败。没有任何内容被丢弃：body 保持其形态挂在 `body` 槽位，每个参数保持其位置。
@@ -163,8 +165,10 @@
   `deepObject`）与 `explode` 编码；
 - `header` 参数设置请求头，按 `simple` 编码；
 - `cookie` 参数设置 `Cookie` 头，按 `form` 编码（仅原始值）；
-- body 按 `body.mediaType` 序列化；`application/json` 时 `body` 值原样序列化
-  （因此根数组/标量以该 JSON 类型送达），且**不**按已消费参数过滤。
+- body 按 `body.mediaType` 序列化（执行器能力选择，SUI-007）；`body` 值原样
+  序列化（因此根数组/标量以该 JSON 类型送达），以所选媒体类型设置
+  `Content-Type`，且**不**按已消费参数过滤。存量契约记录不可执行媒体类型时
+  以提取侧诊断同文拒绝——JSON 载荷绝不在错标 `Content-Type` 下送出。
 
 ### 参数序列化（SUI-006）
 
@@ -195,6 +199,33 @@ OpenAPI 附录保持字面）。公开声明、可执行的矩阵：
 `spaceDelimited` 分隔符以 `+` 发送（表单编码的空格，线上合法，解码后即空格连接列表）；
 `|` 与 `,` 分隔符保持字面。
 
+### 媒体类型选择（SUI-007）
+
+请求体媒体类型从声明 content 条目中按**执行器能力**选择，而非仅按声明顺序。
+执行器序列化 JSON 载荷，故可执行媒体类型恰为 JSON 媒体类型：`application/json`
+与 RFC-6839 结构化语法后缀 `application/*+json`（`application/vnd.api+json`、
+`application/hal+json` 等）。媒体类型参数（`charset`、`boundary` 等）与大小写忽略。
+
+选择确定性，故**多媒体类型文档重复导入恒推导出同一 body 槽位**：
+
+1. 可执行条目中 `application/json` 优先；
+2. 其次 `application/*+json` 后缀条目，同 rank 按字典序；
+3. 声明但不可执行的条目（`application/x-www-form-urlencoded`、
+   `multipart/form-data`、`application/xml` 等）被跳过。
+
+当操作声明了请求体但**无一媒体类型可执行**时，不设 body 槽位，提案以诊断
+`openapi_request_body_no_executable_media`（severity `warning`，`field` =
+`body`）记录原因；message 列出声明的媒体类型与可执行集合。诊断是信息性的——
+上传仍成功，操作者据此看到为何不提供输入 body。这取代了旧行为（不可执行
+媒体类型静默成为 body 槽位并以错标 JSON 送上上游）。Swagger 2.0 `consumes`
+同规则：第一个可执行条目（声明顺序）获胜，全部不可执行时记录同诊断而非
+body 槽位。
+
+**输出 schema** 从声明的成功响应派生：200 优先，其余 2xx 升序，每个优先
+`application/json`（仅当无 2xx 声明 JSON 媒体时才回退非 JSON 媒体）。运行时
+驱动与上传管线都确定性地推导——map 迭代顺序绝不改变结果，故同一文档重复
+导入得出同一输出 schema。
+
 到达 `Call` 的输入 JSON 即投影输出。执行器从契约识别模式（而不是嗅探输入）：
 
 - `flat` —— 从顶层键读寻址值；body 是移除已消费参数后的剩余部分；
@@ -206,11 +237,19 @@ OpenAPI 附录保持字面）。公开声明、可执行的矩阵：
 
 ## 已知边界
 
-- `form-urlencoded` 与 `multipart` body 已声明但尚未执行（SUI-012 / SUI-013）；
-  它们由 `body.mediaType` 承载并记入支持矩阵（SUI-047）。
+- `form-urlencoded` 与 `multipart` body 已声明但尚未执行（SUI-012 / SUI-013）。
+  自 SUI-007 起被媒体类型选择**跳过**（不可执行）——仅声明此类媒体类型的操作
+  得到无 body 槽位加 `openapi_request_body_no_executable_media` 诊断，而非
+  静默错标 JSON 载荷；仍记入支持矩阵（SUI-047）。
 - Swagger 2.0 文档只走 map 前端：`in: body` 参数成为 body 槽位，`in: formData` 参数
   被提升进 body object 属性。它们不参与 kin/map 对拍测试（kin 拒载 2.0）。
-- 执行器对不可执行的序列化组合（见「参数序列化（SUI-006）」）以错误拒绝，错误信息
-  与提取侧诊断同文；绝不发送错序列化的请求。
+  其 `consumes` 媒体类型遵循 SUI-007 能力规则（第一个可执行条目；全部不可
+  执行记录诊断）。
+- 执行器对不可执行的序列化组合（见「参数序列化（SUI-006）」）与存量契约上的
+  不可执行 body 媒体类型以错误拒绝，错误信息与提取侧诊断同文；绝不发送错
+  序列化或错标的请求。
 - 参数值嵌套超过一层（对象数组、含数组值的对象）不可序列化：值按标量处理，非标量
   项报错而不是送上变形的线上形态。
+- 声明了 content 条目但 schema 缺失的条目不产生 body 槽位也不发诊断（旧
+  「无 schema 即无 body」口径）；`openapi_request_body_no_executable_media`
+  仅在声明了 schema 且无一媒体类型可执行时发出。

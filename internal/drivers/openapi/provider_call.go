@@ -341,14 +341,20 @@ func (p *Provider) buildRequest(ctx context.Context, apiMethod *APIMethod, in re
 	var contentType string
 
 	// Contract-driven body slot wins: root arrays/scalars/namespaced bodies
-	// are sent verbatim (SUI-005), regardless of HTTP method.
+	// are sent verbatim (SUI-005), regardless of HTTP method. The body media
+	// type is the one selected under the executor capability (SUI-007); a
+	// non-executable media type on a stale persisted contract is refused —
+	// never silently mislabeled as JSON.
 	if in.hasBody {
 		data, err := json.Marshal(in.body)
 		if err != nil {
 			return nil, fmt.Errorf("failed to encode request body: %w", err)
 		}
 		body = bytes.NewReader(data)
-		contentType = "application/json"
+		contentType, err = contractBodyContentType(apiMethod)
+		if err != nil {
+			return nil, err
+		}
 	} else if apiMethod.Method == "POST" || apiMethod.Method == "PUT" || apiMethod.Method == "PATCH" {
 		if apiMethod.RequestBody != nil {
 			bodyBytes, ct := p.buildBody(apiMethod.RequestBody, reqData)
@@ -418,6 +424,28 @@ func (p *Provider) urlFromWire(apiMethod *APIMethod, wire paramWireSet) string {
 	}
 
 	return u
+}
+
+// contractBodyContentType returns the Content-Type for a contract body slot.
+// The slot carries the media type selected under the executor capability
+// (SUI-007), so it is always executable; a non-executable media type can only
+// come from a stale persisted contract and is refused with the same reason the
+// extraction side records, never sent as a mislabeled JSON payload.
+func contractBodyContentType(apiMethod *APIMethod) (string, error) {
+	const defaultType = "application/json"
+	if apiMethod == nil || apiMethod.RequestContract == nil || apiMethod.RequestContract.Body == nil {
+		return defaultType, nil
+	}
+	mediaType := strings.TrimSpace(apiMethod.RequestContract.Body.MediaType)
+	if mediaType == "" {
+		return defaultType, nil
+	}
+	if !spec.IsExecutableRequestBodyMediaType(mediaType) {
+		return "", fmt.Errorf(
+			"request body media type %q is not executable by the executor (executable media types: application/json, application/*+json)",
+			mediaType)
+	}
+	return mediaType, nil
 }
 
 // buildBody builds the request body.

@@ -30,10 +30,17 @@ func ExtractOperationRequestContractMap(
 	appendMapParameterList(&contract, methodObj["parameters"], root, seenParam)
 	appendMapParameterList(&contract, pathItemParams, root, seenParam)
 
-	if body := extractMapRequestBody(methodObj, root); body != nil {
+	if body, reason := extractMapRequestBody(methodObj, root); body != nil {
 		contract.Body = body
-	} else if body := extractSwagger20Body(methodObj, root); body != nil {
+	} else if reason != "" {
+		// 声明了 body schema 但无一媒体类型可执行（SUI-007）：记录原因，
+		// 不落入 2.0 回落（3.x requestBody 已存在）。
+		contract.Diagnostics = append(contract.Diagnostics, spec.RequestBodyMediaDiagnostic(reason))
+	} else if body, reason := extractSwagger20Body(methodObj, root); body != nil {
 		contract.Body = body
+	} else if reason != "" {
+		// Swagger 2.0：consumes 声明了条目但无一可执行（SUI-007）——记录原因。
+		contract.Diagnostics = append(contract.Diagnostics, spec.RequestBodyMediaDiagnostic(reason))
 	}
 	contract.Diagnostics = append(contract.Diagnostics, requestContractDiagnostics(contract)...)
 	return contract
@@ -113,78 +120,60 @@ func mapParameterSpec(
 	}
 }
 
-// extractMapRequestBody 提取 3.x requestBody 的 body 槽位；未声明返回 nil。
-func extractMapRequestBody(methodObj, root map[string]interface{}) *spec.RequestBodySpec {
+// extractMapRequestBody 提取 3.x requestBody 的 body 槽位。媒体类型按执行器
+// 支持能力选择（SUI-007，与 kin 前端同源）：无可执行媒体类型时返回
+// (nil, reason)，由调用方记入提案诊断。声明了 requestBody 但无可用
+// schema（条目缺 schema）返回 (nil, "")，保持旧静默口径。
+func extractMapRequestBody(methodObj, root map[string]interface{}) (*spec.RequestBodySpec, string) {
 	requestBody, ok := methodObj["requestBody"].(map[string]interface{})
 	if !ok {
-		return nil
+		return nil, ""
 	}
 	content, ok := requestBody["content"].(map[string]interface{})
 	if !ok {
-		return nil
+		return nil, ""
 	}
-	mediaType, schemaObj, ok := selectMapMedia(content)
-	if !ok {
-		return nil
+	schemas := make(map[string]spec.JSONSchema, len(content))
+	for mediaType, entry := range content {
+		mediaObj, ok := entry.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		schema, ok := mediaObj["schema"].(map[string]interface{})
+		if !ok {
+			continue
+		}
+		resolved, ok := resolveSchemaRefs(schema, root, 0).(map[string]interface{})
+		if !ok || resolved == nil {
+			continue
+		}
+		encoded, err := json.Marshal(resolved)
+		if err != nil {
+			continue
+		}
+		schemas[mediaType] = spec.JSONSchema(encoded)
 	}
-	resolved, ok := resolveSchemaRefs(schemaObj, root, 0).(map[string]interface{})
-	if !ok || resolved == nil {
-		return nil
-	}
-	encoded, err := json.Marshal(resolved)
-	if err != nil {
-		return nil
+	mediaType, schemaText, reason := spec.SelectRequestBodyMediaType(schemas)
+	if mediaType == "" {
+		if len(schemas) > 0 {
+			return nil, reason
+		}
+		return nil, ""
 	}
 	required, _ := requestBody["required"].(bool)
 	return &spec.RequestBodySpec{
 		MediaType: mediaType,
 		Required:  required,
-		Schema:    spec.JSONSchema(encoded),
-	}
-}
-
-// selectMapMedia 选第一个 content 条目并优先 application/json（确定性，
-// 键排序后取首选之外的第一个）。
-func selectMapMedia(content map[string]interface{}) (string, map[string]interface{}, bool) {
-	if len(content) == 0 {
-		return "", nil, false
-	}
-	ordered := make([]string, 0, len(content))
-	for key := range content {
-		ordered = append(ordered, key)
-	}
-	sortStrings(ordered)
-	pick := func(mediaType string) (map[string]interface{}, bool) {
-		media, ok := content[mediaType].(map[string]interface{})
-		if !ok {
-			return nil, false
-		}
-		schema, ok := media["schema"].(map[string]interface{})
-		if !ok {
-			return nil, false
-		}
-		return schema, true
-	}
-	const preferred = "application/json"
-	if schema, ok := pick(preferred); ok {
-		return preferred, schema, true
-	}
-	for _, mediaType := range ordered {
-		if mediaType == preferred {
-			continue
-		}
-		if schema, ok := pick(mediaType); ok {
-			return mediaType, schema, true
-		}
-	}
-	return "", nil, false
+		Schema:    spec.JSONSchema(schemaText),
+	}, ""
 }
 
 // extractSwagger20Body 合成 Swagger 2.0 的 body 槽位：`in: body` 参数给出
 // schema，`in: formData` 参数提升为隐式 object body 属性；媒体类型取
-// method 级或文档级 `consumes` 的第一个条目（缺省 application/json）。
-// 两者都缺时返回 nil。
-func extractSwagger20Body(methodObj, root map[string]interface{}) *spec.RequestBodySpec {
+// method 级或文档级 `consumes` 的第一个可执行条目（缺省 application/json，
+// 执行器能力选择见 swagger20MediaType）。无可执行媒体类型时返回
+// (nil, reason)；两者都缺时返回 (nil, "")。
+func extractSwagger20Body(methodObj, root map[string]interface{}) (*spec.RequestBodySpec, string) {
 	var bodyParam map[string]interface{}
 	formProps := map[string]interface{}{}
 	var formRequired []string
@@ -213,7 +202,7 @@ func extractSwagger20Body(methodObj, root map[string]interface{}) *spec.RequestB
 		}
 	}
 	if bodyParam == nil && len(formProps) == 0 {
-		return nil
+		return nil, ""
 	}
 
 	var schema map[string]interface{}
@@ -253,13 +242,17 @@ func extractSwagger20Body(methodObj, root map[string]interface{}) *spec.RequestB
 
 	encoded, err := json.Marshal(schema)
 	if err != nil {
-		return nil
+		return nil, ""
+	}
+	mediaType, reason := swagger20MediaType(methodObj, root)
+	if mediaType == "" {
+		return nil, reason
 	}
 	return &spec.RequestBodySpec{
-		MediaType: swagger20Consumes(methodObj, root),
+		MediaType: mediaType,
 		Required:  required,
 		Schema:    spec.JSONSchema(encoded),
-	}
+	}, ""
 }
 
 // swagger20Property 把 2.0 参数级字段（type/format/enum/default/items 等）
@@ -277,20 +270,31 @@ func swagger20Property(pObj map[string]interface{}) map[string]interface{} {
 	return prop
 }
 
-// swagger20Consumes 取 2.0 媒体类型：method 级 consumes 优先，其次文档级，
-// 缺省 application/json（取第一个条目，确定性）。
-func swagger20Consumes(methodObj, root map[string]interface{}) string {
+// swagger20MediaType 选 2.0 可执行媒体类型（SUI-007）：method 级 consumes
+// 优先、文档级兜底、缺省 application/json；候选内取第一个可执行条目（2.0
+// consumes 语义=声明顺序）。声明了 consumes 但无一可执行时返回 ("", reason)。
+func swagger20MediaType(methodObj, root map[string]interface{}) (string, string) {
 	for _, source := range []map[string]interface{}{methodObj, root} {
 		if source == nil {
 			continue
 		}
-		if list, ok := source["consumes"].([]interface{}); ok && len(list) > 0 {
-			if first, ok := list[0].(string); ok && strings.TrimSpace(first) != "" {
-				return strings.TrimSpace(first)
+		list, _ := source["consumes"].([]interface{})
+		declared := make([]string, 0, len(list))
+		for _, entry := range list {
+			if s, ok := entry.(string); ok && strings.TrimSpace(s) != "" {
+				declared = append(declared, strings.TrimSpace(s))
 			}
 		}
+		if len(declared) == 0 {
+			continue // 该级未声明，落到文档级/缺省
+		}
+		mediaType, reason := spec.SelectExecutableMediaType(declared)
+		if mediaType != "" {
+			return mediaType, ""
+		}
+		return "", reason
 	}
-	return "application/json"
+	return "application/json", ""
 }
 
 func appendInterfaceUnique(list []interface{}, value string) []interface{} {
@@ -300,12 +304,4 @@ func appendInterfaceUnique(list []interface{}, value string) []interface{} {
 		}
 	}
 	return append(list, value)
-}
-
-func sortStrings(list []string) {
-	for i := 1; i < len(list); i++ {
-		for j := i; j > 0 && list[j] < list[j-1]; j-- {
-			list[j], list[j-1] = list[j-1], list[j]
-		}
-	}
 }

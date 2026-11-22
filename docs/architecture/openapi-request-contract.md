@@ -98,7 +98,7 @@ naming convention.
 
 | Field | Type | Meaning |
 |---|---|---|
-| `mediaType` | `string` | The media type of the payload (the first `application/json` entry when present, otherwise the first content entry). |
+| `mediaType` | `string` | The media type of the payload, selected under the executor capability (SUI-007): `application/json` and the RFC-6839 `application/*+json` suffix types are executable; `application/json` wins, then the `+json` suffix types, then the rest lexicographically. See [Media type selection](#media-type-selection-sui-007). |
 | `required` | `bool` | Whether the request body is required. |
 | `schema` | `JSON Schema` | The **full** body schema, verbatim, including the root `type` (`object` / `array` / scalar) and all root-level constraints (`minProperties`, `additionalProperties`, …). |
 
@@ -124,7 +124,8 @@ the agreement is locked by a parity test. The rules:
 3. **Serialization**: derive `style` / `explode` from the parameter; absent
    values fall back to the OpenAPI default for the position (`path`→`simple`,
    `query`→`form`, `header`→`simple`, `cookie`→`form`).
-4. **Body**: the first content entry, preferring `application/json`; the body
+4. **Body**: the content entry whose media type is executable by the executor
+   (SUI-007; see [Media type selection](#media-type-selection-sui-007)); the body
    schema is kept verbatim (root array, scalar, and root constraints included).
 5. **Diagnostics**: see [Compatibility boundary](#compatibility-boundary).
 
@@ -182,6 +183,7 @@ Operations that cannot be represented losslessly by the flat projection are
 |---|---|---|
 | `openapi_request_parameter_collision` | Two parameters share a name across positions, or a parameter name equals a flat-able body property name | `$.paths.<p>.<method>.parameters` (and the conflicting parameter/property name in the message) |
 | `openapi_request_body_shape_nonflat` | The body root is an array/scalar, or an object body carries root-level constraints outside the flat-preservable set | `$.paths.<p>.<method>.requestBody` |
+| `openapi_request_body_no_executable_media` | The operation declares a request body whose media types are all outside the executor capability (SUI-007) | `$.paths.<p>.<method>.requestBody` (the declared media types and the executable set are named in the message) |
 
 The projection still produces a usable input schema (`structured` or
 `body_only`) — the diagnostic is informational and does not fail the upload.
@@ -200,9 +202,13 @@ contract to build the upstream HTTP request:
 - `header` parameters set headers, encoded per `simple`;
 - `cookie` parameters set the `Cookie` header, encoded per `form` (primitive
   values only);
-- the body is serialized per `body.mediaType`; for `application/json` the
-  `body` value is marshaled verbatim (so a root array or scalar arrives as that
-  exact JSON type), and it is **not** filtered by consumed parameters.
+- the body is serialized per `body.mediaType` (selected under the executor
+  capability, SUI-007); the `body` value is marshaled verbatim (so a root array
+  or scalar arrives as that exact JSON type), sent with `Content-Type` set to
+  the selected media type, and it is **not** filtered by consumed parameters.
+  A non-executable media type recorded on a stale persisted contract is refused
+  with the same reason the extraction diagnostic records — the JSON payload is
+  never sent under a mislabeled `Content-Type`.
 
 ### Parameter serialization (SUI-006)
 
@@ -237,6 +243,42 @@ instead of silently mis-serializing. The `spaceDelimited` separator is sent as
 `+` (the form-encoded space) so the wire stays valid while decoding back to the
 space-joined list; `|` and `,` separators stay literal.
 
+### Media type selection (SUI-007)
+
+The request body media type is selected from the declared content entries under
+the **executor capability**, not merely by declaration order. The executor
+serializes JSON payloads, so the executable media types are exactly the JSON
+media types: `application/json` and the RFC-6839 structured-syntax suffix
+`application/*+json` (`application/vnd.api+json`, `application/hal+json`, …).
+Media type parameters (`charset`, `boundary`, …) and case are ignored.
+
+The selection is deterministic, so a **multi-media-type document re-imported
+repeatedly always derives the same body slot**:
+
+1. Among the executable entries, `application/json` wins;
+2. then the `application/*+json` suffix entries, tie-broken lexicographically;
+3. a declared but non-executable entry (`application/x-www-form-urlencoded`,
+   `multipart/form-data`, `application/xml`, …) is skipped.
+
+When the operation declares a request body but **no declared media type is
+executable**, the body slot is not set and the proposal records the reason in a
+diagnostic `openapi_request_body_no_executable_media` (severity `warning`,
+`field` = `body`); the message names the declared media types and the
+executable set. The diagnostic is informational — the upload still succeeds,
+and the operator sees why no input body is offered. This replaces the legacy
+behaviour where a non-executable media type silently became the body slot and
+was sent upstream as a mislabeled JSON payload. Swagger 2.0 `consumes` follows
+the same rule: the first executable entry (declaration order) wins, and an
+all-non-executable `consumes` list records the same diagnostic instead of a
+body slot.
+
+The **output schema** is derived from the declared success responses: 200
+first, then the remaining 2xx codes ascending, each preferring `application/json`
+(and falling back to a non-JSON media only if no 2xx declares a JSON one). Both
+the runtime driver and the upload pipeline derive it deterministically — map
+iteration order never affects the result, so re-importing the same document
+yields the same output schema.
+
 The input JSON reaching `Call` is the projection output. The executor detects
 the mode from the contract (not by sniffing the input):
 
@@ -253,16 +295,26 @@ executor keeps the legacy behaviour.
 ## Known boundaries
 
 - `form-urlencoded` and `multipart` bodies are declared but not yet executed
-  (SUI-012 / SUI-013); they are carried by `body.mediaType` and flagged for the
-  support matrix (SUI-047).
+  (SUI-012 / SUI-013). Since SUI-007 they are **skipped by the media-type
+  selection** (not executable) — an operation declaring only such media types
+  gets no body slot plus the `openapi_request_body_no_executable_media`
+  diagnostic instead of a silently mislabeled JSON payload; they remain flagged
+  for the support matrix (SUI-047).
 - Swagger 2.0 documents are handled by the map front-end only: `in: body`
   parameters become the body slot, `in: formData` parameters are lifted into
   the body object's properties. They do not participate in the kin/map parity
-  test (kin rejects 2.0).
+  test (kin rejects 2.0). Their `consumes` media type follows the SUI-007
+  capability rule (first executable entry; all-non-executable records the
+  diagnostic).
 - The executor refuses non-executable serialization combinations (see
-  [Parameter serialization](#parameter-serialization-sui-006)) with an error
+  [Parameter serialization](#parameter-serialization-sui-006)) and
+  non-executable body media types on stale persisted contracts, with an error
   carrying the same reason the extraction diagnostics record; it never sends a
-  mis-serialized request.
+  mis-serialized or mislabeled request.
 - Parameter values nested deeper than one level (an array of objects, an object
   with array values) are not serializable: the value is treated as a scalar and
   non-scalar items surface as an error rather than a mangled wire form.
+- A content entry declared without a schema produces no body slot and no
+  diagnostic (legacy "no schema → no body" behaviour); the
+  `openapi_request_body_no_executable_media` diagnostic is only emitted when
+  schemas are declared but none of their media types is executable.
