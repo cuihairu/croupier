@@ -1003,6 +1003,44 @@
   - 依赖：DATA-060。交付与验收：以独立作用域记录、事务内合并或带版本冲突检查的方式提交更新；文件兼容路径写入采用原子替换。两个游戏并发保存后都可回读，读取不会拿到半成品。证据：`internal/api/analytics/overview.go:310,327,346,390` 文件分支的锁只覆盖读取，扩展配置分支则将此前读出的全量配置交给整份更新；`internal/helper/analytics_filters.go:52` 直接覆盖文件。当前为源码确认。
   - 状态／条件：以独立作用域记录、事务内合并或带版本冲突检查的方式提交更新；文件兼容路径写入采用原子替换
 
+#### 支付、留存回算与漏斗口径续审（2026-11-22）
+
+本轮核对 GORM 支付导入和报表、跨时区查询、留存与商品快照重算，以及 Web 漏斗到 Server 的请求契约。退款净额与币种总口径继续跟踪 DATA-004，跨 flush 回算继续跟踪 DATA-021。本节补充订单与退款记录、快照和查询接口的具体工作。
+
+临时 SQLite 使用实际 Analytics API 和模型。共享库的两个环境提交同一交易编号时，第二笔被拒绝。原订单 100 元、次日部分退款 40 元的样本中，原 ID 拒绝重复写，独立退款 ID 可写但丢原订单关联。相同瞬间分别以 UTC 与 UTC+8 写入，两条记录只命中一条，查询范围刻意避开午夜归一化。快照探针还复现了同键重算错误，以及留存 `null` 被序列化为 0。Node 请求替身调用了真实 Web 适配器，确认漏斗默认发送 GET。真实 Redis/ClickHouse 和生产 Web 端到端仍待验收。
+
+Go 定向运行共 14 例通过，其中 8 例为本轮复现探针。漏斗 POST 探针确认，不同会话且相隔两小时的两条事件，在请求同会话且最多间隔 60 秒时仍被算作转化。
+
+- [ ] **DATA-071 · P1 · 修复 · 支付事件去重键覆盖授权数据作用域**
+  - 依赖：DATA-004。交付与验收：为支付事件定义包含 game/env 和订单来源的稳定去重键，避免共享物理库时不同环境或不同来源误判为同一事件。验收两环境使用相同第三方编号均可入账，同一环境的原样重放只记一次。证据：`internal/model/analytics_payments.go:13–16` 的唯一索引只包含 `transaction_id`，`internal/api/analytics/payments.go:101–109` 将索引冲突计为 rejected。在单库模式和复用物理库的环境中，这一索引共享。
+
+- [ ] **DATA-072 · P1 · 实现 · 退款事件保留独立标识和原订单关联**
+  - 依赖：DATA-004、DATA-071。交付与验收：持久关联原订单和退款事件，支持同一订单多笔部分退款、重复退款消息与先收退款后到订单。以 100 元成功订单和跨日 40 元部分退款对账，能追溯原订单，并按已确认口径显示毛收入、退款和净额。证据：`internal/api/analytics/payments.go:386–427` 只保留单个交易 ID，既有列无法记录原订单。复用成功交易 ID 会撞唯一键，用独立退款 ID 时输入的 `orderId` 未写入模型；净额的查询口径继续归 DATA-004。
+
+- [ ] **DATA-073 · P1 · 修复 · GORM 支付导入区分无效金额和业务零值**
+  - 依赖：DATA-004、DATA-018。交付与验收：在管理 API 校验必填金额、有限数和规则允许的符号范围。无效条目返回有位置的拒绝原因，不能增加付费人数或订单数。合法零值按明确事件语义处理。证据：`internal/api/analytics/payments.go:395–404,430–449` 解析失败回退 0，缺 status 默认 success。`internal/model/analytics_payments_model.go:139–148` 仍将该条成功行计入人数和单量。本项覆盖直接写 GORM 的管理导入。
+
+- [ ] **DATA-074 · P1 · 修复 · 分析明细时刻在 GORM 存储与过滤时统一**
+  - 依赖：DATA-059。交付与验收：入库和比较采用统一时间表示，同时单独应用业务日分桶。为 SQLite 的历史偏移格式安排迁移或兼容读，核对 PostgreSQL 等带时区时间类型。用 UTC 和 UTC+8 表示同一时刻，两条事件应命中同一 UTC 查询窗口。证据：`internal/helper/date.go:15–24` 保留 RFC3339 偏移，`internal/api/analytics/payments.go:409–424` 和 `internal/model/analytics_payments_model.go:33–38,199–204` 将解析结果直接写入和比较。SQLite 的时间列以文本形式保存偏移，查询边界和业务日选择另见 DATA-059。
+
+- [ ] **DATA-075 · P1 · 修复 · 留存 cohort 回算按业务键幂等更新**
+  - 依赖：DATA-005。交付与验收：以 game/env、cohort 类型、开窗日期和适用维度定义快照键，回算更新同一行，存量重复可按明确规则归并。重复两次回算应只有一行且为最新人数，另一 cohort 或环境不受影响。证据：`internal/model/analytics_retention.go:11–18` 无 cohort 业务唯一约束，`internal/model/analytics_retention_model.go:21–24` 用不含列的 UpdateAll 冲突子句，重新组装的快照没有旧主键就继续插入。
+
+- [ ] **DATA-076 · P1 · 修复 · 留存 API 保留未成熟观测和真实零值**
+  - 依赖：DATA-005、DATA-066。交付与验收：每个观测天有明确索引和成熟状态，区分有效 0%、未成熟、缺样本和无效快照。验证存储有一个 `null` 与一个 `0` 时，API 和 Web/Mobile 可分别显示状态。证据：`internal/api/analytics/retention.go:384–393` 将快照解码为 `[]float64`，`internal/api/analytics/dto.go:303–307` 使用同类型响应。普通 JSON 的 `null` 元素在切片中落为 0，前端修复真零值后也无法恢复这一信息。
+
+- [ ] **DATA-077 · P1 · 修复 · 商品趋势快照按作用域和窗口执行幂等写入**
+  - 依赖：DATA-063。交付与验收：商品快照键包含实际作用域和窗口，Upsert 显式定位该键。重算同一 SKU 窗口更新现有统计，两环境同名 SKU 可独立计算，历史索引可迁移。证据：`internal/model/analytics_payments.go:31–39` 以 `product_id,window_start` 唯一，`internal/model/analytics_payments_model.go:86–98` 默认按主键冲突更新。已有重算测试在 `internal/model/analytics_payments_model_test.go:278–279` 跳过 SQLite 分支。
+
+- [ ] **DATA-078 · P2 · 修复 · 漏斗保留同名事件的不同步骤位置**
+  - 依赖：—。交付与验收：保留漏斗定义的步骤顺序及位置，事件过滤可以去重，步骤本身仍保留。验收「打开→支付→再次打开」需要第三个真实事件，重复相邻步骤也需不同事件推进。证据：`internal/api/analytics/behavior.go:212–225,247–261` 在匹配前按名称去掉重复步骤，导致末次打开要求被抹去。已有测试固定当前去重语义，见 `behavior_test.go:434–459`。
+
+- [ ] **DATA-079 · P1 · 修复 · Web 漏斗按 Server 的 POST JSON 契约发送请求**
+  - 依赖：—。交付与验收：适配器携带 scope，将步骤和日期放入 POST JSON，过期或失败显示对应状态。用生产路由和真实适配器验收点击计算后能取得预期步骤。证据：`web/src/services/api/analytics.ts:153–163` 只传 `{ params }`。`internal/handler/routes_alert.go:95–100` 仅注册 POST，独立 handler 的 GET 绑定测试没有覆盖路由。替身执行真实 TypeScript 适配器，观察到按默认 GET 发送的 query 参数。
+
+- [ ] **DATA-080 · P1 · 修复 · 漏斗计算应用页面展示的顺序、同会话和步间时限**
+  - 依赖：DATA-079。交付与验收：让开关与服务端契约一致，提供实际支持的顺序模式、会话标识和最大间隔。没有会话数据时明确拒绝同会话计算或显示不可用。覆盖顺序逆转、不同会话和超过最大间隔，验证结果分别符合选择。证据：`web/src/pages/Analytics/Behavior/index.tsx:59–80` 构造三个选项，`internal/api/analytics/dto.go:75–81` 未声明字段，`internal/api/analytics/behavior.go:247–261,483–507` 始终按用户和时间匹配顺序步骤，没有会话或间隔边界。
+
 ## 前端审核复验
 
 - [x] **REVIEW-001 · P1 · 故障验证 · 批量充值目标 ID 归一化复验**
@@ -1822,7 +1860,7 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
 - [ ] AUD-COV-003 · 复核 · Agent 与消息传输/协议：沿 Server→Agent→Provider 全链路检查鉴权、TLS、帧解析、并发/背压、重连、取消、错误传播与关闭；覆盖 core、agents、internal/agent、internal/transport、core/transport。
   - 进度（2026-11-21）：本轮补查 Provider 与互联的关闭边界，见 AUD-070～075、AUD-081。续审复现 Agent 注册就绪、停止后重连与配置版本回退问题，见 AUD-092～094。历史复核补记下次协议升版前的协商缺口 AUD-101。控制面真实装配、重连与背压组合仍待复核。
 - [ ] AUD-COV-004 · 复核 · 六语言 SDK 与插件：逐语言核对协议实现、API/配置解析、生命周期、TLS/auth、重试/超时、错误语义及功能矩阵；覆盖 Go/Python/Java/JS/C++/C# 和 plugins。
-  - 进度（2026-11-21）：六语言 Provider/Invoker 主路径与 JS/Python 插件生命周期已按本文件「六语言 SDK 与相邻运行链复审」的范围核对，新增 AUD-068～076、AUD-078～080。本轮续查配置入口、Java Provider TLS 和 starter 发布，见 AUD-102～107。语言扩展其余入口、构建发布产物、完整 wire 对照和各环境动态验证仍待覆盖。
+  - 进度（2026-11-22）：六语言 Provider/Invoker 主路径与 JS/Python 插件生命周期已按本文件「六语言 SDK 与相邻运行链复审」的范围核对，见 AUD-068～076、AUD-078～080。配置入口、Java Provider TLS 和 starter 发布见 AUD-102～107。C++ Skynet/Lua 桥接和 Python 调用示例见 AUD-124～132。JS/Python 插件包、协议入口及 Go 宿主装配见 AUD-133～142。Spring Boot 上下文与 Java Provider 首连、断线和握手协议见 AUD-143～152。其余语言示例、完整 wire 对照和各平台发布产物仍待覆盖。
 - [x] AUD-COV-005 · 复核 · Web Console 与 API 客户端：沿页面→状态管理→请求→服务端授权检查作用域切换、陈旧数据、错误/加载状态、输入校验、XSS 和关键管理操作；覆盖 web/src。
   - 状态／条件：完成（2026-11-16 codex exec read-only 静态审计 + 逐条人工复核核伪）。LOCAL VERIFIED
   - 完成证据：报告 `docs/review/aud-cov-005-web-console-2026-11-16.md`（P1×4/P2×6/P3×3 + 修复与复核附注）；当场修 4 条 `2f6d79d01`/`95072aaeb`/`c430996a2`/`abc6f25a1`；P2/P3 遗留落 AUD-029..035；核伪 2 条见报告附注。
@@ -1837,15 +1875,15 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
 
 下表列出当前台账缺少完整复核证据的源码入口，以及需要补做的运行验证。分析与 SDK 已核对的部分见本轮新增条目。
 
-| 范围             | 仍需审核的源码与入口                                                                                                                                                                                                                                                                | 仍需运行的验收                                                                                  |
-| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| 数据分析         | Worker 写入、确认和回收已复核一批故障，仍需真实 Redis/ClickHouse 多进程复验。继续核对 `internal/api/analytics/{payments,retention,behavior}.go` 其余时区、退款及跨窗口口径，以及 Web、Mobile 分析页其余空态与失败映射。日期、付费、过滤、导出及作用域已复核一轮，见 DATA-059～070。 | 入站 → Redis → ClickHouse → API → 页面逐指标对账，覆盖重启、重复、退款和晚到数据。见 DATA-031。 |
-| 数据库与后台任务 | `internal/db/migrate/migrations/` 的方言分支和回滚关键链，`internal/db/router/` 其余多库打开失败与重试。任务冷库巡检、断连收敛和事件恢复已复核，见 AUD-116～123。                                                                                                                   | 真实数据库升级、失败恢复和多进程重启演练。                                                      |
-| Agent 与协议     | `cmd/{sidecar-agent,devops-agent}/` 的运行装配，`agents/{capture,devops,synthetics}/` 的 connector、session、pluginhost 边界，`core/transport/tcp/` 与 `internal/transport/tcp/` 的控制车道、关闭、背压组合。                                                                       | 用真实连接验证高负载、重连与停止，核对消息和任务状态收敛。                                      |
-| SDK 与插件       | `sdks/java/spring-boot-starter/` 的 Spring 上下文集成，`sdks/cpp/skynet/` 的桥接，`sdks/python/croupier/integrations/`、`sdks/plugins/{js,python}/` 的扩展装配，以及六语言 examples 和边界 wire 行为。                                                                              | Go 与 Java 固定依赖环境，跨 SDK/TLS 组合和安装发布产物验证。                                    |
-| 移动端           | `mobile/lib/features/` 中会话与作用域以外的操作链、原生插件装配，以及 `mobile/android/`、`mobile/ios/` 的 release 入口。                                                                                                                                                            | Android 合并 manifest 与正式签名包，iOS 构建和实机冒烟。                                        |
-| 发布与恢复       | `.github/workflows/` 各平台实际发布，`docker/`、`configs/`、`scripts/` 的运行配置组合，`internal/platform/backupexec/` 的恢复衔接。                                                                                                                                                 | 发布演练、真实部署和隔离库恢复，留存结果与提交的对应关系。                                      |
-| 历史审核         | `docs/review/` 中 11 月 1–10 日仍未对照的条目。                                                                                                                                                                                                                                     | 按当前 HEAD 标记已修、仍存在及暂无法验证，关联现有待办。                                        |
+| 范围             | 仍需审核的源码与入口                                                                                                                                                                                          | 仍需运行的验收                                                                                      |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| 数据分析         | 继续核对 Web、Mobile 分析页其余空态与失败映射。支付跨日退款、时区写入、留存和 SKU 快照重算及漏斗接口已进一步核对，见 DATA-059～080。                                                                          | 真正接入 → Redis → ClickHouse → API → 页面逐指标对账，覆盖重启、重复、退款和晚到数据。见 DATA-031。 |
+| 数据库与后台任务 | `internal/db/migrate/migrations/` 的方言分支和回滚关键链，`internal/db/router/` 其余多库打开失败与重试。任务冷库巡检、断连收敛和事件恢复已复核，见 AUD-116～123。                                             | 真实数据库升级、失败恢复和多进程重启演练。                                                          |
+| Agent 与协议     | `cmd/{sidecar-agent,devops-agent}/` 的运行装配，`agents/{capture,devops,synthetics}/` 的 connector、session、pluginhost 边界，`core/transport/tcp/` 与 `internal/transport/tcp/` 的控制车道、关闭、背压组合。 | 用真实连接验证高负载、重连与停止，核对消息和任务状态收敛。                                          |
+| SDK 与插件       | 其余 SDK 示例、完整 wire 协议对照及发布物的调用入口。Skynet/Lua、Python 示例、JS/Python 独立插件与 Java Spring Boot 上下文已核对，见 AUD-124～152。                                                           | Skynet 原生模块、Java Starter 与真实 Agent、跨 SDK/TLS 组合和安装发布产物验证。                     |
+| 移动端           | `mobile/lib/features/` 中会话与作用域以外的操作链、原生插件装配，以及 `mobile/android/`、`mobile/ios/` 的 release 入口。                                                                                      | Android 合并 manifest 与正式签名包，iOS 构建和实机冒烟。                                            |
+| 发布与恢复       | `.github/workflows/` 各平台实际发布，`docker/`、`configs/`、`scripts/` 的运行配置组合，`internal/platform/backupexec/` 的恢复衔接。                                                                           | 发布演练、真实部署和隔离库恢复，留存结果与提交的对应关系。                                          |
+| 历史审核         | `docs/review/` 中 11 月 1–10 日仍未对照的条目。                                                                                                                                                               | 按当前 HEAD 标记已修、仍存在及暂无法验证，关联现有待办。                                            |
 
 - [x] **AUD-001 · P1 · 修复 · Provider 握手令牌启用时强制保护明文链路**
   - 依赖：—。交付与验收：当 `providerAuth.require=true` 且本地 listener 绑定非 loopback 地址时，拒绝 `tls.enabled=false` 的配置，或提供明确且不可忽略的启动阻断；保持 loopback 开发配置可用；加入启动配置组合验证与部署文档说明。
@@ -2493,6 +2531,111 @@ SQLite 定向探针复现了解绑后旧连接池仍发布，以及同一快照�
 
 - [ ] **AUD-123 · P1 · 修复 · Agent 注册按进程代际收敛旧任务**
   - 依赖：ARCH-014、AUD-119。交付与验收：保存可用于跨 Server 重启辨识的 Agent 进程标识，只在确认进程换代时收敛上一代任务，重连仍保留当前进程的在途任务。覆盖旧连接清理先于和晚于新注册、Server 重启以及缺标识的兼容客户端。证据：`internal/server/tcp_listener.go:248–269,509–536` 仅在旧会话成功移除时触发断连收割，注册直接写新会话，没有 D3 文档所述的 `bootId` 对照。旧会话先被替换时，清理亦跳过收割。此项为源码核对。
+
+### C++ Skynet/Lua 桥接与 Python SDK 示例续审（2026-11-22）
+
+本轮沿 Skynet 安装、Lua 模块加载、Provider 注册回调和 Python Invoker 示例核对。`sdks/python/croupier/integrations/__init__.py` 当前只有命名空间和说明，没有可执行第三方适配器。JS/Python 独立插件的扩展装配仍在待审范围。
+
+- [ ] **AUD-124 · P1 · 修复 · 统一 Skynet 安装后的 Lua 模块名、入口符号和搜索路径**
+  - 依赖：—。交付与验收：构建和安装提供 `require "croupier"` 能自动找到的同名入口，覆盖 Skynet 自带 Lua 与 SDK 构建时 Lua 的 ABI 兼容。用干净的构建产物和安装目录验收 `require` 返回 `Client` 和 `Invoker`。证据：`sdks/cpp/skynet/examples/start.sh:77,110` 将 `libcroupier-sdk.so` 放入 `cservice`，Lua 搜索的是 `luaclib`。`sdks/cpp/lua/croupier/init.lua:13–16` 查找 `croupier.core` 与 `croupier_sdk`，`sdks/cpp/src/bindings/lua_binding_sol2.cpp:315` 声明 `luaopen_croupier`。Lua 5.4 探针在安装布局中找不到两个候选路径，替身共享库包含已声明入口符号。
+
+- [ ] **AUD-125 · P1 · 修复 · Skynet 安装脚本生成可运行的启动配置**
+  - 依赖：—。交付与验收：从输出目录启动时定位原 Skynet 可执行文件，明确其运行目录、基础库、loader、bootstrap、示例服务和 Agent 地址。两个示例均使用合法配置启动，未配置自定义 Agent 时使用 Provider 网关默认端口。证据：`sdks/cpp/skynet/examples/start.sh:98–120,131,153–158` 生成带 `#` 注释的 Lua 配置，根路径连接缺分隔符，脚本从输出目录查 `./skynet` 并把服务脚本当配置，默认地址仍是 50051。实际 Skynet 二进制拒绝生成配置，按脚本指引从输出目录运行也会找不到可执行文件。
+
+- [ ] **AUD-126 · P1 · 修复 · Skynet Provider 传递明确的游戏环境和服务身份**
+  - 依赖：—。交付与验收：允许调用方指定 game、env、service ID 和连接选项，同时兼容已有的地址和凭据参数。对配置了非默认游戏环境的 Agent 注册成功，两个不同服务不会共享固定身份。证据：`sdks/cpp/skynet/service/croupier_service.lua:15–24` 仅调用原生地址字符串构造器。`sdks/cpp/src/bindings/lua_binding_sol2.cpp:40–56` 的字符串分支固定 `default-game/development/lua-client`，表构造器已有对应配置。`internal/agent/local_handler_provider.go:42–60` 按 Agent 作用域校验注册。Lua 替身确认服务桥接只传地址。
+
+- [ ] **AUD-127 · P2 · 修复 · Skynet 注册命令传播原生拒绝并准确统计**
+  - 依赖：—。交付与验收：分别处理 Lua 异常和底层返回 `false`，状态只统计原生接受的注册。覆盖成功、规则拒绝和回调异常。证据：`sdks/cpp/skynet/service/croupier_service.lua:40–52` 把 `pcall` 成功直接做成注册成功。原生 `sdks/cpp/src/croupier_client.cpp:390–401` 在已有服务循环运行时返回 `false`，Lua 替身复现底层拒绝后仍返回成功且计数加一。
+
+- [ ] **AUD-128 · P1 · 修复 · Skynet 服务循环保留 Stop 和 Status 消息处理能力**
+  - 依赖：—。交付与验收：Provider 启停与连接结果在 Skynet 消息循环中可观测，执行 `serve` 后可从另一协程查询状态并关闭，连接失败时在有限时间返回明确结果。证据：`sdks/cpp/skynet/service/croupier_service.lua:62–78,97–110` 在消息处理器同步调用原生 `Serve`。`sdks/cpp/src/croupier_client.cpp:643–656` 在同一调用里循环休眠，依赖外部执行 `Stop` 退出，无法让该服务处理自己的停止消息。该项为源码核对。
+
+- [ ] **AUD-129 · P1 · 修复 · Lua Provider 回调在所属 Lua 状态的执行线程运行**
+  - 依赖：—。交付与验收：原生业务 worker 将调用投递给 Lua 状态所属执行上下文，限制排队与取消，并在销毁状态前收尾在途回调。用并发调用和途中停止验收回调串行归属、结果对应及有界关闭。证据：`sdks/cpp/src/tcp_transport_inbound.cpp:66–89,134–140` 的业务 worker 直接调用处理器，`sdks/cpp/src/croupier_client.cpp:565` 随即调用注册 handler，`sdks/cpp/src/bindings/lua_binding_sol2.cpp:79–87` 直接执行捕获的 Lua 回调，没有回到状态所属线程。该项为源码核对。
+
+- [ ] **AUD-130 · P1 · 修复 · Lua JSON 降级使用数据解析和规范转义**
+  - 依赖：—。交付与验收：缺少 `cjson` 时使用兼容的 JSON 编解码器或返回明确的依赖错误，输入仅作为数据解析。验证普通对象、数组、空值以及引号、反斜杠和控制字符的往返。证据：`sdks/cpp/lua/croupier/init.lua:36–88` 的降级编码直接拼接字符串，解码使用 Lua 执行入口。Lua 5.4 探针确认普通对象解码失败，带引号的字段值生成无效 JSON。
+
+- [ ] **AUD-131 · P1 · 修复 · Python Invoker 示例显式配置认证和全程作用域**
+  - 依赖：—。交付与验收：异步与同步示例使用同一份可配置的 Server URL、凭据、game 和 env。调用、创建任务、读取详情、轮询事件和取消均向同一作用域发送，缺配置给出明确错误。证据：`sdks/python/examples/invoker_example.py:33,57,83,141,187,247` 中没有设置 `auth_token`，仅第一处普通调用以请求级 header 指定作用域。`internal/handler/routes.go:57–58,83–86,156,187` 将相关路由置于认证与作用域中间件。五个示例入口的请求替身均未收到认证头，只有首个入口送出两项作用域 header。`sdks/python/croupier/invoker.py:160–165` 的 connect 只标记本地状态。
+
+- [ ] **AUD-132 · P2 · 修复 · Python 取消示例区分请求已受理与任务已取消**
+  - 依赖：—。交付与验收：取消请求受理后明确显示等待结果，随后根据权威终态区分 `cancelled`、`succeeded`、`failed`、`timed_out` 或仍未知。验证完成与取消竞争、非成功终态和轮询到期。证据：`sdks/python/examples/invoker_example.py:161–170` 收到取消请求响应后立即打印已取消，后续对任何 `event.done` 都停止验证。替身先接受取消请求，再返回 `completed`，示例仍先打印「任务已取消」。`sdks/python/croupier/invoker.py:261–264` 只提交取消请求，任务终态需另外读取。
+
+另在本机 Python 3.14.4、protobuf 7.36.2 环境运行现有 Invoker 套件，12 例通过。该环境的 protobuf 与发布锁定版本有差异，发布包安装验收仍待执行。模块路径按 [Lua 5.4 模块加载契约](https://www.lua.org/manual/5.4/manual.html#6.3) 核对，Skynet 启动方式对照其 [服务加载源码](https://github.com/cloudwu/skynet/blob/master/service-src/service_snlua.c)。原生 Lua 绑定与真实 Agent 的端到端验收仍待执行。
+
+### JS/Python 插件 SDK 与 Go 宿主装配续审（2026-11-22）
+
+本轮核对发布包依赖、gRPC 启动、函数与探针回调、Go 宿主的冷启动及生产 Sidecar 派发。Node 插件启动即设置强退计时继续跟踪 AUD-075。跨插件的全局启动锁修复见 AUD-026，同一插件的等待路径单独列入本轮。
+
+临时构建环境中的 Node TypeScript 编译、proto 镜像校验和离线 npm 打包通过。Python wheel 成功生成，包内元数据仍声明生成桩不接受的最低依赖版本。真实 Go echo 子进程探针确认请求取消会销毁已启动进程并增加失败计数，另外确认无 deadline 的调用使用 timeout=0 时，插件回调也不会得到 deadline。Go 同插件首开等待探针确认，取消后仍要等当前启动锁释放。AUD-138 的生产接线和 AUD-141 的 CI 触发条件为源码核对。
+
+Node 定向套件 46 例通过。Python 定向套件 18 例通过，包括两个通过真实 Go 宿主的正常场景。另有 1 例因握手后立即发送 SIGTERM 得到 `-15` 失败，见 AUD-142。
+
+- [ ] **AUD-133 · P1 · 修复 · Python 插件发布物声明与生成代码相容的依赖下限**
+  - 依赖：—。交付与验收：使 grpcio、grpcio-health-checking、protobuf 与固定的代码生成工具版本兼容。从 wheel 在最低受支持依赖组合安装并 import 两类插件，再完成一次与 Go 宿主的握手。证据：`sdks/plugins/python/pyproject.toml:25–29` 允许 grpcio 1.71 和 protobuf 5.29，`sdks/plugins/python/croupier_plugin/funcplugin_pb2_grpc.py:8–24` 和 `funcplugin_pb2.py:12–19` 分别要求 1.84.0 与 7.35.1。导入探针用版本替身触发两个生成代码 guard，确认声明下限会被拒绝。
+
+- [ ] **AUD-134 · P1 · 修复 · Node 插件握手公布实际可拨的监听端点**
+  - 依赖：—。交付与验收：默认回环、显式 IPv4 及支持的 IPv6 地址在握手中对应实际绑定。对不支持的地址类型在启动时返回可识别的配置错误。使用临时回环端口验证 Go 能拨到握手记录的地址。证据：`sdks/plugins/js/src/serve.ts:115–137,245–250` 使用调用方地址绑定，却固定生成 `127.0.0.1:<port>`。本机替身在配置 `127.0.0.2` 时观测到不同的绑定与握手地址。
+
+- [ ] **AUD-135 · P1 · 修复 · Node 插件回调同步异常与异步拒绝走统一 RPC 错误**
+  - 依赖：—。交付与验收：Describe、ListFunctions、Check、Invoke 及响应映射失败都按 RPC 错误返回一次。用同步抛错、Promise rejection 和无效返回值检查宿主收到确定错误，避免请求悬挂或被运行时异常中断。证据：`sdks/plugins/js/src/probeplugin.ts:165–190` 和 `sdks/plugins/js/src/funcplugin.ts:178–212` 在 Promise 接管前执行插件函数。接口级探针确认五个同步异常都绕过了 RPC callback。
+
+- [ ] **AUD-136 · P2 · 修复 · Node 插件协议协商取宿主与本地支持版本的交集**
+  - 依赖：—。交付与验收：握手只能公布本地实现且宿主支持的版本，明确无交集、无版本列表旧宿主及无效列表的行为。把版本对照用例同时应用于 Probe 和 Function。证据：`sdks/plugins/js/src/serve.ts:72–98` 在宿主提供列表时只查宿主列表，忽略本地支持版本。替身提供宿主 `[2,1]` 和本地 `[1]`，当前仍接受请求版本 2。
+
+- [ ] **AUD-137 · P2 · 修复 · Python 插件退出时回收 Unix socket 临时目录**
+  - 依赖：—。交付与验收：SDK 持有目录生命周期，正常退出、绑定失败或初始化失败均回收自己创建的目录。连续启动并关闭插件，检查临时目录数量没有增长。证据：`sdks/plugins/python/croupier_plugin/serve.py:102–110,195–206` 通过 `mkdtemp` 分配目录但停机无回收路径。真实 Python echo 插件在专用临时根目录下连续正常退出两次，遗留两个目录。
+
+- [ ] **AUD-138 · P1 · 修复 · Sidecar 生产函数插件调用继承单次派发预算**
+  - 依赖：—。交付与验收：将函数调用的剩余预算传入插件排队、启动、gRPC context 和 wire timeout 字段。覆盖低于插件配置上限的调用预算、连接保持而请求超时、后续请求仍可调度。证据：`internal/agent/local_handler_invoke.go:56–65,91` 插件分支先执行并返回，跳过普通 Provider 的 `WithTimeout`。`internal/app/agent/funcplugin_build_default.go:68–69` 向宿主传入 timeout=0，`core/pluginhost/engine.go:220–230` 在此值下只依赖调用方已有的 deadline。共享 Mux 把连接的 context 用于业务 handler，见 `core/transport/tcp/mux_conn.go:131,175,360`。现有 hostdriver 的超时场景显式传预算，未覆盖生产接线。
+
+- [ ] **AUD-139 · P1 · 修复 · 单次调用取消保留健康的插件进程**
+  - 依赖：—。交付与验收：将上游取消与进程崩溃、连接不可用、协议错误分开计量。取消一个 gRPC 调用时，同进程的其他调用仍能完成，失败计数与冷却状态保持健康。进程真正退出时仍按现有退避重新启动。证据：`core/pluginhost/engine.go:230–231,264–273,459–469` 对返回的 context 取消同样进入进程 Kill 和失败计数。
+
+- [ ] **AUD-140 · P1 · 修复 · 同插件冷启动等待遵守每个调用的 deadline**
+  - 依赖：AUD-026。交付与验收：同一插件仍由一次启动结果供等待者共享，但各等待者可独立超时或取消并释放并发槽。用慢握手和长短两个调用预算验收短调用及时退出、长调用能够完成、只启动一个子进程。证据：`core/pluginhost/engine.go:335–359` 使用无 context 的互斥锁串行首开，调用方在锁释放前无法检查自己的截止时间。已有 AUD-026 回归覆盖不同插件之间的隔离。
+
+- [ ] **AUD-141 · P2 · 修复 · 插件契约与宿主改动自动触发跨语言验收**
+  - 依赖：—。交付与验收：JS 和 Python 插件工作流随共同宿主、角色宿主和规范 proto 变化触发。两边均验证协议镜像与包内生成文件，使用安装产物与 Go 宿主建立连接。证据：`.github/workflows/ci-sdk-plugins-js.yml:7–14` 和 `.github/workflows/ci-sdk-plugins-python.yml:5–10` 仅监听本语言目录和 hostdriver。JS 的 `scripts/verify-proto-drift.js` 还依赖两个 Go 角色的 proto 和 Python 公共 proto，Python 工作流只安装源码并执行 pytest，未校验镜像或生成产物。
+
+- [ ] **AUD-142 · P2 · 修复 · Python 插件公布就绪前安装停机信号处理器**
+  - 依赖：AUD-137。交付与验收：握手可读时，插件已经能在 SIGTERM 或 SIGINT 后进入有界收尾。以读到握手即退出的用例反复验证插件正常返回并回收资源。证据：`sdks/plugins/python/croupier_plugin/serve.py:195–206` 先 flush 握手，此后才安装信号处理器。已有 `tests/test_handshake.py:114–125` 在收到握手后立即发 SIGTERM，本轮观察到退出码 `-15`，断言期望为 `0`。
+
+### Spring Boot starter 与 Java Provider 注册续审（2026-11-22）
+
+以 JDK 21 将当前 Java SDK 和 starter 源码编译为 Java 17 字节码，使用 starter 锁定的 Spring Boot 3.4.0 和 Spring Framework 6.2.0 启动非 Web 应用。通过生产 AutoConfiguration imports 验证 Bean 发现、禁用、自定义配置替换和上下文关闭时清理。另以 transport 替身检查同一源码的 Provider 注册帧、心跳失败和 `serveAsync`。未与真实 Agent 握手，未执行 Maven 发布。鉴权/TLS 与仓库配置问题继续见 AUD-105～107，首连与 Stop 的竞态继续见 AUD-071。
+
+- [ ] **AUD-143 · P2 · 修复 · Spring starter 在装配时校验必填身份和有效超时**
+  - 依赖：—。交付与验收：配置启用时给出字段级诊断，覆盖空白 game/service ID、非正数和超出连接层支持范围的 timeout。已禁用和自定义配置 Bean 的接入方式明确保留。证据：`sdks/java/spring-boot-starter/src/main/java/io/github/cuihairu/croupier/spring/boot/autoconfigure/CroupierProperties.java:20–31,58–61` 标识必填但无校验。`CroupierAutoConfiguration.java:45–61` 直接映射，`sdks/java/src/main/java/io/github/cuihairu/croupier/sdk/CroupierClientImpl.java:876–885` 只告警。Spring Boot 3.4.0 探针确认空身份和负数 timeout 都能成功创建 Bean。
+
+- [ ] **AUD-144 · P2 · 补齐 · Spring starter 明确可运行的 Provider 启动接线**
+  - 依赖：AUD-149、AUD-150。交付与验收：提供通过 starter 构建上下文、显式注册函数、观察连接结果及关闭的示例，说明是否由应用管理启动。用真实最小应用验收 Agent 注册和关闭，替换文档中 `local-listen` 与 gRPC 等过时配置描述。证据：`CroupierAutoConfiguration.java:33–35,68–73` 只创建 Bean，`CroupierProperties.java:10–17,63–66` 仍示意不存在的监听键与 gRPC。Spring 探针确认成功刷新上下文只产生未连接的 Bean，禁用和关闭清理均正常。
+
+- [ ] **AUD-145 · P1 · 修复 · Java Provider 应用单线程 worker 配置**
+  - 依赖：—。交付与验收：Spring 属性和自定义 `ClientConfig` 使用同一 worker 语义，并在首连与重连创建 transport 时生效。用并发调用验证 worker=1 不并发执行，默认值保留当前并行。证据：`sdks/java/src/main/java/io/github/cuihairu/croupier/sdk/ClientConfig.java:96–97` 已有配置，`CroupierClientImpl.java:69–76` 创建 transport 时未传入，`transport/TCPTransport.java:78–80,499–503` 已支持 worker 覆盖。Boot 自定义 Bean 的 `inboundWorkers=1` 在默认 transport 中仍是 0，starter 属性入口也未映射该值。
+
+- [ ] **AUD-146 · P2 · 修复 · Spring starter 绑定 Java Provider 的心跳与重连策略**
+  - 依赖：—。交付与验收：通过 Spring 配置绑定心跳间隔、重连启停和重试上限，默认值与手写 SDK 一致。覆盖显式禁用、默认和自定义策略，验证 `ClientConfig` 与实际重连行为对应。证据：`CroupierAutoConfiguration.java:45–64` 的映射缺少这两组设置。Spring 探针设置 3 秒心跳和禁用重连，最终 Bean 仍为 60 秒心跳且允许重连。
+
+- [ ] **AUD-147 · P1 · 修复 · Java Provider 握手序列化配置的 game 和 env**
+  - 依赖：—。交付与验收：首连和重连将作用域写入规范字段，保留旧报文兼容。用 Java 发出的帧由 Agent 端规范 proto 解码，核对相同及不同作用域的回执。证据：`proto/croupier/sdk/v1/provider.proto:53–54` 定义字段 11、12，`sdks/java/src/main/java/io/github/cuihairu/croupier/sdk/CroupierClientImpl.java:351–373` 和 `wire/SdkWireMessages.java:194–209,790–825` 未传递或编码。设置 `fixture-game/staging` 后采集 Provider 的正常注册帧，两个字段均缺失。
+
+- [ ] **AUD-148 · P2 · 修复 · Java Provider 暴露注册回执的警告与能力**
+  - 依赖：—。交付与验收：保留 Agent 回执的 warnings 和 accepted capabilities，让接入应用可以观测注册降级。测试有会话且含警告、无警告、重连后更新及旧回执。证据：`proto/croupier/sdk/v1/provider.proto:64–67` 与 `internal/agent/tcp_local_listener.go:440–444` 提供回执字段，`sdks/java/src/main/java/io/github/cuihairu/croupier/sdk/wire/SdkWireMessages.java:249–267,825–831` 只保留 session ID。替身回执含能力和警告，两项均被丢弃。
+
+- [ ] **AUD-149 · P1 · 修复 · Java Provider 连接模式在心跳持续失败后更新就绪状态**
+  - 依赖：—。交付与验收：只调用 `connect()` 的应用也能收到断线状态，并按已配置策略重连或返回可重试状态。验证 SDK 未调用 `serveAsync()`、连续两次心跳失败、Agent 恢复以及显式禁用重连。证据：`CroupierClientImpl.java:112–115,399–425` 的心跳连续失败分支要求 `serving=true` 才清除 connected，而再次 `connect()` 又会因旧 connected 直接返回。替身收到两次正常断线错误后，只连接一次且 `isConnected()` 仍为 true。
+
+- [ ] **AUD-150 · P2 · 修复 · Java serveAsync 明确启动完成与停机完成契约**
+  - 依赖：—。交付与验收：为启动和退出提供明确的完成信号，并保留阻塞 `serve()` 的兼容契约。验证 Spring 启动代码可以等待就绪且及时返回，启动失败可观测，关闭可等待收尾。证据：`sdks/java/src/main/java/io/github/cuihairu/croupier/sdk/CroupierClient.java:34–38` 将 future 描述为启动完成，`CroupierClientImpl.java:167–203` 仅在服务循环退出时完成。探针确认进入 serving 后 future 仍未完成，`stop()` 后才完成。
+
+- [ ] **AUD-151 · P2 · 修复 · Java Provider 正确解析 Agent 与控制面 IPv6 地址**
+  - 依赖：—。交付与验收：共用端点解析，支持带括号的 IPv6、现有 IPv4/DNS 和可选 `tcp://`，无效端口返回可定位的配置错误。测试注册及可选能力上传使用的 host、port。证据：`CroupierClientImpl.java:69–76,320` 首连和控制面复用按冒号拆分的 transport factory。探针在默认 factory 处理合法 `tcp://[::1]:19091` 时发现端口解析失败。
+
+- [ ] **AUD-152 · P2 · 修复 · Spring starter 绑定 Provider 入站参数校验开关**
+  - 依赖：—。交付与验收：Spring 配置可显式启用已有的 Provider 入站校验，省略时保留核心 SDK 默认值，自定义 `ClientConfig` 保持优先。验证启用时带 input schema 的无效调用不进入业务 handler。证据：`CroupierAutoConfiguration.java:45–64` 没有映射该开关，`ClientConfig.java:133–134` 与 `CroupierClientImpl.java:648–657` 已有对应处理。Spring 探针设置 `croupier.validate-input-payloads=true` 后，实际配置仍为 false。
 
 ## Codex 深审发现（2026-11-13，luna profile 近5 commit 审核，6C/22M/5m，待修）
 
