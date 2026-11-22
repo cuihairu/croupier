@@ -307,6 +307,8 @@ func runServer() error {
 	// running）。只收敛 started_at 早于宽限且仍 running 的行——终态结果已随原
 	// 进程丢失，无法诚实重建，收敛为 failed 并记录原因；宽限避免多实例 HA 下
 	// 误伤另一实例仍在执行的运行。失败不阻断启动（记录告警，后续运行照常）。
+	// 启动恢复只跑一次：不足宽限的遗留行被跳过后，由 StartRunbookStaleRecoverySweep
+	// 周期重扫在越过宽限后收敛（AUD-025），否则将永久停留 running。
 	if svcCtx.DB != nil {
 		recoverCtx, recoverCancel := context.WithTimeout(rootCtx, 30*time.Second)
 		if n, err := apiops.RecoverStaleRunbookRuns(recoverCtx, svcCtx, time.Now().UTC().Add(-apiops.RunbookStaleRunGrace)); err != nil {
@@ -315,6 +317,8 @@ func runServer() error {
 			slog.Default().Info("runbook stale-run recovery converged", "recovered", n)
 		}
 		recoverCancel()
+		// 周期重扫（AUD-025）：复用同一宽限界，不误收另一实例的活跃运行。
+		apiops.StartRunbookStaleRecoverySweep(rootCtx, svcCtx, apiops.RunbookStaleSweepInterval)
 	}
 
 	// 定期备份调度（OPS-008 Stage E）：config backup.schedule.enabled 缺省

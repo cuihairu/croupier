@@ -3,6 +3,7 @@ package ops
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"time"
 
 	"github.com/cuihairu/croupier/internal/model"
@@ -184,6 +185,43 @@ func RecoverStaleRunbookRuns(ctx context.Context, svcCtx *svc.ServiceContext, ol
 	}
 	o := runbook.New(store, nil, nil, nil)
 	return o.RecoverStaleRuns(ctx, olderThan)
+}
+
+// RunbookStaleSweepInterval 是遗留 running 行周期重扫的默认间隔。启动恢复只执行
+// 一次：启动时不足宽限（RunbookStaleRunGrace）的遗留行被跳过，若再无重扫将永久
+// 停留 running（AUD-025）。周期重扫确保越过宽限后下一周期即被收敛。
+const RunbookStaleSweepInterval = time.Hour
+
+// StartRunbookStaleRecoverySweep 派生 rootCtx 启动后台周期重扫：每 interval 重跑
+// 一次 RecoverStaleRunbookRuns（olderThan = now-宽限），使启动时不足宽限的遗留
+// running 行在越过宽限后被收敛（AUD-025）。goroutine 随 ctx 取消退出；interval<=0
+// 或 DB 未装配时不启动。多实例 HA 下宽限界不变——仍不误收另一实例仍在执行的运行
+// （其 started_at 在宽限内，不满足 olderThan 筛选）。
+func StartRunbookStaleRecoverySweep(ctx context.Context, svcCtx *svc.ServiceContext, interval time.Duration) {
+	if ctx == nil || svcCtx == nil || svcCtx.DB == nil || interval <= 0 {
+		return
+	}
+	go func() {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				sweepCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+				n, err := RecoverStaleRunbookRuns(sweepCtx, svcCtx, time.Now().UTC().Add(-RunbookStaleRunGrace))
+				cancel()
+				if err != nil {
+					slog.Default().Warn("runbook stale-run sweep failed", "error", err, "recovered", n)
+					continue
+				}
+				if n > 0 {
+					slog.Default().Info("runbook stale-run sweep converged", "recovered", n)
+				}
+			}
+		}
+	}()
 }
 
 func (s *Service) RunbookRunList(ctx context.Context, gameID, env, runbookID string, limit int) ([]model.RunbookRun, error) {

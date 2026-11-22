@@ -143,3 +143,83 @@ func TestRecoverStaleRunbookRuns(t *testing.T) {
 	require.Equal(t, model.RunbookRunStatusFailed, got.Status)
 	require.Contains(t, got.Error, "interrupted by process restart")
 }
+
+// TestRecoverStaleRunbookRuns_WithinGraceSkippedThenReScanConverges 覆盖 AUD-025：
+// 启动恢复只跑一次，宽限内的遗留 running 行被跳过——若不再重扫将永久停留 running。
+// 本用例先以宽限界扫描（启动时点）断言宽限内的遗留行与活跃运行均不被误收；再以
+// 已越过宽限的界（等效于时间推进、run 年龄超过宽限）重扫，断言遗留行被收敛为
+// failed、活跃运行仍保留 running。
+func TestRecoverStaleRunbookRuns_WithinGraceSkippedThenReScanConverges(t *testing.T) {
+	ctx := context.Background()
+	db := runbookDB(t)
+	svcCtx := &svc.ServiceContext{DB: db}
+	now := time.Now().UTC()
+
+	// 遗留运行：启动时 2h 龄（宽限 24h 内），会被跳过。
+	require.NoError(t, model.NewRunbookRunModel(db).Create(ctx, &model.RunbookRun{
+		RunID: "run-within-grace", RunbookID: "rb1", GameID: "g", Env: "e",
+		Status: model.RunbookRunStatusRunning, StartedAt: now.Add(-2 * time.Hour),
+	}))
+	// 另一实例的活跃运行：刚启动，同样在宽限内，绝不能被误收。
+	require.NoError(t, model.NewRunbookRunModel(db).Create(ctx, &model.RunbookRun{
+		RunID: "run-fresh-active", RunbookID: "rb1", GameID: "g", Env: "e",
+		Status: model.RunbookRunStatusRunning, StartedAt: now.Add(-time.Minute),
+	}))
+
+	// 启动时点扫描（cutoff = now-24h）：两行均不满足 olderThan，均跳过。
+	n, err := RecoverStaleRunbookRuns(ctx, svcCtx, now.Add(-RunbookStaleRunGrace))
+	require.NoError(t, err)
+	require.Equal(t, 0, n, "宽限内的遗留行不得在启动时点被误收")
+
+	// 时间推进、run 年龄越过宽限后重扫（cutoff = now-1h 等效于遗留行已超 24h）：
+	// 遗留行收敛，活跃运行保留。
+	n, err = RecoverStaleRunbookRuns(ctx, svcCtx, now.Add(-time.Hour))
+	require.NoError(t, err)
+	require.Equal(t, 1, n, "越过宽限后必须能巡检收敛遗留行")
+
+	stale, err := model.NewRunbookRunModel(db).Find(ctx, "g", "e", "run-within-grace")
+	require.NoError(t, err)
+	require.Equal(t, model.RunbookRunStatusFailed, stale.Status)
+
+	active, err := model.NewRunbookRunModel(db).Find(ctx, "g", "e", "run-fresh-active")
+	require.NoError(t, err)
+	require.Equal(t, model.RunbookRunStatusRunning, active.Status, "活跃运行不得被误收")
+}
+
+// TestStartRunbookStaleRecoverySweep_ConvergesAndStops 覆盖 AUD-025 的周期重扫：
+// 越过宽限的遗留 running 行在后台重扫周期内被收敛为 failed；取消 ctx 后重扫停止
+// （无 panic、无泄漏）。
+func TestStartRunbookStaleRecoverySweep_ConvergesAndStops(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	db := runbookDB(t)
+	require.NoError(t, model.NewRunbookRunModel(db).Create(ctx, &model.RunbookRun{
+		RunID: "run-stale-sweep", RunbookID: "rb1", GameID: "g", Env: "e",
+		Status: model.RunbookRunStatusRunning, StartedAt: time.Now().Add(-48 * time.Hour),
+	}))
+	svcCtx := &svc.ServiceContext{DB: db}
+
+	StartRunbookStaleRecoverySweep(ctx, svcCtx, 10*time.Millisecond)
+	require.Eventually(t, func() bool {
+		got, err := model.NewRunbookRunModel(db).Find(ctx, "g", "e", "run-stale-sweep")
+		if err != nil {
+			return false
+		}
+		return got.Status == model.RunbookRunStatusFailed
+	}, 5*time.Second, 10*time.Millisecond, "周期重扫必须把越过宽限的遗留行收敛为 failed")
+
+	// 取消后重扫退出；再等一轮 tick 窗口确认不再改动（此处仅验证取消不 panic）。
+	cancel()
+	time.Sleep(30 * time.Millisecond)
+}
+
+// TestStartRunbookStaleRecoverySweep_Guards 覆盖未装配 DB / interval<=0 / nil 入参
+// 的早退守卫：不启动、不 panic。
+func TestStartRunbookStaleRecoverySweep_Guards(t *testing.T) {
+	var nilCtx context.Context
+	StartRunbookStaleRecoverySweep(nilCtx, &svc.ServiceContext{DB: runbookDB(t)}, time.Hour)
+	StartRunbookStaleRecoverySweep(context.Background(), nil, time.Hour)
+	StartRunbookStaleRecoverySweep(context.Background(), &svc.ServiceContext{}, time.Hour)
+	StartRunbookStaleRecoverySweep(context.Background(), &svc.ServiceContext{DB: runbookDB(t)}, 0)
+	StartRunbookStaleRecoverySweep(context.Background(), &svc.ServiceContext{DB: runbookDB(t)}, -time.Minute)
+}
