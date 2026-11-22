@@ -69,9 +69,8 @@ func TestProvisionDBStoreRoundtripAndCAS(t *testing.T) {
 	require.Equal(t, map[string]string{"ip": "10.0.0.1"}, got.Outputs)
 	require.Equal(t, []string{"a-1"}, got.AgentIDs)
 
-	// 注意不带 adapter.Update：runToModel 不回填数值主键（provision.Run 无
-	// PK 字段），Save(ID=0) 退化为再插入 → run_id 唯一键冲突——与 incident
-	// Details map 序列化同族的生产缺陷，另录 todo。
+	// Update 路径由 TestProvisionDBStoreUpdateByBusinessKey 覆盖（AUD-019：
+	// runToModel 不回填数值主键，Update 现按业务键 run_id 回写既有行）。
 
 	// List 映射
 	runs, err := store.List(ctx, 10)
@@ -93,6 +92,54 @@ func TestProvisionDBStoreRoundtripAndCAS(t *testing.T) {
 
 	// 不存在的 run
 	_, err = store.Get(ctx, "no-such-run")
+	require.Error(t, err)
+}
+
+// AUD-019：适配器 Update 按业务键回写既有记录。复刻生产编排形态——Create
+// 后持续变更同一个 *provision.Run（无数值主键字段）并反复 Update：ticket
+// 审批关联 + apply 后各状态持久化都必须命中既有行而非隐式再插入。
+func TestProvisionDBStoreUpdateByBusinessKey(t *testing.T) {
+	ctx := context.Background()
+	store := newProvisionDBStore(newProvisionWiringModel(t))
+	run := wiringRunFixture()
+
+	require.NoError(t, store.Create(ctx, run))
+
+	// ticket 审批关联（orchestrator.CreateTicket 尾部：Create→CreateApproval→Update）。
+	run.ApprovalID = "ap-ticket"
+	run.UpdatedAt = time.Now()
+	require.NoError(t, store.Update(ctx, run))
+
+	got, err := store.Get(ctx, "run-1")
+	require.NoError(t, err)
+	require.Equal(t, "ap-ticket", got.ApprovalID)
+	require.Equal(t, provision.StatePending, got.State)
+
+	// apply 后各状态持久化：waiting_register → adopted，含 outputs/agent_ids。
+	run.State = provision.StateWaitingRegister
+	run.Outputs = map[string]string{"ip": "10.0.0.1"}
+	run.UpdatedAt = time.Now()
+	require.NoError(t, store.Update(ctx, run))
+
+	run.State = provision.StateAdopted
+	run.AgentIDs = []string{"a-1"}
+	run.UpdatedAt = time.Now()
+	require.NoError(t, store.Update(ctx, run))
+
+	got, err = store.Get(ctx, "run-1")
+	require.NoError(t, err)
+	require.Equal(t, provision.StateAdopted, got.State)
+	require.Equal(t, map[string]string{"ip": "10.0.0.1"}, got.Outputs)
+	require.Equal(t, []string{"a-1"}, got.AgentIDs)
+
+	// 全程只保留一行（隐式再插入会撞 run_id 唯一键或产生第二行）。
+	runs, err := store.List(ctx, 10)
+	require.NoError(t, err)
+	require.Len(t, runs, 1)
+	require.Equal(t, "run-1", runs[0].ID)
+
+	// 不存在的 run：适配层上抛，不得插入。
+	err = store.Update(ctx, &provision.Run{ID: "run-missing", State: provision.StatePending})
 	require.Error(t, err)
 }
 

@@ -58,9 +58,23 @@ func (m *ProvisionRunModel) Create(ctx context.Context, run *ProvisionRun) error
 	return m.db.WithContext(ctx).Create(run).Error
 }
 
-// Update 更新运行记录（全字段写回）。
+// Update 按业务键 run_id 定位既有行后全字段写回（AUD-019）。
+//
+// run 常由 provision.Run 重新映射而来（见 svc.runToModel），该运行体无数值
+// 主键字段，转换后 ID 恒为零——直接 Save 会退化成 INSERT 并触发 run_id
+// 唯一键冲突。先按 run_id 解析既有行主键再写回；行不存在时返回
+// gorm.ErrRecordNotFound（调用方语义：更新已建/已读的运行，绝无隐式插入）。
 func (m *ProvisionRunModel) Update(ctx context.Context, run *ProvisionRun) error {
-	return m.db.WithContext(ctx).Save(run).Error
+	var existing ProvisionRun
+	if err := m.db.WithContext(ctx).
+		Select("id").
+		Where("run_id = ?", run.RunID).
+		First(&existing).Error; err != nil {
+		return err
+	}
+	row := *run
+	row.ID = existing.ID
+	return m.db.WithContext(ctx).Save(&row).Error
 }
 
 // CompareAndSwapState 仅当当前 state == from 时原子更新为 to（含整行回读）。
