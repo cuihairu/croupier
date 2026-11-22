@@ -89,7 +89,7 @@ func (s *countingStore) ListRunning(context.Context, time.Time) ([]*model.Runboo
 
 func TestRecoveryLoop_SingleBoundedWorkerSerializesWrites(t *testing.T) {
 	store := &countingStore{}
-	loop := newRecoveryLoop(store)
+	loop := NewRecoveryLoop(store)
 
 	// 一次入队 20 个运行终态。
 	for i := 1; i <= 20; i++ {
@@ -112,7 +112,7 @@ func TestRecoveryLoop_SingleBoundedWorkerSerializesWrites(t *testing.T) {
 
 func TestRecoveryLoop_RetriesAndBacksOff(t *testing.T) {
 	store := &countingStore{fail: true}
-	loop := newRecoveryLoop(store)
+	loop := NewRecoveryLoop(store)
 	loop.enqueue(&pendingTerminal{runID: 1, status: "succeeded"})
 
 	// 持续错误下循环不能忙循环耗尽资源：退避封顶（30s），一段时间内不应
@@ -132,7 +132,7 @@ func TestRecoveryLoop_RetriesAndBacksOff(t *testing.T) {
 
 func TestRecoveryLoop_DedupesSameRun(t *testing.T) {
 	store := &countingStore{}
-	loop := newRecoveryLoop(store)
+	loop := NewRecoveryLoop(store)
 	loop.enqueue(&pendingTerminal{runID: 1, status: "succeeded"})
 	loop.enqueue(&pendingTerminal{runID: 1, status: "failed"}) // 同 run 去重，取最新
 	require.Eventually(t, func() bool { return store.finished(1) }, 3*time.Second, 20*time.Millisecond,
@@ -149,7 +149,7 @@ func TestRecoveryLoop_DedupesSameRun(t *testing.T) {
 // 收敛到最新状态）。
 func TestRecoveryLoop_ReenqueueDuringSnapshotWritesLatest(t *testing.T) {
 	store := &countingStore{}
-	loop := newRecoveryLoop(store)
+	loop := NewRecoveryLoop(store)
 	loop.enqueue(&pendingTerminal{runID: 1, status: "succeeded"})
 
 	// 等循环启动并完成首轮写库（首个终态已成功）。此后循环可能在「删除 pending」

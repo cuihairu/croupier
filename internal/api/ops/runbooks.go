@@ -87,6 +87,10 @@ func (r *runbookDeployRunner) RollbackDeployment(ctx context.Context, deployment
 
 // runbookOrchestrator wires the OPS-009 engine to the meta DB store and the
 // OPS-004/OPS-006 capability runners. Requires the meta DB (schema 0062).
+//
+// AUD-024：每请求调用都会 New 一个临时编排器；其自带恢复循环若各自启动会遗留
+// 永不退出的后台 goroutine。故按服务生命周期共享单实例——首次调用经
+// runbookRecoveryOnce 建循环并注册到 svcCtx（服务退出时 Stop），后续请求复用。
 func (s *Service) runbookOrchestrator() (*runbook.Orchestrator, error) {
 	if s.svcCtx == nil || s.svcCtx.DB == nil {
 		return nil, errors.New("runbook store unavailable")
@@ -98,7 +102,12 @@ func (s *Service) runbookOrchestrator() (*runbook.Orchestrator, error) {
 	auditFn := func(ctx context.Context, gameID, env, event, ref, status string, detail map[string]any) {
 		recordOpsAudit(ctx, s.svcCtx, auditEventTypeFromString(event), ref, status, detail)
 	}
-	return runbook.New(store, &runbookBatchRunner{service: s}, &runbookDeployRunner{service: s}, auditFn), nil
+	s.runbookRecoveryOnce.Do(func() {
+		s.runbookRecovery = runbook.NewRecoveryLoop(store)
+		s.svcCtx.RegisterCloser(s.runbookRecovery.Stop)
+	})
+	return runbook.New(store, &runbookBatchRunner{service: s}, &runbookDeployRunner{service: s}, auditFn).
+		WithRecovery(s.runbookRecovery), nil
 }
 
 // RunbookCreate defines a runbook (persisted, not executed).

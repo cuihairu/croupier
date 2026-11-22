@@ -213,6 +213,12 @@ type ServiceContext struct {
 
 	// closeOnce guards Close()（ARCH-017：冲刷 + 池释放幂等收口）。
 	closeOnce sync.Once
+
+	// closerFns 是服务退出时先于连接池释放调用的清理函数（AUD-024：ops runbook
+	// 终态后台恢复循环等长生命周期 worker 随服务关闭释放）。注册须在 Close 前
+	// （初始化期）完成，closerMu 保证注册与释放的并发安全。
+	closerMu  sync.Mutex
+	closerFns []func()
 }
 
 type ExtensionServices struct {
@@ -747,6 +753,15 @@ func (ctx *ServiceContext) Close() {
 		return
 	}
 	ctx.closeOnce.Do(func() {
+		// 0. 服务级后台 worker 先释放（AUD-024：runbook 恢复循环等须在连接池
+		//    释放前停止，避免其写库路径踩上已关闭的池）。
+		ctx.closerMu.Lock()
+		fns := ctx.closerFns
+		ctx.closerFns = nil
+		ctx.closerMu.Unlock()
+		for _, fn := range fns {
+			fn()
+		}
 		// 1. 执行留痕异步写入器：冲刷队列残余条目（写库须在池关闭前）。
 		if ctx.ExecutionLogWriter != nil {
 			ctx.ExecutionLogWriter.Stop()
@@ -778,6 +793,18 @@ func (ctx *ServiceContext) Close() {
 			}
 		}
 	})
+}
+
+// RegisterCloser 注册服务退出（Close）时调用的清理函数（AUD-024）。
+// 用于让服务生命周期内的后台 worker（如 runbook 终态后台恢复循环）随服务关闭
+// 正确释放，而不是遗留永不退出的 goroutine。注册须在 Close 前（初始化期）。
+func (ctx *ServiceContext) RegisterCloser(fn func()) {
+	if ctx == nil || fn == nil {
+		return
+	}
+	ctx.closerMu.Lock()
+	defer ctx.closerMu.Unlock()
+	ctx.closerFns = append(ctx.closerFns, fn)
 }
 
 // GameScopeContext 解析 (gameId, env) 的游戏作用域 context（含 per-game DB

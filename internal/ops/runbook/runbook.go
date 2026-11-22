@@ -12,6 +12,7 @@ import (
 	"log/slog"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/cuihairu/croupier/internal/audit"
@@ -106,14 +107,28 @@ type Orchestrator struct {
 	auditFn func(ctx context.Context, gameID, env, event, ref, status string, detail map[string]any)
 	// recovery 是单一后台恢复循环（审核发现：每次终态持久化失败都创建无限
 	// 重试的独立 goroutine，持续错误下会累积任务并周期性冲击数据库——改为
-	// 一个共享有界循环，无论多少运行只占一个 goroutine）。
-	recovery *recoveryLoop
+	// 一个共享有界循环，无论多少运行只占一个 goroutine）。服务层应经
+	// WithRecovery 注入按服务生命周期共享的唯一实例（AUD-024）。
+	recovery *RecoveryLoop
 }
 
 // New builds an orchestrator. batch/deploy may be nil (steps of that kind then
 // fail honestly at run time); auditFn nil skips audit.
+//
+// New 自带独立恢复循环；服务层若跨请求共享（每请求一个临时编排器会遗留一个
+// 永不退出的 worker，AUD-024），应调用 WithRecovery 注入共享实例。
 func New(store Store, batch BatchRunner, deploy DeployRunner, auditFn func(ctx context.Context, gameID, env, event, ref, status string, detail map[string]any)) *Orchestrator {
-	return &Orchestrator{store: store, batch: batch, deploy: deploy, auditFn: auditFn, recovery: newRecoveryLoop(store)}
+	return &Orchestrator{store: store, batch: batch, deploy: deploy, auditFn: auditFn, recovery: NewRecoveryLoop(store)}
+}
+
+// WithRecovery 让编排器使用外部（服务生命周期）共享的恢复循环（AUD-024）。
+// 服务层用 NewRecoveryLoop 构造唯一实例并跨请求复用，避免每请求启动一个永不
+// 退出的后台 goroutine；服务退出时对该实例调用 Stop。
+func (o *Orchestrator) WithRecovery(r *RecoveryLoop) *Orchestrator {
+	if o != nil && r != nil {
+		o.recovery = r
+	}
+	return o
 }
 
 // Define validates and persists a runbook.
@@ -372,45 +387,81 @@ type pendingTerminal struct {
 	errMsg      string
 }
 
-// recoveryLoop 是共享的、有界的终态后台恢复循环：无论累积多少待收敛运行，
+// RecoveryLoop 是共享的、有界的终态后台恢复循环：无论累积多少待收敛运行，
 // 只占一个 goroutine，按批次顺序写库，指数退避封顶，无泄漏/风暴风险。
-type recoveryLoop struct {
+//
+// AUD-024：循环须按服务生命周期共享——服务层建一个实例并跨请求注入编排器
+// （WithRecovery），服务退出调用 Stop 收敛后台 goroutine；否则每个临时编排器
+// 各自 enqueue 会遗留一个永不退出的 worker。
+type RecoveryLoop struct {
 	store   Store
 	mu      sync.Mutex
 	pending map[uint]*pendingTerminal
 	wake    chan struct{}
 	once    sync.Once
+	// AUD-024 停止面：stop 关闭 stopped 唤醒 loop 退出并置位 done；
+	// started 记录 loop 是否已启动（stop 只在已启动时等 done）。
+	stopped  chan struct{}
+	done     chan struct{}
+	started  atomic.Bool
+	stopOnce sync.Once
 }
 
-func newRecoveryLoop(store Store) *recoveryLoop {
-	return &recoveryLoop{
+// NewRecoveryLoop 构造共享恢复循环（store 持久化终态）。
+func NewRecoveryLoop(store Store) *RecoveryLoop {
+	return &RecoveryLoop{
 		store:   store,
 		pending: map[uint]*pendingTerminal{},
 		wake:    make(chan struct{}, 1),
+		stopped: make(chan struct{}),
+		done:    make(chan struct{}),
 	}
 }
 
+// Stop 关闭恢复循环并等待后台 goroutine 退出（幂等）。若循环从未被 enqueue
+// 启动过，直接返回。停止时不冲刷残余 pending（未及写入的终态由下次启动的
+// RecoverStaleRunbookRuns 收敛），避免在关闭竞态中依赖正在释放的 DB 池。
+func (r *RecoveryLoop) Stop() {
+	if r == nil {
+		return
+	}
+	r.stopOnce.Do(func() {
+		close(r.stopped)
+		if r.started.Load() {
+			<-r.done
+		}
+	})
+}
+
 // enqueue 记录一次待收敛终态（同 runID 取最新，去重），并确保循环已启动。
-func (r *recoveryLoop) enqueue(t *pendingTerminal) {
+func (r *RecoveryLoop) enqueue(t *pendingTerminal) {
 	r.mu.Lock()
 	r.pending[t.runID] = t
 	r.mu.Unlock()
-	r.once.Do(func() { go r.loop() })
+	r.once.Do(func() {
+		r.started.Store(true)
+		go r.loop()
+	})
 	select {
 	case r.wake <- struct{}{}:
 	default:
 	}
 }
 
-func (r *recoveryLoop) loop() {
+func (r *RecoveryLoop) loop() {
 	backoff := persistTerminalBackoffMin
 	for {
 		r.mu.Lock()
 		if len(r.pending) == 0 {
 			r.mu.Unlock()
-			<-r.wake
-			backoff = persistTerminalBackoffMin
-			continue
+			select {
+			case <-r.wake:
+				backoff = persistTerminalBackoffMin
+				continue
+			case <-r.stopped:
+				close(r.done)
+				return
+			}
 		}
 		items := make([]*pendingTerminal, 0, len(r.pending))
 		for _, t := range r.pending {
@@ -444,13 +495,23 @@ func (r *recoveryLoop) loop() {
 		r.mu.Unlock()
 		if !more {
 			backoff = persistTerminalBackoffMin
-			<-r.wake
-			continue
+			select {
+			case <-r.wake:
+				continue
+			case <-r.stopped:
+				close(r.done)
+				return
+			}
 		}
 		if allOK {
 			backoff = persistTerminalBackoffMin
 		}
-		time.Sleep(backoff)
+		select {
+		case <-time.After(backoff):
+		case <-r.stopped:
+			close(r.done)
+			return
+		}
 		if backoff < persistTerminalBackoffMax {
 			backoff *= 2
 			if backoff > persistTerminalBackoffMax {

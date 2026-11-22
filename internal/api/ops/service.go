@@ -3,14 +3,22 @@ package ops
 import (
 	"context"
 	"errors"
+	"sync"
 
 	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 
+	"github.com/cuihairu/croupier/internal/ops/runbook"
 	"github.com/cuihairu/croupier/internal/svc"
 )
 
 type Service struct {
 	svcCtx *svc.ServiceContext
+
+	// AUD-024：runbook 终态后台恢复循环按服务生命周期共享单实例——每请求一个
+	// 临时编排器否则各自启动一个永不退出的 worker；服务退出经 svcCtx 的
+	// RegisterCloser 停止。
+	runbookRecoveryOnce sync.Once
+	runbookRecovery     *runbook.RecoveryLoop
 }
 
 func NewService(svcCtx *svc.ServiceContext) *Service {
