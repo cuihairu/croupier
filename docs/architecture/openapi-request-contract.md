@@ -185,6 +185,7 @@ Operations that cannot be represented losslessly by the flat projection are
 | `openapi_request_body_shape_nonflat` | The body root is an array/scalar, or an object body carries root-level constraints outside the flat-preservable set | `$.paths.<p>.<method>.requestBody` |
 | `openapi_request_body_no_executable_media` | The operation declares a request body whose media types are all outside the executor capability (SUI-007) | `$.paths.<p>.<method>.requestBody` (the declared media types and the executable set are named in the message) |
 | `openapi_schema_reference_unresolved` | A schema `$ref` cannot be fully inlined into the standalone contract: the target is missing, the reference is cyclic (past the inlining depth cap), or it points outside the document (SUI-008) | the `$ref` pointer as declared (the boundary that stopped the inlining is named in the message) |
+| `openapi_schema_dialect_keyword` | A schema keyword cannot be rendered as a real form control by the schema-driven form: a multi-type union (no `"null"`), a conditional schema (`if`/`then`/`else`, `dependentSchemas`), or a tuple (`prefixItems`, `items` as an array) (SUI-009) | the schema JSON pointer; the keyword and the required handling (JSON editing or a manual binding) are named in the message |
 
 The projection still produces a usable input schema (`structured` or
 `body_only`) — the diagnostic is informational and does not fail the upload.
@@ -227,6 +228,65 @@ kin front-end loads nested and cyclic references; the kin loader refuses
 dangling and external references (the document falls back to the map
 front-end), so those two boundaries surface through the map front-end, which
 records the same diagnostic.
+
+## Schema dialect normalization (SUI-009)
+
+OpenAPI 3.0 and 3.1 declare nullability differently, and the UI must render
+both without silently mis-reading a field:
+
+- **3.0**: `nullable: true` on a schema whose `type` is `"string"`;
+- **3.1** (JSON Schema 2020-12): `type` is an array, e.g. `["string", "null"]`;
+  `nullable` is no longer a keyword.
+
+The extraction normalizes every request-contract input schema and output schema
+to a single **canonical form** (in both front-ends, kin and map): a 2020-12
+style `type` array with `"null"` moved **last**, so the primary (non-null) type
+is always the first element. `nullable: true` folds into the array and the
+`nullable` key is removed; a schema with no `type` array is left unchanged. The
+form control, required-marker and placeholder derivation all read the primary
+type, so `["string","null"]` renders as a nullable string input — never as an
+empty or unknown widget. The front end (`primarySchemaType`) and the Go
+generator (`schemaTypeFromObject`) resolve the primary type with the same rule.
+
+### Missing vs explicit null
+
+The two are distinct and the UI keeps them distinct:
+
+- **Missing** — the key is absent. A field in `required` is invalid when
+  missing; otherwise it is omitted from the payload (no key is sent).
+- **Explicit `null`** — the key is present with value `null`. It is accepted
+  only when the schema is nullable (`type` array contains `"null"`, or legacy
+  3.0 `nullable: true`); otherwise the validator rejects it as a type error.
+  A nullable required field may be sent as `null`.
+
+### Capability classification
+
+Schema keywords that the schema-driven form cannot render as a real control are
+classified instead of silently mis-rendered. Each carries a `DialectCapability`:
+
+| Keyword | Classification | Handling |
+|---|---|---|
+| `nullable: true` / `type: [T, "null"]` | supported | canonicalized; nullable control |
+| plain `type` / `properties` / `items` (object) / `enum` / `format` | supported | direct form control |
+| `type` array with >1 non-null type (union) | degraded | JSON editing or manual binding / discriminator |
+| conditional schema (`if` / `then` / `else`, `dependentSchemas`, schema-valued `dependencies`) | degraded | JSON editing or manual binding |
+| tuple (`prefixItems`, `items` as an array) | degraded | JSON editing or manual binding |
+| anything the executor cannot run | unsupported | not executed; surfaced in review |
+
+A degraded keyword is recorded as a **warning** diagnostic
+`openapi_schema_dialect_keyword` (`field` = the schema JSON pointer), so the
+schema still enters review and the operator sees which part needs a manual
+binding instead of mistaking a degraded control for a real one. No dialect
+keyword is ever silently dropped. The whole-schema judgment
+(`ClassifySchemaSupport` / `classifySchemaSupport`) is the worst case over the
+tree, and the Go classifier and its web mirror classify the shared sample set
+identically (locked by the parity tests on both sides).
+
+### Determinism
+
+Dialect notes are converted to diagnostics sorted by `(path, keyword)`, so a
+document re-imported repeatedly yields the same contract byte-for-byte — the
+SUI-007 determinism guarantee extends to dialect notes.
 
 ## Execution-time mapping
 
@@ -362,3 +422,11 @@ executor keeps the legacy behaviour.
   indistinguishable at the cap). The truncation is deterministic and the
   diagnostic marks the schema for review either way, so the operator is never
   left with a silently degraded object.
+- Degraded dialect keywords (multi-type unions, conditional schemas, tuples)
+  are not directly formable: the field still submits (the raw value is bound),
+  but the operator must use JSON editing or add a manual binding / discriminator
+  for the non-primary branch. They are never silently mis-rendered — the
+  `openapi_schema_dialect_keyword` warning marks the schema for review (SUI-009).
+  A kin-loadable degraded schema is normalized in the kin front-end; a draft-07
+  tuple (`items` as an array) is rejected by kin and falls back to the map
+  front-end, which records the same notes.

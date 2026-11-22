@@ -124,6 +124,8 @@ SDK 和 OpenAPI Source 导入边界只接受 FunctionContract 字段。页面展
 
 生成器只对以下子集保证生成可直接发布的表单与列表：object/array/scalar 类型、`required`、`enum`、格式 hint（`date`、`date-time`）和本地 `$defs`/`$ref`。`oneOf`/`anyOf`/`discriminator`、远程 `$ref` 等更复杂的组合不影响函数注册，但表单与列生成必须降级为 `needs_review` 并记录 diagnostic，不得硬吞后生成不可用的默认页面。
 
+方言在判定前先归一（SUI-009）：OpenAPI 3.0 `nullable: true` 与 3.1 `type: [T, "null"]` 都统一为 2020-12 风格 `type` 数组（`"null"` 恒在末位），主类型（非 null）驱动控件，两侧声明同一可空语义。多类型联合（>1 个非 null 类型）、条件 schema（`if`/`then`/`else`、`dependentSchemas`）、元组（`prefixItems`、`items` 为数组）不能直接成表单 —— 降级为 `needs_review` 并记 `openapi_schema_dialect_keyword` 诊断（需 JSON 编辑或手工绑定 / discriminator），绝不静默误渲染。Go 判定器与 web 镜像对同一批样例判定一致（两侧 parity 测试锁定）。
+
 ## OpenAPI Source 与执行绑定
 
 上传 OpenAPI 单请求完成「上传即成页」全链生成（[契约与绑定正交化设计](./ui-generation-upload-pipeline.md) D1/D2/D4）：解析校验后，每个 operation 直接落库为 FunctionContract 物料（无对应运行时函数的置 `executionState=unbound`），同事务触发组件模板重建与 PageProposal 生成，响应携带 `{ operations, contractsCreated, templatesUpdated, proposalsCreated, diagnostics }` 摘要。契约存在不再以运行时注册为前提。

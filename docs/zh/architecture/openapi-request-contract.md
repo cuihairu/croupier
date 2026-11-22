@@ -153,6 +153,7 @@
 | `openapi_request_body_shape_nonflat` | body 根是数组/标量，或 object body 携带平铺可保留集合之外的根级约束 | `$.paths.<p>.<method>.requestBody` |
 | `openapi_request_body_no_executable_media` | 声明的请求体媒体类型全部超出执行器能力（SUI-007） | `$.paths.<p>.<method>.requestBody`（message 中列出声明的媒体类型与可执行集合） |
 | `openapi_schema_reference_unresolved` | schema `$ref` 无法完整内联进独立契约：目标缺失、引用循环（超出内联深度上限）、或指向文档之外（SUI-008） | 声明的 `$ref` 指针原文（message 中命名阻断内联的边界） |
+| `openapi_schema_dialect_keyword` | schema keyword 无法被 schema 驱动表单渲染成真实控件：多类型联合（非 `"null"`）、条件 schema（`if`/`then`/`else`、`dependentSchemas`）、或元组（`prefixItems`、`items` 为数组）（SUI-009） | schema JSON 指针（keyword 与所需处理方式——JSON 编辑或手工绑定——在 message 中命名） |
 
 投影仍产出可用的输入 schema（`structured` 或 `body_only`）—— 诊断是信息性的，不会让上传
 失败。没有任何内容被丢弃：body 保持其形态挂在 `body` 槽位，每个参数保持其位置。
@@ -180,6 +181,57 @@
 但 schema **进入待审**，操作者能看到哪一部分没解析成功，不会把截断出的对象当成真
 schema。kin 前端能载入嵌套与循环引用；kin loader 拒绝悬空与外部引用（整份文档回落
 map 前端），因此后两个边界由 map 前端记录同样的诊断。
+
+## schema 方言归一（SUI-009）
+
+OpenAPI 3.0 与 3.1 声明可空的方式不同，UI 必须两者都能渲染，且不静默误读字段：
+
+- **3.0**：`type: "string"` 的 schema 上加 `nullable: true`；
+- **3.1**（JSON Schema 2020-12）：`type` 是数组，如 `["string", "null"]`，
+  `nullable` 不再是关键字。
+
+提取期把请求契约的输入 schema 与输出 schema 统一归一到**规范形态**
+（kin 与 map 两个前端同规则）：2020-12 风格的 `type` 数组，`"null"` 恒移到
+**末位**，因此主类型（非 null）永远是首元素。`nullable: true` 折入数组并删除
+`nullable` 键；没有 `type` 数组的 schema 原样保留。表单控件、必填标记与
+placeholder 推导都读主类型，所以 `["string","null"]` 渲染成可空字符串输入，
+而不是空控件或未知控件。前端（`primarySchemaType`）与 Go 生成器
+（`schemaTypeFromObject`)按同一规则解析主类型。
+
+### 缺省与显式 null
+
+两者语义不同，UI 保持区分：
+
+- **缺省** —— 键不存在。`required` 内的字段缺省即非法；否则从 payload 中
+  省略（不发送该键）。
+- **显式 `null`** —— 键存在且值为 `null`。仅当 schema 可空（`type` 数组含
+  `"null"`，或遗留 3.0 `nullable: true`）时接受；否则校验器按类型错误拒绝。
+  可空的必填字段可以发送 `null`。
+
+### 能力判定
+
+schema 驱动表单无法直接渲染成真实控件的 keyword 按能力归类，而不是静默误渲染。
+每个 keyword 对应一个 `DialectCapability`：
+
+| Keyword | 判定 | 处理 |
+|---|---|---|
+| `nullable: true` / `type: [T, "null"]` | supported | 归一；可空控件 |
+| 普通 `type` / `properties` / `items`（对象）/ `enum` / `format` | supported | 直接表单控件 |
+| `type` 数组含 >1 个非 null 类型（联合） | degraded | JSON 编辑或手工绑定 / discriminator |
+| 条件 schema（`if` / `then` / `else`、`dependentSchemas`、schema 形 `dependencies`） | degraded | JSON 编辑或手工绑定 |
+| 元组（`prefixItems`、`items` 为数组） | degraded | JSON 编辑或手工绑定 |
+| 执行器无法运行的部分 | unsupported | 不执行；进待审 |
+
+degraded keyword 记为一条 **warning** 诊断 `openapi_schema_dialect_keyword`
+（`field` = schema JSON 指针），schema 照样进入待审，操作者能看到哪一部分需要
+手工绑定，不会把降级控件误当真实控件。任何 dialect keyword 都不会静默丢弃。
+整树判定（`ClassifySchemaSupport` / `classifySchemaSupport`）取全树最差档，
+Go 判定器与 web 镜像对共享样例集判定一致（两侧 parity 测试锁定）。
+
+### 确定性
+
+dialect note 转诊断时按 `(path, keyword)` 排序，同一份文档反复重导入产出的
+契约逐字节一致 —— SUI-007 的确定性保证延伸到 dialect note。
 
 ## 执行期映射
 
@@ -282,3 +334,8 @@ body 槽位。
   `openapi_schema_reference_unresolved`，即使该链其实无环（真循环与过深链在
   上限处不可区分）。截断是确定性的，诊断两种情形都把 schema 标记为待审，操作者
   永远不会面对一个静默降级的对象。
+- degraded dialect keyword（多类型联合、条件 schema、元组）不能直接成表单：
+  字段照常提交（原始值被绑定），但非主分支须操作者用 JSON 编辑或加手工绑定 /
+  discriminator。它们绝不静默误渲染 —— `openapi_schema_dialect_keyword` warning
+  把 schema 标记为待审（SUI-009）。kin 可载入的 degraded schema 在 kin 前端归一；
+  draft-07 元组（`items` 为数组）被 kin 拒绝、回落 map 前端，map 前端记录同样的 note。
