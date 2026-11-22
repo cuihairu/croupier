@@ -1041,6 +1041,48 @@ Go 定向运行共 14 例通过，其中 8 例为本轮复现探针。漏斗 POS
 - [ ] **DATA-080 · P1 · 修复 · 漏斗计算应用页面展示的顺序、同会话和步间时限**
   - 依赖：DATA-079。交付与验收：让开关与服务端契约一致，提供实际支持的顺序模式、会话标识和最大间隔。没有会话数据时明确拒绝同会话计算或显示不可用。覆盖顺序逆转、不同会话和超过最大间隔，验证结果分别符合选择。证据：`web/src/pages/Analytics/Behavior/index.tsx:59–80` 构造三个选项，`internal/api/analytics/dto.go:75–81` 未声明字段，`internal/api/analytics/behavior.go:247–261,483–507` 始终按用户和时间匹配顺序步骤，没有会话或间隔边界。
 
+#### Web 与移动端分析空态、失败与历史导出续审（2026-11-22）
+
+本轮核对实时流接通与首次采样、历史导出、数仓部分失败、概览和支付刷新，以及移动端对摘要和分域数据的呈现。Web 使用真实组件和适配器源码，通过轻量 React 及 HTTP 替身验证状态与导出值。选定作用域下的请求取消仍归 DATA-068、DATA-069 与 AUD-003。
+
+用项目已缓存的 Flutter SDK 运行移动端分析页面定向套件，11 例通过，其中 3 例为本轮现状探针。探针确认同作用域刷新 500 时错误状态已设置但页面只显示旧数据，全部无效卡片进入正常空态，留存空列表被显示为 `[]`。Web 另验证 HTTP 失败后仍可导出零值、实时导出丢绝对区间以及支付刷新混用两批结果。真实浏览器和生产数仓的端到端对账仍待验收。
+
+- [ ] **DATA-081 · P1 · 修复 · 实时大屏等待首个有效样本后再展示指标**
+  - 依赖：DATA-006。交付与验收：连接已建立、等待样本、有效零值及采集失败分别可见。收到 200 或 `connected` 后继续等待样本，无采样时不产生数值。覆盖首帧延迟、失败后一帧成功和 0 值首帧。证据：`internal/api/analytics/handler.go:180–192` 先发 connected 再等 ticker。`web/src/pages/Analytics/Realtime/useRealtimeStream.ts:144–152` 已清 loading 并标 connected，页面 `index.tsx:108,131–178` 把未收到数字解释为 0。探针在 `lastMessageAt=null` 时已观察到 `connected` 且 loading=false。
+
+- [ ] **DATA-082 · P1 · 修复 · 实时指标缺失时不代填其他窗口或零收入**
+  - 依赖：DATA-025、DATA-028。交付与验收：1/5/15 分钟活跃、峰值及收入从各自数据源读值，缺测字段显示不可用并跳过趋势采点。以只有 `activeSessions=7`、没有收入的响应验收，不生成三种活跃窗口的同值和零收入曲线。证据：`web/src/pages/Analytics/Realtime/useRealtimeStream.ts:37–48,85–109` 对三个窗口使用同一字段，并把未提供的 `rev5M` 写作 0。真实 hook 源码的事件替身复现了两者。
+
+- [ ] **DATA-083 · P1 · 修复 · 实时历史导出查询绑定用户选择的起止时间**
+  - 依赖：DATA-059。交付与验收：导出按用户选择的实际时间段查询，支持范围与间隔可校验。相同时长的两段不同日期返回不同结果，保留显式最近 N 分钟的兼容用法。证据：`web/src/pages/Analytics/Realtime/Toolbar.tsx:136–138` 提交起止时间，`web/src/services/api/analytics.ts:99–121` 仅换算 duration 并删除日期，`internal/api/analytics/overview.go:166–175` 以当前时间为结束点。历史范围替身只收到 60 分钟 duration。
+
+- [ ] **DATA-084 · P1 · 修复 · 实时历史导出的列名匹配实际指标来源**
+  - 依赖：DATA-025、DATA-083。交付与验收：导出明确区分桶内去重用户、事件量、在线及窗口活跃，无来源指标保留缺测状态。以单用户同桶产生多事件核对 CSV/XLSX 各列。证据：`internal/api/analytics/overview.go:198–206` 返回 users 和 events，`web/src/services/api/analytics.ts:125–131` 将其映射为 online 和 active5MSum，`Realtime/Toolbar.tsx:140–142` 直接以对应列名导出。适配器探针看到 11 条事件被改名为 5 分钟活跃。
+
+- [ ] **DATA-085 · P2 · 修复 · 数仓页面保留各指标的独立查询状态**
+  - 依赖：—。交付与验收：DAU、分钟在线及收入分别处理加载、失败和无数据。注入收入查询失败，同时验证 DAU、在线两图仍显示成功结果，失败卡能单独重查。证据：`web/src/pages/Analytics/Warehouse/index.tsx:25–56` 使用 `Promise.all`，仅在三路全部成功后发布数据。替身确认两个请求成功、收入失败时，三个状态的数据均未写入。
+
+- [ ] **DATA-086 · P2 · 修复 · 数仓前端区分功能禁用和临时服务不可用**
+  - 依赖：—。交付与验收：后端对未配置仓库提供稳定原因码，Web 仅按该码提示未启用。临时 503 或代理 503 显示可重试错误，缺配置状态仍提供正确提示。证据：`internal/api/analytics/handler.go:460–467` 将仓库禁用映射 503，`web/src/pages/Analytics/Warehouse/index.tsx:56–63` 只读 HTTP 状态。带临时故障原因的 503 触发了禁用提示并跳过错误页重试入口。
+
+- [ ] **DATA-087 · P1 · 修复 · 概览查询失败时不得把默认值当指标或导出**
+  - 依赖：DATA-064。交付与验收：首次加载失败显示可重试状态，成功空结果和真实 0 可区分，已有快照的刷新失败明确标记其时间。查询失败时不能按当前数据导出默认零值。证据：`web/src/pages/Analytics/Overview/index.tsx:33–64,109–128` 只有 finally 收尾，初始数据为空对象，展示和导出对多项指标使用 0 回填。请求拒绝探针中导出仍可点击，DAU 和流水均写为 0。
+
+- [ ] **DATA-088 · P1 · 修复 · 支付摘要与交易明细失败时保留各自查询窗口**
+  - 依赖：DATA-061。交付与验收：按窗口和筛选条件关联摘要、列表及导出，单块失败时显示对应错误或明确标识旧窗口。以旧窗口加载成功后切换条件为样本，新摘要成功而新列表失败时，页面不能把旧交易混进新统计。证据：`web/src/pages/Analytics/Payments/index.tsx:92–129` 先发布摘要再请求交易，失败只结束 loading。替身复现摘要从 10 更新为 20 后，显示的交易仍是上一批。
+
+- [ ] **DATA-089 · P1 · 修复 · 移动分析大盘展示已有数据场景下的刷新失败**
+  - 依赖：—。交付与验收：当前作用域已有快照时保留其采集时间并标为旧数据，当前刷新失败可见且可重试。测试同作用域成功后刷新 500、恢复成功和首屏失败。证据：`mobile/lib/features/analytics/analytics_controller.dart:85–95` 保存错误且保留 summary，`analytics_dashboard_page.dart:59–86` 只在 summary=null 时展示错误。
+
+- [ ] **DATA-090 · P2 · 修复 · 移动分析摘要将无效卡片映射为契约错误**
+  - 依赖：—。交付与验收：显式空列表进入空态，全部卡片无效进入错误态，部分损坏时标识范围并保留有效卡片。覆盖未知 status、缺 domain/status 和非对象条目。证据：`mobile/lib/features/analytics/analytics_service.dart:35–47,77–87` 逐个跳过解析失败的条目，全部失败时返回空列表。`analytics_dashboard_page.dart:85–89` 将其直接显示为暂无数据。
+
+- [ ] **DATA-091 · P2 · 修复 · 移动分域详情识别带外层对象的空列表**
+  - 依赖：—。交付与验收：识别留存、关卡、支付摘要等已知域的空集合，空结果显示对应说明，同时保留有效零值字段。覆盖 `{cohorts:[]}`、`{levels:[]}` 与含一条 0% 留存的对象。证据：`mobile/lib/features/analytics/analytics_domain_page.dart:152–167,207–212` 只识别顶层空对象或空数组，有外层键的空列表被逐键编码为 `[]`，留存 API 固定返回 cohorts 对象，见 `internal/api/analytics/dto.go:309–311`。
+
+- [ ] **DATA-092 · P1 · 修复 · 实时趋势会话缓存按服务器和作用域隔离**
+  - 依赖：DATA-068。交付与验收：缓存键包含服务器及 game/env，失效和清除作用于对应记录。先在 A 写趋势，再切换到 B 并重进实时页，B 无样本时不恢复 A 的曲线，A 重进时仍能读自己的记录。证据：`web/src/pages/Analytics/Realtime/useRealtimeStream.ts:59–70,212–220,240` 写入、恢复与清理共用不含作用域的 `realtime:series`。事件替身确认样本持久化到固定键。
+
 ## 前端审核复验
 
 - [x] **REVIEW-001 · P1 · 故障验证 · 批量充值目标 ID 归一化复验**
@@ -1877,7 +1919,7 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
 
 | 范围             | 仍需审核的源码与入口                                                                                                                                                                                          | 仍需运行的验收                                                                                      |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| 数据分析         | 继续核对 Web、Mobile 分析页其余空态与失败映射。支付跨日退款、时区写入、留存和 SKU 快照重算及漏斗接口已进一步核对，见 DATA-059～080。                                                                          | 真正接入 → Redis → ClickHouse → API → 页面逐指标对账，覆盖重启、重复、退款和晚到数据。见 DATA-031。 |
+| 数据分析         | Web、Mobile 的关键空态、刷新失败和历史导出已复核，见 DATA-081～092。支付跨日退款、时区写入、留存和 SKU 重算及漏斗见 DATA-059～080。                                                                           | 真实接入 → Redis → ClickHouse → API → 页面逐指标对账，覆盖重启、重复、退款和晚到数据。见 DATA-031。 |
 | 数据库与后台任务 | `internal/db/migrate/migrations/` 的方言分支和回滚关键链，`internal/db/router/` 其余多库打开失败与重试。任务冷库巡检、断连收敛和事件恢复已复核，见 AUD-116～123。                                             | 真实数据库升级、失败恢复和多进程重启演练。                                                          |
 | Agent 与协议     | `cmd/{sidecar-agent,devops-agent}/` 的运行装配，`agents/{capture,devops,synthetics}/` 的 connector、session、pluginhost 边界，`core/transport/tcp/` 与 `internal/transport/tcp/` 的控制车道、关闭、背压组合。 | 用真实连接验证高负载、重连与停止，核对消息和任务状态收敛。                                          |
 | SDK 与插件       | 其余 SDK 示例、完整 wire 协议对照及发布物的调用入口。Skynet/Lua、Python 示例、JS/Python 独立插件与 Java Spring Boot 上下文已核对，见 AUD-124～152。                                                           | Skynet 原生模块、Java Starter 与真实 Agent、跨 SDK/TLS 组合和安装发布产物验证。                     |
