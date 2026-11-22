@@ -2028,9 +2028,12 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 验证：新增 `internal/ops/runbook/recovery_stop_test.go`——`TestRecoveryLoop_StopReleasesWorker`（恒失败 store 驱动循环进退避，Stop 等待 done 收敛，修复前临时回退 loop 为非中断 `<-wake` 复现「Stop 未释放恢复后台 goroutine」）、`TestRecoveryLoop_StopWithoutStartNoBlock`（未启动循环 Stop 不阻塞）、`TestRecoveryLoop_StopIdempotent`、`TestOrchestrator_WithRecoverySharesLoop`（多编排器复用同一循环指针）。新增 `internal/api/ops/runbooks_recovery_test.go`——`TestService_RunbookOrchestratorSharesRecoveryLoop`（两次构造复用同一共享循环，修复前临时回退 per-request New 复现「首次构造必须创建共享恢复循环」）、`TestService_CloseStopsRunbookRecoveryLoop`（Close 触发注册的 Stop）。新增 `internal/svc/service_context_closer_test.go`——`TestServiceContext_CloseRunsRegisteredClosers`（Close 调用全部 closer 且幂等）、`RegisterCloserNilSafe`。`go test ./internal/ops/runbook/... ./internal/svc/... ./internal/api/ops/... -count=1` 全绿、`go build ./...`、`go vet`、`gofmt -l` 清洁。LOCAL VERIFIED。
   - 已知边界：`Stop()` 不冲刷残余 pending（未及写入的终态由下次启动 `RecoverStaleRunbookRuns` 收敛，避免关闭竞态中依赖正在释放的 DB 池）。默认 `runbook.New` 仍自带独立循环（库语义不变）；生产服务路径经 `runbookOrchestrator` 注入共享循环。每 ops Service 实例一个共享循环（启动期固定少数实例，非每请求）。
 
-- [ ] **AUD-025 · P2 · 修复 · Runbook 启动宽限内的遗留运行需要后续恢复机会**
+- [x] **AUD-025 · P2 · 修复 · Runbook 启动宽限内的遗留运行需要后续恢复机会**（commit f46b9de13）
   - 依赖：—。交付与验收：重启时不足 24 小时的遗留 running 行，超过宽限后仍能巡检收敛；不能误收另一实例的活跃运行。
   - 状态／条件：cmd/server/root.go:309-317 仅启动时恢复一次；RunbookStaleRunGrace=24h，之后没有重扫调用。短时宕机的遗留行被跳过后，当前进程不再自动处理。静态确认。
+  - 修复：`internal/api/ops/runbooks.go` 新增 `StartRunbookStaleRecoverySweep`——后台周期重扫（默认 `RunbookStaleSweepInterval=1h`），每周期以 `olderThan=now-宽限` 重跑 `RecoverStaleRunbookRuns`，使启动时不足宽限被跳过的遗留 running 行在越过宽限后下一周期被收敛；`cmd/server/root.go` 在启动一次恢复后派生该循环（复用同一宽限界，仍不误收另一实例的活跃运行）。
+  - 验证：新增 `internal/api/ops/runbooks_extra_test.go`——`TestRecoverStaleRunbookRuns_WithinGraceSkippedThenReScanConverges`（宽限内跳过→越过宽限重扫收敛→活跃运行保留）、`TestStartRunbookStaleRecoverySweep_ConvergesAndStops`（真实 DB + 短间隔后台重扫把越宽限行收敛为 failed、取消停止）、`TestStartRunbookStaleRecoverySweep_Guards`（nil/未装配 DB/interval<=0 早退）。修复前临时回退 `StartRunbookStaleRecoverySweep` 为 no-op 复现「周期重扫必须把越过宽限的遗留行收敛为 failed」。`go test ./internal/... -count=1` 全量 SUITE_EXIT=0、`go build ./...`、`go vet ./internal/api/ops/... ./cmd/server/...`、`gofmt -l` 清洁。LOCAL VERIFIED。
+  - 已知边界：周期重扫收敛延迟最长为 `RunbookStaleSweepInterval`（越过宽限后下一周期）。宽限 `RunbookStaleRunGrace=24h` 不变——单个 runbook 合法运行超过宽限仍不被自动收敛（属策略决策，需人工处置），与既有语义一致。重扫失败仅记录告警（与启动恢复一致），不阻断后续周期。
 
 - [ ] **AUD-026 · P2 · 修复 · 插件启动不能阻塞其他调用的 deadline**
   - 依赖：—。交付与验收：启动/Describe 的慢插件不应持全控制器状态锁阻塞所有调用；队列等待和启动预算应遵守调用方上下文。
