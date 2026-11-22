@@ -2012,9 +2012,14 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 验证：新增 `internal/ops/deploy/deploy_cancel_aud022_test.go` 的 `TestAdvance_CancelDuringBatchWaitPersistsCompletedTargets`（批 1 换包完成、第二机健康确认点取消 ctx，断言持久化的 targets[0..1]=healthy / targets[2..3]=pending / 发版单仍 deploying，再断言收敛 Advance 到 complete 且 a,b 未被重放）；`fakeAgent` 增 `onHealthy` 钩子实现确定性取消时序。修复前临时回退验证该用例精确复现「取消点前已健康目标必须持久化 / expected "healthy" actual "pending"」。`go test ./internal/ops/deploy/... -count=1` 全绿、`gofmt -l internal/ops/deploy/` 清洁。LOCAL VERIFIED。
   - 已知边界：`BatchWait` 默认 0，默认路径无等待点、该修复不影响默认行为；故本测试按 todo 要求不宣称为默认 HTTP 断连路径。全量 `go test ./internal/...` 在本机 14 核 load 78~92 / swap 打满的外部负载下出现 api/auth、api/function、api/page 三个包 600s 超时与 app/agent `TestDetectDownCarriesSnapshotArtifacts`（5s 事件窗口）假红；四包**隔离重跑全绿**（auth 216s / function 169s / page 247s / agent 59s，`ISOLATED_EXIT=0`），属环境性慢，与本改动无关（本改动仅触及 internal/ops/deploy）。
 
-- [ ] **AUD-023 · P1 · 修复 · 回滚与正在执行的发版互斥并核验实际回滚目标**
+- [x] **AUD-023 · P1 · 修复 · 回滚与正在执行的发版互斥并核验实际回滚目标**（commit 49a831ba2）
   - 依赖：—。交付与验收：正在发版时拒绝或协调回滚；不得在零目标操作时把活跃发版单标为 rolled_back。
   - 状态／条件：deploy.go:230 Rollback 无状态领取；当 DB 中尚为 deploying/pending 时遍历跳过全部目标，返回 nil 并写 rolled_back。正常并行操作场景的回归用例失败。
+  - 修复：`internal/ops/deploy/deploy.go` Rollback 两道闸——(1) `State == deploying` 直接拒绝（发版未收敛、在途批次推进与回滚互斥，中间态目标不可回滚，由调用方在 complete/paused/failed 后重试）；(2) 新增 `operated` 计数，**零目标操作**（全 pending / 目标已全为 RolledBack 的重复回滚）保持原状态并显式报错 `nothing to rollback`，绝不写 rolled_back。
+  - 验证：新增 `internal/ops/deploy/deploy_rollback_aud023_test.go` 三用例——`TestRollback_RefusesWhileDeploying`（CAS 置 deploying + 批 1 a,b 已健康/批 2 c,d pending 的真实在途形态，断言拒绝、状态保持 deploying、目标未被误改、零 apply）、`TestRollback_ZeroTargetsNotFalseSuccess`（draft 全 pending 回滚报错且不写 rolled_back）、`TestRollback_SecondRollbackAfterSuccessRejected`（成功回滚后二次回滚报错且不再 apply）。修复前临时回退 `git checkout -- deploy.go` 验证三用例精确复现缺陷（均为「error expected but got nil」）。
+  - 连带修正既有缺陷钉：`internal/api/ops/deployments_extra_test.go` `TestDeployServiceRollbackBranches` 原本断言「无待回滚目标（全 pending）→ 空转成功 + rolled_back」即本项缺陷的 API 层钉；修复后改为断言 `nothing to rollback` 报错（回退 deploy.go 复验该断言精确复现）。
+  - `go test ./internal/ops/... -count=1` 全绿、`go test ./internal/... -count=1` 全量 **SUITE_EXIT=0**、`go build ./...`、`go vet ./internal/ops/deploy/...`、`gofmt -l` 清洁。既有 `TestRollback_SkipsPendingTargets`（paused 混合目标回滚单目标）与 `TestRollback_ApplyError`（rollback_failed）不受影响。LOCAL VERIFIED。
+  - 已知边界：拒绝经既有 `response.Error` 路径上抛（与 Start 的 `cannot start from state` 同型，统一错误映射），未新增独立 409 映射。paused/failed/rollback_failed（重试失败回滚）仍可回滚，属预期语义。
 
 - [ ] **AUD-024 · P2 · 修复 · Runbook 后台恢复循环按服务生命周期共享并关闭**
   - 依赖：—。交付与验收：终态写入失败重试不应每请求遗留一个后台 worker；写入恢复和服务退出后可正确释放。
