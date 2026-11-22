@@ -51,6 +51,7 @@ using raw_socket_t = SOCKET;
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <unistd.h>
 using raw_socket_t = int;
 #define RAW_INVALID_SOCK (-1)
@@ -2340,6 +2341,156 @@ TEST(TCPTransportBoost4Test, WriteResponseOnClosedSocketDoesNotThrow) {
     ASSERT_GE(fd, 0);
     ::close(fd);  // send() 此后返回 EBADF
     EXPECT_NO_THROW(TCPTransport::WriteResponseOnSocket(fd, protocol::MSG_INVOKE_RESPONSE, 1, {}));
+#endif
+}
+
+TEST(TCPTransportBoost4Test, WriteResponseOnSocketWriteAllSurvivesShortWrite) {
+    // AUD-013：合法短写（非阻塞 socket + 发送缓冲 < 帧长）下 send 返回
+    // 部分字节数——旧实现单次 send 只判负数，正数短写静默返回，尾字节
+    // 永久丢失，对端按长度前缀解析从此错位。write-all 必须循环补写至
+    // 整帧完成（对端持续排空使 EAGAIN 重试前进）。
+#ifdef _WIN32
+    GTEST_SKIP() << "short-write probe is Linux-specific";
+#else
+    int sv[2];
+    ASSERT_EQ(::socketpair(AF_UNIX, SOCK_STREAM, 0, sv), 0);
+    // 发送端非阻塞 + 最小发送缓冲（Linux 下限 2048，内核倍增 4096），
+    // 帧体远大于缓冲 → 首个 send() 必然短写。
+    int sndbuf = 4096;
+    ASSERT_EQ(::setsockopt(sv[0], SOL_SOCKET, SO_SNDBUF, &sndbuf, sizeof(sndbuf)), 0);
+    int flags = ::fcntl(sv[0], F_GETFL, 0);
+    ASSERT_GE(flags, 0);
+    ASSERT_EQ(::fcntl(sv[0], F_SETFL, flags | O_NONBLOCK), 0);
+    // 对端读超时兜底：若 write-all 回归导致整帧缺尾字节，reader 不永久
+    // 阻塞（否则测试挂死而非干净失败），超时后断言 got == total 红。
+    struct timeval tv = {10, 0};
+    ASSERT_EQ(::setsockopt(sv[1], SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)), 0);
+
+    std::vector<uint8_t> body(64 * 1024, 0xAB);
+    auto frame = protocol::NewMessage(protocol::MSG_INVOKE_RESPONSE, 42, body);
+    const size_t total = 4 + frame.size();
+
+    // 对端并发排空：发送缓冲满时 EAGAIN 重试依赖对端读走字节才能前进。
+    std::vector<uint8_t> received(total, 0);
+    size_t got = 0;
+    std::thread reader([&] {
+        char* p = reinterpret_cast<char*>(received.data());
+        while (got < total) {
+            ssize_t n = ::recv(sv[1], p + got, total - got, 0);
+            if (n <= 0) break;
+            got += static_cast<size_t>(n);
+        }
+    });
+    auto mu = std::make_shared<std::mutex>();
+    EXPECT_NO_THROW(TCPTransport::WriteResponseOnSocket(sv[0], protocol::MSG_INVOKE_RESPONSE,
+                                                        42, body, mu));
+    reader.join();
+    raw_closesocket(sv[0]);
+    raw_closesocket(sv[1]);
+    ASSERT_EQ(got, total);
+
+    // 整帧到达：长度前缀 == frame.size()，载荷逐字节等于 NewMessage 产物
+    //（旧实现 here 得到截断帧：got < total 或长度前缀后面的载荷缺尾）。
+    const uint32_t len = (static_cast<uint32_t>(received[0]) << 24) |
+                         (static_cast<uint32_t>(received[1]) << 16) |
+                         (static_cast<uint32_t>(received[2]) << 8) |
+                         static_cast<uint32_t>(received[3]);
+    ASSERT_EQ(len, frame.size());
+    EXPECT_EQ(std::memcmp(received.data() + 4, frame.data(), frame.size()), 0);
+#endif
+}
+
+TEST(TCPTransportBoost4Test, WriteResponseConcurrentFramesStayWhole) {
+    // AUD-013：连接级写锁——多 worker 并发 write-all 无锁时，A 帧的尾半
+    // 与 B 帧的头半会在字节流上拼接，对端按长度前缀解析从此错位。共享
+    // 同一把锁的响应写必须整帧不混：每帧体为线程专属常量字节，读端逐帧
+    // 校验长度前缀 + req_id + 体一致性（交错必然打破体均一性）。
+#ifdef _WIN32
+    GTEST_SKIP() << "concurrent probe is Linux-specific";
+#else
+    int sv[2];
+    ASSERT_EQ(::socketpair(AF_UNIX, SOCK_STREAM, 0, sv), 0);
+    int sndbuf = 4096;
+    ASSERT_EQ(::setsockopt(sv[0], SOL_SOCKET, SO_SNDBUF, &sndbuf, sizeof(sndbuf)), 0);
+    int flags = ::fcntl(sv[0], F_GETFL, 0);
+    ASSERT_GE(flags, 0);
+    ASSERT_EQ(::fcntl(sv[0], F_SETFL, flags | O_NONBLOCK), 0);
+    // 对端读超时兜底：帧交错/缺字节时 reader 不永久阻塞（防测试挂死）。
+    struct timeval tv = {10, 0};
+    ASSERT_EQ(::setsockopt(sv[1], SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)), 0);
+
+    constexpr int kThreads = 8;
+    constexpr int kFramesPerThread = 20;
+    // 帧体 > 发送缓冲：write-all 必跨多次 send，无锁才存在交错机会。
+    constexpr size_t kBodyBytes = 16 * 1024;
+    std::vector<std::vector<uint8_t>> bodies(static_cast<size_t>(kThreads));
+    for (int t = 0; t < kThreads; ++t) {
+        bodies[static_cast<size_t>(t)].assign(kBodyBytes, static_cast<uint8_t>(t + 1));
+    }
+
+    auto mu = std::make_shared<std::mutex>();
+    const size_t frame_total = 4 + protocol::HEADER_SIZE + kBodyBytes;
+    const size_t expect =
+        static_cast<size_t>(kThreads) * kFramesPerThread * frame_total;
+
+    std::vector<uint8_t> all;
+    all.reserve(expect);
+    // 对端排空线程（writer join 前必须并发读，否则缓冲满 EAGAIN 永不前进）。
+    std::thread reader([&] {
+        std::vector<uint8_t> buf(64 * 1024);
+        while (all.size() < expect) {
+            ssize_t n = ::recv(sv[1], buf.data(), buf.size(), 0);
+            if (n <= 0) break;
+            all.insert(all.end(), buf.begin(), buf.begin() + n);
+        }
+    });
+
+    std::vector<std::thread> writers;
+    for (int t = 0; t < kThreads; ++t) {
+        writers.emplace_back([&, t] {
+            for (int i = 0; i < kFramesPerThread; ++i) {
+                TCPTransport::WriteResponseOnSocket(
+                    sv[0], protocol::MSG_INVOKE_RESPONSE,
+                    static_cast<uint32_t>(t * 1000 + i),
+                    bodies[static_cast<size_t>(t)], mu);
+            }
+        });
+    }
+    for (auto& w : writers) w.join();
+    reader.join();
+    raw_closesocket(sv[0]);
+    raw_closesocket(sv[1]);
+    ASSERT_EQ(all.size(), expect);
+
+    // 逐帧校验：长度前缀一致、req_id 解码回线程号、体全为该线程专属字节。
+    std::vector<int> seen(static_cast<size_t>(kThreads), 0);
+    size_t off = 0;
+    while (off < all.size()) {
+        ASSERT_LE(off + 4, all.size());
+        const uint32_t len = (static_cast<uint32_t>(all[off]) << 24) |
+                             (static_cast<uint32_t>(all[off + 1]) << 16) |
+                             (static_cast<uint32_t>(all[off + 2]) << 8) |
+                             static_cast<uint32_t>(all[off + 3]);
+        ASSERT_EQ(len, protocol::HEADER_SIZE + kBodyBytes);
+        ASSERT_LE(off + 4 + len, all.size());
+        const uint8_t* payload = all.data() + off + 4;
+        const uint32_t req_id = (static_cast<uint32_t>(payload[4]) << 24) |
+                                (static_cast<uint32_t>(payload[5]) << 16) |
+                                (static_cast<uint32_t>(payload[6]) << 8) |
+                                static_cast<uint32_t>(payload[7]);
+        const int t = static_cast<int>(req_id / 1000);
+        ASSERT_GE(t, 0);
+        ASSERT_LT(t, kThreads);
+        for (size_t i = protocol::HEADER_SIZE; i < len; ++i) {
+            ASSERT_EQ(payload[i], static_cast<uint8_t>(t + 1))
+                << "frame req_id=" << req_id << " byte=" << i;
+        }
+        ++seen[static_cast<size_t>(t)];
+        off += 4 + len;
+    }
+    for (int t = 0; t < kThreads; ++t) {
+        EXPECT_EQ(seen[static_cast<size_t>(t)], kFramesPerThread);
+    }
 #endif
 }
 

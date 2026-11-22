@@ -118,6 +118,19 @@ public:
     void DispatchInbound(uint32_t msg_id, uint32_t req_id, std::vector<uint8_t> body);
     static void WriteResponseOnSocket(socket_t sock, uint32_t resp_msg_id, uint32_t req_id,
                                        const std::vector<uint8_t>& body);
+    // AUD-013：带连接级写锁版本——write-all 完整写帧并在锁内串行化同一
+    // socket 的全部写（4 参委托版无锁，仅供单写者/测试路径）。Call 请求
+    // 帧经 WriteAll(write_mu_) 与响应帧共用同一把锁，避免并发写交错。
+    static void WriteResponseOnSocket(socket_t sock, uint32_t resp_msg_id, uint32_t req_id,
+                                       const std::vector<uint8_t>& body,
+                                       const std::shared_ptr<std::mutex>& write_mu);
+    // AUD-013：write-all 写帧——循环 send 至写完（单次 send 只判负会静默
+    // 丢短写尾字节）；EINTR 立即重试、EAGAIN/EWOULDBLOCK 短暂休眠重试
+    // （阻塞 socket 不触发，防非阻塞边角自旋）；真错误记录并返回 false。
+    // write_mu 非空时在锁内完成整帧写（连接级串行化）。
+    static bool WriteAll(socket_t sock, const char* data, size_t len,
+                         const std::shared_ptr<std::mutex>& write_mu,
+                         const char* what);
     static int InboundWorkerCount();
     // 覆盖默认入站 worker 数（单线程游戏服设 1 = 串行模式：handler
     // 顺序执行互不并发）。<=0 恢复默认（硬件并发，最少 2）。
@@ -178,6 +191,10 @@ private:
         std::vector<std::thread> threads;
         InboundHandler handler;
         socket_t sock = INVALID_SOCKET_VALUE;
+        // AUD-013：连接级写锁（与 TCPTransport::write_mu_ 同一对象）。worker
+        // 只持 InboundPool（shared_ptr，不捕获 this），经此触达同一锁，与
+        // Call 的写帧串行化——并发写同一 socket 无锁会交错字节流。
+        std::shared_ptr<std::mutex> write_mu;
     };
 
     std::string host_;
@@ -185,6 +202,11 @@ private:
     int timeout_ms_;
     int connect_timeout_ms_;  // Separate timeout for connection attempts
     socket_t socket_;
+    // AUD-013：连接级写锁——Call 请求帧与入站响应帧（pool worker）共用
+    // 同一把锁，串行化对同一 socket 的全部写。shared_ptr：worker 只持
+    // InboundPool（不捕获 this），经 pool->write_mu 触达同一锁。构造时
+    // 建立，move 时随池一并转移。
+    std::shared_ptr<std::mutex> write_mu_;
     std::atomic<bool> connected_;
     std::atomic<bool> closing_;
     bool close_called_ = false;  // Close() 幂等：显式 Close + 析构 Close 双跑防护

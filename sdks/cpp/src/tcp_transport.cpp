@@ -5,10 +5,12 @@
 
 #include "croupier/sdk/tcp_transport.h"
 #include <algorithm>
+#include <chrono>
 #include <stdexcept>
 #include <cstring>
 #include <cstddef>
 #include <iostream>
+#include <thread>
 
 #ifdef _WIN32
 #include <winsock2.h>
@@ -41,6 +43,7 @@ TCPTransport::TCPTransport(const std::string& host, int port, int timeout_ms)
       timeout_ms_(timeout_ms),
       connect_timeout_ms_(timeout_ms),
       socket_(INVALID_SOCKET_VALUE),
+      write_mu_(std::make_shared<std::mutex>()),
       connected_(false),
       closing_(false),
       next_req_id_(1) {
@@ -67,6 +70,7 @@ TCPTransport::TCPTransport(TCPTransport&& other) noexcept
       timeout_ms_(other.timeout_ms_),
       connect_timeout_ms_(other.connect_timeout_ms_),
       socket_(other.socket_),
+      write_mu_(std::move(other.write_mu_)),
       connected_(other.connected_.load()),
       closing_(other.closing_.load()),
       next_req_id_(other.next_req_id_.load()),
@@ -80,6 +84,11 @@ TCPTransport::TCPTransport(TCPTransport&& other) noexcept
     other.socket_ = INVALID_SOCKET_VALUE;
     other.connected_ = false;
     other.close_called_ = true;  // 源对象已掏空，析构 Close 直通 no-op
+    // 被 move 走的源（或被 move 空的源）没有写锁：补一把，保证任何
+    // 后续 Connect/Call/响应写都有锁可用（不会退化为无锁并发写）。
+    if (!write_mu_) {
+        write_mu_ = std::make_shared<std::mutex>();
+    }
 }
 
 TCPTransport& TCPTransport::operator=(TCPTransport&& other) noexcept {
@@ -91,6 +100,7 @@ TCPTransport& TCPTransport::operator=(TCPTransport&& other) noexcept {
         timeout_ms_ = other.timeout_ms_;
         connect_timeout_ms_ = other.connect_timeout_ms_;
         socket_ = other.socket_;
+        write_mu_ = std::move(other.write_mu_);
         connected_ = other.connected_.load();
         closing_ = other.closing_.load();
         next_req_id_ = other.next_req_id_.load();
@@ -105,6 +115,9 @@ TCPTransport& TCPTransport::operator=(TCPTransport&& other) noexcept {
         other.socket_ = INVALID_SOCKET_VALUE;
         other.connected_ = false;
         other.close_called_ = true;
+        if (!write_mu_) {
+            write_mu_ = std::make_shared<std::mutex>();
+        }
     }
     return *this;
 }
@@ -426,10 +439,10 @@ std::pair<uint32_t, std::vector<uint8_t>> TCPTransport::Call(
     // Request body
     std::memcpy(frame.data() + 12, data.data(), data.size());
 
-    // Send frame
-    ssize_t sent = send(socket_, reinterpret_cast<const char*>(frame.data()),
-                       frame.size(), 0);
-    if (sent != static_cast<ssize_t>(frame.size())) {
+    // Send frame (AUD-013：write-all 在连接级写锁内完成——与入站响应
+    // 帧共用 write_mu_，否则并发的响应写会把请求帧字节流交错切断)。
+    if (!WriteAll(socket_, reinterpret_cast<const char*>(frame.data()),
+                  frame.size(), write_mu_, "request frame")) {
         // Clean up pending response
         std::lock_guard<std::mutex> lock(pending_mutex_);
         pending_responses_.erase(req_id);
@@ -491,6 +504,63 @@ std::pair<uint32_t, std::vector<uint8_t>> TCPTransport::Call(
         pending_responses_.erase(req_id);
     }
     throw std::runtime_error("Timeout waiting for response");
+}
+
+bool TCPTransport::WriteAll(socket_t sock, const char* data, size_t len,
+                            const std::shared_ptr<std::mutex>& write_mu,
+                            const char* what) {
+    if (sock == INVALID_SOCKET_VALUE) {
+        return false;
+    }
+    if (len == 0) {
+        return true;
+    }
+    // 连接级写锁：串行化同一 socket 上的全部写（Call 请求帧 + 入站响应
+    // 帧），否则并发 write-all 循环会在字节流上交错帧，破坏长度前缀协议。
+    // 锁必须活到整帧写完（lock_guard 写进 if 块会在块尾立即释放，等于
+    // 没锁——并发测试实证抓到过这一版）；write_mu 为空（4 参兼容版）时
+    // 无锁直写，仅单写者/测试路径。
+    std::unique_lock<std::mutex> lock;
+    if (write_mu) {
+        lock = std::unique_lock<std::mutex>(*write_mu);
+    }
+    size_t offset = 0;
+    while (offset < len) {
+        ssize_t n = send(sock, data + offset, static_cast<int>(len - offset), 0);
+        if (n < 0) {
+#ifdef _WIN32
+            int err = WSAGetLastError();
+            if (err == WSAEINTR) continue;
+            if (err == WSAEWOULDBLOCK) {
+                // 非阻塞 socket 发送缓冲满：短暂等待后重试（阻塞 socket
+                // 不触发，防非阻塞边角自旋）。
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                continue;
+            }
+#else
+            if (errno == EINTR) continue;
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                continue;
+            }
+#endif
+            std::cerr << "[WARN] TCPTransport: " << what << " write failed offset=" << offset
+                      << " err="
+#ifdef _WIN32
+                      << WSAGetLastError()
+#else
+                      << errno
+#endif
+                      << '\n';
+            return false;
+        }
+        if (n == 0) {
+            std::cerr << "[WARN] TCPTransport: " << what << " write returned 0\n";
+            return false;
+        }
+        offset += static_cast<size_t>(n);
+    }
+    return true;
 }
 
 void TCPTransport::ReadLoop() {

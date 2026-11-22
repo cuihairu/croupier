@@ -91,7 +91,10 @@ void TCPTransport::StartPoolWorkers(const std::shared_ptr<InboundPool>& pool, in
                     std::cerr << "[ERROR] inbound handler: " << e.what() << '\n';
                     resp.clear();
                 }
-                WriteResponseOnSocket(owned->sock, protocol::GetResponseMsgID(mid), rid, resp);
+                // AUD-013：5 参版持连接级写锁 write-all——多 worker 并发
+                // 响应写不锁会交错字节流、破坏帧边界。
+                WriteResponseOnSocket(owned->sock, protocol::GetResponseMsgID(mid), rid, resp,
+                                      owned->write_mu);
                 owned->queued.fetch_sub(1);
             }
         });
@@ -121,6 +124,8 @@ void TCPTransport::DispatchInbound(uint32_t msg_id, uint32_t req_id, std::vector
             control_pool_ = std::make_shared<InboundPool>();
             control_pool_->handler = inbound_handler_;
             control_pool_->sock = socket_;
+            // AUD-013：响应写与 Call 共用连接级写锁（同一 socket）。
+            control_pool_->write_mu = write_mu_;
             StartPoolWorkers(control_pool_, 1);
         }
         EnqueueOnPool(control_pool_, msg_id, req_id, std::move(body));
@@ -131,13 +136,15 @@ void TCPTransport::DispatchInbound(uint32_t msg_id, uint32_t req_id, std::vector
         inbound_pool_ = std::make_shared<InboundPool>();
         inbound_pool_->handler = inbound_handler_;
         inbound_pool_->sock = socket_;
+        inbound_pool_->write_mu = write_mu_;  // AUD-013：同一连接级写锁
         StartPoolWorkers(inbound_pool_, InboundWorkerCount());
     }
     const int workers = InboundWorkerCount();
     if (inbound_pool_->queued.load() >= workers * 4) {
         // 队列满：立即回空响应，Agent 侧 failover 接管。
         std::cerr << "[WARN] inbound queue full, fast-failing req_id=" << req_id << '\n';
-        WriteResponseOnSocket(socket_, protocol::GetResponseMsgID(msg_id), req_id, {});
+        // AUD-013：与 worker 响应写同一把连接级写锁。
+        WriteResponseOnSocket(socket_, protocol::GetResponseMsgID(msg_id), req_id, {}, write_mu_);
         return;
     }
     EnqueueOnPool(inbound_pool_, msg_id, req_id, std::move(body));
@@ -145,8 +152,16 @@ void TCPTransport::DispatchInbound(uint32_t msg_id, uint32_t req_id, std::vector
 
 // WriteResponseOnSocket 向指定 fd 尽力写一帧（fd 已关闭时仅返回 EBADF，
 // 不影响调用方）。静态函数：worker 持 pool->sock 值，析构后仍安全。
+// AUD-013：4 参版保留兼容（无连接锁，仅单写者/测试路径）；真实响应
+// 写一律走 5 参版（连接级写锁 + write-all）。
 void TCPTransport::WriteResponseOnSocket(socket_t sock, uint32_t resp_msg_id, uint32_t req_id,
                                          const std::vector<uint8_t>& body) {
+    WriteResponseOnSocket(sock, resp_msg_id, req_id, body, nullptr);
+}
+
+void TCPTransport::WriteResponseOnSocket(socket_t sock, uint32_t resp_msg_id, uint32_t req_id,
+                                         const std::vector<uint8_t>& body,
+                                         const std::shared_ptr<std::mutex>& write_mu) {
     if (sock == INVALID_SOCKET_VALUE) {
         return;
     }
@@ -158,20 +173,13 @@ void TCPTransport::WriteResponseOnSocket(socket_t sock, uint32_t resp_msg_id, ui
         wrapped[2] = static_cast<uint8_t>((frame.size() >> 8) & 0xFF);
         wrapped[3] = static_cast<uint8_t>(frame.size() & 0xFF);
         std::memcpy(wrapped.data() + 4, frame.data(), frame.size());
-        // C-014：send 返回值/异常不再整体吞掉——失败至少记录日志（fd 已
-        // 关闭仍返回 EBADF 且不影响调用方，但错误不再不可见；不再裸
-        // (void)send）。
-        int sent = send(sock, reinterpret_cast<const char*>(wrapped.data()),
-                        static_cast<int>(wrapped.size()), 0);
-        if (sent < 0) {
-#ifdef _WIN32
-            std::cerr << "[WARN] TCPTransport: write response frame failed req_id=" << req_id
-                      << " err=" << WSAGetLastError() << '\n';
-#else
-            std::cerr << "[WARN] TCPTransport: write response frame failed req_id=" << req_id
-                      << " err=" << errno << '\n';
-#endif
-        }
+        // AUD-013：write-all 循环写完整帧——C-014 只保证失败可见，单次
+        // send 的合法短写（阻塞 socket 被信号打断 / 非阻塞发送缓冲不足）
+        // 返回部分字节数后旧实现静默返回，对端帧解析从此错位。write_mu
+        // 非空时在连接级锁内完成整帧写。失败已在 WriteAll 内记录（best-
+        // effort 语义保留：不抛，对端按帧不完整/超时收口）。
+        WriteAll(sock, reinterpret_cast<const char*>(wrapped.data()), wrapped.size(),
+                 write_mu, "response frame");
     } catch (const std::exception& e) {
         std::cerr << "[WARN] TCPTransport: write response frame exception req_id=" << req_id
                   << " what=" << e.what() << '\n';
