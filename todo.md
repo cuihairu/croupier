@@ -2004,9 +2004,13 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 完成证据：`git show 88ef0f821 --stat`（2 files, 31 insertions, 9 deletions）。
   - 已知边界：行为修复非 schema 变更，无 goose 迁移。IPv4 分支行为不变。测试走 open seam 的 fake PacketConn，未覆盖真实 raw socket 回包（本环境无 CAP_NET_RAW，`TestICMPCheckerLoopbackSuccessWithRawCapability` 本就 SKIP）。
 
-- [ ] **AUD-022 · P2 · 修复 · 部署编排在可取消等待前持久化已完成目标**
+- [x] **AUD-022 · P2 · 修复 · 部署编排在可取消等待前持久化已完成目标**（commit 46e465016）
   - 依赖：—。交付与验收：编排器被取消时保留已换包/已健康的目标事实，不能退回 pending；明确中断后的收敛策略。
   - 状态／条件：deploy.go:213-220 在 BatchWait 后才 saveTargets；直接调用编排器，在完成换包后取消，存储仍为 pending。该等待选项默认关闭；不能将此测试宣称为默认 HTTP 断连路径。
+  - 修复：`internal/ops/deploy/deploy.go` Advance 把「本批全部健康」后的 `saveTargets` + `store.Update` **提到批次等待之前**，使等待成为纯可取消点；落库改用 `context.WithoutCancel(ctx)`，取消与本次写入并发时不再吃掉已换包/已健康的事实。
+  - 收敛策略：等待中被取消时发版单**保持 deploying** 并返回 `ctx.Err()`；已健康的本批目标在再次 Advance 时被 `t.State != pending` 跳过，`nextBatch` 推进下一批，不重放已换包目标。
+  - 验证：新增 `internal/ops/deploy/deploy_cancel_aud022_test.go` 的 `TestAdvance_CancelDuringBatchWaitPersistsCompletedTargets`（批 1 换包完成、第二机健康确认点取消 ctx，断言持久化的 targets[0..1]=healthy / targets[2..3]=pending / 发版单仍 deploying，再断言收敛 Advance 到 complete 且 a,b 未被重放）；`fakeAgent` 增 `onHealthy` 钩子实现确定性取消时序。修复前临时回退验证该用例精确复现「取消点前已健康目标必须持久化 / expected "healthy" actual "pending"」。`go test ./internal/ops/deploy/... -count=1` 全绿、`gofmt -l internal/ops/deploy/` 清洁。LOCAL VERIFIED。
+  - 已知边界：`BatchWait` 默认 0，默认路径无等待点、该修复不影响默认行为；故本测试按 todo 要求不宣称为默认 HTTP 断连路径。全量 `go test ./internal/...` 在本机 14 核 load 78~92 / swap 打满的外部负载下出现 api/auth、api/function、api/page 三个包 600s 超时与 app/agent `TestDetectDownCarriesSnapshotArtifacts`（5s 事件窗口）假红；四包**隔离重跑全绿**（auth 216s / function 169s / page 247s / agent 59s，`ISOLATED_EXIT=0`），属环境性慢，与本改动无关（本改动仅触及 internal/ops/deploy）。
 
 - [ ] **AUD-023 · P1 · 修复 · 回滚与正在执行的发版互斥并核验实际回滚目标**
   - 依赖：—。交付与验收：正在发版时拒绝或协调回滚；不得在零目标操作时把活跃发版单标为 rolled_back。
