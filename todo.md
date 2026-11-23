@@ -2205,9 +2205,11 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 验证：`go test ./internal/api/config/ -count=1` 全绿（`watch_test.go` 新增 `TestPublicHandler_List_RequiresScope`（缺参/半参→400）与 `TestPublicHandler_List_CrossScopeEmpty`（跨 game/env 越权负例→空）；`coverage_v9_test.go` 既有用例同步 scope 参数）；`go test ./internal/... -count=1` 全绿；`go build ./internal/...` 0 错。既有消费方：仓库内无 SDK/web 调用该端点（仅 docs 设计引用），改必填不破坏存量客户端。
   - 完成证据：commit `906ae9e42`（`internal/api/config/watch.go` 按 game/env 过滤 + `coverage_v9_test.go`/`watch_test.go`）；`go test ./internal/... -count=1` 全绿。
 
-- [ ] **AUD-038 · P1 · 修复 · Approve/Reject 增加审批权限与两人规则执行**
+- [x] **AUD-038 · P1 · 修复 · Approve/Reject 增加审批权限与两人规则执行**
   - 依赖：—。交付与验收：`internal/api/approval/service.go:216-231` 加显式审批权限检查；`two_person` policy 从描述性数据变为运行时强制两个不同授权主体；带低权限拒绝与同主体二次批准拒绝用例。
-  - 状态／条件：2026-11-16 复核属实——只校验登录/scope/自批/可选 OTP。
+  - 状态／条件：**DONE · LOCAL VERIFIED（2026-11-23，commit a67555e8b）**：Approve/Reject 各加 `requireApprovalPermission`（`utils.RequireAnyPermission`，admin:all/`approvals:write`；PermissionService/AdminModel 缺位=测试最小上下文跳过，生产 NewServiceContext 恒装即强制）。`two_person` 运行时执行：创建时 `policy.Policy.ApprovalWorkflow` 烙进 `Approval.Metadata["approvalPolicy"]`（nil metadata 初始化防 panic，旧记录无键由全局自批开关照常治理）；审批处理时 `rejectSelfApproval` 对 two_person 策略覆盖全局 allowSelfApprove——自批开关开也不放行同主体（blocked_by_two_person → self_approval_forbidden）。`configs/permissions.json` 增补 `approvals:read`/`approvals:write`（seedBootstrapPermissions 幂等落库，新增权限不自动授予既有角色）。
+  - 验证：`go test ./internal/api/approval/ ./internal/platform/functioninvoke/ ./internal/platform/approvals/ -count=1` 全绿（新增 `two_person_permission_test.go` 206 行：低权限 approve/reject 403、持 `approvals:write` 放行、two_person 自批拒绝（allowSelfApprove=true 也不放行）、不同主体放行；`TestCreateFunctionApprovalStampsApprovalPolicy`：nil metadata 烙印、请求 metadata 保留、空 workflow 不烙印）；`go test ./internal/... -count=1` 全绿（exit 0）；`go build ./internal/...` 0 错；`bash scripts/dashboard_vnext_guard.sh` PASSED。已知边界：旧审批记录无 `approvalPolicy` 键→由全局自批开关照常治理（无 two_person 强制）；`approvals:write` 需角色显式授权；本条目不做审批操作二次认证/OTP 强制（既有可选 OTP 链保留）。
+  - 完成证据：commit `a67555e8b`（`internal/api/approval/service.go` + `internal/api/approval/two_person_permission_test.go` + `internal/platform/functioninvoke/approval.go` + `internal/platform/functioninvoke/invoke_extra_test.go` + `internal/platform/approvals/store.go` + `configs/permissions.json`，+334/-5）；`go test ./internal/... -count=1` 全绿。
 
 - [ ] **AUD-039 · P1 · 修复 · Storage 管理面挂服务层 RBAC**
   - 依赖：—。交付与验收：`internal/handler/routes_storage.go` signed-url/list/upload/delete/batch-delete/目录操作挂 `RequireAnyPermission`（先粗粒度，前缀 ABAC 后续拆）；带 403 用例。
