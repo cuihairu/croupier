@@ -14,9 +14,9 @@
   - 依赖：—。交付与验收：固定参数位置、名称、必填、序列化方式及请求体媒体类型的表达。用 fixture 表达 path、query、header、cookie，以及同名参数和根数组 body；明确旧平铺契约的兼容边界。
   - 状态／条件：已验收，提交 `b7da47007`。请求契约说明和共享 fixture 已通过格式检查。
 
-- [ ] **SUI-002 · P0 · 实现 · 保真提取 Source 请求契约**
+- [x] **SUI-002 · P0 · 实现 · 保真提取 Source 请求契约**
   - 依赖：SUI-001。交付与验收：提取 operation 与 path-item 参数及完整 body schema。回归样例覆盖 query/body 同名、必填 header、根数组和 body 根级约束，派生结果逐项可追溯。
-  - 状态／条件：提取 operation 与 path-item 参数及完整 body schema
+  - 状态／条件：已验收，提交 `0cb2b088f`。上传并从数据库重读后验证继承、覆盖、必填 header、同名字段和请求体根约束。
 
 - [ ] **SUI-003 · P0 · 实现 · Provider 复用统一请求提取**
   - 依赖：SUI-001, SUI-002。交付与验收：同一 3.x fixture 经上传与运行时发现得到相同的规范请求。既有 Provider 配置和 Swagger 2.0 兼容用例通过。
