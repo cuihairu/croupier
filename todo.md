@@ -2211,9 +2211,11 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 验证：`go test ./internal/api/approval/ ./internal/platform/functioninvoke/ ./internal/platform/approvals/ -count=1` 全绿（新增 `two_person_permission_test.go` 206 行：低权限 approve/reject 403、持 `approvals:write` 放行、two_person 自批拒绝（allowSelfApprove=true 也不放行）、不同主体放行；`TestCreateFunctionApprovalStampsApprovalPolicy`：nil metadata 烙印、请求 metadata 保留、空 workflow 不烙印）；`go test ./internal/... -count=1` 全绿（exit 0）；`go build ./internal/...` 0 错；`bash scripts/dashboard_vnext_guard.sh` PASSED。已知边界：旧审批记录无 `approvalPolicy` 键→由全局自批开关照常治理（无 two_person 强制）；`approvals:write` 需角色显式授权；本条目不做审批操作二次认证/OTP 强制（既有可选 OTP 链保留）。
   - 完成证据：commit `a67555e8b`（`internal/api/approval/service.go` + `internal/api/approval/two_person_permission_test.go` + `internal/platform/functioninvoke/approval.go` + `internal/platform/functioninvoke/invoke_extra_test.go` + `internal/platform/approvals/store.go` + `configs/permissions.json`，+334/-5）；`go test ./internal/... -count=1` 全绿。
 
-- [ ] **AUD-039 · P1 · 修复 · Storage 管理面挂服务层 RBAC**
+- [x] **AUD-039 · P1 · 修复 · Storage 管理面挂服务层 RBAC**
   - 依赖：—。交付与验收：`internal/handler/routes_storage.go` signed-url/list/upload/delete/batch-delete/目录操作挂 `RequireAnyPermission`（先粗粒度，前缀 ABAC 后续拆）；带 403 用例。
-  - 状态／条件：2026-11-16 复核属实——仅 Authority，任何登录用户可全量读写删。
+  - 状态／条件：**DONE · LOCAL VERIFIED（2026-11-23，commit 1b7953234）**：AUD-016 已为签名链接（requireSignedPermission，受保护前缀走 backup:read）与五个写面（Upload/Delete/BatchDelete/CreateDir/RenameDir，requireStoragePermission=admin:all|`uploads:write`）挂门禁；本条补齐唯一漏挂的**列表面** `ListObjects`——加 `requireStoragePermission`（先粗粒度，整个存储管理面统一 admin:all|`uploads:write`），任何登录用户不再可枚举全库对象（含 backups/、releases/ 平台维护对象名）。前缀级 ABAC 后续拆。
+  - 验证：`go test ./internal/api/storage/ -count=1` 全绿（新增 `aud039_list_permission_test.go` 52 行：零角色列表 403 `permission_denied`、超管对照放行、仅持 `uploads:write` 操作员列表放行且能看到已上传对象）；`go test ./internal/... -count=1` 全绿（exit 0）；`go vet ./internal/api/storage/` 清洁；`bash scripts/dashboard_vnext_guard.sh` PASSED。已知边界：列表面用与写面同一粗粒度权限（读/写未拆，持 `uploads:write` 即可列表）；前缀级 ABAC（按路径域细分权限）留待后续；签名面受保护前缀仍按 backup:read 细分（AUD-016 已有）。
+  - 完成证据：commit `1b7953234`（`internal/api/storage/service.go` ListObjects 挂 requireStoragePermission + `internal/api/storage/aud039_list_permission_test.go`）；`go test ./internal/... -count=1` 全绿。
 
 - [ ] **AUD-040 · P1 · 修复 · TCP agent 注册加凭据校验**
   - 依赖：部署策略确认（shared token vs 既有 mTLS）。交付与验收：`internal/server/tcp_listener.go:486-541` register 校验 token 或 mTLS client identity + game/env 授权；insecure 默认值收紧须兼容存量部署并守配置契约（lowerCamelCase）。
