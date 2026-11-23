@@ -37,7 +37,8 @@ func (h *Handler) TestAuthConnection(c *gin.Context) {
 	switch strings.ToLower(strings.TrimSpace(req.Kind)) {
 	case "ldap":
 		if !cfg.LDAP.Enabled {
-			response.Error(c, fmt.Errorf("ldap 未启用（先保存 enabled=true 再测试）"))
+			// AUD-047：未启用是请求前置条件不满足，按 400 呈现而非 opaque 500。
+			response.BadRequest(c, "ldap 未启用（先保存 enabled=true 再测试）")
 			return
 		}
 		if err := testLDAPConnect(c.Request.Context(), cfg.LDAP); err != nil {
@@ -47,7 +48,8 @@ func (h *Handler) TestAuthConnection(c *gin.Context) {
 		response.Success(c, gin.H{"ok": true, "message": "LDAP 连接成功（bind 通过）"})
 	case "oidc":
 		if !cfg.OIDC.Enabled {
-			response.Error(c, fmt.Errorf("oidc 未启用（先保存 enabled=true 再测试）"))
+			// AUD-047：同 ldap——未启用按 400 呈现。
+			response.BadRequest(c, "oidc 未启用（先保存 enabled=true 再测试）")
 			return
 		}
 		if err := testOIDCDiscovery(cfg.OIDC); err != nil {

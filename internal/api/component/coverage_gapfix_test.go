@@ -88,7 +88,7 @@ func TestGapfixSeedDemoConstants_TemplateBuildError(t *testing.T) {
 
 	w := doReq(r, http.MethodPost, "/api/v1/component-templates/seed-demo-constants", "")
 	require.Equal(t, http.StatusInternalServerError, w.Code)
-	assert.Contains(t, w.Body.String(), "injected seed marshal failure")
+	assert.Contains(t, w.Body.String(), "internal_error") // AUD-047 opaque：原文只进日志
 
 	var total int64
 	require.NoError(t, db.Model(&model.ComponentTemplate{}).Count(&total).Error)
@@ -150,7 +150,7 @@ func TestGapfixRegenerateHandler_ServiceError(t *testing.T) {
 
 	w := doReq(r, http.MethodPost, "/api/v1/component-templates/regenerate", "")
 	require.Equal(t, http.StatusInternalServerError, w.Code)
-	assert.Contains(t, w.Body.String(), "injected regenerate failure")
+	assert.Contains(t, w.Body.String(), "internal_error") // AUD-047 opaque：原文只进日志
 }
 
 // validateTemplateParams：规范化 marshal 失败 → 返回错误。

@@ -66,7 +66,8 @@ func TestGapfixService_List_FilterError(t *testing.T) {
 }
 
 // ListFunctions handler 的错误分支：service.List 失败按非 errorx 错误
-// 以 500 internal_error 兜底，message 透传底层错误文本。
+// 以 500 internal_error 兜底；AUD-047 opaque——底层错误文本只进日志，
+// body 为稳定文案 + 追踪号。
 func TestGapfixHandler_ListFunctions_ServiceError(t *testing.T) {
 	router := newGapfixRouter(newFaultService(errors.New("store filter boom"), nil))
 
@@ -78,8 +79,8 @@ func TestGapfixHandler_ListFunctions_ServiceError(t *testing.T) {
 	body := map[string]interface{}{}
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
 	assert.Equal(t, "internal_error", body["error"])
-	msg, _ := body["message"].(string)
-	assert.Contains(t, msg, "filter functions")
+	assert.NotContains(t, w.Body.String(), "filter functions")
+	assert.NotContains(t, w.Body.String(), "store filter boom")
 }
 
 // RegisterFunction handler 的错误分支：service.Register 失败映射为

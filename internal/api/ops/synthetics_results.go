@@ -1,9 +1,9 @@
 package ops
 
 import (
-	"errors"
 	"strconv"
 
+	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/common/response"
 	"github.com/cuihairu/croupier/internal/model"
 	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
@@ -35,7 +35,8 @@ type SyntheticsResultsResponse struct {
 func (h *Handler) SyntheticsResults(c *gin.Context) {
 	gameID, env := c.Query("gameId"), c.Query("env")
 	if gameID == "" || env == "" {
-		response.Error(c, errors.New("gameId and env are required"))
+		// AUD-047：缺参是客户端输入错误，按 400 呈现而非落 opaque 500。
+		response.Error(c, errorx.NewBadRequest("gameId and env are required"))
 		return
 	}
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "100"))

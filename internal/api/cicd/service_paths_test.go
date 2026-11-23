@@ -280,8 +280,9 @@ func TestCicdService_TriggerErrorPaths(t *testing.T) {
 		id := seedRowIntegration(t, db, "bogus-provider", "http://ci.internal", nil)
 
 		w := doCicd(r, http.MethodPost, "/cicd/integrations/"+itoa(id)+"/trigger", `{"pipeline":"pack"}`)
-		// 未知 kind 由 provider 注册表返回裸 error（非 errorx）→ 500
-		assert.Equal(t, http.StatusInternalServerError, w.Code, w.Body.String())
+		// AUD-047：provider 构造失败（未知 kind）是接入配置问题，Trigger 与
+		// Create/Update 同口径按 400 呈现（不落 opaque 500）。
+		assert.Equal(t, http.StatusBadRequest, w.Code, w.Body.String())
 		assert.Contains(t, w.Body.String(), "unknown cicd provider kind")
 	})
 }

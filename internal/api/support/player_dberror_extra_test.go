@@ -51,7 +51,7 @@ func TestListFAQs_DBError(t *testing.T) {
 	c, w := playerReq(http.MethodGet, "/public/support/faqs", "")
 	h.ListFAQs(c)
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
-	assert.Contains(t, w.Body.String(), "forced db failure")
+	assert.Contains(t, w.Body.String(), "internal_error") // AUD-047 opaque：原文只进日志
 }
 
 func TestCreateTicket_DBError(t *testing.T) {
@@ -60,7 +60,7 @@ func TestCreateTicket_DBError(t *testing.T) {
 		`{"title":"t","content":"c","playerId":"p-1"}`)
 	h.CreateTicket(c)
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
-	assert.Contains(t, w.Body.String(), "forced db failure")
+	assert.Contains(t, w.Body.String(), "internal_error") // AUD-047 opaque：原文只进日志
 }
 
 func TestListMyTickets_DBError(t *testing.T) {
@@ -68,5 +68,5 @@ func TestListMyTickets_DBError(t *testing.T) {
 	c, w := playerReq(http.MethodGet, "/public/support/tickets?playerId=p-1", "")
 	h.ListMyTickets(c)
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
-	assert.Contains(t, w.Body.String(), "forced db failure")
+	assert.Contains(t, w.Body.String(), "internal_error") // AUD-047 opaque：原文只进日志
 }

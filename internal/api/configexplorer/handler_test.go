@@ -148,13 +148,13 @@ func TestUpsertBinding_Errors(t *testing.T) {
 	// 非法类型。
 	rec := doJSON(r, http.MethodPost, "/api/v1/config-explorer/sources",
 		`{"gameId":"demo","env":"prod","name":"bad","type":"ftp","config":"{}"}`)
-	assert.Equal(t, http.StatusInternalServerError, rec.Code)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
 	assert.Contains(t, rec.Body.String(), "invalid config source type")
 
 	// 缺字段。
 	rec = doJSON(r, http.MethodPost, "/api/v1/config-explorer/sources",
 		`{"gameId":"demo","env":"prod","type":"redis"}`)
-	assert.Equal(t, http.StatusInternalServerError, rec.Code)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
 	assert.Contains(t, rec.Body.String(), "gameId/env/name required")
 
 	// 空 body。
@@ -228,10 +228,11 @@ func TestTreeAndRead_CroupierSource(t *testing.T) {
 	assert.True(t, file.Writable)
 	assert.Equal(t, int64(len(`{"gold":100}`)), file.Size)
 
-	// 不存在的 key。
+	// 不存在的 key：configsource 源头仍是裸 error → AUD-047 opaque 500
+	// （原文只进日志；分类到 404 属 configsource 包的后续改造）。
 	rec = doReq(r, http.MethodGet, fmt.Sprintf("/api/v1/config-explorer/file?sourceId=%d&path=gameplay/nope.json", id))
 	assert.Equal(t, http.StatusInternalServerError, rec.Code)
-	assert.Contains(t, rec.Body.String(), "config not found")
+	assert.Contains(t, rec.Body.String(), "internal_error")
 
 	// 非法 sourceId。
 	rec = doReq(r, http.MethodGet, "/api/v1/config-explorer/tree?sourceId=abc")
@@ -241,7 +242,7 @@ func TestTreeAndRead_CroupierSource(t *testing.T) {
 
 	// 不存在的 source。
 	rec = doReq(r, http.MethodGet, "/api/v1/config-explorer/tree?sourceId=99999")
-	assert.Equal(t, http.StatusInternalServerError, rec.Code)
+	assert.Equal(t, http.StatusNotFound, rec.Code)
 	assert.Contains(t, rec.Body.String(), "source not found")
 }
 
@@ -285,7 +286,7 @@ func TestWrite_ReadOnlySourceRejected(t *testing.T) {
 
 	rec := doJSON(r, http.MethodPut, "/api/v1/config-explorer/file",
 		fmt.Sprintf(`{"sourceId":%d,"path":"conf/app.yaml","content":"x: 1","reason":"应急"}`, id))
-	assert.Equal(t, http.StatusInternalServerError, rec.Code)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
 	assert.Contains(t, rec.Body.String(), "read-only")
 }
 
@@ -296,12 +297,12 @@ func TestWrite_Validation(t *testing.T) {
 	// 缺 reason。
 	rec := doJSON(r, http.MethodPut, "/api/v1/config-explorer/file",
 		fmt.Sprintf(`{"sourceId":%d,"path":"gameplay/k.json","content":"1"}`, id))
-	assert.Equal(t, http.StatusInternalServerError, rec.Code)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
 	assert.Contains(t, rec.Body.String(), "reason required")
 
 	// 缺 path。
 	rec = doJSON(r, http.MethodPut, "/api/v1/config-explorer/file",
 		fmt.Sprintf(`{"sourceId":%d,"reason":"x"}`, id))
-	assert.Equal(t, http.StatusInternalServerError, rec.Code)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
 	assert.Contains(t, rec.Body.String(), "sourceId/path required")
 }

@@ -1,12 +1,17 @@
 package response
 
 import (
+	"context"
+	crand "crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	apperrors "github.com/cuihairu/croupier/internal/errors"
@@ -104,10 +109,38 @@ func Error(c *gin.Context, err error) {
 		})
 		return
 	}
+	// AUD-047：未知错误统一 opaque 500。err.Error() 可能携带 GORM/驱动
+	// 细节（SQL 片段、表名、方言错误码、内网拓扑），不回传客户端；原文
+	// 经 slog 进服务端日志，响应只带稳定文案 + 追踪号，运维凭追踪号回查。
+	corr := correlationID()
+	slog.ErrorContext(requestCtx(c), "unhandled internal error",
+		"correlationId", corr,
+		"path", c.FullPath(),
+		"error", err)
 	c.JSON(http.StatusInternalServerError, gin.H{
 		"error":   "internal_error",
-		"message": err.Error(),
+		"message": "服务器内部错误，请稍后重试；如需排查请联系管理员并提供追踪号 " + corr,
+		"details": gin.H{"correlationId": corr},
 	})
+}
+
+// correlationID 生成短随机追踪号（16 hex 字符）。crypto/rand 失败时退到
+// 纳秒时间戳——可读性一致，仍满足「日志 ↔ 响应可关联」的用途。
+func correlationID() string {
+	var b [8]byte
+	if _, err := crand.Read(b[:]); err != nil {
+		return strconv.FormatInt(time.Now().UnixNano(), 36)
+	}
+	return hex.EncodeToString(b[:])
+}
+
+// requestCtx 取 gin 请求上下文；Request 未装配（部分单测形态）时退回
+// Background，避免日志行本身 panic。
+func requestCtx(c *gin.Context) context.Context {
+	if c.Request != nil && c.Request.Context() != nil {
+		return c.Request.Context()
+	}
+	return context.Background()
 }
 
 type ListResponse struct {

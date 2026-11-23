@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/internal/audit"
+	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
 	logicutils "github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
@@ -165,7 +166,9 @@ func (s *Service) ResolveConflict(ctx context.Context, req *ResolveConflictReque
 	actor := actorFromContext(ctx)
 	chosenSource := spec.SemanticSource(strings.TrimSpace(req.ChosenSource))
 	if !isValidSemanticSource(chosenSource) {
-		return nil, fmt.Errorf("invalid chosenSource %s", req.ChosenSource)
+		// AUD-047：chosenSource 是请求入参枚举，非法值属客户端输入错误，
+		// 按 400 呈现而非落 opaque 500。
+		return nil, errorx.NewBadRequest(fmt.Sprintf("invalid chosenSource %s", req.ChosenSource))
 	}
 	semantics, err := s.semanticsModel.FindByScopeAndResourceKey(ctx, svc.ResolveGameID(ctx, req.GameID), svc.ResolveEnv(ctx, req.Env), req.ResourceKey)
 	if err != nil {

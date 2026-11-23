@@ -59,7 +59,7 @@ func TestWrite_SourceNotFound(t *testing.T) {
 	r, _ := newTestEnv(t)
 	rec := doJSON(r, http.MethodPut, "/api/v1/config-explorer/file",
 		`{"sourceId":99999,"path":"gameplay/k.json","content":"1","reason":"x"}`)
-	assert.Equal(t, http.StatusInternalServerError, rec.Code)
+	assert.Equal(t, http.StatusNotFound, rec.Code)
 	assert.Contains(t, rec.Body.String(), "source not found")
 }
 

@@ -90,6 +90,12 @@ func (h *Handler) SetMenu(c *gin.Context) {
 	}
 	resp, err := h.service.SetPageMenu(c.Request.Context(), &req)
 	if err != nil {
+		// AUD-047：同其余 handler——页面不存在按 404 呈现，不落 opaque 500。
+		var notFound *PageNotFoundError
+		if errors.As(err, &notFound) {
+			response.NotFound(c, err.Error())
+			return
+		}
 		response.Error(c, err)
 		return
 	}

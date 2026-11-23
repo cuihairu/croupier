@@ -28,7 +28,8 @@ func TestSyntheticsResultsMissingParams(t *testing.T) {
 	c, _ := gin.CreateTestContext(w)
 	c.Request = req
 	h.SyntheticsResults(c)
-	require.NotEqual(t, http.StatusOK, w.Code)
+	// AUD-047：缺参按 400 呈现（原为 500 + 原始消息）。
+	require.Equal(t, http.StatusBadRequest, w.Code)
 	require.Contains(t, w.Body.String(), "required")
 }
 

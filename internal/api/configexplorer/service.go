@@ -4,12 +4,12 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
 
 	"github.com/cuihairu/croupier/internal/audit"
+	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/platform/configsource"
 	"github.com/cuihairu/croupier/internal/svc"
@@ -41,7 +41,16 @@ func (s *Service) ListBindings(ctx context.Context, gameID, env string) ([]Bindi
 // UpsertBinding creates or updates a binding.
 func (s *Service) UpsertBinding(ctx context.Context, req *BindingUpsertRequest) (*BindingDTO, error) {
 	if req == nil {
-		return nil, errors.New("request body cannot be empty")
+		return nil, errorx.NewBadRequest("request body cannot be empty")
+	}
+	// AUD-047：输入校验前置为 400——模型层 Create/Update 内嵌的同类校验
+	// 返回裸 error，经统一错误出口会落 opaque 500（原文只进日志），操作员
+	// 看不到原因。此处先行给出契约形态（同判据，消息保持一致）。
+	if _, ok := model.NormalizeConfigSourceType(req.Type); !ok {
+		return nil, errorx.NewBadRequest("invalid config source type")
+	}
+	if strings.TrimSpace(req.GameID) == "" || strings.TrimSpace(req.Env) == "" || strings.TrimSpace(req.Name) == "" {
+		return nil, errorx.NewBadRequest("gameId/env/name required")
 	}
 	binding := &model.ConfigSourceBinding{
 		GameID: req.GameID,
@@ -96,7 +105,7 @@ func (s *Service) DeleteBinding(ctx context.Context, id uint) error {
 func (s *Service) source(ctx context.Context, id uint) (*model.ConfigSourceBinding, configsource.Source, error) {
 	binding, err := s.svcCtx.ConfigSourceBindingModel.Get(ctx, id)
 	if err != nil {
-		return nil, nil, fmt.Errorf("source not found")
+		return nil, nil, errorx.NewNotFound("source not found")
 	}
 	src, err := configsource.New(binding)
 	if err != nil {
@@ -154,10 +163,10 @@ func (s *Service) Read(ctx context.Context, sourceID uint, path string) (*FileRe
 // Write performs the emergency edit：只允许可写源，reason 必填，写回源本身。
 func (s *Service) Write(ctx context.Context, req *WriteRequest, actor string) error {
 	if req == nil || req.SourceID == 0 || strings.TrimSpace(req.Path) == "" {
-		return errors.New("sourceId/path required")
+		return errorx.NewBadRequest("sourceId/path required")
 	}
 	if strings.TrimSpace(req.Reason) == "" {
-		return errors.New("reason required for emergency edit")
+		return errorx.NewBadRequest("reason required for emergency edit")
 	}
 	binding, src, err := s.source(ctx, req.SourceID)
 	if err != nil {
@@ -165,8 +174,9 @@ func (s *Service) Write(ctx context.Context, req *WriteRequest, actor string) er
 	}
 	ws, ok := src.(configsource.WritableSource)
 	if !ok {
-		return fmt.Errorf("source %s is read-only (改 %s 请走项目组流程)",
-			binding.Type, binding.Type)
+		// AUD-047：只读源拒绝是客户端输入错误，按 400 呈现而非落 opaque 500。
+		return errorx.NewBadRequest(fmt.Sprintf("source %s is read-only (改 %s 请走项目组流程)",
+			binding.Type, binding.Type))
 	}
 	if err := ws.Write(ctx, req.Path, []byte(req.Content), req.Reason); err != nil {
 		return err

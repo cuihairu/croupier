@@ -70,11 +70,11 @@ func TestPageHandlerSetMenuBranches(t *testing.T) {
 	handler.SetMenu(ctx)
 	assert.Equal(t, http.StatusNotFound, rec.Code, rec.Body.String())
 
-	// 页面不存在：PageNotFoundError 未做 HTTP 分类，现行为是 500 + 原始消息
+	// 页面不存在：SetMenu 同其余 handler 走 PageNotFoundError → 404（AUD-047）。
 	ctx, rec = scopedPageRequest(http.MethodPut, "/api/v1/pages/nope/menu", `{"menuId":null}`, scopeCtx)
 	ctx.Params = gin.Params{{Key: "pageKey", Value: "nope"}}
 	handler.SetMenu(ctx)
-	assert.Equal(t, http.StatusInternalServerError, rec.Code, rec.Body.String())
+	assert.Equal(t, http.StatusNotFound, rec.Code, rec.Body.String())
 	assert.Contains(t, rec.Body.String(), "page not found: nope")
 }
 

@@ -287,7 +287,8 @@ func TestHandler_ResolveConflict_InvalidSource(t *testing.T) {
 
 	rec := doCatalogRequest(router, http.MethodPost, "/api/resource-catalog/player/conflicts/identityField/resolve",
 		`{"chosenSource":"bogus"}`)
-	assert.Equal(t, http.StatusInternalServerError, rec.Code)
+	// AUD-047：非法 chosenSource 是客户端输入错误，按 400 呈现。
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
 	assert.Contains(t, rec.Body.String(), "invalid chosenSource")
 }
 

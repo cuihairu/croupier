@@ -52,7 +52,8 @@ func TestGapfixService_NormalizeStoragePath_JoinDotSeam(t *testing.T) {
 }
 
 // gin 的 c.FormFile 内部已先 Open 同一 FileHeader，handler 侧第二次
-// Open 失败真实请求不可达；注入故障验证 500 internal_error 透传。
+// Open 失败真实请求不可达；注入故障验证 500 internal_error 兜底
+// （AUD-047 opaque：原文只进日志）。
 func TestGapfixHandler_UploadObject_FileOpenErrorSeam(t *testing.T) {
 	orig := openMultipartFileHeader
 	openMultipartFileHeader = func(*multipart.FileHeader) (multipart.File, error) {
@@ -68,7 +69,7 @@ func TestGapfixHandler_UploadObject_FileOpenErrorSeam(t *testing.T) {
 	assertStatus(t, rec, http.StatusInternalServerError)
 	body := jsonBody(t, rec)
 	assert.Equal(t, "internal_error", body["error"])
-	assert.Equal(t, "open spilled file failed", body["message"])
+	assert.NotContains(t, rec.Body.String(), "open spilled file failed")
 }
 
 // 归一化结果丢失尾部斜杠时，ListObjects 的防御分支应把目录前缀

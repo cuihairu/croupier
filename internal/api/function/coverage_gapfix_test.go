@@ -78,8 +78,9 @@ func TestHandlers_ServiceErrorResponds500(t *testing.T) {
 			tc.fn(ctx)
 
 			require.Equal(t, http.StatusInternalServerError, rec.Code, rec.Body.String())
+			// AUD-047 opaque：未知错误原文只进日志，body 只含稳定文案 + 追踪号。
 			assert.Contains(t, rec.Body.String(), "internal_error")
-			assert.Contains(t, rec.Body.String(), errHandlerServiceBoom.Error())
+			assert.NotContains(t, rec.Body.String(), errHandlerServiceBoom.Error())
 		})
 	}
 }

@@ -1383,8 +1383,14 @@ func TestProcessActionHandlersAcceptEmptyBody(t *testing.T) {
 		if strings.Contains(body, "EOF") {
 			t.Fatalf("%s: empty-body POST rejected at binding: status=%d body=%s", sub, rec.Code, body)
 		}
-		if !strings.Contains(body, "ops client unavailable") {
+		// AUD-047 opaque：内部错误原文（ops client unavailable）只进日志，
+		// 到达服务侧的回归信号改为——绑定未拒（无 EOF）且落 500 opaque 兜底，
+		// 而非绑定层 400。
+		if rec.Code != http.StatusInternalServerError || !strings.Contains(body, "internal_error") {
 			t.Fatalf("%s: request did not reach agent ops service: status=%d body=%s", sub, rec.Code, body)
+		}
+		if strings.Contains(body, "ops client unavailable") {
+			t.Fatalf("%s: internal error text leaked to body: %s", sub, body)
 		}
 	}
 }

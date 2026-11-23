@@ -311,17 +311,20 @@ func TestError_GenericError(t *testing.T) {
 
 func TestError_NilError(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	// Nil error will panic in the Error function
-	// This documents the expected behavior - don't pass nil to Error
-	assert.Panics(t, func() {
-		router := gin.New()
-		router.GET("/test", func(c *gin.Context) {
-			Error(c, nil)
-		})
-		w := httptest.NewRecorder()
-		req, _ := http.NewRequest("GET", "/test", nil)
-		router.ServeHTTP(w, req)
+	// AUD-047：nil error 不再 panic——统一落 opaque 500 兜底（旧实现
+	// 兜底分支直接解引用 err.Error() 崩掉请求；「don't pass nil」的约定
+	// 随 opaque 化作废，任何未知/异常错误都走同一稳定契约）。
+	router := gin.New()
+	router.GET("/test", func(c *gin.Context) {
+		Error(c, nil)
 	})
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/test", nil)
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	assert.Contains(t, w.Body.String(), "internal_error")
 }
 
 // Bug4 修复验证：query 数值转换失败（strconv.NumError）应返回 400 而非 500

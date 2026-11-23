@@ -198,14 +198,15 @@ func TestHandler_ServiceErrorBranches(t *testing.T) {
 	r.ServeHTTP(rec, req)
 	assert.Equal(t, http.StatusInternalServerError, rec.Code)
 	assert.Contains(t, rec.Body.String(), "internal_error")
-	assert.Contains(t, rec.Body.String(), boom.Error())
+	// AUD-047 opaque：错误原文只进日志。
+	assert.NotContains(t, rec.Body.String(), boom.Error())
 
 	for _, path := range []string{"/platforms", "/platforms/p/methods"} {
 		rec := httptest.NewRecorder()
 		r.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
 		assert.Equal(t, http.StatusInternalServerError, rec.Code, "path %s", path)
 		assert.Contains(t, rec.Body.String(), "internal_error", "path %s", path)
-		assert.Contains(t, rec.Body.String(), boom.Error(), "path %s", path)
+		assert.NotContains(t, rec.Body.String(), boom.Error(), "path %s", path)
 	}
 }
 

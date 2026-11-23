@@ -163,7 +163,8 @@ func TestOpsAgentSupervisorLogHandler_ErrorEnvelope(t *testing.T) {
 	handler.OpsAgentSupervisorLog(c)
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
-	var body map[string]string
+	// AUD-047 opaque：details 携带 correlationId 对象，须用 interface 解码。
+	var body map[string]interface{}
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
 	assert.NotEmpty(t, body["error"])
 }

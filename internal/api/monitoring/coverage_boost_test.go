@@ -215,7 +215,8 @@ func TestHandler_ServiceErrorBranches(t *testing.T) {
 		assert.Equal(t, http.StatusInternalServerError, rec.Code, "path %s", path)
 		body := rec.Body.String()
 		assert.Contains(t, body, "internal_error", "path %s", path)
-		assert.Contains(t, body, assert.AnError.Error(), "path %s", path)
+		// AUD-047 opaque：错误原文只进日志。
+		assert.NotContains(t, body, assert.AnError.Error(), "path %s", path)
 	}
 }
 

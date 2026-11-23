@@ -373,9 +373,11 @@ func (s *Service) Trigger(ctx context.Context, id uint, req *TriggerRequest) (*T
 	if !row.Enabled {
 		return nil, errorx.NewBadRequest("该接入已停用")
 	}
+	// AUD-047：provider 构造失败（未知 kind / 配置不合法）是接入配置问题，
+	// 与 Create/Update 同口径按 400 呈现，不落 opaque 500。
 	p, err := s.providerFor(row)
 	if err != nil {
-		return nil, err
+		return nil, errorx.NewBadRequest(err.Error())
 	}
 	ctx, cancel := context.WithTimeout(ctx, triggerTimeout)
 	defer cancel()
@@ -431,7 +433,8 @@ func (s *Service) RefreshBuild(ctx context.Context, buildID uint) (*BuildRefresh
 	}
 	p, err := s.providerFor(integration)
 	if err != nil {
-		return nil, err
+		// AUD-047：同 Trigger——provider 构造失败按接入配置问题 400 呈现。
+		return nil, errorx.NewBadRequest(err.Error())
 	}
 	ctx, cancel := context.WithTimeout(ctx, triggerTimeout)
 	defer cancel()
