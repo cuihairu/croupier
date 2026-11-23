@@ -144,6 +144,8 @@ describe('MenuManagement page', () => {
   it('加载并渲染菜单树（含层级、权限标记、隐藏标记）', async () => {
     renderPage();
     expect(mockedListMenus).toHaveBeenCalled();
+    // AUD-032：挂载页映射按命名常量拉取（与服务端上限对齐），不再裸魔法数
+    expect(mockedListPageDrafts).toHaveBeenCalledWith({ pageSize: 200 });
     expect(await screen.findByText('资源管理')).toBeInTheDocument();
     expect(screen.getByText('玩家管理')).toBeInTheDocument();
     expect(screen.getByText('resource:read')).toBeInTheDocument();

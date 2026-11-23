@@ -34,6 +34,18 @@ const useStyles = createStyles(({ token }) => ({
   },
 }));
 
+/** 挂载页映射所需的页面草稿拉取上限。
+ *
+ * 菜单树要一次性拿到「菜单节点 ↔ 已挂载页面」的关联，需按最大窗口拉取草稿；
+ * 取值与服务端硬上限对齐（internal/api/page/dto.go 的 maxPageDraftPageSize=200，
+ * 超过即被服务端钳制，无意义继续加大）。
+ *
+ * 已知边界：scope 内草稿超过该上限时，超出部分的 menuId 关联不会进入挂载选择器，
+ * 属静默缺项——页面量级为「几十」时不触发；若 scope 内草稿可增长到数百，需改走
+ * 服务端按 menuId 直查或分页拉全，而非提高本上限。
+ */
+const ALL_DRAFTS_PAGE_SIZE = 200;
+
 /** MenuManagement 菜单管理页：树查看 + 新建/编辑/删除 + 拖拽排序。 */
 export default function MenuManagementPage() {
   const intl = useIntl();
@@ -54,7 +66,10 @@ export default function MenuManagementPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [menus, drafts] = await Promise.all([listMenus(), listPageDrafts({ pageSize: 200 })]);
+      const [menus, drafts] = await Promise.all([
+        listMenus(),
+        listPageDrafts({ pageSize: ALL_DRAFTS_PAGE_SIZE }),
+      ]);
       setItems(menus);
       setPages(
         drafts.items
