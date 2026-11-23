@@ -33,7 +33,7 @@ export const AGENT_META: Record<AgentType, AgentMeta> = {
   devops: {
     title: '运维代理',
     description:
-      '查看 devops 实例、进程监管状态与执行记录。主机与会话数据面未交付，本页不提供入口。',
+      '查看 devops 实例、进程监管、执行记录与 SSH 会话终端。主机数据面未交付；RDP/VNC 与历史会话回放（asciicast）暂不可用。',
     empty:
       '当前游戏环境暂无 devops Agent。请先部署 devops 并在其配置中设置 agent.gameId 与 agent.env。',
   },
