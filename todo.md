@@ -2270,9 +2270,12 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 完成证据：`internal/common/response/response.go`、`internal/common/response/aud047_opaque_500_test.go`、`internal/common/response/response_test.go`（nil 契约）、`docs/security.md` + `docs/zh/security.md` 新增 AUD-047 说明。
   - 已知边界：仅收敛统一出口 `response.Error` 的未知错误兜底；不经该出口的直写响应（SSE/健康检查/文件下载等显式例外，及 monitoring 健康输出原文属 AUD-053 范畴）不在本条覆盖内。
 
-- [ ] **AUD-048 · P2 · 修复 · Warehouse 查询强制 current scope**
-  - 依赖：—。交付与验收：`internal/api/analytics/warehouse.go:141/247` 请求 game/env 只可收窄不可替换，空值不得展开为无过滤。
-  - 状态／条件：2026-11-16 复核属实——显式传其他 game/env 可跨域聚合。
+- [x] **AUD-048 · P2 · 修复 · Warehouse 查询强制 current scope**（commit `02932502e`）
+  - 依赖：—。交付与验收：`internal/api/analytics/warehouse.go` 三条仓库查询（`WarehouseDAU`/`WarehouseOnline`/`WarehouseRevenue`）的作用域改由 current scope 派生；请求 game/env 只可收窄（与 current scope 一致即放行）不可替换（不一致 403）；空值不得展开为无过滤。
+  - 状态／条件：DONE · LOCAL VERIFIED（commit `02932502e`）——新增 `warehouseScope(ctx, gameID, env)` 统一守卫：作用域只取 `GameDBMiddleware` 解析的 `GameScope`（`svc.GameScopeFromContext`）；请求参数非空且与 current scope 不一致 → 403 `forbidden`（错误文案不回显请求方提交的目标值，避免越权枚举）；ctx 无 scope → 400 `bad_request`（不再退化为跨游戏无过滤聚合）。三条查询下推的 game/env 一律来自守卫返回值，请求参数不再进入 SQL 占位符。`/analytics` 路由挂在 `scoped` 组（`GameDBMiddleware`），因此合法请求恒带完整 (gameID, env) 对（header 成对 + last-scope 回退）。
+  - 验证：`go build ./...` 通过；`internal/api/analytics/warehouse_scope_test.go` 新增 `TestWarehouseScope_ForcesCurrentScope`（5 分支：缺省沿用 scope／参数一致视为收窄／替换 game 403／替换 env 403／无 scope 拒绝）与 `TestWarehouseDAU_Aud048_CrossScopeRejected`（跨域与无 scope 均不触达查询）；`TestWarehouseDAU_DefaultWindowUnscoped` 改写为 `DefaultWindowUsesCurrentScope`（空请求 + scope → 查询带 `AND game_id = ?`/`AND env = ?`，占位符与 args 对齐）；`go test ./internal/...` 全绿（存量仓库用例统一注入 `warehouseScopeCtx`/`withWarehouseScope`）。
+  - 完成证据：`internal/api/analytics/warehouse.go`（守卫 + 三查询）、`internal/api/analytics/warehouse_scope_test.go`、`internal/api/analytics/warehouse_test.go`、`internal/api/analytics/coverage_extra_test.go`、`internal/api/analytics/coverage_v9_test.go`、`docs/architecture/game-environment-scope.md` §12.5 规则条 + `docs/zh/architecture/game-environment-scope.md`。
+  - 已知边界：仅收敛三张 ClickHouse 聚合表读取路径（daily_users/minute_online/daily_revenue）；`Facade` 的 `domainWarehouse` 路径同样经 `warehouseScope` 生效（其 filter 的 gameId/env 须与 current scope 一致，否则 403）；同包其余报表（overview/payments/retention 等）的 `svc.ResolveGameID` 口径不在本条范围。
 
 - [ ] **AUD-049 · P2 · 修复 · 敏感写路径补统一审计**
   - 依赖：AUD-042（权限矩阵先行，denied 面随 guard 收敛）。交付与验收：incident/ticket 变更、storage 删除/上传、cicd webhook 成功与 denied 路径接 AuditService.Log；统一 decorator 覆盖成功/失败/denied 三态。
