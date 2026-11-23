@@ -77,9 +77,12 @@ jobs:
         timeout-minutes: 3
         run: |
           set -euxo pipefail
-          for i in $(seq 1 12); do
-            count=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/artifacts" --jq '[.artifacts[] | select(.name=="github-pages")] | length' 2>/dev/null || echo 0)
-            if [ "${count}" -ge 1 ]; then
+          for i in $(seq 1 24); do
+            count=$(curl -sf -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/artifacts" \
+              | python3 -c 'import json,sys; d=json.load(sys.stdin); print(sum(1 for a in d.get("artifacts",[]) if a.get("name")=="github-pages"))' 2>/dev/null || echo 0)
+            if [ "${count:-0}" -ge 1 ]; then
               echo "artifact visible (attempt ${i})"
               exit 0
             fi
