@@ -3,6 +3,7 @@ package cicd
 import (
 	"context"
 	"crypto/subtle"
+	"fmt"
 	"strings"
 	"time"
 
@@ -75,14 +76,22 @@ func (s *Service) IngestWebhook(ctx context.Context, integrationID uint, gotToke
 	if !constantTimeEqual(gotToken, want) {
 		return nil, errorx.NewUnauthorized("webhook token 不匹配")
 	}
+	// AUD-043：回写 payload 的 game/env 只可确认 integration 配置，不可注入。
+	// 外部 CI 自报的作用域不可信，此前 integration 未配作用域时 payload 可
+	// 写入任意 scope（跨域写入）。统一 fail-closed：payload 提供作用域时必须
+	// 与 integration 精确一致，否则拒绝；未提供时作用域仅由 integration 派生。
+	gameID, env, serr := validateWebhookScope(row.GameID, row.Env, p.GameID, p.Env)
+	if serr != nil {
+		return nil, serr
+	}
 	status, verr := model.ValidateCicdWebhook(p.Pipeline, p.ExternalID, p.Status)
 	if verr != nil {
 		return nil, errorx.NewBadRequest(verr.Error())
 	}
 	now := time.Now()
 	build := &model.CicdBuild{
-		GameID:           firstNonEmpty(row.GameID, p.GameID),
-		Env:              firstNonEmpty(row.Env, p.Env),
+		GameID:           gameID,
+		Env:              env,
 		IntegrationID:    row.ID,
 		Kind:             row.Kind,
 		Pipeline:         firstNonEmpty(p.Pipeline, "default"),
@@ -119,4 +128,42 @@ func constantTimeEqual(a, b string) bool {
 		return false
 	}
 	return subtle.ConstantTimeCompare([]byte(a), []byte(b)) == 1
+}
+
+// validateWebhookScope 把回写 payload 的 game/env 绑定到 integration 配置
+// （AUD-043）。integration 是作用域的唯一来源（创建/编辑时由授权操作员声明），
+// 外部 CI 的 payload 只能复述确认、不能注入或替换：
+//
+//	payload 未提供（空） → 放行，作用域取 integration 配置；
+//	payload 与配置精确一致 → 放行，作用域取 integration 配置；
+//	payload 冲突但 integration 已配该作用域 → 拒绝（跨 scope 回写）；
+//	payload 提供了 integration 未配置的作用域 → 拒绝（scope 注入）。
+//
+// 返回 integration 派生的 (gameID, env)，供构建记录落库，payload 值永不被
+// 采信写入。
+func validateWebhookScope(rowGameID, rowEnv, payloadGameID, payloadEnv string) (string, string, error) {
+	rowGameID = strings.TrimSpace(rowGameID)
+	rowEnv = strings.TrimSpace(rowEnv)
+	if err := bindScopeField("game_id", rowGameID, strings.TrimSpace(payloadGameID)); err != nil {
+		return "", "", err
+	}
+	if err := bindScopeField("env", rowEnv, strings.TrimSpace(payloadEnv)); err != nil {
+		return "", "", err
+	}
+	return rowGameID, rowEnv, nil
+}
+
+// bindScopeField 校验单个作用域字段：payload 与 integration 配置不一致即拒绝。
+func bindScopeField(field, configured, fromPayload string) error {
+	if fromPayload == "" || fromPayload == configured {
+		return nil
+	}
+	if configured == "" {
+		return errorx.NewBadRequestWithCode("scope_mismatch",
+			fmt.Sprintf("webhook 回写 game/env 与 integration 配置不一致：该接入未配置 %s，不能由 payload 注入（请先在 integration 上声明作用域）", field),
+			nil)
+	}
+	return errorx.NewBadRequestWithCode("scope_mismatch",
+		fmt.Sprintf("webhook 回写 game/env 与 integration 配置不一致，已拒绝跨作用域回写（%s）", field),
+		nil)
 }
