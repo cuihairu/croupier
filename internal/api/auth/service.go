@@ -38,8 +38,13 @@ type Service struct {
 
 	// otpRecoveryModel 持久化 MFA 备用恢复码（可为 nil，测试构造 Service 时省略）。
 	otpRecoveryModel *model.AdminOTPRecoveryCodeModel
-	// recoveryDB 是 otpRecoveryModel 未注入时兜底建模型用的 DB（可为 nil）。
+	// recoveryDB 是 otpRecoveryModel 未注入时兜底建模型用的 DB（可为 nil）；
+	// 也是 refreshTokenModel（AUD-052）未注入时的懒建来源。
 	recoveryDB *gorm.DB
+	// refreshTokens 持久化刷新令牌轮换状态（AUD-052，可为 nil：nil 时登录
+	// opt-in 回退 legacy 单 token、兑换端点报内部错误）。生产从 recoveryDB
+	// 懒建，测试可经 WithRefreshTokenModel 显式注入。
+	refreshTokens *model.AdminRefreshTokenModel
 	// verificationModel 持久化注册邮箱验证令牌（#51c 第二批，可为 nil：
 	// nil 时验证链路整体降级为不拦不发）。
 	verificationModel *model.EmailVerificationModel

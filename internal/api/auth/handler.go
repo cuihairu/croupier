@@ -46,6 +46,31 @@ func (h *Handler) Login(c *gin.Context) {
 	response.Success(c, resp)
 }
 
+// Refresh 刷新令牌兑换处理器（AUD-052，匿名端点：刷新令牌本身即凭据）。
+// 任何失败统一 401（含重放吊销后的提示文案）；存储未装配等内部错误按 500
+// 呈现，不向匿名调用方暴露细节。
+func (h *Handler) Refresh(c *gin.Context) {
+	var req RefreshRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Unauthorized(c, "刷新令牌无效或已过期")
+		return
+	}
+	req.ClientIP = c.ClientIP()
+	req.UserAgent = c.GetHeader("User-Agent")
+
+	resp, err := h.service.Refresh(c.Request.Context(), &req)
+	if err != nil {
+		var codeErr *errorx.CodeError
+		if errors.As(err, &codeErr) {
+			response.Error(c, err)
+			return
+		}
+		response.Unauthorized(c, err.Error())
+		return
+	}
+	response.Success(c, resp)
+}
+
 // Logout 登出处理器
 func (h *Handler) Logout(c *gin.Context) {
 	var req LogoutRequest

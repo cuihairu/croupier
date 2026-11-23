@@ -254,15 +254,27 @@ func (s *Service) issueLogin(ctx context.Context, admin *model.Admin, ident *ide
 		roles = append(roles, role.Name)
 	}
 
-	token, err := jwtutil.Sign(s.jwtSecret, admin.Username, roles, admin.ID, admin.TokenVersion, time.Now())
+	issuedAt := time.Now()
+	lastGameID, lastEnv := s.validLastScope(ctx, admin.ID, roles, admin.LastGameID, admin.LastEnv)
+
+	// AUD-052：请求显式 useRefresh=true 时走刷新令牌轮换（2h access + 7d
+	// 一次性 refresh）。存储不可用（测试装配/库故障）回退 legacy 单 token，
+	// 登录不因轮换基础设施失败而阻断；硬错误（签发失败）整体失败。
+	if req != nil && req.UseRefresh {
+		resp, handled, err := s.issueRefreshableLogin(ctx, admin, ident, req, roles, issuedAt, lastGameID, lastEnv)
+		if handled || err != nil {
+			return resp, err
+		}
+		slog.Default().Warn("refresh token store unavailable; issuing legacy token", "username", admin.Username)
+	}
+
+	token, err := jwtutil.Sign(s.jwtSecret, admin.Username, roles, admin.ID, admin.TokenVersion, issuedAt)
 	if err != nil {
 		s.recordLoginAudit(ctx, admin.Username, "auth.login_failed", "failed", req, "token_generation_failed", ident.Provider)
 		return nil, errors.New("生成 token 失败")
 	}
 
 	s.recordLoginAudit(ctx, admin.Username, "auth.login", "success", req, "", ident.Provider)
-
-	lastGameID, lastEnv := s.validLastScope(ctx, admin.ID, roles, admin.LastGameID, admin.LastEnv)
 
 	return &LoginResponse{
 		Token: token,

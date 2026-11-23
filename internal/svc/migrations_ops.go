@@ -528,3 +528,28 @@ func migratePowerRequestTargetStatus(ctx context.Context, sqlDB *sql.DB) error {
 	}
 	return nil
 }
+
+// adminRefreshTokenTableMigration 为 0067：admin_refresh_tokens 表（AUD-052
+// 刷新令牌轮换的持久状态——reuse detection 需要服务端已兑换/已吊销记录，
+// 纯 JWT 无状态方案做不到）。新表 CreateTable：索引随建表一次建出，无存量
+// 约束名漂移（0023 教训，0052/0064 先例）；重复运行幂等（HasTable 先查）。
+func adminRefreshTokenTableMigration() *goose.Migration {
+	return goose.NewGoMigration(67,
+		&goose.GoFunc{RunDB: migrateAdminRefreshTokenTable},
+		nil,
+	)
+}
+
+func migrateAdminRefreshTokenTable(ctx context.Context, sqlDB *sql.DB) error {
+	db, err := wrapGorm(sqlDB)
+	if err != nil {
+		return err
+	}
+	// 新表 CreateTable：索引随建表一次建出，无存量约束名漂移（0023 教训）。
+	if !db.Migrator().HasTable(&model.AdminRefreshToken{}) {
+		if err := db.Migrator().CreateTable(&model.AdminRefreshToken{}); err != nil {
+			return fmt.Errorf("migrate: 0067 create admin_refresh_tokens: %w", err)
+		}
+	}
+	return nil
+}

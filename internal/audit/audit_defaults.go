@@ -25,7 +25,7 @@ func (s *AuditService) setDefaults(record *AuditRecord) {
 // inferCategory infers category from event type
 func (s *AuditService) inferCategory(eventType AuditEventType) AuditCategory {
 	switch eventType {
-	case EventLogin, EventLogout, EventLoginFailed, EventAccessGranted, EventAccessDenied:
+	case EventLogin, EventLogout, EventLoginFailed, EventTokenRefresh, EventTokenRefreshReuse, EventAccessGranted, EventAccessDenied:
 		return CategorySecurity
 	case EventUserCreate, EventUserUpdate, EventUserDelete:
 		return CategoryAdmin
@@ -49,7 +49,7 @@ func (s *AuditService) inferCategory(eventType AuditEventType) AuditCategory {
 // inferSeverity infers severity from event type
 func (s *AuditService) inferSeverity(eventType AuditEventType) AuditSeverity {
 	switch eventType {
-	case EventLoginFailed, EventAccessDenied:
+	case EventLoginFailed, EventTokenRefreshReuse, EventAccessDenied:
 		return SeverityWarning
 	case EventUserDelete, EventBackupRestore:
 		return SeverityCritical

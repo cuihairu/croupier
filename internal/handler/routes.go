@@ -234,6 +234,7 @@ func registerAuthRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	}
 	authHandler := auth.NewHandler(authSvc)
 	g.POST("/login", authHandler.Login)
+	g.POST("/refresh", authHandler.Refresh)
 	g.POST("/logout", authHandler.Logout)
 	g.GET("/providers", authHandler.Providers)
 	g.POST("/register", authHandler.Register)

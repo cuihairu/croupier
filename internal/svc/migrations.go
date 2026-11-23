@@ -172,6 +172,9 @@ import (
 //               外部 incident token 绑定 game/env 允许面，签发与查询强制按
 //               token scope 过滤；JSON 数组，NULL/空=不限，行为与现状一致；
 //               加列 0025/0043/0053 模式；缺表跳过）
+//   0067 (Go)   admin_refresh_tokens 表（AUD-052 刷新令牌轮换的持久状态：
+//               兑换/重放判定依赖已兑换（used_at）与已吊销（revoked）记录；
+//               新表 CreateTable，索引随建表一次建出；重复运行幂等）
 
 func init() {
 	registerSvcMigrations()
@@ -248,6 +251,7 @@ func registerSvcMigrations() {
 		powerRequestTablesMigration(),
 		powerRequestTargetStatusMigration(),
 		externalTokenScopeColumnsMigration(),
+		adminRefreshTokenTableMigration(),
 	); err != nil {
 		// panic-ok: init 期迁移注册表组装失败属开发期错误（迁移函数
 		// 引用漂移），进程不可安全启动（CR-FIX-22 豁免清单）。

@@ -64,6 +64,9 @@ const (
 	EventPasswordChange AuditEventType = "auth.password_change"
 	EventMFAEnabled     AuditEventType = "auth.mfa_enabled"
 	EventMFADisabled    AuditEventType = "auth.mfa_disabled"
+	// AUD-052 刷新令牌轮换：兑换成功与重放检测（重放即整族吊销）。
+	EventTokenRefresh      AuditEventType = "auth.token_refresh"
+	EventTokenRefreshReuse AuditEventType = "auth.token_refresh_reuse"
 
 	// Authorization events
 	EventAccessGranted   AuditEventType = "authz.access_granted"
