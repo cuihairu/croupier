@@ -39,6 +39,7 @@ import mergeConflictModal from './zh-CN/mergeConflictModal';
 import openapiSources from './zh-CN/openapiSources';
 import operationsConfigs from './zh-CN/operationsConfigs';
 import incidentReports from './zh-CN/incidentReports';
+import opsAgents from './zh-CN/opsAgents';
 import opsAlerts from './zh-CN/opsAlerts';
 import opsAnalyticsFilters from './zh-CN/opsAnalyticsFilters';
 import opsBackups from './zh-CN/opsBackups';
@@ -130,6 +131,7 @@ export default {
   ...openapiSources,
   ...operationsConfigs,
   ...incidentReports,
+  ...opsAgents,
   ...opsAlerts,
   ...opsAnalyticsFilters,
   ...opsBackups,

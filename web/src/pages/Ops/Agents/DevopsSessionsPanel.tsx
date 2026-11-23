@@ -12,7 +12,9 @@ import {
   Table,
   Tag,
 } from 'antd';
+import { useIntl } from '@umijs/max';
 import { StandardListSection } from '@/components';
+import { extractErrorMessage } from '@/utils/errors';
 import { useScopeReload } from '@/hooks/useScopeReload';
 import {
   closeDevopsSession,
@@ -33,12 +35,36 @@ type OpenFormValues = {
   rows: number;
 };
 
-const STATUS_META: Record<DevopsTerminalStatus, { text: string; color: string }> = {
-  connecting: { text: '连接中', color: 'gold' },
-  connected: { text: '已连接', color: 'green' },
-  reconnecting: { text: '重连中', color: 'orange' },
-  ended: { text: '已结束', color: 'default' },
-  error: { text: '连接异常', color: 'red' },
+/** 状态配置：配色静态，文案走 i18n（AUD-034）。 */
+const STATUS_CONFIG: Record<
+  DevopsTerminalStatus,
+  { id: string; defaultMessage: string; color: string }
+> = {
+  connecting: {
+    id: 'pages.opsAgents.sessions.status.connecting',
+    defaultMessage: '连接中',
+    color: 'gold',
+  },
+  connected: {
+    id: 'pages.opsAgents.sessions.status.connected',
+    defaultMessage: '已连接',
+    color: 'green',
+  },
+  reconnecting: {
+    id: 'pages.opsAgents.sessions.status.reconnecting',
+    defaultMessage: '重连中',
+    color: 'orange',
+  },
+  ended: {
+    id: 'pages.opsAgents.sessions.status.ended',
+    defaultMessage: '已结束',
+    color: 'default',
+  },
+  error: {
+    id: 'pages.opsAgents.sessions.status.error',
+    defaultMessage: '连接异常',
+    color: 'red',
+  },
 };
 
 type AgentOption = { label: string; value: string; disabled: boolean };
@@ -49,6 +75,8 @@ type AgentOption = { label: string; value: string; disabled: boolean };
  * （接入时会补最近一屏回放环）。 */
 export default function DevopsSessionsPanel() {
   const { modal, message } = App.useApp();
+  const intl = useIntl();
+  const fmt = (id: string, defaultMessage: string) => intl.formatMessage({ id, defaultMessage });
   const [sessions, setSessions] = useState<DevopsSessionItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [openOpen, setOpenOpen] = useState(false);
@@ -87,7 +115,15 @@ export default function DevopsSessionsPanel() {
           // 见本页实例列表「在线」汇总）。
           const online = node.status === 'active' || node.status === 'online';
           return {
-            label: online ? node.id : `${node.id}（离线）`,
+            label: online
+              ? node.id
+              : intl.formatMessage(
+                  {
+                    id: 'pages.opsAgents.sessions.agent.offline',
+                    defaultMessage: '{id}（离线）',
+                  },
+                  { id: node.id },
+                ),
             value: node.id,
             disabled: !online,
           };
@@ -96,7 +132,7 @@ export default function DevopsSessionsPanel() {
     } catch {
       /* 列表拉取失败时保留空选项，打开表单仍可手填 agentId */
     }
-  }, []);
+  }, [intl]);
 
   useEffect(() => {
     void load();
@@ -138,8 +174,10 @@ export default function DevopsSessionsPanel() {
       setTerminalOutcome(undefined);
       void load();
     } catch (err) {
-      const text = err instanceof Error ? err.message : '会话打开失败';
-      message.error(text);
+      // AUD-030 残留：不直出原始异常消息，优先取后端统一错误体 message。
+      message.error(
+        extractErrorMessage(err, fmt('pages.opsAgents.sessions.openFailed', '会话打开失败')),
+      );
     } finally {
       setSubmitting(false);
     }
@@ -149,15 +187,18 @@ export default function DevopsSessionsPanel() {
 
   const close = (sessionId: string) => {
     modal.confirm({
-      title: '关闭该 SSH 会话？',
-      content: '关闭会结束远端会话并在审计留痕（devops.session_close）。',
-      okText: '关闭会话',
+      title: fmt('pages.opsAgents.sessions.closeConfirm.title', '关闭该 SSH 会话？'),
+      content: fmt(
+        'pages.opsAgents.sessions.closeConfirm.content',
+        '关闭会结束远端会话并在审计留痕（devops.session_close）。',
+      ),
+      okText: fmt('pages.opsAgents.sessions.closeConfirm.ok', '关闭会话'),
       okButtonProps: { danger: true },
-      cancelText: '取消',
+      cancelText: fmt('pages.opsAgents.sessions.modal.cancel', '取消'),
       onOk: async () => {
         try {
           await closeDevopsSession(sessionId);
-          message.success('会话已关闭');
+          message.success(fmt('pages.opsAgents.sessions.closeSuccess', '会话已关闭'));
           if (active?.sessionId === sessionId) setActive(null);
           await load();
         } catch {
@@ -167,16 +208,18 @@ export default function DevopsSessionsPanel() {
     });
   };
 
-  const meta = STATUS_META[status];
+  const meta = STATUS_CONFIG[status];
 
   return (
     <StandardListSection
-      title="会话"
+      title={fmt('pages.opsAgents.sessions.title', '会话')}
       extra={
         <Space>
-          <Button onClick={() => void load()}>刷新</Button>
+          <Button onClick={() => void load()}>
+            {fmt('pages.opsAgents.sessions.refresh', '刷新')}
+          </Button>
           <Button type="primary" onClick={() => setOpenOpen(true)}>
-            开会话
+            {fmt('pages.opsAgents.sessions.open', '开会话')}
           </Button>
         </Space>
       }
@@ -188,29 +231,54 @@ export default function DevopsSessionsPanel() {
         size="small"
         tableLayout="fixed"
         pagination={{ pageSize: 10 }}
-        locale={{ emptyText: '当前 scope 下没有进行中的 SSH 会话。' }}
+        locale={{
+          emptyText: fmt('pages.opsAgents.sessions.empty', '当前 scope 下没有进行中的 SSH 会话。'),
+        }}
         columns={[
           {
-            title: '会话 ID',
+            title: fmt('pages.opsAgents.sessions.column.sessionId', '会话 ID'),
             dataIndex: 'sessionId',
             width: 210,
             ellipsis: true,
             render: (value: string) => <code style={{ fontFamily: 'monospace' }}>{value}</code>,
           },
-          { title: 'Agent ID', dataIndex: 'agentId', width: 150, ellipsis: true },
-          { title: '操作者', dataIndex: 'operator', width: 110, render: (v) => v || '-' },
-          { title: '协议', dataIndex: 'protocol', width: 70 },
           {
-            title: '目标',
+            title: fmt('pages.opsAgents.sessions.column.agentId', 'Agent ID'),
+            dataIndex: 'agentId',
+            width: 150,
+            ellipsis: true,
+          },
+          {
+            title: fmt('pages.opsAgents.sessions.column.operator', '操作者'),
+            dataIndex: 'operator',
+            width: 110,
+            render: (v) => v || '-',
+          },
+          {
+            title: fmt('pages.opsAgents.sessions.column.protocol', '协议'),
+            dataIndex: 'protocol',
+            width: 70,
+          },
+          {
+            title: fmt('pages.opsAgents.sessions.column.target', '目标'),
             key: 'target',
             width: 150,
             ellipsis: true,
             render: (_, row) => `${row.host}:${row.port}`,
           },
-          { title: '通道', dataIndex: 'channel', width: 90, render: (v) => v || '-' },
-          { title: '创建时间', dataIndex: 'createdAt', width: 150 },
           {
-            title: '操作',
+            title: fmt('pages.opsAgents.sessions.column.channel', '通道'),
+            dataIndex: 'channel',
+            width: 90,
+            render: (v) => v || '-',
+          },
+          {
+            title: fmt('pages.opsAgents.sessions.column.createdAt', '创建时间'),
+            dataIndex: 'createdAt',
+            width: 150,
+          },
+          {
+            title: fmt('pages.opsAgents.sessions.column.actions', '操作'),
             key: 'actions',
             width: 150,
             render: (_, row) => (
@@ -230,10 +298,10 @@ export default function DevopsSessionsPanel() {
                     setTerminalOutcome(undefined);
                   }}
                 >
-                  接入
+                  {fmt('pages.opsAgents.sessions.action.attach', '接入')}
                 </Button>
                 <Button size="small" danger onClick={() => close(row.sessionId)}>
-                  关闭
+                  {fmt('pages.opsAgents.sessions.action.close', '关闭')}
                 </Button>
               </Space>
             ),
@@ -242,13 +310,13 @@ export default function DevopsSessionsPanel() {
       />
 
       <Modal
-        title="开 SSH 会话"
+        title={fmt('pages.opsAgents.sessions.modal.title', '开 SSH 会话')}
         open={openOpen}
         onOk={() => void submit()}
         onCancel={() => setOpenOpen(false)}
         confirmLoading={submitting}
-        okText="打开"
-        cancelText="取消"
+        okText={fmt('pages.opsAgents.sessions.modal.open', '打开')}
+        cancelText={fmt('pages.opsAgents.sessions.modal.cancel', '取消')}
         destroyOnHidden
       >
         <Form<OpenFormValues>
@@ -259,36 +327,72 @@ export default function DevopsSessionsPanel() {
           <Form.Item
             name="agentId"
             label="Agent ID"
-            rules={[{ required: true, message: '请选择 devops agent' }]}
-            extra="仅当前 scope 内的在线 agent；打开后由服务端做属主 scope 校验。"
+            rules={[
+              {
+                required: true,
+                message: fmt(
+                  'pages.opsAgents.sessions.modal.agentId.required',
+                  '请选择 devops agent',
+                ),
+              },
+            ]}
+            extra={fmt(
+              'pages.opsAgents.sessions.modal.agentId.extra',
+              '仅当前 scope 内的在线 agent；打开后由服务端做属主 scope 校验。',
+            )}
           >
             <Select
               options={agentOptions}
               showSearch
-              placeholder="选择 devops agent"
-              notFoundContent="暂无可用 devops agent"
+              placeholder={fmt(
+                'pages.opsAgents.sessions.modal.agentId.placeholder',
+                '选择 devops agent',
+              )}
+              notFoundContent={fmt(
+                'pages.opsAgents.sessions.modal.agentId.empty',
+                '暂无可用 devops agent',
+              )}
             />
           </Form.Item>
           <Form.Item
             name="host"
-            label="目标主机"
-            rules={[{ required: true, message: '请输入主机' }]}
+            label={fmt('pages.opsAgents.sessions.modal.host.label', '目标主机')}
+            rules={[
+              {
+                required: true,
+                message: fmt('pages.opsAgents.sessions.modal.host.required', '请输入主机'),
+              },
+            ]}
           >
-            <Input placeholder="例如 10.0.0.11" />
+            <Input
+              placeholder={fmt('pages.opsAgents.sessions.modal.host.placeholder', '例如 10.0.0.11')}
+            />
           </Form.Item>
           <Space size="large" align="start">
-            <Form.Item name="port" label="端口" rules={[{ required: true, message: '请输入端口' }]}>
+            <Form.Item
+              name="port"
+              label={fmt('pages.opsAgents.sessions.modal.port.label', '端口')}
+              rules={[
+                {
+                  required: true,
+                  message: fmt('pages.opsAgents.sessions.modal.port.required', '请输入端口'),
+                },
+              ]}
+            >
               <InputNumber min={1} max={65535} />
             </Form.Item>
-            <Form.Item name="cols" label="列">
+            <Form.Item name="cols" label={fmt('pages.opsAgents.sessions.modal.cols.label', '列')}>
               <InputNumber min={2} max={500} />
             </Form.Item>
-            <Form.Item name="rows" label="行">
+            <Form.Item name="rows" label={fmt('pages.opsAgents.sessions.modal.rows.label', '行')}>
               <InputNumber min={2} max={200} />
             </Form.Item>
           </Space>
           <div style={{ color: 'var(--text-color-secondary)' }}>
-            本批只交付 SSH；RDP/VNC 服务端显式拒绝，不提供选项。
+            {fmt(
+              'pages.opsAgents.sessions.modal.protocolNote',
+              '本批只交付 SSH；RDP/VNC 服务端显式拒绝，不提供选项。',
+            )}
           </div>
         </Form>
       </Modal>
@@ -300,13 +404,13 @@ export default function DevopsSessionsPanel() {
               <span>
                 {active.protocol.toUpperCase()} {active.host}:{active.port}
               </span>
-              <Tag color={meta.color}>{meta.text}</Tag>
+              <Tag color={meta.color}>{intl.formatMessage(meta)}</Tag>
               {terminalOutcome ? (
                 <span style={{ color: 'var(--text-color-secondary)' }}>{terminalOutcome}</span>
               ) : null}
             </Space>
           ) : (
-            '会话终端'
+            fmt('pages.opsAgents.sessions.drawer.title', '会话终端')
           )
         }
         size="82%"
@@ -316,7 +420,7 @@ export default function DevopsSessionsPanel() {
         extra={
           active ? (
             <Button danger onClick={() => close(active.sessionId)}>
-              关闭会话
+              {fmt('pages.opsAgents.sessions.action.closeSession', '关闭会话')}
             </Button>
           ) : null
         }
@@ -341,8 +445,10 @@ export default function DevopsSessionsPanel() {
               }}
             />
             <div style={{ color: 'var(--text-color-secondary)', fontSize: 12 }}>
-              关闭抽屉只断开本地视图，不结束远端会话；点「关闭会话」才真正断开（审计
-              devops.session_close）。接入时先补最近一屏回放；历史存档在服务端无取回面，暂不可回放。
+              {fmt(
+                'pages.opsAgents.sessions.drawer.footerNote',
+                '关闭抽屉只断开本地视图，不结束远端会话；点「关闭会话」才真正断开（审计 devops.session_close）。接入时先补最近一屏回放；历史存档在服务端无取回面，暂不可回放。',
+              )}
             </div>
           </div>
         ) : null}

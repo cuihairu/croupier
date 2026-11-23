@@ -43,13 +43,23 @@ jest.mock('@/services/api/devopsSessions', () => ({
 jest.mock('@/services/api/ops', () => ({
   listOpsAgentsByType: jest.fn(),
 }));
+// 稳定 intl 引用（AUD-034 后组件经 useCallback([intl]) 依赖 intl 身份，
+// 每次渲染新建对象会触发 useEffect 无限重建）；formatMessage 为 jest.fn 以便
+// 断言 i18n 键提取（非内联硬编码）。
+const mockFormatMessage = jest.fn(
+  ({ defaultMessage }: { defaultMessage?: string }, values?: Record<string, unknown>) =>
+    Object.entries(values || {}).reduce(
+      (msg: string, [key, val]) => msg.split(`{${key}}`).join(String(val)),
+      defaultMessage ?? '',
+    ),
+);
+const mockIntl = { formatMessage: mockFormatMessage };
 jest.mock('@umijs/max', () => ({
+  __esModule: true,
   FormattedMessage: ({ defaultMessage }: { defaultMessage?: string }) => (
     <>{defaultMessage ?? ''}</>
   ),
-  useIntl: () => ({
-    formatMessage: ({ defaultMessage }: { defaultMessage?: string }) => defaultMessage ?? '',
-  }),
+  useIntl: () => mockIntl,
 }));
 // 终端本体由 devopsTerminal.test.tsx 单测覆盖；面板测试只验证会话编排。
 jest.mock('../DevopsTerminal', () => ({
@@ -103,6 +113,20 @@ describe('DevopsSessionsPanel', () => {
     renderPanel();
     expect(await screen.findByText('当前 scope 下没有进行中的 SSH 会话。')).toBeInTheDocument();
     expect(screen.queryByTestId('devops-terminal-stub')).not.toBeInTheDocument();
+  });
+
+  it('extracts panel strings through intl ids (AUD-034, no inline hardcode)', async () => {
+    renderPanel();
+    await screen.findByText('当前 scope 下没有进行中的 SSH 会话。');
+    const ids = mockFormatMessage.mock.calls.map((c) => c[0]?.id);
+    // 面板标题/刷新/开会话/空态/列标题/行动作 均走 i18n 键，而非内联字符串。
+    expect(ids).toContain('pages.opsAgents.sessions.title');
+    expect(ids).toContain('pages.opsAgents.sessions.refresh');
+    expect(ids).toContain('pages.opsAgents.sessions.open');
+    expect(ids).toContain('pages.opsAgents.sessions.empty');
+    expect(ids).toContain('pages.opsAgents.sessions.column.actions');
+    expect(ids).toContain('pages.opsAgents.sessions.action.attach');
+    expect(ids).toContain('pages.opsAgents.sessions.action.close');
   });
 
   it('opens a session and attaches the terminal', async () => {
