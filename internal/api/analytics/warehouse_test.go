@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/svc"
+	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -67,6 +69,16 @@ func withDisabledWarehouse(t *testing.T) {
 	t.Cleanup(func() { warehouseConnect = orig })
 }
 
+// warehouseScopeCtx 给仓库查询注入 current scope（GameDBMiddleware 的测试替身）。
+func warehouseScopeCtx(gameID, env string) context.Context {
+	return svc.WithGameScope(context.Background(), svc.GameScope{GameID: gameID, Env: env})
+}
+
+// withWarehouseScope 给 handler 级 gin.Context 注入 current scope。
+func withWarehouseScope(c *gin.Context, gameID, env string) {
+	c.Request = c.Request.WithContext(svc.WithGameScope(c.Request.Context(), svc.GameScope{GameID: gameID, Env: env}))
+}
+
 func TestWarehouseDAU_ScopeAndWindow(t *testing.T) {
 	conn := &fakeConn{rows: [][]any{
 		{time.Date(2026, 8, 23, 0, 0, 0, 0, time.UTC), "game-a", "prod", uint64(120), uint64(12)},
@@ -75,7 +87,7 @@ func TestWarehouseDAU_ScopeAndWindow(t *testing.T) {
 	withFakeConn(t, conn)
 
 	svcAnalytics := NewService(nil)
-	resp, err := svcAnalytics.WarehouseDAU(context.Background(), &WarehouseDAURequest{GameId: "game-a", Env: "prod", Days: 2})
+	resp, err := svcAnalytics.WarehouseDAU(warehouseScopeCtx("game-a", "prod"), &WarehouseDAURequest{GameId: "game-a", Env: "prod", Days: 2})
 	require.NoError(t, err)
 	require.Len(t, resp.Points, 2)
 	assert.Equal(t, "2026-08-23", resp.Points[0].Date)
@@ -90,14 +102,18 @@ func TestWarehouseDAU_ScopeAndWindow(t *testing.T) {
 	assert.Equal(t, "prod", conn.args[2])
 }
 
-func TestWarehouseDAU_DefaultWindowUnscoped(t *testing.T) {
+func TestWarehouseDAU_DefaultWindowUsesCurrentScope(t *testing.T) {
 	conn := &fakeConn{rows: [][]any{}}
 	withFakeConn(t, conn)
 
-	_, err := NewService(nil).WarehouseDAU(context.Background(), &WarehouseDAURequest{})
+	// AUD-048：请求不传 game/env 时作用域来自 current scope，不得展开为无过滤。
+	_, err := NewService(nil).WarehouseDAU(warehouseScopeCtx("game-a", "prod"), &WarehouseDAURequest{})
 	require.NoError(t, err)
-	assert.NotContains(t, conn.query, "AND game_id = ?")
-	require.Len(t, conn.args, 1) // only `since`
+	assert.Contains(t, conn.query, "AND game_id = ?")
+	assert.Contains(t, conn.query, "AND env = ?")
+	require.Len(t, conn.args, 3) // since + game + env
+	assert.Equal(t, "game-a", conn.args[1])
+	assert.Equal(t, "prod", conn.args[2])
 }
 
 func TestWarehouseOnline_SumGroupByMinute(t *testing.T) {
@@ -106,7 +122,7 @@ func TestWarehouseOnline_SumGroupByMinute(t *testing.T) {
 	}}
 	withFakeConn(t, conn)
 
-	resp, err := NewService(nil).WarehouseOnline(context.Background(), &WarehouseOnlineRequest{GameId: "game-a", Minutes: 30})
+	resp, err := NewService(nil).WarehouseOnline(warehouseScopeCtx("game-a", "prod"), &WarehouseOnlineRequest{GameId: "game-a", Minutes: 30})
 	require.NoError(t, err)
 	require.Len(t, resp.Points, 1)
 	assert.Equal(t, uint64(7), resp.Points[0].Online)
@@ -123,7 +139,7 @@ func TestWarehouseRevenue_ScanFields(t *testing.T) {
 	}}
 	withFakeConn(t, conn)
 
-	resp, err := NewService(nil).WarehouseRevenue(context.Background(), &WarehouseRevenueRequest{Days: 7})
+	resp, err := NewService(nil).WarehouseRevenue(warehouseScopeCtx("game-a", "prod"), &WarehouseRevenueRequest{Days: 7})
 	require.NoError(t, err)
 	require.Len(t, resp.Points, 1)
 	assert.Equal(t, uint64(9900), resp.Points[0].RevenueCents)
@@ -135,13 +151,13 @@ func TestWarehouseRevenue_ScanFields(t *testing.T) {
 func TestWarehouse_DisabledReturnsSentinel(t *testing.T) {
 	withDisabledWarehouse(t)
 
-	_, err := NewService(nil).WarehouseDAU(context.Background(), &WarehouseDAURequest{})
+	_, err := NewService(nil).WarehouseDAU(warehouseScopeCtx("game-a", "prod"), &WarehouseDAURequest{})
 	assert.ErrorIs(t, err, errWarehouseDisabled)
 
-	_, err = NewService(nil).WarehouseOnline(context.Background(), &WarehouseOnlineRequest{})
+	_, err = NewService(nil).WarehouseOnline(warehouseScopeCtx("game-a", "prod"), &WarehouseOnlineRequest{})
 	assert.ErrorIs(t, err, errWarehouseDisabled)
 
-	_, err = NewService(nil).WarehouseRevenue(context.Background(), &WarehouseRevenueRequest{})
+	_, err = NewService(nil).WarehouseRevenue(warehouseScopeCtx("game-a", "prod"), &WarehouseRevenueRequest{})
 	assert.ErrorIs(t, err, errWarehouseDisabled)
 }
 
@@ -149,7 +165,7 @@ func TestWarehouse_QueryFailureWrapped(t *testing.T) {
 	conn := &fakeConn{queryErr: errors.New("dial refused")}
 	withFakeConn(t, conn)
 
-	_, err := NewService(nil).WarehouseDAU(context.Background(), &WarehouseDAURequest{})
+	_, err := NewService(nil).WarehouseDAU(warehouseScopeCtx("game-a", "prod"), &WarehouseDAURequest{})
 	require.Error(t, err)
 	assert.ErrorIs(t, err, errWarehouseQuery)
 }

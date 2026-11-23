@@ -388,7 +388,7 @@ last_env
 - 两个 header 都缺失时，才允许使用持久化的上次选择或首个已授权 scope。
 - 只传其中一个 header 是不完整请求，返回 `400`；不得将 header 与上次选择拼接成一个 scope。
 - 不从 query 参数或请求 body 补齐请求 scope。它们可以表达某个业务资源的标识，但不能替代本请求的访问上下文。
-- 没有任何可访问 scope 时返回明确的无授权错误；前端据此显示无可访问游戏环境，而不是任选一个游戏。
+- 分析仓库读取（`/api/v1/analytics/warehouse/{dau,online,revenue}`）在服务层强制该规则（`internal/api/analytics/warehouse.go` 的 `warehouseScope`，AUD-048）：查询过滤只取解析出的 current scope；`gameId`/`env` 请求参数只可确认该作用域，不一致返回 `403`；作用域缺失时返回错误，而不是把查询放大为无过滤的跨游戏聚合。- 没有任何可访问 scope 时返回明确的无授权错误；前端据此显示无可访问游戏环境，而不是任选一个游戏。
 
 解析器在认证之后执行，向 request context 写入唯一的 `ResolvedScope`；数据库路由、权限检查、审计标签和业务服务均只读取该值。数据库 Router 不应自行再解析 header，避免一个请求出现两个 scope 来源。
 

@@ -394,7 +394,7 @@ Rules:
 - Only when both headers are absent may the persisted last selection or the first authorized scope be used.
 - Sending only one of the two headers is an incomplete request and returns `400`; a header must never be stitched together with the last selection into a scope.
 - The request scope is never completed from query parameters or the request body. They may identify a business resource, but they cannot substitute for this request's access context.
-- With no accessible scope at all, return an explicit unauthorized error; the frontend shows "no accessible game environments" rather than picking an arbitrary game.
+- Analytics warehouse reads (`/api/v1/analytics/warehouse/{dau,online,revenue}`) enforce this in the service layer (`warehouseScope` in `internal/api/analytics/warehouse.go`, AUD-048): the query filter comes only from the resolved scope. A `gameId`/`env` request parameter may only confirm it — a mismatch returns `403` — and a missing scope returns an error instead of widening the query into an unfiltered cross-game aggregate.- With no accessible scope at all, return an explicit unauthorized error; the frontend shows "no accessible game environments" rather than picking an arbitrary game.
 
 The resolver runs after authentication and writes the single `ResolvedScope` into the request context; database routing, permission checks, audit labels, and business services all read only that value. The database Router should not re-parse headers on its own — one request must never have two scope sources.
 

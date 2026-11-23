@@ -5,11 +5,14 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
 	clickhouse "github.com/ClickHouse/clickhouse-go/v2"
 	chdriver "github.com/ClickHouse/clickhouse-go/v2/lib/driver"
+	"github.com/cuihairu/croupier/internal/common/errorx"
+	"github.com/cuihairu/croupier/internal/svc"
 )
 
 // ---------------------------------------------------------------------------
@@ -142,10 +145,14 @@ func (s *Service) WarehouseDAU(ctx context.Context, req *WarehouseDAURequest) (*
 	days := clampDays(req.Days, 14, 90)
 	since := time.Now().UTC().AddDate(0, 0, -(days - 1)).Truncate(24 * time.Hour)
 
+	gameID, env, err := warehouseScope(ctx, req.GameId, req.Env)
+	if err != nil {
+		return nil, err
+	}
 	rows, err := warehouseQuery(ctx, fmt.Sprintf(
 		"SELECT d, game_id, env, dau, new_users FROM analytics.daily_users FINAL WHERE d >= ?%s ORDER BY d",
-		warehouseScopeSuffix(req.GameId, req.Env),
-	), append([]any{since}, warehouseScopeArgs(req.GameId, req.Env)...)...)
+		warehouseScopeSuffix(gameID, env),
+	), append([]any{since}, warehouseScopeArgs(gameID, env)...)...)
 	if err != nil {
 		return nil, err
 	}
@@ -170,13 +177,17 @@ func (s *Service) WarehouseOnline(ctx context.Context, req *WarehouseOnlineReque
 	minutes := clampInt(req.Minutes, 60, 1, 1440)
 	since := time.Now().UTC().Add(-time.Duration(minutes) * time.Minute).Truncate(time.Minute)
 
+	gameID, env, err := warehouseScope(ctx, req.GameId, req.Env)
+	if err != nil {
+		return nil, err
+	}
 	// ReplacingMergeTree(version) keeps the latest snapshot for each
 	// (game, env, minute); FINAL dedupes before SUM across environments, so a
 	// replayed/re-flushed minute is not double counted.
 	rows, err := warehouseQuery(ctx, fmt.Sprintf(
 		"SELECT m, SUM(online) FROM analytics.minute_online FINAL WHERE m >= ?%s GROUP BY m ORDER BY m",
-		warehouseScopeSuffix(req.GameId, req.Env),
-	), append([]any{since}, warehouseScopeArgs(req.GameId, req.Env)...)...)
+		warehouseScopeSuffix(gameID, env),
+	), append([]any{since}, warehouseScopeArgs(gameID, env)...)...)
 	if err != nil {
 		return nil, err
 	}
@@ -198,10 +209,14 @@ func (s *Service) WarehouseRevenue(ctx context.Context, req *WarehouseRevenueReq
 	days := clampDays(req.Days, 14, 90)
 	since := time.Now().UTC().AddDate(0, 0, -(days - 1)).Truncate(24 * time.Hour)
 
+	gameID, env, err := warehouseScope(ctx, req.GameId, req.Env)
+	if err != nil {
+		return nil, err
+	}
 	rows, err := warehouseQuery(ctx, fmt.Sprintf(
 		"SELECT d, game_id, env, revenue_cents, refunds_cents, failed FROM analytics.daily_revenue FINAL WHERE d >= ?%s ORDER BY d",
-		warehouseScopeSuffix(req.GameId, req.Env),
-	), append([]any{since}, warehouseScopeArgs(req.GameId, req.Env)...)...)
+		warehouseScopeSuffix(gameID, env),
+	), append([]any{since}, warehouseScopeArgs(gameID, env)...)...)
 	if err != nil {
 		return nil, err
 	}
@@ -242,6 +257,28 @@ func warehouseQuery(ctx context.Context, query string, args ...any) (warehouseRo
 		return nil, fmt.Errorf("%w: %v", errWarehouseQuery, err)
 	}
 	return rows, nil
+}
+
+// warehouseScope 强制仓库查询作用域来自当前请求 scope（AUD-048）。
+//
+// 仓库表按 (game_id, env) 存多游戏数据，此前作用域完全由请求参数驱动：
+// 显式传其他 game/env 即可跨域聚合，缺省时则展开为「无过滤」全量聚合。
+// 统一为——作用域只取 GameDBMiddleware 解析的 current scope；请求参数
+// 只可收窄（与当前 scope 一致）不可替换，不一致即 403；无 scope 时拒绝
+// 查询而非退化为无过滤。
+func warehouseScope(ctx context.Context, gameID, env string) (string, string, error) {
+	scope := svc.GameScopeFromContext(ctx)
+	if strings.TrimSpace(scope.GameID) == "" && strings.TrimSpace(scope.Env) == "" {
+		return "", "", errorx.NewBadRequest("仓库查询需要游戏作用域（X-Game-ID/X-Env）")
+	}
+	// 回显只陈述当前作用域要求，不回显请求方提交的目标值（避免越权枚举）。
+	if g := strings.TrimSpace(gameID); g != "" && !strings.EqualFold(g, strings.TrimSpace(scope.GameID)) {
+		return "", "", errorx.NewForbidden("gameId 与当前游戏作用域不一致")
+	}
+	if e := strings.TrimSpace(env); e != "" && !strings.EqualFold(e, strings.TrimSpace(scope.Env)) {
+		return "", "", errorx.NewForbidden("env 与当前环境作用域不一致")
+	}
+	return strings.TrimSpace(scope.GameID), strings.TrimSpace(scope.Env), nil
 }
 
 func warehouseScopeSuffix(gameID, env string) string {

@@ -127,6 +127,7 @@ func TestWarehouseHandlersReturnPoints(t *testing.T) {
 	handler := NewHandler(NewService(nil), config.SSEConfig{})
 
 	ctx, rec := newCoverageGinContext(http.MethodGet, "/api/v1/analytics/warehouse/dau?gameId=game-a&days=7", "")
+	withWarehouseScope(ctx, "game-a", "prod") // AUD-048：current scope 注入
 	handler.WarehouseDAU(ctx)
 	require.Equal(t, http.StatusOK, rec.Code)
 	assert.Contains(t, rec.Body.String(), `"dau":11`)
@@ -136,6 +137,7 @@ func TestWarehouseHandlersReturnPoints(t *testing.T) {
 	}}
 	withFakeConn(t, conn)
 	ctx, rec = newCoverageGinContext(http.MethodGet, "/api/v1/analytics/warehouse/online?minutes=30", "")
+	withWarehouseScope(ctx, "game-a", "prod")
 	handler.WarehouseOnline(ctx)
 	require.Equal(t, http.StatusOK, rec.Code)
 	assert.Contains(t, rec.Body.String(), `"online":9`)
@@ -145,6 +147,7 @@ func TestWarehouseHandlersReturnPoints(t *testing.T) {
 	}}
 	withFakeConn(t, conn)
 	ctx, rec = newCoverageGinContext(http.MethodGet, "/api/v1/analytics/warehouse/revenue?gameId=game-a", "")
+	withWarehouseScope(ctx, "game-a", "prod")
 	handler.WarehouseRevenue(ctx)
 	require.Equal(t, http.StatusOK, rec.Code)
 	assert.Contains(t, rec.Body.String(), `"revenueCents":100`)
@@ -164,6 +167,7 @@ func TestWarehouseHandlersMapErrors(t *testing.T) {
 	} {
 		t.Run(tc.name+"_disabled", func(t *testing.T) {
 			ctx, rec := newCoverageGinContext(http.MethodGet, "/api/v1/analytics/warehouse/"+tc.name, "")
+			withWarehouseScope(ctx, "game-a", "prod")
 			tc.fn(ctx)
 			assert.Equal(t, http.StatusServiceUnavailable, rec.Code)
 		})
@@ -181,6 +185,7 @@ func TestWarehouseHandlersMapErrors(t *testing.T) {
 	} {
 		t.Run(tc.name+"_failure", func(t *testing.T) {
 			ctx, rec := newCoverageGinContext(http.MethodGet, "/api/v1/analytics/warehouse/"+tc.name, "")
+			withWarehouseScope(ctx, "game-a", "prod")
 			tc.fn(ctx)
 			assert.Equal(t, http.StatusInternalServerError, rec.Code)
 		})
@@ -889,15 +894,15 @@ func withScanFailureConn(t *testing.T, err error) {
 
 func TestWarehouseServicesRejectUnscannableRows(t *testing.T) {
 	withScanFailureConn(t, errors.New("unsupported scan"))
-	_, err := NewService(nil).WarehouseDAU(context.Background(), &WarehouseDAURequest{})
+	_, err := NewService(nil).WarehouseDAU(warehouseScopeCtx("game-a", "prod"), &WarehouseDAURequest{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "scan daily_users")
 
-	_, err = NewService(nil).WarehouseOnline(context.Background(), &WarehouseOnlineRequest{})
+	_, err = NewService(nil).WarehouseOnline(warehouseScopeCtx("game-a", "prod"), &WarehouseOnlineRequest{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "scan minute_online")
 
-	_, err = NewService(nil).WarehouseRevenue(context.Background(), &WarehouseRevenueRequest{})
+	_, err = NewService(nil).WarehouseRevenue(warehouseScopeCtx("game-a", "prod"), &WarehouseRevenueRequest{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "scan daily_revenue")
 }

@@ -34,7 +34,7 @@ func TestWarehouseQueryWrapsConnectErrorV9(t *testing.T) {
 	warehouseConnect = func() (warehouseConn, error) { return nil, errors.New("dial boom") }
 	t.Cleanup(func() { warehouseConnect = orig })
 
-	_, err := NewService(nil).WarehouseDAU(context.Background(), &WarehouseDAURequest{})
+	_, err := NewService(nil).WarehouseDAU(warehouseScopeCtx("game-a", "prod"), &WarehouseDAURequest{})
 	require.Error(t, err)
 	assert.ErrorIs(t, err, errWarehouseQuery)
 }

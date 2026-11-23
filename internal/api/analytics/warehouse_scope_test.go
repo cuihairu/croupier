@@ -1,18 +1,71 @@
 package analytics
 
 import (
+	"context"
 	"testing"
 
+	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // warehouse scope 片段 + 参数必须与占位符一一对应；遗漏 = 跨游戏数据泄漏。
 
 func TestWarehouseScopeSuffix(t *testing.T) {
-	assert.Empty(t, warehouseScopeSuffix("", ""), "空 scope 不加过滤（调用方负责全集语义）")
+	assert.Empty(t, warehouseScopeSuffix("", ""), "空值不加过滤（作用域守卫保证调用方不会传入空值，见 warehouseScope）")
 	assert.Equal(t, " AND game_id = ?", warehouseScopeSuffix("demo", ""))
 	assert.Equal(t, " AND env = ?", warehouseScopeSuffix("", "prod"))
 	assert.Equal(t, " AND game_id = ? AND env = ?", warehouseScopeSuffix("demo", "prod"))
+}
+
+// AUD-048：作用域强制来自 current scope。请求参数只可收窄（一致即放行），
+// 不可替换（跨域即 403）；无 scope 直接拒绝，不得展开为无过滤。
+func TestWarehouseScope_ForcesCurrentScope(t *testing.T) {
+	cases := []struct {
+		name     string
+		scope    svc.GameScope
+		reqGame  string
+		reqEnv   string
+		wantGame string
+		wantEnv  string
+		wantErr  string
+	}{
+		{name: "缺省沿用 current scope", scope: svc.GameScope{GameID: "game-a", Env: "prod"}, wantGame: "game-a", wantEnv: "prod"},
+		{name: "参数与 scope 一致视为收窄", scope: svc.GameScope{GameID: "game-a", Env: "prod"}, reqGame: "game-a", reqEnv: "prod", wantGame: "game-a", wantEnv: "prod"},
+		{name: "请求替换 game 被拒", scope: svc.GameScope{GameID: "game-a", Env: "prod"}, reqGame: "game-b", wantErr: "gameId 与当前游戏作用域不一致"},
+		{name: "请求替换 env 被拒", scope: svc.GameScope{GameID: "game-a", Env: "prod"}, reqEnv: "dev", wantErr: "env 与当前环境作用域不一致"},
+		{name: "无 scope 拒绝而非无过滤", reqGame: "game-b", wantErr: "仓库查询需要游戏作用域"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := svc.WithGameScope(context.Background(), tc.scope)
+			gotGame, gotEnv, err := warehouseScope(ctx, tc.reqGame, tc.reqEnv)
+			if tc.wantErr == "" {
+				require.NoError(t, err)
+				assert.Equal(t, tc.wantGame, gotGame)
+				assert.Equal(t, tc.wantEnv, gotEnv)
+				return
+			}
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tc.wantErr)
+		})
+	}
+}
+
+// AUD-048 端到端：跨域 gameId 不下推查询（403，连接不触达）；
+// 缺省时查询带 current scope 过滤。
+func TestWarehouseDAU_Aud048_CrossScopeRejected(t *testing.T) {
+	conn := &fakeConn{rows: [][]any{}}
+	withFakeConn(t, conn)
+
+	_, err := NewService(nil).WarehouseDAU(warehouseScopeCtx("game-a", "prod"),
+		&WarehouseDAURequest{GameId: "game-b", Env: "prod"})
+	require.Error(t, err)
+	assert.Empty(t, conn.query, "跨域请求不得触达查询")
+
+	_, err = NewService(nil).WarehouseDAU(context.Background(), &WarehouseDAURequest{})
+	require.Error(t, err)
+	assert.Empty(t, conn.query, "无作用域不得触达查询")
 }
 
 func TestWarehouseScopeArgs_MatchesPlaceholders(t *testing.T) {
