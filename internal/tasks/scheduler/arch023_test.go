@@ -23,7 +23,7 @@ import (
 func TestManager_ClaimsSlotBeforeDispatch(t *testing.T) {
 	now := time.Date(2026, 8, 26, 10, 30, 0, 0, time.UTC)
 	store := newFakeStore()
-	store.schedules = []model.TaskSchedule{dueSchedule(1, "30 10 * * *", "", 0, 5, now.Add(-time.Minute))}
+	store.schedules = []model.TaskSchedule{dueSchedule(1, "30 10 * * *", "", 0, 5, Slot(now))}
 
 	var claimVisible int32
 	d := dispatcherFunc(func(ctx context.Context, req *sdkv1.InvokeRequest) (*sdkv1.StartTaskResponse, error) {
@@ -47,7 +47,7 @@ func TestManager_ClaimsSlotBeforeDispatch(t *testing.T) {
 func TestManager_DispatchFailureFinalizesClaim(t *testing.T) {
 	now := time.Date(2026, 8, 26, 10, 30, 0, 0, time.UTC)
 	store := newFakeStore()
-	store.schedules = []model.TaskSchedule{dueSchedule(1, "30 10 * * *", "", 0, 5, now.Add(-time.Minute))}
+	store.schedules = []model.TaskSchedule{dueSchedule(1, "30 10 * * *", "", 0, 5, Slot(now))}
 	d := &fakeDispatcher{err: assert.AnError}
 	NewManager(store, d).tick(now)
 
@@ -61,7 +61,7 @@ func TestManager_DispatchFailureFinalizesClaim(t *testing.T) {
 func TestManager_ConcurrentTriggerExactlyOneDispatch(t *testing.T) {
 	now := time.Date(2026, 8, 26, 10, 30, 0, 0, time.UTC)
 	store := newFakeStore()
-	store.schedules = []model.TaskSchedule{dueSchedule(1, "30 10 * * *", "", 0, 5, now.Add(-time.Minute))}
+	store.schedules = []model.TaskSchedule{dueSchedule(1, "30 10 * * *", "", 0, 5, Slot(now))}
 
 	var dispatches int32
 	d := dispatcherFunc(func(ctx context.Context, req *sdkv1.InvokeRequest) (*sdkv1.StartTaskResponse, error) {
@@ -107,7 +107,7 @@ func TestManager_CrashAfterClaimBeforeDispatch_RecoversWithoutRedispatch(t *test
 	now := time.Date(2026, 8, 26, 10, 30, 0, 0, time.UTC)
 	lease := 60 * time.Second
 	store := newFakeStore()
-	store.schedules = []model.TaskSchedule{dueSchedule(1, "30 10 * * *", "", 0, 5, now.Add(-time.Minute))}
+	store.schedules = []model.TaskSchedule{dueSchedule(1, "30 10 * * *", "", 0, 5, Slot(now))}
 	// 模拟崩溃领取者：claimed 且已过租约（CreatedAt = now - 2×lease）。
 	store.seedRunLog(model.TaskScheduleRunLog{
 		ScheduleID: 1, Slot: Slot(now), Status: model.RunLogClaimed,
@@ -142,7 +142,7 @@ func TestManager_CrashAfterDispatchBeforeWriteback_MarksIndeterminateNoRedispatc
 	now := time.Date(2026, 8, 26, 10, 30, 0, 0, time.UTC)
 	lease := 60 * time.Second
 	store := newFakeStore()
-	store.schedules = []model.TaskSchedule{dueSchedule(1, "30 10 * * *", "", 0, 5, now.Add(-time.Minute))}
+	store.schedules = []model.TaskSchedule{dueSchedule(1, "30 10 * * *", "", 0, 5, Slot(now))}
 	store.seedRunLog(model.TaskScheduleRunLog{
 		ScheduleID: 1, Slot: Slot(now), Status: model.RunLogClaimed,
 		CreatedAt: now.Add(-10 * lease),
@@ -170,7 +170,7 @@ func TestManager_ActiveClaimWithinLease_NotEvicted(t *testing.T) {
 	now := time.Date(2026, 8, 26, 10, 30, 0, 0, time.UTC)
 	lease := 60 * time.Second
 	store := newFakeStore()
-	store.schedules = []model.TaskSchedule{dueSchedule(1, "30 10 * * *", "", 0, 5, now.Add(-time.Minute))}
+	store.schedules = []model.TaskSchedule{dueSchedule(1, "30 10 * * *", "", 0, 5, Slot(now))}
 	store.seedRunLog(model.TaskScheduleRunLog{
 		ScheduleID: 1, Slot: Slot(now), Status: "claimed",
 		CreatedAt: now.Add(-lease / 2),
@@ -198,7 +198,7 @@ func TestManager_CrossSlotStaleClaim_ReapedIndeterminate(t *testing.T) {
 	now := time.Date(2026, 8, 26, 10, 30, 0, 0, time.UTC)
 	lease := 60 * time.Second
 	store := newFakeStore()
-	store.schedules = []model.TaskSchedule{dueSchedule(1, "30 10 * * *", "", 0, 5, now.Add(-time.Minute))}
+	store.schedules = []model.TaskSchedule{dueSchedule(1, "30 10 * * *", "", 0, 5, Slot(now))}
 	// 旧槽位（08:30 ≠ 当前槽 10:30）的崩溃领取者遗留：claimed 且过租约。
 	oldSlot := Slot(now.Add(-2 * time.Hour))
 	require.NotEqual(t, Slot(now), oldSlot, "旧槽必须与当前触发槽不同，才模拟跨槽缺口")
@@ -266,7 +266,7 @@ func TestManager_TerminalRunLog_NotRewritten(t *testing.T) {
 	now := time.Date(2026, 8, 26, 10, 30, 0, 0, time.UTC)
 	lease := 60 * time.Second
 	store := newFakeStore()
-	store.schedules = []model.TaskSchedule{dueSchedule(1, "30 10 * * *", "", 0, 5, now.Add(-time.Minute))}
+	store.schedules = []model.TaskSchedule{dueSchedule(1, "30 10 * * *", "", 0, 5, Slot(now))}
 	store.seedRunLog(model.TaskScheduleRunLog{
 		ScheduleID: 1, Slot: Slot(now), Status: "dispatched", TaskRunID: "run-done",
 		CreatedAt: now.Add(-10 * lease),

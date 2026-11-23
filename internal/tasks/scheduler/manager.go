@@ -306,11 +306,14 @@ func (m *Manager) triggerSchedule(ctx context.Context, s *model.TaskSchedule, no
 		return
 	}
 
-	slot := Slot(now)
+	slot := triggerSlot(s, now)
 	// ARCH-023 先领取再派发：CreateRunLog 的 (schedule_id, slot) 唯一索引就是
 	// 领取令牌。唯一冲突（claimed==false）说明另一实例已领取本槽——只推进
 	// 下次触发时间、不派发。旧顺序（先 HasRunLog 判重→派发→后补记录且忽略
 	// 冲突返回）在双 Manager 下双方都通过判重、双双派发、仅 1 条唯一记录。
+	// AUD-028：slot 必须按计划发生时间（NextTriggeredAt）而非处理时刻——两个
+	// 实例读到同一到期记录（相同发生时间）即使跨分钟处理也领取同一槽位，唯一
+	// 索引才能仲裁；此前用 Slot(now) 各算各的（:59 与 :00）导致双派发。
 	claimed, err := m.store.CreateRunLog(ctx, &model.TaskScheduleRunLog{
 		ScheduleID: s.ID, Slot: slot, Status: "claimed",
 	})
@@ -499,6 +502,18 @@ func (m *Manager) advance(s *model.TaskSchedule, spec *CronSpec, now time.Time, 
 func (m *Manager) advanceWith(s *model.TaskSchedule, spec *CronSpec, now time.Time, updates map[string]interface{}) {
 	next := spec.Next(now)
 	updates["next_triggered_at"] = next
+}
+
+// triggerSlot 返回本次触发对应的领取槽位：按计划发生时间（NextTriggeredAt）取
+// 槽，而非按处理时刻（AUD-028）。两个实例读到同一条到期记录（相同的计划发生
+// 时间）即使跨分钟处理，也得到同一槽位——(schedule_id, slot) 唯一索引因此能
+// 仲裁领取、只派发一次。按处理时刻取槽会让 :59 与 :00 各领一槽、双双派发。
+// 行经 ListDue 保证 NextTriggeredAt 非空；nil 时防御性回退处理时刻。
+func triggerSlot(s *model.TaskSchedule, now time.Time) time.Time {
+	if s != nil && s.NextTriggeredAt != nil {
+		return Slot(*s.NextTriggeredAt)
+	}
+	return Slot(now)
 }
 
 func isFailure(status string) bool {

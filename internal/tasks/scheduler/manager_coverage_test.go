@@ -57,7 +57,7 @@ func TestManager_StopBeforeStartIsNoop(t *testing.T) {
 func TestManager_StartStopLifecycle(t *testing.T) {
 	now := time.Date(2026, 9, 1, 10, 30, 0, 0, time.UTC)
 	store := newFakeStore()
-	store.schedules = []model.TaskSchedule{dueSchedule(7, "30 10 * * *", "", 0, 5, now.Add(-time.Minute))}
+	store.schedules = []model.TaskSchedule{dueSchedule(7, "30 10 * * *", "", 0, 5, Slot(now))}
 
 	dispatched := make(chan *sdkv1.InvokeRequest, 1)
 	var calls int32

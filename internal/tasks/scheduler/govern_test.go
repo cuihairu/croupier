@@ -13,7 +13,7 @@ import (
 
 // dueScheduleWithActor 是带创建者（ARCH-024 自动化主体）的到期调度。
 func dueScheduleWithActor(id uint, actor string, now time.Time) model.TaskSchedule {
-	s := dueSchedule(id, "30 10 * * *", "", 0, 5, now.Add(-time.Minute))
+	s := dueSchedule(id, "30 10 * * *", "", 0, 5, Slot(now))
 	s.Actor = actor
 	return s
 }

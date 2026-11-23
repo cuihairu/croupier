@@ -80,7 +80,14 @@ type blockingStore struct {
 }
 
 func (b *blockingStore) ListDue(ctx context.Context, _ time.Time, _ int) ([]model.TaskSchedule, error) {
-	close(b.entered)
+	// 非阻塞且幂等：Stop 取消 lifecycle ctx 后循环可能再跑一轮 tick（ticker 在
+	// stopCh 关闭后仍可能先被选中），第二次调用会重复 close(entered) 而 panic
+	// 「close of closed channel」——负载高时更易复现（全量门禁下偶发）。
+	select {
+	case <-b.entered: // 已关闭（首轮调用已发信号）
+	default:
+		close(b.entered)
+	}
 	<-ctx.Done()
 	return nil, ctx.Err()
 }

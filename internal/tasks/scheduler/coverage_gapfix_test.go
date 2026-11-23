@@ -30,7 +30,7 @@ func TestManager_TriggerDefaultsMaxFailedRuns(t *testing.T) {
 	now := time.Date(2026, 8, 26, 10, 30, 0, 0, time.UTC)
 	store := newFakeStore()
 	// 上次失败（failures 3+1=4），MaxFailedRuns=0 → 默认上限 5，4 < 5 继续派发。
-	store.schedules = []model.TaskSchedule{dueSchedule(1, "30 10 * * *", "run-failed", 3, 0, now.Add(-time.Minute))}
+	store.schedules = []model.TaskSchedule{dueSchedule(1, "30 10 * * *", "run-failed", 3, 0, Slot(now))}
 	d := &fakeDispatcher{}
 	NewManager(store, d).tick(now)
 
@@ -44,7 +44,7 @@ func TestManager_TriggerDefaultsMaxFailedRuns(t *testing.T) {
 func TestManager_TriggerUnpacksMetadata(t *testing.T) {
 	now := time.Date(2026, 8, 26, 10, 30, 0, 0, time.UTC)
 	store := newFakeStore()
-	schedule := dueSchedule(1, "30 10 * * *", "", 0, 5, now.Add(-time.Minute))
+	schedule := dueSchedule(1, "30 10 * * *", "", 0, 5, Slot(now))
 	schedule.Metadata = model.JSON([]byte(`{"customKey":"customValue"}`))
 	store.schedules = []model.TaskSchedule{schedule}
 

@@ -183,7 +183,7 @@ func dueSchedule(id uint, cron string, lastRunID string, failures, maxFailed int
 func TestManager_TriggerHappyPath(t *testing.T) {
 	now := time.Date(2026, 8, 26, 10, 30, 0, 0, time.UTC)
 	store := newFakeStore()
-	store.schedules = []model.TaskSchedule{dueSchedule(1, "30 10 * * *", "run-ok", 0, 5, now.Add(-time.Minute))}
+	store.schedules = []model.TaskSchedule{dueSchedule(1, "30 10 * * *", "run-ok", 0, 5, Slot(now))}
 	d := &fakeDispatcher{}
 	m := NewManager(store, d)
 
@@ -207,7 +207,7 @@ func TestManager_TriggerHappyPath(t *testing.T) {
 func TestManager_IdempotentSlot(t *testing.T) {
 	now := time.Date(2026, 8, 26, 10, 30, 0, 0, time.UTC)
 	store := newFakeStore()
-	store.schedules = []model.TaskSchedule{dueSchedule(1, "* * * * *", "", 0, 5, now.Add(-time.Minute))}
+	store.schedules = []model.TaskSchedule{dueSchedule(1, "* * * * *", "", 0, 5, Slot(now))}
 	d := &fakeDispatcher{}
 	m := NewManager(store, d)
 
@@ -223,7 +223,7 @@ func TestManager_FailureCountingAndDeadLetter(t *testing.T) {
 	t.Run("failure increments", func(t *testing.T) {
 		store := newFakeStore()
 		// 上次执行失败（LastRunID=run-failed），已失败 1 次，上限 3。
-		store.schedules = []model.TaskSchedule{dueSchedule(1, "30 10 * * *", "run-failed", 1, 3, now.Add(-time.Minute))}
+		store.schedules = []model.TaskSchedule{dueSchedule(1, "30 10 * * *", "run-failed", 1, 3, Slot(now))}
 		d := &fakeDispatcher{}
 		NewManager(store, d).tick(now)
 		updates := store.updates[1]
@@ -234,7 +234,7 @@ func TestManager_FailureCountingAndDeadLetter(t *testing.T) {
 
 	t.Run("reaches limit enters dead_letter", func(t *testing.T) {
 		store := newFakeStore()
-		store.schedules = []model.TaskSchedule{dueSchedule(1, "30 10 * * *", "run-failed", 2, 3, now.Add(-time.Minute))}
+		store.schedules = []model.TaskSchedule{dueSchedule(1, "30 10 * * *", "run-failed", 2, 3, Slot(now))}
 		d := &fakeDispatcher{}
 		NewManager(store, d).tick(now)
 		// 达上限：不再派发，直接 dead_letter。
@@ -246,7 +246,7 @@ func TestManager_FailureCountingAndDeadLetter(t *testing.T) {
 func TestManager_InvalidCronDeadLetters(t *testing.T) {
 	now := time.Date(2026, 8, 26, 10, 30, 0, 0, time.UTC)
 	store := newFakeStore()
-	store.schedules = []model.TaskSchedule{dueSchedule(1, "not-a-cron", "", 0, 5, now.Add(-time.Minute))}
+	store.schedules = []model.TaskSchedule{dueSchedule(1, "not-a-cron", "", 0, 5, Slot(now))}
 	d := &fakeDispatcher{}
 	NewManager(store, d).tick(now)
 	assert.Empty(t, d.calls)
@@ -256,7 +256,7 @@ func TestManager_InvalidCronDeadLetters(t *testing.T) {
 func TestManager_DispatchErrorStillAdvances(t *testing.T) {
 	now := time.Date(2026, 8, 26, 10, 30, 0, 0, time.UTC)
 	store := newFakeStore()
-	store.schedules = []model.TaskSchedule{dueSchedule(1, "30 10 * * *", "", 0, 5, now.Add(-time.Minute))}
+	store.schedules = []model.TaskSchedule{dueSchedule(1, "30 10 * * *", "", 0, 5, Slot(now))}
 	d := &fakeDispatcher{err: fmt.Errorf("agent unreachable")}
 	NewManager(store, d).tick(now)
 
@@ -275,7 +275,7 @@ func TestManager_DispatchErrorStillAdvances(t *testing.T) {
 func TestManager_MetadataCarriesScope(t *testing.T) {
 	now := time.Date(2026, 8, 26, 10, 30, 0, 0, time.UTC)
 	store := newFakeStore()
-	store.schedules = []model.TaskSchedule{dueSchedule(1, "30 10 * * *", "", 0, 5, now.Add(-time.Minute))}
+	store.schedules = []model.TaskSchedule{dueSchedule(1, "30 10 * * *", "", 0, 5, Slot(now))}
 	var captured *sdkv1.InvokeRequest
 	d2 := dispatcherFunc(func(ctx context.Context, req *sdkv1.InvokeRequest) (*sdkv1.StartTaskResponse, error) {
 		captured = req
@@ -312,7 +312,7 @@ func (l *localRunnerStub) Run(_ context.Context, s *model.TaskSchedule) error {
 }
 
 func localSchedule(id uint, now time.Time) model.TaskSchedule {
-	s := dueSchedule(id, "30 10 * * *", "", 0, 5, now.Add(-time.Minute))
+	s := dueSchedule(id, "30 10 * * *", "", 0, 5, Slot(now))
 	s.Kind = model.ScheduleKindIncidentReport
 	s.FunctionID = model.FunctionIDIncidentReport
 	return s
@@ -321,7 +321,7 @@ func localSchedule(id uint, now time.Time) model.TaskSchedule {
 func TestManager_LocalRunnerRoutesByKind(t *testing.T) {
 	now := time.Date(2026, 10, 7, 9, 0, 0, 0, time.UTC)
 	store := newFakeStore()
-	store.schedules = []model.TaskSchedule{localSchedule(1, now.Add(-time.Minute))}
+	store.schedules = []model.TaskSchedule{localSchedule(1, Slot(now))}
 	d := &fakeDispatcher{}
 	lr := &localRunnerStub{}
 	m := NewManager(store, d)
@@ -351,7 +351,7 @@ func TestManager_LocalRunnerRoutesByKind(t *testing.T) {
 func TestManager_LocalRunnerFailureCounts(t *testing.T) {
 	now := time.Date(2026, 10, 7, 9, 0, 0, 0, time.UTC)
 	store := newFakeStore()
-	store.schedules = []model.TaskSchedule{localSchedule(1, now.Add(-time.Minute))}
+	store.schedules = []model.TaskSchedule{localSchedule(1, Slot(now))}
 	lr := &localRunnerStub{err: fmt.Errorf("aggregate failed")}
 	m := NewManager(store, &fakeDispatcher{})
 	m.SetLocalRunner(lr)
@@ -371,7 +371,7 @@ func TestManager_LocalRunnerFailureCounts(t *testing.T) {
 func TestManager_LocalKindFallsBackToDispatchWithoutRunner(t *testing.T) {
 	now := time.Date(2026, 10, 7, 9, 0, 0, 0, time.UTC)
 	store := newFakeStore()
-	store.schedules = []model.TaskSchedule{localSchedule(1, now.Add(-time.Minute))}
+	store.schedules = []model.TaskSchedule{localSchedule(1, Slot(now))}
 	d := &fakeDispatcher{}
 	NewManager(store, d).tick(now)
 
@@ -383,7 +383,7 @@ func TestManager_LocalKindFallsBackToDispatchWithoutRunner(t *testing.T) {
 func TestManager_SetLocalRunnerNilClears(t *testing.T) {
 	now := time.Date(2026, 10, 7, 9, 0, 0, 0, time.UTC)
 	store := newFakeStore()
-	store.schedules = []model.TaskSchedule{localSchedule(1, now.Add(-time.Minute))}
+	store.schedules = []model.TaskSchedule{localSchedule(1, Slot(now))}
 	d := &fakeDispatcher{}
 	m := NewManager(store, d)
 	m.SetLocalRunner(&localRunnerStub{})
