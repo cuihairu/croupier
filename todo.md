@@ -2256,9 +2256,12 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 完成证据：`internal/svc/service_context_auth.go`（productionFailClosed + 两处 fail-closed 分支）、`internal/svc/aud045_fail_closed_test.go`、`docs/security.md` + `docs/zh/security.md` 与 `docs/operations/access-control.md` + `docs/zh/operations/access-control.md` 同步 AUD-045 口径。
   - 已知边界：生产判定是模式声明式（AUD-008 同源）——部署未声明 prod 信号则保持 fail-open 兼容，属运维显式选择；模型未装配（AdminModel nil）仍整段跳过（精简/单测形态，不变）。
 
-- [ ] **AUD-046 · P2 · 修复 · CICD TestConnection SSRF 防护与稳定错误码**
+- [x] **AUD-046 · P2 · 修复 · CICD TestConnection SSRF 防护与稳定错误码**（commit `0d001d63a`）
   - 依赖：—。交付与验收：`internal/api/cicd/service.go:309-315` 限制 scheme、解析并拒绝私网/链路本地地址；客户端错误改稳定码，原文入日志。
-  - 状态／条件：2026-11-16 复核属实。
+  - 状态／条件：DONE · LOCAL VERIFIED（commit `0d001d63a`）——`TestConnection` 三面收敛：scheme 只认 http/https（兜住写入校验之前的直写库历史行，400 `cicd_probe_invalid_target`）；`sec.ssrfProtection` 开启时 `secguard.CheckURL` 解析级拦截回环/私网/链路本地（`sec.allowIPs` 可放行内网 CI，与其余出站探针同口径，400 `cicd_probe_target_blocked`）；客户端可见信息一律稳定文案——原始拨号错误（refused/no route/timeout 可区分内网主机存活，等于免费内网扫描器）只进 `slog` 日志。dial-time 守卫客户端由 routes 既有装配提供（routes_release.go）。同步更新 `TestCicdService_TestConnectionMalformedEndpoint` 契约（200 ok:false → 400+稳定码）。
+  - 验证：`go build ./...` 通过；`internal/api/cicd/aud046_probe_guard_test.go` 新增 3 组用例（scheme 三形态 → 400 stable code；守卫 on+关库拦截 → 400 blocked、allowIPs 放行 → 稳定不可达文案且不含 refused；守卫 off → 失败文案稳定不回传原始错误）；`go test ./internal/...` 全绿。
+  - 完成证据：`internal/api/cicd/service.go`（TestConnection）、`internal/api/cicd/aud046_probe_guard_test.go`、`internal/api/cicd/service_paths_test.go`（契约更新）、`docs/operations/external-service-probing.md` + `docs/zh/operations/external-service-probing.md` 新增 CI/CD 连通性测试小节。
+  - 已知边界：私网拦截是站点守卫开关（sec.ssrfProtection）项，默认关时不对自托管内网 CI 额外收紧——与仓库既有 secguard 口径一致（开关注解在 external-service-probing.md 出站安全策略小节）。
 
 - [ ] **AUD-047 · P2 · 修复 · 未知错误统一 opaque 500**
   - 依赖：—。交付与验收：`internal/common/response/response.go:107-108` 未知错误改 opaque message + correlation id，原文仅入日志；带响应契约回归。
