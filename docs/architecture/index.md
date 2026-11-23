@@ -96,4 +96,4 @@ Single-database mode still validates scope. multiGame separates metadata from se
 
 ## Runtime evidence and lifecycles
 
-[Process inventory, connection matrix, lifecycle SVGs, deployment failures and official-reference checks](./runtime-topology). Diagrams show current wiring; durable approvals, interconnect mTLS, Provider draining and reliable task replay remain follow-up work.
+[Process inventory, connection matrix, lifecycle SVGs, deployment failures and official-reference checks](./runtime-topology). Diagrams show current wiring; approval persistence is wired (SQLStore with CAS, 9066d7c10); interconnect mTLS, Provider draining and reliable task replay remain follow-up work.

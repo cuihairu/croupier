@@ -151,11 +151,11 @@ proto 字段、`task_runs` 列、StartRequest 字段三处存在，但 API 不�
 
 **处置（协议级）**：与 E1 联动设计——API 层收 `Idempotency-Key`（REST 头或 body）、task_runs 唯一索引、去重窗口语义。是执行链正确性的地基，建议最先排期。
 
-### E6 [审批存储是进程内存 MemStore（中]
+### E6 [审批单无 TTL；续期 bypass（低中]
 
-PG/SQLite 实现存在但未接线；重启丢全部 pending 审批；审批无 TTL，旧单可无限期后批准，续期执行带 `approvalBypass=approved` 跳过全部 policy。
+持久化已解决（AUD-051，2026-11-23）：生产装配为 `approvals.NewSQLStore(db)`（`internal/svc/service_context.go:385`，9066d7c10，2026-10-30），approve/reject 走 CAS、dispatch 领取持久——重启不再丢 pending 审批。残余：审批无 TTL，旧单可无限期后批准；续期执行带 `approvalBypass=approved` 跳过全部 policy。
 
-**处置（需设计决策）**：接线 PG/SQLite store 的时机（涉及 approvals 表迁移与 HA 语义——两实例共享审批池后两人规则的「两人」判定要跨实例）。
+**处置（需设计决策）**：审批单 TTL/过期清扫，以及续期 `approvalBypass` 是否应重新进入 policy 检查。
 
 ### E7 [错误静默吞掉集合（中]
 

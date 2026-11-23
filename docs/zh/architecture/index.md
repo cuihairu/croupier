@@ -45,16 +45,16 @@ Server 保留契约、页面快照与发布历史。正式 Console 使用发布�
 
 ## 状态归属与高可用
 
-| 状态                                            | 当前存放位置                               | 多实例含义                                           |
-| ----------------------------------------------- | ------------------------------------------ | ---------------------------------------------------- |
-| Agent/SDK 活连接                                | 对应进程内存                               | 不能共享，通过 owner 转发访问                        |
-| 注册信息                                        | 本地 registry + 数据库 agent_sessions 快照 | 快照用于发现，不能代替活连接                         |
-| 成员与 Agent owner 租约                         | 共享关系库，或配置 Redis                   | 一跳转发与 epoch fencing 防止循环和旧任期请求        |
-| 业务、页面、task_runs/task_events、页面幂等记录 | 关系库；部分模型可通过 dbctx 分库          | 需按具体模型确认 scope/分库行为                      |
-| task→Agent 路由                                 | 本地缓存/文件 + task_runs 查询兜底         | 本地丢失不等于跨实例取消失效                         |
-| 函数审批                                        | 当前 ServiceContext 装配 MemStore          | SQLStore 存在，但当前装配尚未提供跨实例/重启持久保证 |
-| 审计                                            | SQLAuditStore + AuditService               | 有哈希链校验；默认未装配 signer，不能宣称不可篡改    |
-| 分析事件                                        | Redis Streams → worker → ClickHouse        | 独立于控制面数据库                                   |
+| 状态                                            | 当前存放位置                                       | 多实例含义                                                |
+| ----------------------------------------------- | -------------------------------------------------- | --------------------------------------------------------- |
+| Agent/SDK 活连接                                | 对应进程内存                                       | 不能共享，通过 owner 转发访问                             |
+| 注册信息                                        | 本地 registry + 数据库 agent_sessions 快照         | 快照用于发现，不能代替活连接                              |
+| 成员与 Agent owner 租约                         | 共享关系库，或配置 Redis                           | 一跳转发与 epoch fencing 防止循环和旧任期请求             |
+| 业务、页面、task_runs/task_events、页面幂等记录 | 关系库；部分模型可通过 dbctx 分库                  | 需按具体模型确认 scope/分库行为                           |
+| task→Agent 路由                                 | 本地缓存/文件 + task_runs 查询兜底                 | 本地丢失不等于跨实例取消失效                              |
+| 函数审批                                        | 关系库 SQLStore（9066d7c10 起装配）+ CAS 决定/领取 | 审批单仍无 TTL；续期 `approvalBypass=approved` 仍绕过策略 |
+| 审计                                            | SQLAuditStore + AuditService                       | 有哈希链校验；默认未装配 signer，不能宣称不可篡改         |
+| 分析事件                                        | Redis Streams → worker → ClickHouse                | 独立于控制面数据库                                        |
 
 **HA 是有边界的能力**：owner 转发已经实现，但不意味着每个业务模块的状态都已经共享。集群初始化的部分错误会回退 standalone，现有 healthz 不完整表达集群就绪状态。
 
@@ -105,4 +105,4 @@ Server 保留契约、页面快照与发布历史。正式 Console 使用发布�
 
 ## 运行拓扑与生命周期证据
 
-[进程清单、逐条连接、生命周期 SVG、部署故障与外部核查记录](./runtime-topology)。图为当前实现；审批持久化、Provider 排空与任务可靠重放仍是待办。
+[进程清单、逐条连接、生命周期 SVG、部署故障与外部核查记录](./runtime-topology)。图为当前实现；审批持久化已接线（SQLStore + CAS，9066d7c10）；interconnect mTLS、Provider 排空与任务可靠重放仍是待办。

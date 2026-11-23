@@ -63,7 +63,7 @@ OIDC 登录、Vault secret resolver、SMTP/对象存储、OTel/监控链接是�
 - **失效**：Server 注册 TTL 默认 5 分钟，心跳按默认 TTL 续期；live session 断链立即按 `(agentID, sessionID)` 清除，避免旧连接清除新连接。registry 定时清理到期记录及 Provider 投影；DB 锚点可作为最后已知身份，不能作为在线证明。证据：`internal/server/agent_session.go:RemoveSession`、`internal/server/tcp_listener.go`、`internal/platform/registry/agent_session_db.go`。
 - **路由**：`internal/platform/dispatch/dispatcher.go` 过滤 scope/函数/可用候选并按策略选择，优先本机 session，否则 owner 转发；sidecar 再选择 Provider、内建函数或插件。不是 Server 直接拨游戏进程。函数调用默认上限 15s，metadata budget 会在 1s–上限间钳制；失败重试取决于路径/错误，不可推导副作用安全重试。
 - **调度**：Server `internal/tasks/scheduler/manager.go` 消费任务定义，派发函数或执行 server-local 报表；sidecar `internal/app/agent/ops_schedule.go` 运行受管程序本地 cron。两者复用 `core/process` cron，但不是一个独立调度服务；本地分钟槽去重、不补跑不能外推为分布式 exactly-once；领取后崩溃的跨槽陈旧 claimed 由统一扫描解析为 `indeterminate`（ARCH-023），绝不重派发。
-- **存储**：关系库保存任务/页面/契约/审计等；scope 是授权边界，multiGame 仅部分模型走 dbctx，不代表所有表都物理分库。生产开库已采用 binding.database_name 真值；首次开库 Open 阶段预算仍有缺口（ARCH-009）。审批生产装配仍 `approvals.NewMemStore()`；SQLStore 存在不代表已启用。证据：`internal/svc/service_context.go`、`internal/svc/game_middleware.go`、`internal/db/router/router.go`。
+- **存储**：关系库保存任务/页面/契约/审计等；scope 是授权边界，multiGame 仅部分模型走 dbctx，不代表所有表都物理分库。生产开库已采用 binding.database_name 真值；首次开库 Open 阶段预算仍有缺口（ARCH-009）。函数审批生产装配为 `approvals.NewSQLStore(db)`（9066d7c10 于 2026-10-30 接线），CAS 决定与领取持久；审批单仍无 TTL，续期 `approvalBypass=approved` 仍在。证据：`internal/svc/service_context.go`、`internal/svc/game_middleware.go`、`internal/db/router/router.go`。
 
 ## 独立生命周期图与失败语义
 
@@ -120,7 +120,7 @@ Provider drain 已具会话 Draining、RPC 在途计数、路由拒绝与默认�
 - **本地二进制**：Makefile 定义 server/agent/agent-capture/agent-synthetics/agent-devops/ingest/worker，产物见上表。本轮未执行编译。四类 Agent 每实例一个 gameId/env，端口为进程内默认，可配置。
 - **quickstart**：`docker/docker-compose.quickstart.yml` 是单 Server + sidecar + dashboard + PostgreSQL + Redis；宿主 `8443 → 容器 19090` 是端口映射，不意味着 HTTPS。analytics、sdk-examples profile 才启额外组件。capture/synthetics/devops 不在默认栈，不凭图宣称已部署。
 - **HA 模板**：`docker/docker-compose.deploy.yml` 的双 Server/sidecar 与 HAProxy，dashboard nginx 走 HTTP，Agent 走 L4；成员/owner 后端共享，session 留各实例内存。模板/healthcheck 的存在不证明线上可故障切换。互联已支持 `cluster.interconnectTls` mTLS；未配置证书面时仍需可信网络隔离。
-- **TLS/状态卷**：开发模板证书留空、insecure 开启；生产需核对终止点、CA/证书、数据库/Redis ACL。保留 Server data、capture bookmark/spool/journal、devops casts 与审计日志、sidecar desired_state/schedule_pause 文件和插件版本。数据库备份不覆盖内存审批与正在执行的任务。
+- **TLS/状态卷**：开发模板证书留空、insecure 开启；生产需核对终止点、CA/证书、数据库/Redis ACL。保留 Server data、capture bookmark/spool/journal、devops casts 与审计日志、sidecar desired_state/schedule_pause 文件和插件版本。数据库备份已覆盖审批工单（SQLStore）；正在执行的任务仍为进程内存态，备份不可恢复。
 - **故障诊断顺序**：先核对 scope/当前配置与真实进程→注册 ACK→owner/session→函数/Provider 快照→受控执行拒绝原因→task event/凭据。Agent 离线不靠重写 DB 在线标志恢复；SDK 断线应观察 Provider 移除和重注册；执行超时先查询结果和游戏凭据，禁止据未知结果盲目重发高风险操作。
 - **分析可靠性**：明细批次已改为 Send 后 ACK，重入队/死信 XADD 错误不确认原消息；聚合并发读写仍复现 race（DATA-014），worker 退出不等待全部后台协程（DATA-015）。真实崩溃/重放验收仍属 ARCH-012。
 
@@ -129,7 +129,7 @@ Provider drain 已具会话 Draining、RPC 在途计数、路由拒绝与默认�
 | 已实现 / 限制                                     | 目标设计或待核实                        | TODO                   |
 | ------------------------------------------------- | --------------------------------------- | ---------------------- |
 | owner 单跳转发 / epoch；部分协调失败 standalone   | 认证互联、集群 ready、失租约摘流        | ARCH-003–005           |
-| 内存审批；SQLStore 未装配                         | 跨实例持久审批、原子决定与执行领取      | ARCH-001/002           |
+| SQL 审批已装配：CAS 决定/领取持久（9066d7c10）    | 审批单 TTL；续期 bypass 复审            | ARCH-001/002           |
 | 页面/任务关系库存储；游戏副作用不由 UI 幂等覆盖   | 任务重放协议、真实游戏凭据              | ARCH-014/015、GAME-001 |
 | DB scope 校验；binding 驱动物理路由               | Open 预算、连接池容量                   | ARCH-006/009/010       |
 | drain/停机正常路径已接入；待发任务/总截止仍有缺口 | 断连/drain/SIGTERM 演练、宽限后强制关闭 | ARCH-018               |

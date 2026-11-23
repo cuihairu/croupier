@@ -151,11 +151,11 @@ The proto field, the `task_runs` column, and the StartRequest field all exist, b
 
 **Disposition (protocol-level)**: designed together with E1 — the API layer accepts `Idempotency-Key` (REST header or body), a task_runs unique index, dedup-window semantics. This is the foundation of execution-chain correctness; recommend scheduling it first.
 
-### E6 [Approval storage is an in-process MemStore (medium]
+### E6 [Approval ticket has no TTL; renewal bypass (low-medium]
 
-PG/SQLite implementations exist but are not wired; a restart loses every pending approval; approvals have no TTL, so an old single can be approved indefinitely late, and renewal executions carry `approvalBypass=approved` skipping all policy.
+Persistence is resolved (AUD-051, 2026-11-23): production wiring is `approvals.NewSQLStore(db)` (`internal/svc/service_context.go:385`, 9066d7c10, 2026-10-30) with CAS approve/reject and durable dispatch claims — a restart no longer loses pending approvals. Remaining: approvals have no TTL, so an old single can be approved indefinitely late, and renewal executions carry `approvalBypass=approved` skipping all policy.
 
-**Disposition (needs a design decision)**: when to wire the PG/SQLite store (involves the approvals table migration and HA semantics — once two instances share an approval pool, the "two people" of a two-person rule must be judged across instances).
+**Disposition (needs a design decision)**: ticket TTL/expiry sweep and whether renewal `approvalBypass` should re-enter policy checks.
 
 ### E7 [A grab-bag of silently swallowed errors (medium]
 

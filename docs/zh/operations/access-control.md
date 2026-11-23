@@ -63,7 +63,7 @@ title: 权限控制说明（RBAC、鉴权、敏感操作与堡垒机现状）
 - **审计记录与链**：`internal/audit/audit.go:151-166` `AuditRecord`（含 `ChainInfo`）；敏感字段脱敏 `maskSensitiveData`（`:549`）+ 统一敏感字段清单（`:564`）。
 - **诚实边界 1（链哈希强度）**：链哈希 `hashBytes`（`:807-815`）实际是 DJB2 32 位（函数内注释自称「Using SHA256」但实现是 uint32 迭代）——**完整性提示用途尚可，防篡改证明强度不足**，属于已知待加固项。
 - **诚实边界 2（验证无生产入口）**：`ValidateChain`（`:667-668`）存在但无生产调用方、无暴露端点（全仓 grep 仅定义与测试命中）。
-- **诚实边界 3（审批存储默认内存）**：审批存储默认 `approvals.NewMemStore()`（`internal/svc/service_context.go:342`）——**重启丢审批工单**；SQL 存储实现存在但该装配点未切换。
+- **审批存储（AUD-051，2026-11-23 更新）**：生产装配为 `approvals.NewSQLStore(db)`（`internal/svc/service_context.go:385`，9066d7c10 于 2026-10-30 接线）——审批工单与 dispatch 领取跨重启持久，原「重启丢审批工单」边界不再成立。approve/reject 为单条条件 UPDATE + RowsAffected 检查（`WHERE id = ? AND state = 'pending'`，`internal/platform/approvals/sql_store.go`）：CAS 语义，并发下恰有一个胜者（竞态覆盖见 `cas_concurrency_test.go`）。残余边界：审批单仍无 TTL（旧单可无限期迟到被批）；续期执行仍带 `approvalBypass=approved`；`MemStore` 仅作测试替身保留。
 - **诚实边界 4（签名器为空）**：生产装配 `audit.NewAuditService(auditStore, nil)`（`:350`）——审计外发签名器为 nil，只落库不签名。
 
 ## 堡垒机/跳板接入能力（SSH 会话中继，2026-11-14 接通）
