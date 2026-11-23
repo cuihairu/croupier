@@ -2249,9 +2249,12 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 完成证据：commit `e5dc63fa6`（`internal/svc/service_context_auth.go` 移除 fallback + `internal/svc/svc_extra_test.go` 用例改写 + `docs/operations/access-control.md`/`docs/zh/operations/access-control.md` 令牌提取条目同步）；`go test ./internal/... -count=1` 全绿。
   - 已知边界：仓外自有客户端若曾用 `?token=` 访问任何 protected 端点（含 SSE 原生 `EventSource`），升级后一律 401；正解是改用 fetch 流 + `Authorization: Bearer`（前端已如此，见 C-004）或经反向代理注入 header。若将来确有第三方原生 EventSource 客户端需要 query 通道，须另行设计短时一次性 SSE 令牌签发端点（本条未实现，属新设计面而非本条收口范围）。
 
-- [ ] **AUD-045 · P2 · 修复 · 认证关键查询 fail-closed**
+- [x] **AUD-045 · P2 · 修复 · 认证关键查询 fail-closed**（commit `82824f163`）
   - 依赖：—。交付与验收：`internal/svc/service_context_auth.go:253-310` token version/OTP/scope 模型故障时生产 fail-closed；测试/精简模式显式兼容开关。
-  - 状态／条件：2026-11-16 复核属实——故障窗口 fail-open。
+  - 状态／条件：DONE · LOCAL VERIFIED（commit `82824f163`）——`checkTokenVersion` 与 `cachedOTPEnabled` 的真存储故障分支按 `productionFailClosed()`（复用 AUD-008 的 `isDevelopmentConfig`/`isProductionSignal`：`server.mode` 或 `CROUPIER_MODE`/`CROUPIER_ENV` 呈 prod/production/release 即生产）分流：生产下 token 版本查询失败 → 401、OTP 状态查询失败 → 按未绑定处理（403 mfa_required），打挂存储不再能换通行证；无生产信号（测试/精简部署）保留原可用性优先 warn+放行兼容，svcCtx/Config 缺失同按兼容处理。`authorizeScope`（`internal/svc/game_middleware.go`）复核确认本就 fail-closed（角色/scope 查询错误一律落「not authorized」拒绝），未改码。
+  - 验证：`go build ./...` 通过；`internal/svc/aud045_fail_closed_test.go` 新增 3 组用例（prod 模式+关库 → 401 authentication_failed；prod+MFARequired+关库 → 403 mfa_required；authorizeScope 对照组放行→关库后拒绝；dev 模式两分支保留旧行为断言）；`go test ./internal/svc/` 与 `go test ./internal/...` 全绿。
+  - 完成证据：`internal/svc/service_context_auth.go`（productionFailClosed + 两处 fail-closed 分支）、`internal/svc/aud045_fail_closed_test.go`、`docs/security.md` + `docs/zh/security.md` 与 `docs/operations/access-control.md` + `docs/zh/operations/access-control.md` 同步 AUD-045 口径。
+  - 已知边界：生产判定是模式声明式（AUD-008 同源）——部署未声明 prod 信号则保持 fail-open 兼容，属运维显式选择；模型未装配（AdminModel nil）仍整段跳过（精简/单测形态，不变）。
 
 - [ ] **AUD-046 · P2 · 修复 · CICD TestConnection SSRF 防护与稳定错误码**
   - 依赖：—。交付与验收：`internal/api/cicd/service.go:309-315` 限制 scheme、解析并拒绝私网/链路本地地址；客户端错误改稳定码，原文入日志。
