@@ -2284,9 +2284,9 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 完成证据：`internal/audit/decorator.go`、`internal/audit/audit.go`（事件常量）、`internal/api/cicd/webhook.go`、`internal/api/storage/service.go`、`internal/api/incident/service.go`、`internal/api/ticket/service.go`、四份 `aud049_*_test.go`、`docs/security.md` + `docs/zh/security.md`（AUD-049 规则条）。
   - 已知边界：路由级权限矩阵（AUD-042）的拒绝不留痕，仅服务层门禁拒绝落 denied；storage 的 SignedUrl/列表读门禁不在本条范围。
 
-- [x] **AUD-050 · P2 · 修复 · Ticket/CICD 多步写包事务**（commit `<HASH>`）
+- [x] **AUD-050 · P2 · 修复 · Ticket/CICD 多步写包事务**（commit `78248882a`）
   - 依赖：—。交付与验收：`internal/api/ticket/service.go:202-209`（状态备注+状态更新）与 `internal/api/cicd/service.go:283-287`（删 builds+删 integration）包 GORM transaction；带第二步失败回滚用例。
-  - 状态／条件：DONE · LOCAL VERIFIED（commit `<HASH>`）——两处多步写改走统一事务封装：工单 `withTicketTransaction`（带备注流转的备注+状态两写同事务，备注落库后状态更新失败不再留下「有备注无状态变更」半提交）与 CICD `withCicdTransaction`（删 builds+删接入行同事务，接入行删除失败不再留下「有接入无构建」半提交）。范式与 page 域 `withPageTransaction` 一致：`dbctx.Resolve(ctx, svcCtx.DB)` 开事务 + `dbctx.WithDB(ctx, tx)` 注入 ctx，包内 model 方法经 `dbctx.Resolve(ctx, m.db)` 自动落到事务连接。工单封装在 svcCtx 无 DB（部分测试装配只给 model）时退化为直连双写，生产装配恒带 DB 走真事务。
+  - 状态／条件：DONE · LOCAL VERIFIED（commit `78248882a`）——两处多步写改走统一事务封装：工单 `withTicketTransaction`（带备注流转的备注+状态两写同事务，备注落库后状态更新失败不再留下「有备注无状态变更」半提交）与 CICD `withCicdTransaction`（删 builds+删接入行同事务，接入行删除失败不再留下「有接入无构建」半提交）。范式与 page 域 `withPageTransaction` 一致：`dbctx.Resolve(ctx, svcCtx.DB)` 开事务 + `dbctx.WithDB(ctx, tx)` 注入 ctx，包内 model 方法经 `dbctx.Resolve(ctx, m.db)` 自动落到事务连接。工单封装在 svcCtx 无 DB（部分测试装配只给 model）时退化为直连双写，生产装配恒带 DB 走真事务。
   - 验证：`internal/api/cicd/aud050_tx_test.go`（第二步删接入行注入失败 → builds 随回滚恢复 + 对照级联成功）与 `internal/api/ticket/aud050_tx_test.go`（failV9Updates 注入状态更新失败 → 备注随回滚消失、状态未变 + 对照整体提交）；`go build ./...` 通过；`go test ./internal/...` 全绿（172 包）；`scripts/dashboard_vnext_guard.sh` PASSED；`pnpm --dir web run tsc` 0 错误；`pnpm --dir web test` 全绿（467 套件/5514 用例）。
   - 完成证据：`internal/api/ticket/service.go`（withTicketTransaction + Transition 事务化）、`internal/api/cicd/service.go`（withCicdTransaction + Delete 事务化）、两份 `aud050_tx_test.go`。
   - 已知边界：无字段/wire 变更，三层文档无需同步；行为面仅在 code comment 与本条记录。
