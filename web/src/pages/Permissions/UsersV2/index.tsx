@@ -17,6 +17,7 @@ import { ModalForm, PageContainer } from '@ant-design/pro-components';
 import type { ColumnsType } from 'antd/es/table';
 import { getMessage } from '@/utils/antdApp';
 import { extractErrorMessage } from '@/utils/errors';
+import { safeRelativeHref } from '@/utils/safeUrl';
 import {
   ADMIN_STATUS_ACTIVE,
   ADMIN_STATUS_DISABLED,
@@ -415,12 +416,15 @@ export default function UsersV2() {
           )}
           <Button
             size="small"
-            onClick={() =>
-              window.open(
+            onClick={() => {
+              // AUD-033：window.open 汇入守卫——同源相对路径经 safeRelativeHref 校验
+              // （username 已 encodeURIComponent，前缀为编译期常量 /admin/**）；非法形态
+              // （协议相对 //、反斜杠）不开窗。
+              const href = safeRelativeHref(
                 `/admin/operation-logs?actor=${encodeURIComponent(rec.username)}`,
-                '_blank',
-              )
-            }
+              );
+              if (href) window.open(href, '_blank');
+            }}
           >
             <FormattedMessage
               id="pages.permissionsUsers.action.operationLogs"
@@ -429,9 +433,13 @@ export default function UsersV2() {
           </Button>
           <Button
             size="small"
-            onClick={() =>
-              window.open(`/admin/login-logs?actor=${encodeURIComponent(rec.username)}`, '_blank')
-            }
+            onClick={() => {
+              // AUD-033：同上，登录日志为同源相对路径。
+              const href = safeRelativeHref(
+                `/admin/login-logs?actor=${encodeURIComponent(rec.username)}`,
+              );
+              if (href) window.open(href, '_blank');
+            }}
           >
             <FormattedMessage
               id="pages.permissionsUsers.action.loginLogs"

@@ -1,4 +1,4 @@
-import { safeExternalHref } from '../safeUrl';
+import { safeExternalHref, safeRelativeHref } from '../safeUrl';
 
 describe('safeExternalHref', () => {
   it('allows http and https URLs', () => {
@@ -29,5 +29,41 @@ describe('safeExternalHref', () => {
 
   it('trims surrounding whitespace', () => {
     expect(safeExternalHref('  https://example.com  ')).toBe('https://example.com');
+  });
+});
+
+describe('safeRelativeHref', () => {
+  it('allows same-origin relative paths (SPA route sinks)', () => {
+    expect(safeRelativeHref('/admin/operation-logs?actor=ops1')).toBe(
+      '/admin/operation-logs?actor=ops1',
+    );
+    expect(safeRelativeHref('/functions/invoke?fid=player%20list')).toBe(
+      '/functions/invoke?fid=player%20list',
+    );
+    expect(safeRelativeHref('/')).toBe('/');
+  });
+
+  it('rejects protocol-relative, absolute, and scheme URLs', () => {
+    expect(safeRelativeHref('//evil.com/x')).toBe('');
+    expect(safeRelativeHref('https://evil.com/x')).toBe('');
+    expect(safeRelativeHref('javascript:alert(1)')).toBe('');
+    expect(safeRelativeHref('data:text/html,<script>alert(1)</script>')).toBe('');
+  });
+
+  it('rejects backslash (browser path-separator normalization) and control chars', () => {
+    expect(safeRelativeHref('/admin\\evil')).toBe('');
+    expect(safeRelativeHref('/a\nb')).toBe('');
+  });
+
+  it('rejects non-rooted, empty, and nullish input', () => {
+    expect(safeRelativeHref('not-a-path')).toBe('');
+    expect(safeRelativeHref('')).toBe('');
+    expect(safeRelativeHref('   ')).toBe('');
+    expect(safeRelativeHref(null)).toBe('');
+    expect(safeRelativeHref(undefined)).toBe('');
+  });
+
+  it('trims surrounding whitespace', () => {
+    expect(safeRelativeHref('  /admin/logs  ')).toBe('/admin/logs');
   });
 });
