@@ -2225,7 +2225,7 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
 
 - [ ] **AUD-041 · P1 · 修复 · Public player ticket 身份来源重设计**
   - 依赖：游戏方契约拍板（SDK 签名 vs 玩家会话 proof）。交付与验收：`internal/api/support/player.go:127-165` 身份由签名会话派生 game/env/player；列表防枚举。
-  - 状态／条件：2026-11-16 复核属实——匿名 create 采信 query/body，list 仅按提交 playerId 过滤可枚举他人工单。
+  - 状态／条件：**BLOCKED（2026-11-23）**——缺用户拍板：身份来源二选一未定（SDK 签名会话派生 vs 玩家会话 proof），两者实现面与鉴权面不同，平台侧不能单方裁决；拍板后恢复。2026-11-16 复核属实——匿名 create 采信 query/body，list 仅按提交 playerId 过滤可枚举他人工单。
 
 - [ ] **AUD-042 · P1 · 修复 · 管理域权限矩阵统一挂载**
   - 依赖：AUD-039（storage 先行）。交付与验收：建立管理域→权限矩阵（provider delete/reload、backup、cicd、incident、config、tool、announcement、certificate、rate_limit、schema、message、faq、ticket、player、task、schedule 等），路由或服务层统一挂 least-privilege guard，与 RBAC 页面对齐并带 403 用例。
