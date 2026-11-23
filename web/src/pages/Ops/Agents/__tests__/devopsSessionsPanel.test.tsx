@@ -232,4 +232,76 @@ describe('DevopsSessionsPanel', () => {
 
     setScope({ ...initial, env: initial.env }, { persist: false });
   });
+
+  it('shows loading on refresh while the session list request is in flight (AUD-035)', async () => {
+    let resolveList!: (value: DevopsSessionItem[]) => void;
+    mockedList.mockImplementationOnce(
+      () =>
+        new Promise<DevopsSessionItem[]>((resolve) => {
+          resolveList = resolve;
+        }),
+    );
+    renderPanel();
+    const refresh = await screen.findByRole('button', { name: /刷\s?新/ });
+    // 初始拉取在途：刷新钮呈 loading（复用 loading 态，antd loading 钮不写 disabled 属性）。
+    await waitFor(() => expect(refresh.className).toContain('ant-btn-loading'));
+    resolveList([]);
+    await waitFor(() => expect(refresh.className).not.toContain('ant-btn-loading'));
+  });
+
+  it('marks the closing row button per session id and disables other closes (AUD-035)', async () => {
+    mockedList.mockResolvedValue([
+      {
+        sessionId: 'sess-a',
+        agentId: 'agent-a',
+        operator: 'admin',
+        protocol: 'ssh',
+        host: '10.0.0.1',
+        port: 22,
+        channel: 'exec',
+        createdAt: '2026-11-15 01:00:00',
+      },
+      {
+        sessionId: 'sess-b',
+        agentId: 'agent-b',
+        operator: 'admin',
+        protocol: 'ssh',
+        host: '10.0.0.2',
+        port: 22,
+        channel: 'exec',
+        createdAt: '2026-11-15 02:00:00',
+      },
+    ]);
+    let resolveClose!: () => void;
+    mockedClose.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveClose = resolve;
+        }),
+    );
+    renderPanel();
+    await screen.findByText('sess-a');
+    // 两行关闭按钮：点 sess-a 行的关闭。
+    const closeButtons = await screen.findAllByRole('button', { name: /关\s?闭/ });
+    fireEvent.click(closeButtons[0]);
+    fireEvent.click(await screen.findByRole('button', { name: '关闭会话' }));
+    await waitFor(() => expect(mockedClose).toHaveBeenCalledWith('sess-a'));
+    // sess-a 行按钮呈 loading（按会话 ID 粒度），sess-b 行按钮禁用（防抖）。
+    const rowA = screen.getByText('sess-a').closest('.ant-table-row') as HTMLElement;
+    const rowB = screen.getByText('sess-b').closest('.ant-table-row') as HTMLElement;
+    const btnA = within(rowA).getByRole('button', { name: /关\s?闭/ });
+    const btnB = within(rowB).getByRole('button', { name: /关\s?闭/ });
+    expect(btnA.className).toContain('ant-btn-loading');
+    expect(btnB).toBeDisabled();
+    resolveClose();
+    await waitFor(() => expect(mockedList.mock.calls.length).toBeGreaterThan(1));
+    // 重渲染可能替换行节点：重新取 DOM 再断言 loading 已撤（antd Table 按 key 复用，
+    // 但刷新后节点引用不可靠）。
+    await waitFor(() => {
+      const freshRowA = within(
+        screen.getByText('sess-a').closest('.ant-table-row') as HTMLElement,
+      ).getByRole('button', { name: /关\s?闭/ });
+      expect(freshRowA.className).not.toContain('ant-btn-loading');
+    });
+  });
 });

@@ -84,6 +84,10 @@ export default function DevopsSessionsPanel() {
   const [active, setActive] = useState<DevopsSessionActive | null>(null);
   const [status, setStatus] = useState<DevopsTerminalStatus>('connecting');
   const [terminalOutcome, setTerminalOutcome] = useState<string | undefined>(undefined);
+  // AUD-035：关闭请求按会话 ID 粒度防抖——closingId 非空表示该会话的关闭
+  // 请求在途（模态确认 onOk 置位，finally 清空），其行内/抽屉关闭按钮呈 loading，
+  // 其余关闭入口禁用（确认框为模态，同一时刻至多一个关闭在途）。
+  const [closingId, setClosingId] = useState<string | null>(null);
   const [form] = Form.useForm<OpenFormValues>();
   const [agentOptions, setAgentOptions] = useState<AgentOption[]>([]);
   // 作用域切换时旧请求可能晚于新请求返回：只允许最新一次结果落状态。
@@ -197,12 +201,15 @@ export default function DevopsSessionsPanel() {
       cancelText: fmt('pages.opsAgents.sessions.modal.cancel', '取消'),
       onOk: async () => {
         try {
+          setClosingId(sessionId);
           await closeDevopsSession(sessionId);
           message.success(fmt('pages.opsAgents.sessions.closeSuccess', '会话已关闭'));
           if (active?.sessionId === sessionId) setActive(null);
           await load();
         } catch {
           /* 全局请求错误配置已呈现 */
+        } finally {
+          setClosingId(null);
         }
       },
     });
@@ -215,7 +222,7 @@ export default function DevopsSessionsPanel() {
       title={fmt('pages.opsAgents.sessions.title', '会话')}
       extra={
         <Space>
-          <Button onClick={() => void load()}>
+          <Button loading={loading} onClick={() => void load()}>
             {fmt('pages.opsAgents.sessions.refresh', '刷新')}
           </Button>
           <Button type="primary" onClick={() => setOpenOpen(true)}>
@@ -300,7 +307,13 @@ export default function DevopsSessionsPanel() {
                 >
                   {fmt('pages.opsAgents.sessions.action.attach', '接入')}
                 </Button>
-                <Button size="small" danger onClick={() => close(row.sessionId)}>
+                <Button
+                  size="small"
+                  danger
+                  loading={closingId === row.sessionId}
+                  disabled={closingId !== null}
+                  onClick={() => close(row.sessionId)}
+                >
                   {fmt('pages.opsAgents.sessions.action.close', '关闭')}
                 </Button>
               </Space>
@@ -419,7 +432,12 @@ export default function DevopsSessionsPanel() {
         destroyOnHidden
         extra={
           active ? (
-            <Button danger onClick={() => close(active.sessionId)}>
+            <Button
+              danger
+              loading={closingId === active.sessionId}
+              disabled={closingId !== null}
+              onClick={() => close(active.sessionId)}
+            >
               {fmt('pages.opsAgents.sessions.action.closeSession', '关闭会话')}
             </Button>
           ) : null
