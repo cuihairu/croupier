@@ -75,19 +75,24 @@ jobs:
           path: docs/.vitepress/dist
 
       - name: Wait for artifact metadata to be queryable
-        timeout-minutes: 3
+        timeout-minutes: 10
         run: |
           set -euxo pipefail
-          for i in $(seq 1 24); do
-            count=$(curl -sf -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+          for i in $(seq 1 50); do
+            resp=$(curl -s -w "\n%{http_code}" -H "Authorization: Bearer ${GITHUB_TOKEN}" \
               -H "Accept: application/vnd.github+json" \
-              "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/artifacts" \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/artifacts?per_page=100")
+            code=$(echo "${resp}" | tail -1)
+            count=$(echo "${resp}" | head -n -1 \
               | python3 -c 'import json,sys; d=json.load(sys.stdin); print(sum(1 for a in d.get("artifacts",[]) if a.get("name")=="github-pages"))' 2>/dev/null || echo 0)
             if [ "${count:-0}" -ge 1 ]; then
-              echo "artifact visible (attempt ${i})"
+              echo "artifact visible (attempt ${i}, http ${code})"
               exit 0
             fi
-            echo "attempt ${i}: artifact not queryable yet; sleeping 10s"
+            echo "attempt ${i}: http=${code} count=${count}; sleeping 10s"
+            if [ "${code}" != "200" ] && [ "${i}" = "1" ]; then
+              echo "${resp}" | head -c 500 || true
+            fi
             sleep 10
           done
           echo "artifact never became queryable"
