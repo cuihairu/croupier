@@ -2182,9 +2182,12 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 验证：`devopsSessionsPanel.test.tsx` 的 `useIntl` mock 改稳定引用 + `jest.fn`（组件现经 `useCallback([intl])` 依赖 intl 身份，每渲染新建对象会致 effect 无限重建），新增回归「extracts panel strings through intl ids (AUD-034)」断言标题/刷新/开会话/空态/列头/行动作均走 `pages.opsAgents.sessions.*` 键；既有断言按 defaultMessage 透传不变全绿。`pnpm exec jest --testPathPatterns "Ops/Agents"` 7 套件 33 用例全绿、`pnpm --dir web run tsc` 0 错误、`bash scripts/dashboard_vnext_guard.sh` PASSED、`prettier --check` 清洁。LOCAL VERIFIED。
   - 已知边界：面板内 `DevopsTerminal` 组件（含其自带状态文案）与 `Ops/Agents/index.tsx` 的 `AGENT_META`（title/description/empty）仍为硬编码中文——AGENT_META 属页面骨架文案非本项「面板内」范围，DevopsTerminal 另有独立测试面，均未在本项收；en-US 译文为机器初翻未经母语审校。
 
-- [ ] **AUD-035 · P3 · 修复 · DevopsSessionsPanel 关闭/刷新按钮无 loading 防重复点击**
+- [x] **AUD-035 · P3 · 修复 · DevopsSessionsPanel 关闭/刷新按钮无 loading 防重复点击**（commit 7af5ec94e）
   - 依赖：—。交付与验收：关闭（含确认弹窗 onOk）与刷新按钮在请求期间置 loading/禁用；刷新可复用 `loading` 态，关闭按会话 ID 粒度防抖。
   - 状态／条件：2026-11-16 复核属实。
+  - 修复：`DevopsSessionsPanel.tsx` 新增 `closingId` 态（关闭请求在途的会话 ID，onOk 置位/finally 清空）——刷新按钮绑 `loading={loading}`（复用会话列表拉取态）；行内关闭按钮与抽屉「关闭会话」钮 `loading={closingId === sessionId}` + `disabled={closingId !== null}`（防抖：在途时其余关闭入口禁点，同一模态确认至多一个关闭在途）。
+  - 验证：新增两用例——「shows loading on refresh while the session list request is in flight (AUD-035)」（挂起 listDevopsSessions → 刷新钮 `.ant-btn-loading`，resolve 后撤）、「marks the closing row button per session id and disables other closes (AUD-035)」（挂起 closeDevopsSession → sess-a 行钮 loading、sess-b 行钮 disabled，resolve 后重取 DOM 断言 loading 撤销）；`pnpm exec jest --testPathPatterns "devopsSessionsPanel"` 9 用例全绿、`pnpm --dir web run tsc` 0 错误、`bash scripts/dashboard_vnext_guard.sh` PASSED、`prettier --check` 清洁。LOCAL VERIFIED。
+  - 已知边界：antd loading 钮不写 `disabled` 属性（点击由其内部阻断），断言以 `.ant-btn-loading` 为准；`submitting`（开会话）本就有 Modal.confirmLoading，本项未重复动；确认弹窗 OK 的 loading 由 antd 对返回 Promise 的 onOk 自动呈现（`closingId` 让行内钮同步显形）。
 
 ### AUD-COV-001（Go API，2026-11-16）遗留排期
 
