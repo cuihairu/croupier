@@ -170,6 +170,9 @@ type APIMethod struct {
 	// Parameters defines how to map request parameters
 	Parameters []ParameterMapping `yaml:"parameters" json:"parameters"`
 
+	// Request is the discovered OpenAPI request contract.
+	Request *RequestContract `yaml:"-" json:"-"`
+
 	// RequestBody defines how to map the request body
 	RequestBody *RequestBodyMapping `yaml:"request_body" json:"requestBody"`
 
@@ -289,6 +292,7 @@ type MethodDetails struct {
 	Tags        []string
 	Deprecated  bool
 	Parameters  []ParameterMapping
+	Request     *RequestContract
 
 	// OpenAPI 3.0.3 Extension fields (x-*)
 	Resource   string // x-resource

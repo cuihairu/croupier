@@ -15,7 +15,7 @@ import (
 // 率 >5% 或出现不可裁定项即叫停本批（拍板口径，见矩阵文档）。
 //
 // 旧实现 = extractInputSchema（map 遍历，兼容回落路径）；新实现 =
-// kinInputSchemas（kin-openapi 解析层，主路径）。
+// kinRequestContracts（kin-openapi 解析层，主路径）。
 
 func deriveInputSchemasOld(doc string) map[string]string {
 	var root map[string]interface{}
@@ -47,15 +47,21 @@ func deriveInputSchemasOld(doc string) map[string]string {
 }
 
 func deriveInputSchemasKin(doc string) map[string]string {
-	var root map[string]interface{}
-	_ = json.Unmarshal([]byte(doc), &root)
-	return kinInputSchemas([]byte(doc), root)
+	p := NewProvider()
+	if err := p.parseOpenAPISpec([]byte(doc)); err != nil || kinRequestContracts([]byte(doc)) == nil {
+		return nil
+	}
+	out := make(map[string]string)
+	for name, method := range p.methodMap {
+		out[name] = method.InputSchema
+	}
+	return out
 }
 
 type parityDoc struct {
 	name string
 	doc  string
-	// kinNil 期望 kinInputSchemas 返回 nil（旧路径兜底覆盖，不做逐 op 对拍）
+	// kinNil 期望 kinRequestContracts 返回 nil（旧路径兜底覆盖，不做逐 op 对拍）
 	kinNil bool
 }
 

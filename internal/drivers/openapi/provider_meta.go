@@ -32,6 +32,7 @@ func (p *Provider) GetMethodDetails() map[string]*MethodDetails {
 			Tags:         method.Tags,
 			Deprecated:   method.Deprecated,
 			Parameters:   method.Parameters,
+			Request:      method.Request,
 			Resource:     method.Resource,
 			Risk:         method.Risk,
 			Operation:    method.Operation,

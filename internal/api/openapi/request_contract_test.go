@@ -4,6 +4,8 @@ import (
 	"os"
 	"testing"
 
+	driveropenapi "github.com/cuihairu/croupier/internal/drivers/openapi"
+	"github.com/cuihairu/croupier/internal/platform/provider"
 	"github.com/stretchr/testify/require"
 )
 
@@ -48,4 +50,22 @@ func TestSourceRequestContract(t *testing.T) {
 	bulk, ok := findSourceOperation(stored.Source.Operations, "bulkPlayers")
 	require.True(t, ok)
 	require.JSONEq(t, `{"type":"array","minItems":1,"items":{"type":"integer"}}`, string(bulk.Request.Body.Content["application/json"].Schema))
+}
+
+func TestSourceAndProviderRequestContractParity(t *testing.T) {
+	raw, err := os.ReadFile(requestFixture)
+	require.NoError(t, err)
+	p := driveropenapi.NewProvider()
+	require.NoError(t, p.Init(t.Context(), provider.ProviderConfig{
+		Config: map[string]any{"openapiSpec": requestFixture},
+	}))
+	methods := p.GetMethodDetails()
+	source, err := setupOpenAPITestService(t).CreateSource(openAPITestContext(), &OpenAPISourceCreateRequest{Spec: raw})
+	require.NoError(t, err)
+	require.Len(t, methods, len(source.Source.Operations))
+	for _, op := range source.Source.Operations {
+		require.Contains(t, methods, op.OperationID)
+		require.NotNil(t, methods[op.OperationID].Request)
+		require.Equal(t, op.Request, methods[op.OperationID].Request, op.OperationID)
+	}
 }
