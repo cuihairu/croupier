@@ -52,6 +52,10 @@ Real outbound calls differ:
 
 Frequency and alerting: **not currently implemented** — no periodic probes, failure thresholds, recovery windows or alerts. **Plan**: register the six channels as external probe targets, reusing the healthprobe window state machine and alert lifecycle, with per-channel interval, failure threshold and recovery threshold; periodic webhook probing must still use side-effect-free read-only endpoints, never the business POST notification.
 
+### CI/CD connectivity test
+
+`POST /api/v1/cicd/integrations/:id/test` (`internal/api/cicd/service.go` `TestConnection`) sends one read-only GET against the integration endpoint; any HTTP response (including 4xx) counts as reachable — credential validity is the target system's own semantics. Since AUD-046 the probe is hardened on three fronts: only `http`/`https` schemes are accepted (400 `cicd_probe_invalid_target`, covering legacy rows written before the create/update validation existed); with the site guard `sec.ssrfProtection` on, a resolve-level check rejects loopback/private/link-local targets before dialing (400 `cicd_probe_target_blocked`, `sec.allowIPs` whitelists internal CI systems — same semantics as the other outbound probes); and client-visible failures are stable messages only — raw dial errors (which would distinguish refused/no-route/timeout per internal host, i.e. a free network scan) go to the server log exclusively. The routes wiring attaches the secguard dial-level client (`internal/handler/routes_release.go`), so with the guard on the peer address is re-validated at connect time too.
+
 ### Outbound security and call policy
 
 - `sec.*` parsing: `internal/security/secguard/secguard.go:34` holds allowed ports/IPs/domains, the SSRF switch and the three `net.*` keys; `internal/security/secguard/secguard.go:48` parses from layered settings.

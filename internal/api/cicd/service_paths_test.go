@@ -237,16 +237,17 @@ func TestCicdService_IntegrationTableMissing(t *testing.T) {
 	}
 }
 
-// 连通性测试：库里存着畸形 endpoint（校验层造不出）→ 构造请求即失败，
-// 结论落在 ok:false 体里（200），不外泄为 5xx。
+// 连通性测试：库里存着畸形 endpoint（校验层造不出）→ AUD-046 起按客户端
+// 错误呈现：400 + 稳定码 cicd_probe_invalid_target，不外泄为 5xx；原始
+// 解析错误只进日志，不再以 200 ok:false 体回传。
 func TestCicdService_TestConnectionMalformedEndpoint(t *testing.T) {
 	ctxSvc, db := setupCtx(t)
 	r := newCicdRouter(cicd.NewService(ctxSvc))
 	id := seedRowIntegration(t, db, "jenkins", "://bad-endpoint", nil)
 
 	w := doCicd(r, http.MethodPost, "/cicd/integrations/"+itoa(id)+"/test", "")
-	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
-	assert.Contains(t, w.Body.String(), `"ok":false`)
+	require.Equal(t, http.StatusBadRequest, w.Code, w.Body.String())
+	assert.Contains(t, w.Body.String(), "cicd_probe_invalid_target")
 }
 
 // 触发：provider 侧报错（假 CI 返回 500）与构建落库失败（缺表）两条。

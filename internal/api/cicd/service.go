@@ -10,7 +10,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -19,6 +21,8 @@ import (
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	logicutils "github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
+	"github.com/cuihairu/croupier/internal/platform/settings"
+	"github.com/cuihairu/croupier/internal/security/secguard"
 	"github.com/cuihairu/croupier/internal/svc"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
@@ -299,20 +303,45 @@ type ConnectionTestResponse struct {
 
 // TestConnection 对 endpoint 发一次只读 GET（任意 HTTP 响应含 4xx 都算
 // 可达——凭据有效性由各系统自身语义决定，不在本探测范围）。
+//
+// AUD-046（SSRF 与信息泄露收敛）：
+//   - endpoint 是管理员可配 URL，本探测是天然的内网扫描原语。scheme 只认
+//     http/https（写入侧 ValidateCicdIntegration 已卡前缀，此处兜住历史行
+//     与直写库形态），违规即 400 cicd_probe_invalid_target。
+//   - secguard 站点守卫（sec.ssrfProtection）开启时先做解析级校验，私网/
+//     回环/链路本地地址一律拒绝（sec.allowIPs 可放行内网 CICD），与既有
+//     webhook 探针同口径；关闭时沿用 routes 装配的拨号级守卫语义，不对
+//     自托管内网部署额外收紧。命中即 400 cicd_probe_target_blocked。
+//   - 客户端可见信息一律稳定文案：原始拨号错误能区分内网主机存活形态
+//     （refused / no route / timeout），只进服务端日志，不再回传 body。
 func (s *Service) TestConnection(ctx context.Context, id uint) (*ConnectionTestResponse, error) {
 	row, err := s.integrationByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
+	target := strings.TrimRight(strings.TrimSpace(row.Endpoint), "/") + "/"
+	if u, perr := url.Parse(target); perr != nil || (u.Scheme != "http" && u.Scheme != "https") {
+		slog.WarnContext(ctx, "cicd probe rejected: unsupported scheme", "integrationID", id, "error", perr)
+		return nil, errorx.NewBadRequestWithCode("cicd_probe_invalid_target", "endpoint 仅支持 http/https 地址", nil)
+	}
 	ctx, cancel := context.WithTimeout(ctx, triggerTimeout)
 	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, strings.TrimRight(row.Endpoint, "/")+"/", nil)
+	// secguard 四键全关时 CheckURL 零开销直通；开启时含 DNS 解析级私网拦截。
+	guard := secguard.Resolve(settings.Current())
+	if err := secguard.CheckURL(ctx, guard, target); err != nil {
+		slog.WarnContext(ctx, "cicd probe blocked by secguard", "integrationID", id, "error", err)
+		return nil, errorx.NewBadRequestWithCode("cicd_probe_target_blocked",
+			"目标地址被出站安全策略拒绝（私网/受限地址），如需探测内网 CICD 请在 sec.allowIPs 放行", nil)
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, target, nil)
 	if err != nil {
-		return &ConnectionTestResponse{OK: false, Message: err.Error()}, nil
+		slog.WarnContext(ctx, "cicd probe request build failed", "integrationID", id, "error", err)
+		return nil, errorx.NewBadRequestWithCode("cicd_probe_invalid_target", "endpoint 地址无效", nil)
 	}
 	resp, err := s.httpClient.Do(req)
 	if err != nil {
-		return &ConnectionTestResponse{OK: false, Message: err.Error()}, nil
+		slog.WarnContext(ctx, "cicd probe failed", "integrationID", id, "error", err)
+		return &ConnectionTestResponse{OK: false, Message: "endpoint 不可达（详情见服务端日志）"}, nil
 	}
 	defer func() { _ = resp.Body.Close() }()
 	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 1024))

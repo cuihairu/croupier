@@ -52,6 +52,10 @@ LDAP 5 秒拨号在 `internal/api/sitesettings/auth_test_conn.go:69`；OIDC 5 �
 
 频率与告警：**当前未实现**周期探针、失败阈值、恢复窗口和告警。**计划**：把六渠道登记为外部探测目标，复用 healthprobe 窗口状态机与告警生命周期，提供逐渠道间隔、失败阈值和恢复阈值；webhook 周期探测仍须使用无副作用只读端点，不能 POST 业务通知。
 
+### CI/CD 连通性测试
+
+`POST /api/v1/cicd/integrations/:id/test`（`internal/api/cicd/service.go` 的 `TestConnection`）对 integration endpoint 发一次只读 GET，任意 HTTP 响应（含 4xx）都算可达——凭据有效性由目标系统自身语义决定。AUD-046 起该探测三面收紧：scheme 只认 `http`/`https`（400 `cicd_probe_invalid_target`，兜住写入校验落地前产生的历史行）；站点守卫 `sec.ssrfProtection` 开启时拨号前做解析级校验，回环/私网/链路本地目标一律拒绝（400 `cicd_probe_target_blocked`，`sec.allowIPs` 可放行内网 CI 系统，与其余出站探针同口径）；客户端可见失败一律稳定文案——原始拨号错误（可按 refused/no route/timeout 区分内网主机存活，等于免费内网扫描）只进服务端日志。routes 装配已挂 secguard 拨号级守卫客户端（`internal/handler/routes_release.go`），守卫开启时真实连接前还会复核对端地址。
+
 ### 出站安全与调用策略
 
 - `sec.*` 解析：`internal/security/secguard/secguard.go:34` 持有允许端口/IP/域名、SSRF 开关和 `net.*` 三键；`internal/security/secguard/secguard.go:48` 从分层设置解析。
