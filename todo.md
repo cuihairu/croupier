@@ -2154,9 +2154,12 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 验证：新增回归 `Directory/__tests__/batchFloor.test.tsx`「PUT 失败（结构化错误体）→ 展示后端 message 而非原始异常」（`{response:{data:{message}}}` rejection → 展示「版本门槛无效」，`'[object Object]'`/原始异常不出现）；既有 7 处断言旧 `String(err)` 行为的 pin 用例同步为回落断言（`Console/Page.test.tsx`、`directoryBranches.test.tsx`、`SelectorSyncReportModal.test.tsx`×2、`VersionsTab-cov.test.tsx`×2、`Invoke/__tests__/index.test.tsx`，标题注明「回落通用兜底文案（AUD-030）」）。`pnpm --dir web run tsc` 0 错误、`pnpm exec jest --testPathPatterns "(Functions/__tests__|Functions/Directory|Functions/Invoke|Console|SelectorSync|GameIconField|PageRenderer)"` 84 套件 1043 用例全绿、`bash scripts/dashboard_vnext_guard.sh` PASSED、`prettier --check` 清洁。LOCAL VERIFIED。
   - 已知边界：AUD-030 范围仅展示面（toast/Alert/error state 文案）；错误码检测（`Console/Page.tsx` 404/403 分支）按原始异常判定保留，非展示用途；`extractErrorMessage` 对非 Error 裸值（字符串/普通对象）无 message 路径时回落通用文案，结构化错误体（`response.data.message`）优先透出后端可读信息。
 
-- [ ] **AUD-031 · P2 · 修复 · Ops/Agents 页描述文案与已交付能力不一致**
+- [x] **AUD-031 · P2 · 修复 · Ops/Agents 页描述文案与已交付能力不一致**（commit d0890017b）
   - 依赖：—。交付与验收：`web/src/pages/Ops/Agents/index.tsx:36` 描述仍写「主机与会话数据面未交付，本页不提供入口」，但同页已渲染 `DevopsSessionsPanel`；更新文案如实反映会话能力与剩余边界（历史 asciicast 回放等）。
   - 状态／条件：2026-11-16 复核属实。
+  - 修复：`AGENT_META.devops.description` 改为「查看 devops 实例、进程监管、执行记录与 SSH 会话终端。主机数据面未交付；RDP/VNC 与历史会话回放（asciicast）暂不可用。」——会话数据面已交付如实入文案（`devops.tsx` 渲染 `DevopsSessionsPanel`：真会话列表 + SSH 终端 + 审计留痕），剩余边界（主机数据面、RDP/VNC 服务端显式拒绝、asciicast 历史无服务端取回面）与 `DevopsSessionsPanel.tsx` 头注释/表单脚注逐条对齐。
+  - 验证：`pnpm exec jest --testPathPatterns "Ops/Agents"` 7 套件 32 用例全绿、`pnpm --dir web run tsc` 0 错误、`bash scripts/dashboard_vnext_guard.sh` PASSED、`prettier --check` 清洁；既有测试不断言旧文案（`__tests__/index.test.tsx` 只用 `AGENT_META.synthetics.empty`），无 pin 用例需同步。LOCAL VERIFIED。
+  - 已知边界：文案级修正，不含功能变更；Ops 页为硬编码文案非 PageSpec，无三层文档同步面。
 
 - [ ] **AUD-032 · P2 · 修复 · MenuManagement listPageDrafts pageSize=200 未封顶**
   - 依赖：—。交付与验收：`web/src/pages/MenuManagement/index.tsx:57` 硬编码 `pageSize: 200` 直传后端；定合理上限或复用统一分页常量。
