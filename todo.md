@@ -2168,9 +2168,12 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 验证：`MenuManagement/__tests__/index.test.tsx` 首用例加断言 `mockedListPageDrafts` 以 `{ pageSize: 200 }` 调用（钉住拉取窗口，防回退魔法数）；`pnpm exec jest --testPathPatterns "MenuManagement"` 3 套件 38 用例全绿、`pnpm --dir web run tsc` 0 错误、`bash scripts/dashboard_vnext_guard.sh` PASSED、`prettier --check` 清洁。LOCAL VERIFIED。
   - 已知边界：上限对齐后端 200，非「真实全量」——scope 内草稿数突破 200 时挂载选择器静默缺项；如实注明在常量注释，未在本项引入服务端直查（超出当前验收范围）。
 
-- [ ] **AUD-033 · P2 · 修复 · window.open 未统一走 safeUrl 模式**
+- [x] **AUD-033 · P2 · 修复 · window.open 未统一走 safeUrl 模式**（commit ca1abac52）
   - 依赖：—。交付与验收：`web/src/pages/Permissions/UsersV2/index.tsx:401` 相对路径拼接未走 `safeUrl`/`safeExternalHref` 校验；现风险低（encodeURIComponent+同源前缀），做模式统一并加注释。
   - 状态／条件：2026-11-16 复核属实（模式统一项，非注入实锤）。
+  - 修复：`src/utils/safeUrl.ts` 新增 `safeRelativeHref`——同源相对路径守卫（`safeExternalHref` 只管 http(s) 绝对链接，覆盖不了 `/admin/...` 拼接汇）：接受根于恰一个 `/`、非协议相对（拒绝 `//evil`）、无反斜杠（浏览器归一为路径分隔符）、无控制字符；返回 `''` 即跳过导航。`UsersV2/index.tsx` 两处 `window.open`（操作日志/登录日志）改为先 `safeRelativeHref` 校验再开窗（用户名已 `encodeURIComponent`，前缀为编译期常量 `/admin/**`），并加 AUD-033 边界注释。
+  - 验证：`safeUrl.test.ts` 新增 `safeRelativeHref` 套件（允许同源相对路径含百分号编码、拒绝协议相对/绝对/`javascript:`/`data:`/反斜杠/控制字符/非根路径/nullish、trim）；`pnpm exec jest --testPathPatterns "(safeUrl|Permissions/UsersV2)"` 5 套件 47 用例全绿、`pnpm --dir web run tsc` 0 错误、`bash scripts/dashboard_vnext_guard.sh` PASSED、`prettier --check` 清洁。LOCAL VERIFIED。
+  - 已知边界：`safeExternalHref` 仍只管外部 URL；全仓其余 `window.open` 汇（Ops/Alerts×5、Traces×2、PreviewRuntime、InvocationResponse、Dev/Tools、RightContent、compositeRuntime、Support/Tickets）有的已走 `safeUrl`/`safeExternalHref`、有的用字面常量——非本项范围，未逐一改；`window.open` 未统一加 `noopener`（既有行为不变，另属强化项，留待后续）；`safeRelativeHref` 仅做位置/字符校验，不解析 URL（同源前提由调用方常量前缀保证）。
 
 - [ ] **AUD-034 · P3 · 修复 · DevopsSessionsPanel 中文硬编码文案未走 i18n**
   - 依赖：—。交付与验收：面板内按钮/表单/确认弹窗/空态文案提取到 locale 文件并经 `intl.formatMessage`；注意与本面板测试断言文案联动更新。
