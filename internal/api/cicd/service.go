@@ -19,6 +19,7 @@ import (
 	"github.com/cuihairu/croupier/internal/cicd"
 	_ "github.com/cuihairu/croupier/internal/cicd/providers" // 注册内置 provider
 	"github.com/cuihairu/croupier/internal/common/errorx"
+	"github.com/cuihairu/croupier/internal/db/dbctx"
 	logicutils "github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/platform/settings"
@@ -288,10 +289,27 @@ func (s *Service) Delete(ctx context.Context, id uint) error {
 	if _, err := s.integrationByID(ctx, id); err != nil {
 		return err
 	}
-	if err := s.svcCtx.CicdBuildModel.DeleteByIntegration(ctx, id); err != nil {
-		return err
+	// AUD-050：删 builds 与删 integration 同事务——builds 删掉后接入行
+	// 删除失败会留下「有接入无构建」的半提交中间态，回滚保证两删同生同灭。
+	return s.withCicdTransaction(ctx, func(txCtx context.Context) error {
+		if err := s.svcCtx.CicdBuildModel.DeleteByIntegration(txCtx, id); err != nil {
+			return err
+		}
+		return s.svcCtx.CicdIntegrationModel.Delete(txCtx, id)
+	})
+}
+
+// withCicdTransaction 在当前作用域连接（dbctx.Resolve）上开事务并把 tx 注入
+// ctx：包内 model 方法经 dbctx.Resolve(ctx, m.db) 自动落到事务连接（与
+// page 域 withPageTransaction 同范式，AUD-050 多步写包事务）。
+func (s *Service) withCicdTransaction(ctx context.Context, fn func(context.Context) error) error {
+	if s.svcCtx == nil || s.svcCtx.DB == nil {
+		return errorx.NewInternalError("cicd service database is not initialized")
 	}
-	return s.svcCtx.CicdIntegrationModel.Delete(ctx, id)
+	db := dbctx.Resolve(ctx, s.svcCtx.DB)
+	return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		return fn(dbctx.WithDB(ctx, tx))
+	})
 }
 
 // ---- 连通性测试 ----

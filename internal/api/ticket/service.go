@@ -9,6 +9,7 @@ import (
 	"github.com/cuihairu/croupier/internal/api/bug"
 	"github.com/cuihairu/croupier/internal/audit"
 	"github.com/cuihairu/croupier/internal/common/errorx"
+	"github.com/cuihairu/croupier/internal/db/dbctx"
 	"github.com/cuihairu/croupier/internal/dbenum"
 	"github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
@@ -36,6 +37,21 @@ func (s *Service) auditTicket(ctx context.Context, event audit.AuditEventType, s
 
 // ticketActorID 是写留痕的资源 ID 形态（工单 id → 字符串）。
 func ticketActorID(id uint) string { return fmt.Sprint(id) }
+
+// withTicketTransaction 在当前作用域连接（dbctx.Resolve）上开事务并把 tx
+// 注入 ctx：包内 model 方法经 dbctx.Resolve(ctx, m.db) 自动落到事务连接
+// （与 page 域 withPageTransaction 同范式，AUD-050 多步写包事务）。
+func (s *Service) withTicketTransaction(ctx context.Context, fn func(context.Context) error) error {
+	if s.svcCtx == nil || s.svcCtx.DB == nil {
+		// 测试装配常只给 model 不给 DB：退化为直连双写（无原子性兜底）；
+		// 生产装配恒带 DB，多步写走真事务。
+		return fn(ctx)
+	}
+	db := dbctx.Resolve(ctx, s.svcCtx.DB)
+	return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		return fn(dbctx.WithDB(ctx, tx))
+	})
+}
 
 func NewService(svcCtx *svc.ServiceContext) *Service {
 	return &Service{svcCtx: svcCtx}
@@ -268,14 +284,17 @@ func (s *Service) Transition(ctx context.Context, req *TransitionRequest) (*Tran
 			updates["rated_at"] = nil
 		}
 	}
-	if note := strings.TrimSpace(req.Note); note != "" {
-		comment := addComment(commentAuthor(ctx), fmt.Sprintf("[状态变更] %s", note), id)
-		if err := s.svcCtx.TicketModel.CreateComment(ctx, comment); err != nil {
-			return nil, err
+	// AUD-050：状态备注与状态更新同事务——备注落库后状态更新失败会留下
+	// 「有备注无状态变更」的半提交中间态，回滚保证两写同生同灭。
+	if err := s.withTicketTransaction(ctx, func(txCtx context.Context) error {
+		if note := strings.TrimSpace(req.Note); note != "" {
+			comment := addComment(commentAuthor(txCtx), fmt.Sprintf("[状态变更] %s", note), id)
+			if err := s.svcCtx.TicketModel.CreateComment(txCtx, comment); err != nil {
+				return err
+			}
 		}
-	}
-
-	if err := s.svcCtx.TicketModel.Update(ctx, id, updates); err != nil {
+		return s.svcCtx.TicketModel.Update(txCtx, id, updates)
+	}); err != nil {
 		return nil, err
 	}
 
