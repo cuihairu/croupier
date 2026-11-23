@@ -2241,9 +2241,13 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 完成证据：commit `85222bb9b`（`internal/api/cicd/webhook.go` validateWebhookScope/bindScopeField + 落库作用域改取 integration；`internal/api/cicd/aud043_scope_binding_test.go`）；`go test ./internal/... -count=1` 全绿。
   - 已知边界：integration 创建/更新未强制要求 game/env 非空，未配作用域的接入只能接收省略作用域的回写（构建记录作用域为空，与存量行为一致）；如要强制作用域，属 integration 创建校验的单独收口。webhook 仍为公开端点（token 鉴权），token 未配置时保持 fail-closed 拒绝（ce667c63d）。
 
-- [ ] **AUD-044 · P2 · 修复 · query token 收敛到 SSE 路由**
+- [x] **AUD-044 · P2 · 修复 · query token 收敛到 SSE 路由**（commit `e5dc63fa6`）
   - 依赖：—。交付与验收：`internal/svc/service_context_auth.go:164-176` 与 `internal/handler/routes.go:56` 的 `?token=` fallback 仅对显式 SSE 路由启用且配一次性短时 token；其余端点只认 Authorization header。
-  - 状态／条件：2026-11-16 复核属实——fallback 挂全部 protected 路由，token 进日志/历史。
+  - 状态／条件：**DONE · LOCAL VERIFIED（2026-11-23，commit e5dc63fa6）**：移除 `AuthMiddleware.Handle` 的 `?token=` query 回退，全部 protected 端点一律只认 `Authorization: Bearer`（无 header 即 401 `missing authorization`；`Bearer` 前后缀格式错误 401 `invalid authorization header format`；空 token 401）。收敛范围比原条目更强：原条目为「仅 SSE 路由启用 + 一次性短时 token」，现改为 query 通道整体关闭——含 SSE 路由在内。
+  - 依据（为何整体关闭而非保留 SSE 例外）：SSE 前端已改走 fetch 流 + `Authorization` header（C-004，`web/src/services/core/http.ts` 的 `createEventSource` → `FetchSSEStream`，`useRealtimeStream`/`devopsSessions`/`messages` 三处消费方均经此），仓内已无 query token 消费方；`grep` 全仓（Go 非测试 + web/src）确认无 `?token=` 生产者（仅 synthetics echoprobe 的无关文案与 verify-email/install 令牌，均非本通道）。保留 SSE 例外而不加短时 token 签发端点，等于让 SSE 路径继续把 24h admin JWT 写进 URL/日志/Referer（原漏洞不闭环）；新增签发端点又无任何消费方（无谓攻击面）。
+  - 验证：`internal/svc/svc_extra_test.go` `TestAuthMiddleware_Handle` 改写——`query token rejected (header only)`（`/any?token=` 与 `/api/v1/messages/stream?token=` 均 401 且报 `missing authorization`，证明 SSE 路径同样不再接受）+ `header token accepted on sse path`（header 经 SSE 形态路径仍 200）；`go test ./internal/svc/ -run TestAuthMiddleware_Handle` 全绿（8 subtests）；`go test ./internal/... -count=1` 全绿（exit 0）；pre-commit `go vet ./...` 清洁；`gofmt -l` 清洁。
+  - 完成证据：commit `e5dc63fa6`（`internal/svc/service_context_auth.go` 移除 fallback + `internal/svc/svc_extra_test.go` 用例改写 + `docs/operations/access-control.md`/`docs/zh/operations/access-control.md` 令牌提取条目同步）；`go test ./internal/... -count=1` 全绿。
+  - 已知边界：仓外自有客户端若曾用 `?token=` 访问任何 protected 端点（含 SSE 原生 `EventSource`），升级后一律 401；正解是改用 fetch 流 + `Authorization: Bearer`（前端已如此，见 C-004）或经反向代理注入 header。若将来确有第三方原生 EventSource 客户端需要 query 通道，须另行设计短时一次性 SSE 令牌签发端点（本条未实现，属新设计面而非本条收口范围）。
 
 - [ ] **AUD-045 · P2 · 修复 · 认证关键查询 fail-closed**
   - 依赖：—。交付与验收：`internal/svc/service_context_auth.go:253-310` token version/OTP/scope 模型故障时生产 fail-closed；测试/精简模式显式兼容开关。
