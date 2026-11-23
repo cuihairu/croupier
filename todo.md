@@ -6,7 +6,7 @@
 
 ## Schema 驱动 UI（2026-11-21）
 
-依据 [Schema 驱动 UI 架构审查](docs/review/schema-driven-ui-2026-11-21.md)。以下条目均待交付。报告中的复现和测试记录作为基线。真实游戏联调继续跟踪 UI-001，既有模板呈现验收见 UI-003、GUX-017。
+依据 [Schema 驱动 UI 架构审查](docs/review/schema-driven-ui-2026-11-21.md)。各项交付进度见复选框。报告中的复现和测试记录作为基线。真实游戏联调继续跟踪 UI-001，既有模板呈现验收见 UI-003、GUX-017。
 
 ### OpenAPI 导入与发送
 
@@ -26,9 +26,9 @@
   - 依赖：SUI-001。交付与验收：已有无歧义对象输入维持原接口。新派生遇到同名冲突或无法保留的约束时给出 operation 与字段级诊断，覆盖旧绑定重读和重新导入。
   - 状态／条件：已验收，提交 `93d65d952`。旧绑定重读和重新导入回归通过，同名字段和根级约束有可定位诊断。
 
-- [ ] **SUI-005 · P0 · 实现 · 保留根数组和标量 JSON 请求体**
+- [x] **SUI-005 · P0 · 实现 · 保留根数组和标量 JSON 请求体**
   - 依赖：SUI-002, SUI-003。交付与验收：根数组和标量在存在 query 参数时仍能通过请求映射送达上游，断言实际 HTTP body 的 JSON 类型及值。
-  - 状态／条件：根数组和标量在存在 query 参数时仍能通过请求映射送达上游，断言实际 HTTP body 的 JSON 类型及值
+  - 状态／条件：已验收，Git 补丁哈希 `c2bbdccff8321ea80e59debf14639e7ce59fef01`。真实 HTTP 验证 query 与根 JSON 分离，覆盖数组、标量零值、显式 null、可选请求体省略及重试重放。
 
 - [ ] **SUI-006 · P1 · 实现 · 按 OpenAPI 序列化参数**
   - 依赖：SUI-002, SUI-003。交付与验收：验证公开声明支持的参数位置和 `style/explode` 组合。fixture 断言 path 替换、query 数组和对象、header 与 cookie 的实际 HTTP 值。无法执行的组合返回诊断。
@@ -2129,9 +2129,12 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 验证：新增 `internal/ops/provision/orchestrator_aud027_test.go`（`casLostNilStore` 模拟「Get 读到 CAS 前快照 + CAS 失败且回传 nil 当前行」的竞态窗口，即旧 DB 适配器缺陷形态）——`TestResumeAsync_CASConflictNilCurrent_NoPanic`/`TestDestroy_CASConflictNilCurrent_NoPanic`/`TestDestroyResume_CASConflictNilCurrent_NoPanic` 分别断言三个失败分支返回稳定冲突错误（ErrorIs 对应哨兵错误）、消息不带 `(state=`、且未派发 apply/destroy。突变验证：临时把 casConflict 回退为恒读 `current.State` 的旧形态，`TestResumeAsync_CASConflictNilCurrent_NoPanic` 立即复现 `panic: runtime error: invalid memory address or nil pointer dereference`（即生产缺陷），恢复后全绿。`internal/svc/provision_wiring_test.go` 既有 CAS 用例改为断言新契约（from 不匹配时回传当前行且 state 正确），新增 `TestProvisionDBStoreCASDeletedRow`（行被并发删除时回传 nil 当前行）。`go build ./...`、`go vet ./internal/ops/provision/... ./internal/svc/...`、`gofmt -l` 清洁；`go test ./internal/ops/provision/... ./internal/svc/... -count=1` 全绿；全量 `go test ./internal/...` 170 包绿，2 包环境性红（internal/app/agent 指标等待断言 + internal/api/page 601s 包超时，负载 48 已知 flake 族）隔离复跑均绿（终审）。LOCAL VERIFIED。
   - 已知边界：fakeStore 语义本就回传当前行（契约内），本次修复的是 DB 适配器与调用方两处；CAS 失败且行已删时报错不含 state 段（信息略少但稳定，不 panic）；多实例供给引擎共享状态闸仍以 DB 唯一行为准（与既有边界一致）。
 
-- [ ] **AUD-028 · P1 · 修复 · 定时任务按同一计划发生时间领取而不是当前分钟**
+- [x] **AUD-028 · P1 · 修复 · 定时任务按同一计划发生时间领取而不是当前分钟**（commit d4c2bb443）
   - 依赖：—。交付与验收：两个实例已读取同一条到期记录，即使跨分钟继续处理，也只能派发一次；保留既有过期领取与未知结果语义。
   - 状态／条件：scheduler/manager.go:309 用 Slot(now) 生成唯一领取键；同一每日任务的两份到期快照在 10:30:59 和 10:31:00 处理时派发两次。普通回归用例已失败。
+  - 修复：`internal/tasks/scheduler/manager.go` 新增 `triggerSlot(s, now)` 帮助函数——领取槽 = `Slot(NextTriggeredAt)`（计划发生时间，经 ListDue 保证非空），跨分钟处理同一到期记录仍领取同一槽位，(schedule_id, slot) 唯一索引得以仲裁、只派发一次；NextTriggeredAt 为 nil 时防御性回退 `Slot(now)`（生产不可达，防 panic）。`manager_stop_test.go` `blockingStore.ListDue` 的 `close(entered)` 改非阻塞幂等（select-default 守卫），消除 Stop 取消 lifecycle ctx 后第二轮 tick 重复 close 引发的「close of closed channel」全量门禁偶发 panic（负载触发的既有测试基建竞态，非本缺陷）。
+  - 验证：新增 `internal/tasks/scheduler/aud028_test.go`——`TestManager_CrossMinuteClaimOnce`（同一份到期快照在 10:30:59 与 10:31:00 两个不同分钟处理，断言恰 1 次派发、1 条领取记录且槽位 = Slot(发生时间)、状态 dispatched）、`TestManager_NilNextTriggeredAtFallsBackToProcessingSlot`（nil 防御分支不 panic）。既有 scheduler 测试 fixture 的 `now.Add(-time.Minute)` 统一改为 `Slot(now)`（`Slot(Slot(now)) == Slot(now)`，既有 `Slot(now)` 断言保持有效）。突变验证：临时把 `slot := triggerSlot(s, now)` 回退为 `Slot(now)`，`TestManager_CrossMinuteClaimOnce` 立即复现「expected 1 dispatch, actual 2」（即生产双派发缺陷），恢复后全绿。`go build ./...`、`go vet ./internal/tasks/scheduler/...`、`gofmt -l` 清洁；`go test ./internal/tasks/scheduler/... -count=1` 全绿；全量 `go test ./internal/... -count=1` 172 包全绿（负载 ~7）。LOCAL VERIFIED。
+  - 已知边界：跨实例领取仲裁依赖 `(schedule_id, slot)` 唯一索引（与 ARCH-023 先领取再派发一致）；slot 语义由「处理时刻」改为「计划发生时间」后，跨分钟处理同一槽位的 run-log CreatedAt 仍是各自处理时刻（租约判定 reapStaleClaims 不受影响，其按 CreatedAt/租约而非槽位派生）；NextTriggeredAt 为 nil 的防御回退在生产不可达（ListDue 过滤 `next_triggered_at IS NOT NULL`）。
 
 ### AUD-COV-005（Web Console，2026-11-16）P2/P3 遗留排期
 
