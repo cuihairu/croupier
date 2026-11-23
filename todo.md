@@ -2298,9 +2298,10 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 完成证据：CLAUDE.md、`docs/{operations/access-control.md,architecture/runtime-topology.md,architecture/function-pipeline-blockers.md,architecture/index.md}` 与 `docs/zh` 对应四镜像。
   - 已知边界：审批单 TTL 与续期 `approvalBypass` 复审仍开放（E6 残余处置已记录，非本条范围）。
 
-- [ ] **AUD-052 · P3 · 修复 · 缩短 access JWT TTL 并引入 refresh 轮换**
+- [x] **AUD-052 · P3 · 修复 · 缩短 access JWT TTL 并引入 refresh 轮换** — f5e6d4e07
   - 依赖：AUD-008（密钥判定先行）。交付与验收：`internal/security/jwtutil/token.go:23` 拆 access/refresh + 重用检测轮换；存量登录灰度兼容。
   - 状态／条件：2026-11-16 复核属实——TTL 硬编码 24h 无 refresh。
+  - 完成证据：`internal/security/jwtutil/token.go` 拆 SignAccess(2h,typ=access)/SignRefresh(7d,typ=refresh,带随机 jti——NumericDate 秒级精度下同秒两次签发字节级相同的实测坑)+Parse 统一拒绝 typ=refresh（全部认证路径零改动继承）/ParseRefresh 反向拒绝 access；`admin_refresh_tokens` 表（迁移 0067 三处同步）只存 SHA-256，兑换 MarkUsed 轮换挂链，已兑换/已吊销再现金即 RevokeAllForAdmin 整族吊销+审计 auth.token_refresh_reuse；POST /auth/refresh（匿名，凭据即令牌）；登录 `useRefresh:true` opt-in，legacy 24h 单 token 行为不变（存储不可用自动回退）。LOCAL VERIFIED：`go test ./internal/...` 全绿（jwtutil/auth/migrations 新用例 8+7+2），guard PASSED，tsc/jest 467 套全绿，docs build 通过。已知边界：web/移动端尚未 opt-in（仍 24h token，属前端后续工作）；OIDC/OAuth 回调登录不发刷新令牌（useRefresh 仅密码登录生效）；传输仍 JSON body/localStorage，cookie 化属 C-005 延期。
 
 - [ ] **AUD-053 · P3 · 修复 · Backup 创建幂等键**
   - 依赖：—。交付与验收：`internal/api/backup/service.go:75-106` 按 name/type/时间窗或客户端 Idempotency-Key 去重 pending/succeeded；带并发去重用例。
