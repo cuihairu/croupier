@@ -246,8 +246,10 @@ func (m *AuthMiddleware) mfaGate(c *gin.Context, adminID uint) bool {
 	return false
 }
 
-// cachedOTPEnabled 查询（带 30s 进程内缓存）账号是否已启用 TOTP；模型
-// 不可用时放行（单测/精简部署 fail-open，与 token 版本校验同策略）。
+// cachedOTPEnabled 查询（带 30s 进程内缓存）账号是否已启用 TOTP。
+// 模型查询失败时按 productionFailClosed 分流（AUD-045）：生产信号在场则
+// 视为「未启用」并交给 mfaGate 拦截——存储故障不能成为强制双因素的绕过口；
+// 测试/精简部署（无生产信号）保持旧的可用性优先放行。
 func (m *AuthMiddleware) cachedOTPEnabled(ctx context.Context, adminID uint) bool {
 	if v, ok := m.otpEnabledCache.Load(adminID); ok {
 		entry := v.(tokenVersionEntry)
@@ -257,6 +259,10 @@ func (m *AuthMiddleware) cachedOTPEnabled(ctx context.Context, adminID uint) boo
 	}
 	admin, err := m.svcCtx.AdminModel.FindOne(ctx, adminID)
 	if err != nil {
+		if m.productionFailClosed() {
+			slog.ErrorContext(ctx, "otp enabled check failed: failing closed", "adminID", adminID, "error", err)
+			return false
+		}
 		slog.WarnContext(ctx, "otp enabled check skipped", "adminID", adminID, "error", err)
 		return true
 	}
@@ -304,6 +310,18 @@ func (m *AuthMiddleware) authenticate(ctx context.Context, token string) (string
 	return claims.Username, claims.Roles, claims.AdminID, nil
 }
 
+// productionFailClosed 报告认证关键查询在存储故障时是否必须 fail-closed。
+// 只有「明确的生产信号」（server.mode 或 CROUPIER_MODE/CROUPIER_ENV）才
+// 收紧；无生产信号的测试/精简部署保留显式兼容（AUD-045）。svcCtx 缺失
+// 或未注入 Config 时无法判定环境，按兼容处理——此时 AdminModel 通常也
+// 未装配，两个校验本就整段跳过。
+func (m *AuthMiddleware) productionFailClosed() bool {
+	if m.svcCtx == nil {
+		return false
+	}
+	return !isDevelopmentConfig(m.svcCtx.Config)
+}
+
 // checkTokenVersion 校验 claims.TokenVersion 与库中当前版本一致。
 // AdminModel 不可用（单测/精简部署）时跳过校验，保持向后兼容。
 func (m *AuthMiddleware) checkTokenVersion(ctx context.Context, claims *jwtutil.Claims) error {
@@ -318,7 +336,14 @@ func (m *AuthMiddleware) checkTokenVersion(ctx context.Context, claims *jwtutil.
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return errors.New("account not found")
 		}
-		// 真存储故障时不放大为全站 401：记日志并放行，可用性优先。
+		// 真存储故障：生产 fail-closed（AUD-045）。令牌版本无法核验时放行
+		// 等于撤销（登出/改密/禁用）整体失效，且攻击者可用「打挂数据库」
+		// 换一张永久通行证；测试/精简部署（无生产信号）保留旧的可用性优先
+		// 兼容，避免单测与精简形态全站 401。
+		if m.productionFailClosed() {
+			slog.ErrorContext(ctx, "token version check failed: failing closed", "adminID", claims.AdminID, "error", err)
+			return errors.New("token version unavailable")
+		}
 		slog.WarnContext(ctx, "token version check skipped", "adminID", claims.AdminID, "error", err)
 		return nil
 	}

@@ -23,7 +23,11 @@ tag:
 - token 撤销：`admins.token_version` 随 JWT claims 下发；登出、改密码（自助/重置）、禁用账号时递增，
   旧 token 即时失效。账号删除（软/硬删）后旧 JWT 同样拒绝——`admins` 无行即
   `ErrRecordNotFound`，中间件不再放行（AUD-010）。已知边界：中间件有 30 秒版本缓存，
-  撤销最长延迟 30s 生效；真存储故障（非账号不存在）时放行（可用性优先，记 warn 日志）。
+  撤销最长延迟 30s 生效。真存储故障（非账号不存在）按 AUD-045 分流：生产信号在场
+  （`server.mode` 或 `CROUPIER_MODE`/`CROUPIER_ENV` 为 prod/production/release）时
+  fail-closed 拒绝——打挂存储不能换通行证；MFA gate 的 OTP 状态查询同策略（故障按
+  未绑定处理 → `403 mfa_required`）。无生产信号的测试/精简部署保留可用性优先兼容
+  （记 warn 日志）——这是显式选择，生产部署必须声明 prod 信号。
 - TOTP MFA：本地账号可自助绑定（`POST /api/v1/auth/mfa/setup` → `confirm`，`disable` 需验证码+密码双确认）。
   启用后登录需携带 `totpCode`，缺失返回 `401 + error=mfa_required`。
   仅 local provider 生效——OIDC 登录的 MFA 属 IdP 职责；裸 LDAP 部署需要 MFA 时应改用本地账号承载。
