@@ -194,7 +194,9 @@ func extractSourceOperations(doc *openapi3.T, diags []spec.Diagnostic) ([]OpenAP
 			continue
 		}
 		seen[operationID] = fieldPath
-		items = append(items, operationDTOFromOpenAPI(candidate, operationID, &diags))
+		operation := operationDTOFromOpenAPI(candidate, operationID, &diags)
+		operation.Request = driveropenapi.ExtractRequest(candidate.path, candidate.method, doc.Paths.Find(candidate.path), candidate.op)
+		items = append(items, operation)
 	}
 	// 设计债清理：openAPIMethodOperations 按 (path, method) 唯一产出候选
 	// （pathItem 的每方法字段单值），items 不存在 (Path,Method) 重复对，

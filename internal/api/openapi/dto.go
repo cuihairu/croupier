@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
+	driveropenapi "github.com/cuihairu/croupier/internal/drivers/openapi"
 )
 
 // Descriptor represents a function descriptor
@@ -89,19 +90,20 @@ type OpenAPISourceSummary struct {
 }
 
 type OpenAPISourceOperation struct {
-	OperationID string                 `json:"operationId"`
-	Method      string                 `json:"method"`
-	Path        string                 `json:"path"`
-	Summary     string                 `json:"summary,omitempty"`
-	Description string                 `json:"description,omitempty"`
-	Tags        []string               `json:"tags,omitempty"`
-	Operation   string                 `json:"operation,omitempty"`
-	Resource    string                 `json:"resource,omitempty"`
-	Capability  spec.CapabilityKind    `json:"capability,omitempty"`
-	Execution   spec.FunctionExecution `json:"execution,omitempty"`
-	Approval    spec.ApprovalPolicy    `json:"approval"`
-	Risk        spec.RiskLevel         `json:"risk,omitempty"`
-	Permission  string                 `json:"permission,omitempty"`
+	Request     *driveropenapi.RequestContract `json:"request,omitempty"`
+	OperationID string                         `json:"operationId"`
+	Method      string                         `json:"method"`
+	Path        string                         `json:"path"`
+	Summary     string                         `json:"summary,omitempty"`
+	Description string                         `json:"description,omitempty"`
+	Tags        []string                       `json:"tags,omitempty"`
+	Operation   string                         `json:"operation,omitempty"`
+	Resource    string                         `json:"resource,omitempty"`
+	Capability  spec.CapabilityKind            `json:"capability,omitempty"`
+	Execution   spec.FunctionExecution         `json:"execution,omitempty"`
+	Approval    spec.ApprovalPolicy            `json:"approval"`
+	Risk        spec.RiskLevel                 `json:"risk,omitempty"`
+	Permission  string                         `json:"permission,omitempty"`
 	// TimeoutMs 同步调用契约预算（毫秒，x-timeout-ms 扩展）；0 = 未声明。
 	TimeoutMs  int    `json:"timeoutMs,omitempty"`
 	Bound      bool   `json:"bound"`
