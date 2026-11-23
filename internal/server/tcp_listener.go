@@ -37,6 +37,24 @@ type TCPListenerConfig struct {
 	// Timeouts.
 	RecvTimeout time.Duration
 	SendTimeout time.Duration
+
+	// RequireAuth 收紧 agent 注册凭据（AUD-040）：true 时监听面必须处于 mTLS
+	// 状态（CAFile 配置 + 非 Insecure），否则 NewTCPListener 拒绝启动（fail-
+	// closed）；注册时还要求对端携带已校验的客户端证书身份。缺省 false =
+	// 兼容存量部署（insecure 仍可启动，但启动日志 WARN 提示未加固）。
+	RequireAuth bool
+
+	// AllowedGameEnvs 是 agent 注册可声明的作用域白名单（AUD-040 game/env
+	// 授权）：非空时注册声明的 (game_id, env) 必须命中，否则拒绝；空 = 不限制
+	// （兼容存量，授权细粒度化登记为后续）。按 (GameID, Env) 精确匹配。
+	AllowedGameEnvs []GameEnvScope
+}
+
+// GameEnvScope 是 agent 注册声明作用域白名单条目（AUD-040）。运行时值，
+// 不做 YAML/JSON 解码（解码面在 config.ControlConfig.allowedGameEnvs）。
+type GameEnvScope struct {
+	GameID string
+	Env    string
 }
 
 // TCPListener accepts Agent TCP sessions and creates AgentSession entries.
@@ -141,6 +159,18 @@ func NewTCPListener(config *TCPListenerConfig, sessionStore *AgentSessionStore, 
 		registry = reg.NewStore()
 	}
 
+	// AUD-040：RequireAuth 是显式加固开关（insecure 默认值收紧，兼容存量部署）。
+	// 置位后监听面必须处于 mTLS（CAFile 配置 + 非明文），否则 fail-closed 拒绝
+	// 启动——不允许「声称要鉴权却跑明文/服务端证书-only」。未置位时明文/无
+	// 客户端证书校验仍可启动（兼容存量），但 WARN 提示该缺口（生产应加固）。
+	if config.RequireAuth {
+		if config.Insecure || config.CAFile == "" {
+			return nil, fmt.Errorf("control listener RequireAuth=true requires mTLS (CAFile configured and Insecure=false); refusing to start unauthenticated listener")
+		}
+	} else if config.Insecure || config.CAFile == "" {
+		logger.Warn("agent control listener is not authenticated: no mTLS client-certificate verification (set control.ca + control.requireAuth=true to enforce)")
+	}
+
 	ln, err := listenTCP(config)
 	if err != nil {
 		return nil, err
@@ -218,6 +248,21 @@ func (l *TCPListener) serveConn(ctx context.Context, conn net.Conn) {
 		SendTimeout: l.config.SendTimeout,
 	}
 
+	// AUD-040：tls.Listener 的握手惰性发生在首次读写，而 accept 后的
+	// ConnectionState 尚未产出对端证书——身份必须在注册门禁读取前确定，
+	// 这里显式提前完成握手（失败即断开，客户端证书校验失败以 TLS alert
+	// 呈现，而非在连接深处误报成注册错误）。握手受 deadline 约束：对端
+	// 卡在握手阶段时在此期限内断开，不悬挂 goroutine。
+	if tlsConn, ok := conn.(*tls.Conn); ok {
+		handshakeCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		err := tlsConn.HandshakeContext(handshakeCtx)
+		cancel()
+		if err != nil {
+			l.logger.Warn("Agent TLS handshake failed", "remote", remoteAddr, "error", err)
+			return
+		}
+	}
+
 	// Create a handler that dispatches through the control plane logic
 	// and also tracks AgentSession lifecycle.
 	handler := &agentSessionHandler{
@@ -226,6 +271,9 @@ func (l *TCPListener) serveConn(ctx context.Context, conn net.Conn) {
 		registered: false,
 		agentID:    "",
 		sessionID:  "",
+		// AUD-040：对端 mTLS 身份（握手已完成，State.PeerCertificates 非空），
+		// 注册门禁据此判断连接是否携带已校验客户端证书。
+		peerIdentity: peerIdentityFromConn(conn),
 	}
 
 	mux := tcptr.NewMuxConn(conn, muxCfg, handler)
@@ -397,6 +445,10 @@ type agentSessionHandler struct {
 	registered bool
 	agentID    string
 	sessionID  string // assigned on successful registration
+	// peerIdentity 是本次连接对端经 TLS 校验的客户端证书身份（AUD-040）：
+	// 空 = 明文连接或未配置 CA（无 mTLS 身份）。RequireAuth=true 时注册必须
+	// 非空（服务端启动已保证监听面处于 mTLS，此为注册级二次防线）。
+	peerIdentity string
 }
 
 func (h *agentSessionHandler) state() (registered bool, agentID string) {
@@ -483,6 +535,33 @@ func (h *agentSessionHandler) validateHeartbeatAgentID(body []byte) error {
 	return nil
 }
 
+// validateRegisterAuthorization 是 AUD-040 的注册凭据与作用域门禁（注册成功即
+// 绑定连接、scope 与函数表，门禁必须在物化会话之前拒绝）：
+//   - RequireAuth=true（insecure 默认值收紧后的显式加固）：要求本次连接携带经
+//     TLS 校验的客户端证书身份；明文或无客户端证书的连接拒绝注册。启动期
+//     NewTCPListener 已保证 RequireAuth 时监听面处于 mTLS（否则拒绝启动），
+//     此处为注册级二次防线。
+//   - AllowedGameEnvs 非空：注册声明的 (game_id, env) 必须命中白名单，否则拒绝
+//     （game/env 授权）；空白名单 = 不限制（兼容存量部署）。
+func (h *agentSessionHandler) validateRegisterAuthorization(agentID, gameID, env string) error {
+	cfg := h.listener.config
+	if cfg == nil {
+		return nil
+	}
+	if cfg.RequireAuth && h.peerIdentity == "" {
+		return fmt.Errorf("registration requires a verified mTLS client identity (agent %q)", agentID)
+	}
+	if len(cfg.AllowedGameEnvs) > 0 {
+		for _, allowed := range cfg.AllowedGameEnvs {
+			if allowed.GameID == gameID && allowed.Env == env {
+				return nil
+			}
+		}
+		return fmt.Errorf("agent %q is not authorized for game_id=%q env=%q", agentID, gameID, env)
+	}
+	return nil
+}
+
 func (h *agentSessionHandler) handleRegister(ctx context.Context, body []byte) ([]byte, error) {
 	req := &agentv1.RegisterRequest{}
 	if err := proto.Unmarshal(body, req); err != nil {
@@ -496,6 +575,12 @@ func (h *agentSessionHandler) handleRegister(ctx context.Context, body []byte) (
 		return nil, fmt.Errorf("agent_id, game_id and env are required")
 	}
 	req.AgentId, req.GameId, req.Env = agentID, gameID, env
+
+	// AUD-040：凭据与作用域授权门禁（注册成功即绑定连接、scope、函数表，
+	// 必须在物化会话前拒绝，避免未授权 agent 劫持注册）。
+	if err := h.validateRegisterAuthorization(agentID, gameID, env); err != nil {
+		return nil, err
+	}
 
 	// Compute session TTL
 	ttl := 5 * time.Minute
@@ -601,6 +686,9 @@ func listenTCP(config *TCPListenerConfig) (net.Listener, error) {
 		return net.Listen("tcp", addr)
 	}
 
+	// AUD-040：握手整体在 serveConn 里用带 deadline 的 HandshakeContext 完成
+	//（tls.Config 无 HandshakeTimeout 字段，超时经 ctx 传递），避免对端卡在
+	// 握手阶段时悬挂 goroutine。
 	tlsConfig := &tls.Config{MinVersion: tls.VersionTLS12}
 
 	if config.CertFile != "" && config.KeyFile != "" {
@@ -625,6 +713,38 @@ func listenTCP(config *TCPListenerConfig) (net.Listener, error) {
 	}
 
 	return tls.Listen("tcp", addr, tlsConfig)
+}
+
+// peerIdentityFromConn 从已建立的连接推导对端经 TLS 校验的客户端证书身份
+// （AUD-040）。非 TLS 连接（明文）或 TLS 但未强制客户端证书（服务端证书-only）
+// 返回空串；有已校验客户端证书时返回其身份串，供 RequireAuth 注册门禁与日志留证。
+func peerIdentityFromConn(conn net.Conn) string {
+	tlsConn, ok := conn.(*tls.Conn)
+	if !ok {
+		return ""
+	}
+	state := tlsConn.ConnectionState()
+	if len(state.PeerCertificates) == 0 {
+		return ""
+	}
+	return certificateIdentity(state.PeerCertificates[0])
+}
+
+// certificateIdentity 从客户端证书派生稳定身份串：优先 CommonName，缺 CN 时
+// 用第一个 DNS SAN；均无则不可推导（返回空，交由 RequireAuth 拒绝注册）。
+func certificateIdentity(cert *x509.Certificate) string {
+	if cert == nil {
+		return ""
+	}
+	if cn := strings.TrimSpace(cert.Subject.CommonName); cn != "" {
+		return cn
+	}
+	if len(cert.DNSNames) > 0 {
+		if san := strings.TrimSpace(cert.DNSNames[0]); san != "" {
+			return san
+		}
+	}
+	return ""
 }
 
 // tcpListenAddress resolves the configured listener address without opening a

@@ -205,6 +205,44 @@ cluster:
 	}
 }
 
+// AUD-040：control.requireAuth 的配置级 fail-closed（与 ValidateInterconnectTLS
+// 同型）——requireAuth=true 且 mTLS 面不完整时必须在启动前报可定位原因。
+func TestValidateControlRequireAuth_MissingCertsFailsClosed(t *testing.T) {
+	var cfg Config
+	if err := yaml.Unmarshal([]byte("control:\n  requireAuth: true\n"), &cfg); err != nil {
+		t.Fatal(err)
+	}
+	err := cfg.Control.ValidateControlRequireAuth()
+	if err == nil {
+		t.Fatal("requireAuth=true + no cert surface must fail closed")
+	}
+	for _, want := range []string{"requireAuth=true", "missing cert/key/ca"} {
+		if !contains(err.Error(), want) {
+			t.Fatalf("diagnostic must contain %q, got: %v", want, err)
+		}
+	}
+}
+
+func TestValidateControlRequireAuth_DisabledOK(t *testing.T) {
+	var cfg Config
+	if err := yaml.Unmarshal([]byte("control:\n  addr: :19090\n"), &cfg); err != nil {
+		t.Fatal(err)
+	}
+	if err := cfg.Control.ValidateControlRequireAuth(); err != nil {
+		t.Fatalf("requireAuth=false must validate: %v", err)
+	}
+}
+
+func TestValidateControlRequireAuth_CompleteCertsOK(t *testing.T) {
+	var cfg Config
+	if err := yaml.Unmarshal([]byte("control:\n  requireAuth: true\n  cert: /etc/croupier/c.pem\n  key: /etc/croupier/k.pem\n  ca: /etc/croupier/ca.pem\n"), &cfg); err != nil {
+		t.Fatal(err)
+	}
+	if err := cfg.Control.ValidateControlRequireAuth(); err != nil {
+		t.Fatalf("complete mTLS surface must validate: %v", err)
+	}
+}
+
 func contains(s, sub string) bool {
 	for i := 0; i+len(sub) <= len(s); i++ {
 		if s[i:i+len(sub)] == sub {

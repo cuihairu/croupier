@@ -200,6 +200,13 @@ func runServer() error {
 		return err
 	}
 
+	// AUD-040 fail-closed：control.requireAuth=true 但监听面 mTLS 不完整时拒绝
+	// 启动并明示缺项（与 ValidateInterconnectTLS 同型），避免「声称要鉴权却
+	// 监听明文/无客户端证书校验」的静默降级。
+	if err := c.Control.ValidateControlRequireAuth(); err != nil {
+		return err
+	}
+
 	// 创建服务上下文
 	svcCtx := svc.NewServiceContext(c)
 	wireDashboardRegistrationPipeline(svcCtx)
@@ -611,14 +618,20 @@ func startControlServer(ctx context.Context, c *config.Config, svcCtx *svc.Servi
 	// 创建 TCPListener (管理 Agent session)
 	// 如果配置了 TLS 证书，启用 TLS；否则使用 insecure 模式
 	hasTLS := c.Control.Cert != "" && c.Control.Key != ""
+	allowedGameEnvs := make([]server.GameEnvScope, 0, len(c.Control.AllowedGameEnvs))
+	for _, e := range c.Control.AllowedGameEnvs {
+		allowedGameEnvs = append(allowedGameEnvs, server.GameEnvScope{GameID: e.GameID, Env: e.Env})
+	}
 	listenerConfig := &server.TCPListenerConfig{
-		Address:     addr,
-		Insecure:    !hasTLS,
-		CertFile:    c.Control.Cert,
-		KeyFile:     c.Control.Key,
-		CAFile:      c.Control.CA,
-		RecvTimeout: time.Second,
-		SendTimeout: 10 * time.Second,
+		Address:         addr,
+		Insecure:        !hasTLS,
+		CertFile:        c.Control.Cert,
+		KeyFile:         c.Control.Key,
+		CAFile:          c.Control.CA,
+		RecvTimeout:     time.Second,
+		SendTimeout:     10 * time.Second,
+		RequireAuth:     c.Control.RequireAuth,
+		AllowedGameEnvs: allowedGameEnvs,
 	}
 	tcpListener, err := server.NewTCPListener(listenerConfig, sessionStore, svcCtx.RegistryStore, slog.Default())
 	if err != nil {

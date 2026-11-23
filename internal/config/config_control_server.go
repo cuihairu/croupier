@@ -25,6 +25,22 @@ type ControlConfig struct {
 	Cert string `json:"cert,omitempty" yaml:"cert,omitempty"`
 	Key  string `json:"key,omitempty" yaml:"key,omitempty"`
 	CA   string `json:"ca,omitempty" yaml:"ca,omitempty"` // 可选的 CA 证书，用于客户端验证
+
+	// RequireAuth（AUD-040）：agent 注册凭据收紧开关。true 时监听面必须处于
+	// mTLS（ca 配置 + cert/key 齐备），否则启动拒绝（fail-closed）；注册还要求
+	// 对端携带已校验客户端证书身份。false（缺省）= 兼容存量部署（insecure 仍可
+	// 启动，启动日志 WARN 提示未加固）。
+	RequireAuth bool `json:"requireAuth,omitempty" yaml:"requireAuth,omitempty"`
+
+	// AllowedGameEnvs（AUD-040 game/env 授权）：agent 注册可声明的作用域白名单。
+	// 非空时注册声明的 (game_id, env) 必须命中；空 = 不限制（兼容存量）。
+	AllowedGameEnvs []GameEnvScope `json:"allowedGameEnvs,omitempty" yaml:"allowedGameEnvs,omitempty"`
+}
+
+// GameEnvScope 是 agent 注册声明作用域白名单条目（AUD-040，lowerCamelCase 契约）。
+type GameEnvScope struct {
+	GameID string `json:"gameId,omitempty" yaml:"gameId,omitempty"`
+	Env    string `json:"env,omitempty" yaml:"env,omitempty"`
 }
 
 func (c *ControlConfig) UnmarshalYAML(value *yaml.Node) error {
@@ -291,4 +307,30 @@ func (c *ClusterConfig) ValidateInterconnectTLS() error {
 		causes = append(causes, "interconnectTls.insecureSkipVerify=true")
 	}
 	return fmt.Errorf("cluster.enabled=true but interconnect mTLS is not usable (%s); set cluster.allowPlaintextInterconnect=true only on a trusted isolated intranet to run plaintext (degraded), or configure the certificate surface for mTLS", strings.Join(causes, ", "))
+}
+
+// ValidateControlRequireAuth implements AUD-040 fail-closed for the agent
+// control plane: RequireAuth=true demands a usable mTLS surface (cert/key plus
+// a CA that verifies client certificates), otherwise the operator asked for
+// authenticated registrations on a listener that cannot enforce them. Called
+// at startup alongside ValidateInterconnectTLS so the misconfiguration is
+// reported as a config error instead of a silently-absent listener.
+func (c *ControlConfig) ValidateControlRequireAuth() error {
+	if !c.RequireAuth {
+		return nil
+	}
+	var missing []string
+	if c.Cert == "" {
+		missing = append(missing, "cert")
+	}
+	if c.Key == "" {
+		missing = append(missing, "key")
+	}
+	if c.CA == "" {
+		missing = append(missing, "ca")
+	}
+	if len(missing) > 0 {
+		return fmt.Errorf("control.requireAuth=true but mTLS surface is incomplete (missing %s); configure control.cert/control.key/control.ca so agent registrations carry a verified client certificate", strings.Join(missing, "/"))
+	}
+	return nil
 }

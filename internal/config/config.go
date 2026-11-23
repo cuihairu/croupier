@@ -149,7 +149,10 @@ func isZeroServerConfig(cfg ServerConfig) bool {
 }
 
 func isZeroControlConfig(cfg ControlConfig) bool {
-	return cfg == (ControlConfig{})
+	// ControlConfig 含 slice（AllowedGameEnvs），不能整体 == 比较：逐字段判零。
+	return cfg.Transport == "" && cfg.Addr == "" && cfg.IPCAddr == "" &&
+		cfg.Cert == "" && cfg.Key == "" && cfg.CA == "" && !cfg.RequireAuth &&
+		len(cfg.AllowedGameEnvs) == 0
 }
 
 func isZeroAgentDispatchConfig(cfg AgentDispatchConfig) bool {
