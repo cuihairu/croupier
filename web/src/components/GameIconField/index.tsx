@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { App, Button, Input, Progress, Space, Upload } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
 import { FormattedMessage, useIntl } from '@umijs/max';
+import { extractErrorMessage } from '@/utils/errors';
 import GameIcon, { GAME_ICON_SIZE } from '@/components/GameIcon';
 import { GAME_ICON_MAX_BYTES, uploadGameIcon } from '@/services/api/games';
 import type { UploadProps } from 'antd/es/upload/interface';
@@ -88,7 +89,13 @@ export default function GameIconField({
       );
       onSuccess?.(result);
     } catch (error) {
-      message.error(error instanceof Error ? error.message : String(error));
+      // AUD-030：不直出原始异常消息——优先取后端统一错误体 message。
+      message.error(
+        extractErrorMessage(
+          error,
+          intl.formatMessage({ id: 'app.request.error.default', defaultMessage: '请求失败' }),
+        ),
+      );
       onError?.(error instanceof Error ? error : new Error(String(error)));
     } finally {
       setUploading(false);

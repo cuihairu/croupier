@@ -3,6 +3,7 @@ import type { MutableRefObject, ReactNode } from 'react';
 import { App, Descriptions, Typography } from 'antd';
 import { ExclamationCircleOutlined } from '@ant-design/icons';
 import { useIntl } from '@umijs/max';
+import { extractErrorMessage } from '@/utils/errors';
 import { localizedText } from '@/utils/localizedText';
 import { safeExternalHref } from '@/utils/safeUrl';
 import { extractApiErrorCode } from '@/utils/apiError';
@@ -591,7 +592,11 @@ export function useCompositeRuntime<T extends RuntimeSection>(
         setResults((prev) => ({
           ...prev,
           [sec.key]: {
-            error: e instanceof Error ? e.message : String(e),
+            // AUD-030：不直出原始异常消息——优先取后端统一错误体 message。
+            error: extractErrorMessage(
+              e,
+              intl.formatMessage({ id: 'app.request.error.default', defaultMessage: '请求失败' }),
+            ),
             errorCode: extractApiErrorCode(e),
           },
         }));

@@ -17,6 +17,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { FormattedMessage, history, useAccess } from '@umijs/max';
 import { Alert, Button, Card, Col, Empty, Row, Skeleton, Space, Tag, Typography } from 'antd';
+import { extractErrorMessage } from '@/utils/errors';
 import {
   AuditOutlined,
   BellOutlined,
@@ -69,7 +70,8 @@ function usePanel<T>(
         if (mounted && !fresh.isStale())
           setState({
             loading: false,
-            error: err instanceof Error ? err.message : String(err),
+            // AUD-030：不直出原始异常消息（本组件无 intl，直接用通用兜底文案）。
+            error: extractErrorMessage(err, '请求失败'),
             data: null,
           });
       });

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Key } from 'react';
 import { App } from 'antd';
 import { history, useIntl } from '@umijs/max';
+import { extractErrorMessage } from '@/utils/errors';
 import {
   listDescriptors,
   listFunctionInstances,
@@ -210,7 +211,14 @@ export default function useDirectoryPage() {
         setSelectedRowKeys([]);
         setBatchModalOpen(false);
       } catch (err) {
-        message.error(err instanceof Error ? err.message : String(err));
+        // AUD-030：不直出原始异常消息——优先取后端统一错误体 message，无则回落
+        // 通用请求失败文案（原始 err.message 只作最后回退，避免泄漏后端细节）。
+        message.error(
+          extractErrorMessage(
+            err,
+            intl.formatMessage({ id: 'app.request.error.default', defaultMessage: '请求失败' }),
+          ),
+        );
       } finally {
         setBatchSubmitting(false);
       }
@@ -240,7 +248,14 @@ export default function useDirectoryPage() {
           }),
         );
       } catch (err) {
-        message.error(err instanceof Error ? err.message : String(err));
+        // AUD-030：不直出原始异常消息——优先取后端统一错误体 message，无则回落
+        // 通用请求失败文案（原始 err.message 只作最后回退，避免泄漏后端细节）。
+        message.error(
+          extractErrorMessage(
+            err,
+            intl.formatMessage({ id: 'app.request.error.default', defaultMessage: '请求失败' }),
+          ),
+        );
         // 失败回滚单元格显示值
         setRows((prev) =>
           prev.map((r) => (r.id === functionId ? { ...r, minVersion: previous } : r)),

@@ -9,6 +9,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { useIntl } from '@umijs/max';
+import { extractErrorMessage } from '@/utils/errors';
 import {
   Alert,
   Button,
@@ -286,7 +287,11 @@ const CompensationWizard: React.FC<{
     } catch (error) {
       setExecution({
         status: 'error',
-        message: error instanceof Error ? error.message : String(error),
+        // AUD-030：不直出原始异常消息——优先取后端统一错误体 message。
+        message: extractErrorMessage(
+          error,
+          intl.formatMessage({ id: 'app.request.error.default', defaultMessage: '请求失败' }),
+        ),
         // GUX-011：executor 未绑定是「不可用」而非普通失败，回执区给
         // ExecutorUnboundAlert 解释与去绑定入口
         unbound: extractApiErrorCode(error) === EXECUTOR_UNBOUND_CODE,

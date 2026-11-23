@@ -353,13 +353,14 @@ describe('Console/Page 页面渲染器', () => {
     expect(screen.getByText('您没有权限访问此页面')).toBeInTheDocument();
   });
 
-  it('非 Error 拒绝值走 String() 渲染原始消息并落入通用错误分支', async () => {
+  it('非 Error 拒绝值回落通用兜底文案并落入通用错误分支', async () => {
+    // AUD-030：非 Error 拒绝值不再直出 String(err)——回落通用请求失败文案。
     setParams({ pageKey: 'resource--player' });
     mockedGetPublishedPage.mockRejectedValue(500);
 
     render(<ConsolePage />);
 
-    await waitFor(() => expect(screen.getByText('500')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('请求失败')).toBeInTheDocument());
     expect(screen.getAllByText('加载失败').length).toBeGreaterThan(0);
   });
 

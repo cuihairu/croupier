@@ -232,7 +232,14 @@ export default function FunctionInvokePage() {
           }),
         );
     } catch (err) {
-      const detail = err instanceof Error ? err.message : String(err);
+      // AUD-030：不直出原始异常消息——优先取后端统一错误体 message。
+      const detail = extractErrorMessage(
+        err,
+        intlRef.current.formatMessage({
+          id: 'app.request.error.default',
+          defaultMessage: '请求失败',
+        }),
+      );
       setError(
         intlRef.current.formatMessage(
           {

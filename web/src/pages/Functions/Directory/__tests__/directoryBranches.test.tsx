@@ -236,7 +236,8 @@ describe('useDirectoryPage 残余分支', () => {
     expect(mockBatch).not.toHaveBeenCalled();
   });
 
-  it('批量请求以非 Error 失败 → String(err) 文案', async () => {
+  it('批量请求以非 Error 失败 → 回落通用兜底文案（AUD-030）', async () => {
+    // AUD-030：非 Error 拒绝值不再直出 String(err)——extractErrorMessage 回落通用文案。
     renderHarness();
     await waitFor(() => expect(mockSummary).toHaveBeenCalled());
     fireEvent.click(screen.getByTestId('select-row'));
@@ -245,7 +246,7 @@ describe('useDirectoryPage 残余分支', () => {
     );
 
     fireEvent.click(screen.getByTestId('apply-batch'));
-    expect(await screen.findByText('plain-batch-error')).toBeInTheDocument();
+    expect(await screen.findByText('请求失败')).toBeInTheDocument();
     expect(screen.getByTestId('detail-open').textContent).toBe('closed');
   });
 

@@ -108,7 +108,7 @@ describe('VersionsTab 残余分支', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: /保\s*存/ })).toBeEnabled());
   });
 
-  it('保存门槛失败（非 Error）→ String(err) 文案', async () => {
+  it('保存门槛失败（非 Error）→ 回落通用兜底文案（AUD-030）', async () => {
     (
       mockPutFloor as unknown as { mockRejectedValueOnce: (v: unknown) => void }
     ).mockRejectedValueOnce('plain-floor-error');
@@ -116,7 +116,7 @@ describe('VersionsTab 残余分支', () => {
     fireEvent.mouseDown(screen.getAllByRole('combobox')[0]);
     fireEvent.click(await screen.findByText('≥ v1.2.0'));
     fireEvent.click(screen.getByRole('button', { name: /保\s*存/ }));
-    expect(await screen.findByText('plain-floor-error')).toBeInTheDocument();
+    expect(await screen.findByText('请求失败')).toBeInTheDocument();
   });
 
   it('清除门槛失败 → 透出错误文案且保持当前门槛', async () => {
@@ -224,13 +224,13 @@ describe('VersionsTab 残余分支', () => {
     expect(mockPutFloor).not.toHaveBeenCalled();
   });
 
-  it('清除门槛失败（非 Error）→ String(err) 兜底文案', async () => {
+  it('清除门槛失败（非 Error）→ 回落通用兜底文案（AUD-030）', async () => {
     (
       mockDelFloor as unknown as { mockRejectedValueOnce: (v: unknown) => void }
     ).mockRejectedValueOnce('plain-clear-error');
     renderTab();
     fireEvent.click(await screen.findByRole('button', { name: /清\s*除/ }));
-    expect(await screen.findByText('plain-clear-error')).toBeInTheDocument();
+    expect(await screen.findByText('请求失败')).toBeInTheDocument();
   });
 
   it('门槛拉取在卸载之后才失败 → cancelled 早退不再 setState', async () => {

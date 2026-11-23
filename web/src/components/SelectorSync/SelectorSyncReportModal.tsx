@@ -1,6 +1,7 @@
 import { FormattedMessage, useIntl } from '@umijs/max';
 import { Alert, Button, Modal, Popconfirm, Space, Spin, Tag, Typography, message } from 'antd';
 import { useCallback, useEffect, useState } from 'react';
+import { extractErrorMessage } from '@/utils/errors';
 import { getPageDraft, syncPageSelectors } from '@/services/api/pages';
 import type {
   BindingSelectorSyncReport,
@@ -103,7 +104,13 @@ export default function SelectorSyncReportModal({
       setReport(resp.syncedBindings || []);
       setRemaining(resp.remainingDiagnostics || []);
     } catch (err: unknown) {
-      setErrorText(err instanceof Error ? err.message : String(err));
+      // AUD-030：不直出原始异常消息——优先取后端统一错误体 message。
+      setErrorText(
+        extractErrorMessage(
+          err,
+          intl.formatMessage({ id: 'app.request.error.default', defaultMessage: '请求失败' }),
+        ),
+      );
       setReport(null);
     } finally {
       setLoading(false);
@@ -171,7 +178,10 @@ export default function SelectorSyncReportModal({
         `${intl.formatMessage({
           id: 'component.selectorSync.applyFailed',
           defaultMessage: '应用同步失败',
-        })}：${err instanceof Error ? err.message : String(err)}`,
+        })}：${extractErrorMessage(
+          err,
+          intl.formatMessage({ id: 'app.request.error.default', defaultMessage: '请求失败' }),
+        )}`,
       );
     } finally {
       setApplying(false);

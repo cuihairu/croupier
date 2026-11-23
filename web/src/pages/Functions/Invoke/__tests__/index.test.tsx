@@ -939,7 +939,7 @@ describe('函数调用工作台：请求体编辑', () => {
     expect(mockedInvoke).not.toHaveBeenCalled();
   });
 
-  it('getSubmitValues 抛非 Error 值：String(err) 分支渲染错误详情', async () => {
+  it('getSubmitValues 抛非 Error 值：回落通用兜底文案（AUD-030）', async () => {
     mountPage('?fid=fn.echo');
     await waitForFormReady();
     fireEvent.click(screen.getByRole('button', { name: 'rbe-toggle-mode' }));
@@ -952,7 +952,7 @@ describe('函数调用工作台：请求体编辑', () => {
     toggleHistory();
     clickSend();
     await waitFor(() =>
-      expect(screen.getByTestId('ir-error')).toHaveTextContent('请求体不是有效 JSON：raw-failure'),
+      expect(screen.getByTestId('ir-error')).toHaveTextContent('请求体不是有效 JSON：请求失败'),
     );
     expect(mockedInvoke).not.toHaveBeenCalled();
   });

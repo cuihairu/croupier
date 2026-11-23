@@ -17,6 +17,7 @@ import {
 import { StatisticCard } from '@ant-design/pro-components';
 import { BarChartOutlined } from '@ant-design/icons';
 import { FormattedMessage, history, useIntl } from '@umijs/max';
+import { extractErrorMessage } from '@/utils/errors';
 import VersionFloorSelect from './Directory/VersionFloorSelect';
 import {
   deleteFunctionVersionFloor,
@@ -668,7 +669,14 @@ export function VersionsTab({ functionId }: { functionId: string }) {
         }),
       );
     } catch (err) {
-      message.error(err instanceof Error ? err.message : String(err));
+      // AUD-030：不直出原始异常消息——优先取后端统一错误体 message，无则回落
+      // 通用请求失败文案（原始 err.message 只作最后回退，避免泄漏后端细节）。
+      message.error(
+        extractErrorMessage(
+          err,
+          intl.formatMessage({ id: 'app.request.error.default', defaultMessage: '请求失败' }),
+        ),
+      );
     } finally {
       setFloorSaving(false);
     }
@@ -687,7 +695,14 @@ export function VersionsTab({ functionId }: { functionId: string }) {
         }),
       );
     } catch (err) {
-      message.error(err instanceof Error ? err.message : String(err));
+      // AUD-030：不直出原始异常消息——优先取后端统一错误体 message，无则回落
+      // 通用请求失败文案（原始 err.message 只作最后回退，避免泄漏后端细节）。
+      message.error(
+        extractErrorMessage(
+          err,
+          intl.formatMessage({ id: 'app.request.error.default', defaultMessage: '请求失败' }),
+        ),
+      );
     } finally {
       setFloorSaving(false);
     }

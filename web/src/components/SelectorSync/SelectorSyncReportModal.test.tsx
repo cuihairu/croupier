@@ -166,11 +166,12 @@ describe('SelectorSyncReportModal：dry-run 计划加载', () => {
     expect(mockedGetDraft).toHaveBeenCalledTimes(2);
   });
 
-  it('dry-run 抛非 Error：errorText 走 String(err)', async () => {
+  it('dry-run 抛非 Error：errorText 回落通用兜底文案（AUD-030）', async () => {
+    // AUD-030：非 Error 拒绝值不再直出 String(err)——extractErrorMessage 回落通用文案。
     mockedSync.mockRejectedValueOnce('裸字符串错误');
     renderModal();
 
-    expect(await screen.findByText('裸字符串错误')).toBeInTheDocument();
+    expect(await screen.findByText('请求失败')).toBeInTheDocument();
     expect(screen.getByText('加载同步计划失败')).toBeInTheDocument();
   });
 });
@@ -311,7 +312,8 @@ describe('SelectorSyncReportModal：应用同步', () => {
     expect(screen.getByRole('button', { name: '应用同步到草稿' })).toBeInTheDocument();
   });
 
-  it('apply 失败（非 Error）：String(err) 拼接', async () => {
+  it('apply 失败（非 Error）：回落通用兜底文案拼接（AUD-030）', async () => {
+    // AUD-030：非 Error 拒绝值不再直出 String(err)——拼接段落回落通用文案。
     mockedSync
       .mockResolvedValueOnce(syncResponse({ syncedBindings: fullReport, remainingDiagnostics: [] }))
       .mockRejectedValueOnce('oops');
@@ -321,7 +323,7 @@ describe('SelectorSyncReportModal：应用同步', () => {
     fireEvent.click(screen.getByRole('button', { name: '应用同步到草稿' }));
     await clickPopconfirmOk('应用同步到草稿？');
 
-    await waitFor(() => expect(errorSpy).toHaveBeenCalledWith('应用同步失败：oops'));
+    await waitFor(() => expect(errorSpy).toHaveBeenCalledWith('应用同步失败：请求失败'));
   });
 
   it('关闭按钮与右上角 X 均回调 onClose', async () => {

@@ -293,4 +293,24 @@ describe('行内修改版本门槛（#26：changeSingleFloor 经列下拉接线�
       expect(content).toHaveAttribute('title', '≥ v0.2.0');
     });
   });
+
+  it('PUT 失败（结构化错误体）→ 展示后端 message 而非原始异常', async () => {
+    // AUD-030：reject 带统一错误体时展示 data.message，原始异常（Error('forbidden')/
+    // '[object Object]'）不得直出。旧实现 err instanceof Error ? err.message : String(err)
+    // 对普通对象回退 String(err)='[object Object]'；extractErrorMessage 优先后端 message。
+    await renderHarness();
+    mockPutFloor.mockRejectedValue({
+      response: { data: { message: '版本门槛无效' } },
+    } as never);
+
+    fireEvent.mouseDown(screen.getByRole('combobox'));
+    await waitFor(() => {
+      expect(screen.getByTitle('≥ v0.3.0')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByTitle('≥ v0.3.0'));
+
+    expect(await screen.findByText('版本门槛无效')).toBeInTheDocument();
+    expect(screen.queryByText('forbidden')).not.toBeInTheDocument();
+    expect(screen.queryByText('[object Object]')).not.toBeInTheDocument();
+  });
 });

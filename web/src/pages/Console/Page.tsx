@@ -10,6 +10,7 @@ import { Alert, Button, Result, Space, Spin, Tag, Typography } from 'antd';
 import { PageContainer } from '@ant-design/pro-components';
 import { useEffect, useState } from 'react';
 import PageRenderer from '@/components/PageRenderer';
+import { extractErrorMessage } from '@/utils/errors';
 import SelectorSyncReportModal from '@/components/SelectorSync/SelectorSyncReportModal';
 import {
   cancelTask,
@@ -82,13 +83,20 @@ export default function ConsolePage() {
         setPage(data);
       } catch (err: unknown) {
         if (!mounted) return;
-        const message = err instanceof Error ? err.message : String(err);
-        setError(message);
+        // AUD-030：展示文案不直出原始异常消息——优先取后端统一错误体 message。
+        setError(
+          extractErrorMessage(
+            err,
+            intl.formatMessage({ id: 'app.request.error.default', defaultMessage: '请求失败' }),
+          ),
+        );
 
-        // 解析错误码
-        if (message.includes('404') || message.includes('not found')) {
+        // 错误码检测按原始异常判定（状态码/关键字），与展示文案解耦——此处
+        // 保留原始字符串仅作逻辑判定，非「直出」展示（AUD-030 边界）。
+        const raw = err instanceof Error ? err.message : String(err);
+        if (raw.includes('404') || raw.includes('not found')) {
           setErrorCode('not_found');
-        } else if (message.includes('403') || message.includes('forbidden')) {
+        } else if (raw.includes('403') || raw.includes('forbidden')) {
           setErrorCode('forbidden');
         } else {
           setErrorCode('error');
