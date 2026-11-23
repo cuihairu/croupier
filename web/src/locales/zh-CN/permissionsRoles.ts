@@ -22,6 +22,7 @@ export default {
   'pages.permissionsRoles.title': '角色管理',
   'pages.permissionsRoles.toast.created': '已创建 #{id}',
   'pages.permissionsRoles.toast.deleted': '已删除',
+  'pages.permissionsRoles.toast.deleteFailed': '删除失败',
   'pages.permissionsRoles.toast.permissionsUpdated': '权限已更新',
   'pages.permissionsRoles.toast.updated': '已更新',
 };

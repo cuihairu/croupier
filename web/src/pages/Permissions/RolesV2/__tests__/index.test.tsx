@@ -446,4 +446,23 @@ describe('角色管理 删除', () => {
     expect(mockMessageApi.success).toHaveBeenCalledWith('已删除');
     await waitFor(() => expect(mList).toHaveBeenCalledTimes(2));
   });
+
+  it('删除失败：deleteRole reject → 错误提示 + 不弹「已删除」', async () => {
+    // AUD-029：原实现 await 无 try/catch，异常被 Popconfirm onConfirm Promise
+    // 吞掉——失败既不刷新也不提示。断言失败分支走错误提示、成功 toast 不出现。
+    mDel.mockRejectedValueOnce({
+      response: { data: { message: '角色仍被用户绑定，无法删除' } },
+    });
+    renderPage();
+    await waitList();
+
+    const row = (await screen.findByText('ops')).closest('tr') as HTMLElement;
+    fireEvent.click(within(row).getByRole('button', { name: /删\s*除/ }));
+    const ok = await popconfirmOk();
+    fireEvent.click(ok);
+
+    await waitFor(() => expect(mDel).toHaveBeenCalledWith(2));
+    expect(mockMessageApi.success).not.toHaveBeenCalled();
+    expect(mockMessageApi.error).toHaveBeenCalledWith('角色仍被用户绑定，无法删除');
+  });
 });

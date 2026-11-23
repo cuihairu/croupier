@@ -57,6 +57,7 @@ export default {
   'pages.permissionsUsers.title': 'User Management',
   'pages.permissionsUsers.toast.created': 'Created #{id}',
   'pages.permissionsUsers.toast.deleted': 'Deleted',
+  'pages.permissionsUsers.toast.deleteFailed': 'Delete failed',
   'pages.permissionsUsers.toast.passwordSet': 'Password has been set',
   'pages.permissionsUsers.toast.saved': 'Saved',
   'pages.permissionsUsers.toast.statusUpdated': 'Status updated',

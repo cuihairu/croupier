@@ -22,6 +22,7 @@ export default {
   'pages.permissionsRoles.title': 'Role Management',
   'pages.permissionsRoles.toast.created': 'Created #{id}',
   'pages.permissionsRoles.toast.deleted': 'Deleted',
+  'pages.permissionsRoles.toast.deleteFailed': 'Delete failed',
   'pages.permissionsRoles.toast.permissionsUpdated': 'Permissions updated',
   'pages.permissionsRoles.toast.updated': 'Updated',
 };

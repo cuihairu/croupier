@@ -279,6 +279,23 @@ describe('UsersV2 删除用户', () => {
     expect(mockMessageApi.success).toHaveBeenCalledWith('已删除');
     await waitFor(() => expect(listAdmins.mock.calls.length).toBeGreaterThanOrEqual(2));
   });
+
+  it('删除失败时不弹「已删除」且展示后端错误消息', async () => {
+    // AUD-029：原实现 await 无 try/catch，异常被 Popconfirm onConfirm Promise
+    // 吞掉——失败既不刷新也不提示。此处断言失败分支走错误提示、成功 toast 不出现。
+    deleteAdmin.mockRejectedValueOnce({
+      response: { data: { message: '用户正在使用中，无法删除' } },
+    });
+    renderPage();
+    await screen.findByText('Administrator');
+
+    fireEvent.click(within(findRow('ops1')).getByText('删除'));
+    await clickPopconfirmOk('确定删除该用户？');
+
+    await waitFor(() => expect(deleteAdmin).toHaveBeenCalledWith(2));
+    expect(mockMessageApi.success).not.toHaveBeenCalled();
+    expect(mockMessageApi.error).toHaveBeenCalledWith('用户正在使用中，无法删除');
+  });
 });
 
 describe('UsersV2 游戏分配弹窗', () => {

@@ -16,6 +16,7 @@ import { FormattedMessage, useIntl } from '@umijs/max';
 import { ModalForm, PageContainer } from '@ant-design/pro-components';
 import type { ColumnsType } from 'antd/es/table';
 import { getMessage } from '@/utils/antdApp';
+import { extractErrorMessage } from '@/utils/errors';
 import {
   ADMIN_STATUS_ACTIVE,
   ADMIN_STATUS_DISABLED,
@@ -239,11 +240,28 @@ export default function UsersV2() {
   };
 
   const remove = async (rec: AdminRecord) => {
-    await deleteAdmin(rec.id);
-    getMessage()?.success(
-      intl.formatMessage({ id: 'pages.permissionsUsers.toast.deleted', defaultMessage: '已删除' }),
-    );
-    refresh();
+    try {
+      await deleteAdmin(rec.id);
+      getMessage()?.success(
+        intl.formatMessage({
+          id: 'pages.permissionsUsers.toast.deleted',
+          defaultMessage: '已删除',
+        }),
+      );
+      refresh();
+    } catch (err) {
+      // AUD-029：删除失败不得弹「已删除」。原实现 await 无 try/catch，异常冒泡后被
+      // Popconfirm 的 onConfirm Promise 吞掉——失败时既不刷新也不提示，用户无反馈。
+      getMessage()?.error(
+        extractErrorMessage(
+          err,
+          intl.formatMessage({
+            id: 'pages.permissionsUsers.toast.deleteFailed',
+            defaultMessage: '删除失败',
+          }),
+        ),
+      );
+    }
   };
 
   // 禁用/解封：status 由后端显式落库；禁用同时吊销已签发 token

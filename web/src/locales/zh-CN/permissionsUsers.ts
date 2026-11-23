@@ -55,6 +55,7 @@ export default {
   'pages.permissionsUsers.title': '用户管理',
   'pages.permissionsUsers.toast.created': '已创建 #{id}',
   'pages.permissionsUsers.toast.deleted': '已删除',
+  'pages.permissionsUsers.toast.deleteFailed': '删除失败',
   'pages.permissionsUsers.toast.passwordSet': '密码已设置',
   'pages.permissionsUsers.toast.saved': '已保存',
   'pages.permissionsUsers.toast.statusUpdated': '状态已更新',
