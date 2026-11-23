@@ -17,6 +17,11 @@ import (
 	"gorm.io/gorm"
 )
 
+// ApprovalPolicyMetaKey 是 Approval.Metadata 中治理策略键（如 "two_person"）
+// 的存放键。审批创建时（CreateFunctionApproval）由 policy.Policy.ApprovalWorkflow
+// 写入，审批处理时读取以在运行时执行两人规则（AUD-038）。
+const ApprovalPolicyMetaKey = "approvalPolicy"
+
 // Approval represents a two-person rule approval record.
 type Approval struct {
 	ID         string

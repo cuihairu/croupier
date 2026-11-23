@@ -271,5 +271,19 @@
     "description": "查看运行控制台菜单和页面",
     "category": "console",
     "module": "dashboard"
+  },
+  {
+    "code": "approvals:read",
+    "name": "审批查看",
+    "description": "查看审批列表与详情",
+    "category": "approval",
+    "module": "ops"
+  },
+  {
+    "code": "approvals:write",
+    "name": "审批操作",
+    "description": "批准/拒绝审批申请（approve/reject）",
+    "category": "approval",
+    "module": "ops"
   }
 ]

@@ -23,8 +23,17 @@ import (
 	"github.com/cuihairu/croupier/internal/svc"
 )
 
-const officialApprovalID = "official.approval"
-const approvalRecordsKey = "approvals"
+const (
+	officialApprovalID = "official.approval"
+	approvalRecordsKey = "approvals"
+
+	// twoPersonPolicy 是治理策略键（policy.Policy.ApprovalWorkflow / 契约
+	// approval.policyKey）：要求两个不同授权主体，申请人不得自批。
+	twoPersonPolicy = "two_person"
+	// approvalPermissionKey 是审批动作（approve/reject）要求的最小权限面；
+	// 与 casbin /api/v1/approvals POST 的 approvals:write 同一权限键。
+	approvalPermissionKey = "approvals:write"
+)
 
 type Service struct {
 	svcCtx *svc.ServiceContext
@@ -117,6 +126,10 @@ func currentApprovalActor(ctx context.Context) string {
 // rejectSelfApproval 落实两人规则：申请人不能审批自己的申请。
 // approval.allowSelfApprove=true 时放开（单管理员部署的显式选择）；
 // 拦截与放行均写哈希链审计 approval.self_approval_blocked 供追溯。
+//
+// AUD-038：two_person 策略在运行时强制两个不同授权主体。策略优先于全局自批
+// 开关——即使 allowSelfApprove=true，two_person 函数的申请仍禁止同一主体
+// 批准/拒绝，否则「两人规则」只是描述性数据。
 func (s *Service) rejectSelfApproval(ctx context.Context, operator string, record *approvals.Approval, action string) error {
 	if s == nil || record == nil {
 		return nil
@@ -126,13 +139,46 @@ func (s *Service) rejectSelfApproval(ctx context.Context, operator string, recor
 	}
 	outcome := "blocked"
 	if s.svcCtx.Config.Approval.AllowSelfApprove {
-		outcome = "allowed_by_config"
+		if approvalPolicyKey(record) == twoPersonPolicy {
+			outcome = "blocked_by_two_person"
+		} else {
+			outcome = "allowed_by_config"
+		}
 	}
 	s.logSelfApprovalAudit(ctx, operator, record, action, outcome)
-	if outcome != "blocked" {
+	if outcome == "allowed_by_config" {
 		return nil
 	}
 	return errorx.NewForbidden("申请人不能审批自己的申请 (self_approval_forbidden)")
+}
+
+// approvalPolicyKey 读审批记录的治理策略键。创建时（CreateFunctionApproval）
+// 由调用链写入 approvals.ApprovalPolicyMetaKey；旧记录无此键返回 ""，
+// two_person 判定不命中，由全局自批开关照常治理。
+func approvalPolicyKey(record *approvals.Approval) string {
+	if record == nil {
+		return ""
+	}
+	return strings.TrimSpace(record.Metadata[approvals.ApprovalPolicyMetaKey])
+}
+
+// requireApprovalPermission AUD-038：审批动作必须持显式审批权限
+// （approvals:write），不能只凭登录态 + scope。此前任何登录用户（含无审批
+// 权限的低权限角色）都可批准/拒绝高危申请，低权限账号现被拒绝。
+//
+// 权限层未接线（PermissionService/AdminModel 为 nil 的单测或最小上下文）时跳过：
+// 生产 ServiceContext 恒接线（NewServiceContext 同时初始化两者），权限执行
+// 由本方法与权限层单测分别覆盖。
+func (s *Service) requireApprovalPermission(ctx context.Context, operator string) error {
+	if s == nil || s.svcCtx == nil || s.svcCtx.PermissionService == nil || s.svcCtx.AdminModel == nil {
+		return nil
+	}
+	if strings.TrimSpace(operator) == "" {
+		return errorx.NewUnauthorized("审批操作需要登录态")
+	}
+	_, _, err := utils.RequireAnyPermission(ctx, s.svcCtx,
+		"无权审批该申请（需要审批权限）", "admin:all", approvalPermissionKey)
+	return err
 }
 
 func (s *Service) logSelfApprovalAudit(ctx context.Context, operator string, record *approvals.Approval, action, outcome string) {
@@ -216,6 +262,10 @@ func (s *Service) Approve(ctx context.Context, req *ApprovalApproveRequest) (*Ap
 	operator := currentApprovalActor(ctx)
 	if operator == "" {
 		return nil, errorx.NewUnauthorized("审批操作需要登录态")
+	}
+	// AUD-038：批准前先做显式审批权限检查（approvals:write）。
+	if err := s.requireApprovalPermission(ctx, operator); err != nil {
+		return nil, err
 	}
 	if err := s.rejectSelfApproval(ctx, operator, existing, "approve"); err != nil {
 		return nil, err
@@ -322,6 +372,10 @@ func (s *Service) Reject(ctx context.Context, req *ApprovalRejectRequest) (*Appr
 	operator := currentApprovalActor(ctx)
 	if operator == "" {
 		return nil, errorx.NewUnauthorized("审批操作需要登录态")
+	}
+	// AUD-038：拒绝前先做显式审批权限检查（approvals:write）。
+	if err := s.requireApprovalPermission(ctx, operator); err != nil {
+		return nil, err
 	}
 	if err := s.rejectSelfApproval(ctx, operator, existing, "reject"); err != nil {
 		return nil, err

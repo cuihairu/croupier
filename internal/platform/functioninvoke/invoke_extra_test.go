@@ -223,6 +223,44 @@ func TestCreateFunctionApprovalNotifiesActor(t *testing.T) {
 	require.Equal(t, "lb", stored.Route, "empty route defaults to lb")
 }
 
+// AUD-038：治理策略键烙进审批记录 Metadata（nil metadata 也不 panic），
+// 审批处理时据此运行时执行 two_person 两人规则。
+func TestCreateFunctionApprovalStampsApprovalPolicy(t *testing.T) {
+	svcCtx, db := setupGovernSvc(t)
+	seedGovernAdmin(t, db, "bee", "admin")
+	svcCtx.NotifyService = notify.New(nil, nil)
+
+	cases := []struct {
+		name     string
+		metadata map[string]string
+		workflow string
+		wantKey  bool
+	}{
+		{"nil metadata stamped", nil, "two_person", true},
+		{"request metadata preserved", map[string]string{"origin": "console"}, "two_person", true},
+		{"empty workflow not stamped", nil, "", false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			req := &Request{ID: "player.cleanup", GameID: "test-game", Env: "test-env", Metadata: tc.metadata}
+			approvalID, err := CreateFunctionApproval(context.Background(), svcCtx, req,
+				[]byte(`{}`), &model.Admin{Username: "bee"}, &policy.Policy{ApprovalWorkflow: tc.workflow})
+			require.NoError(t, err)
+
+			stored, err := svcCtx.ApprovalsStore.Get(approvalID)
+			require.NoError(t, err)
+			if tc.wantKey {
+				require.Equal(t, tc.workflow, stored.Metadata[approvals.ApprovalPolicyMetaKey])
+			} else {
+				require.NotContains(t, stored.Metadata, approvals.ApprovalPolicyMetaKey)
+			}
+			if origin, ok := tc.metadata["origin"]; ok {
+				require.Equal(t, origin, stored.Metadata["origin"], "请求自带 metadata 不得被策略烙印覆盖丢失")
+			}
+		})
+	}
+}
+
 func TestCreateFunctionApprovalNotifyRecipientFailureFallback(t *testing.T) {
 	// 接收人列表失败（库已关闭）不阻断审批创建：recipients 兜底为申请人
 	db := setupGovernDB(t)

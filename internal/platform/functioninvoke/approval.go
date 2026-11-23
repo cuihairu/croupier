@@ -72,6 +72,18 @@ func CreateFunctionApproval(ctx context.Context, svcCtx *svc.ServiceContext, req
 	// Generate approval ID
 	approvalID := fmt.Sprintf("func_%s_%d", functionID, time.Now().UnixNano())
 
+	// AUD-038：把治理策略键（如 two_person）烙进审批记录 Metadata，审批处理时
+	// 运行时强制两人规则（不同授权主体）；旧记录无此键由全局自批开关照常治理。
+	metadata := CloneMetadata(req.Metadata)
+	if functionPolicy != nil {
+		if workflow := strings.TrimSpace(functionPolicy.ApprovalWorkflow); workflow != "" {
+			if metadata == nil {
+				metadata = map[string]string{}
+			}
+			metadata[approvals.ApprovalPolicyMetaKey] = workflow
+		}
+	}
+
 	// Create approval record
 	approval := &approvals.Approval{
 		ID:         approvalID,
@@ -92,7 +104,7 @@ func CreateFunctionApproval(ctx context.Context, svcCtx *svc.ServiceContext, req
 		TargetServiceID: strings.TrimSpace(req.TargetServiceID),
 		HashKey:         strings.TrimSpace(req.HashKey),
 		Payload:         payload,
-		Metadata:        CloneMetadata(req.Metadata),
+		Metadata:        metadata,
 		CreatedAt:       time.Now(),
 		UpdatedAt:       time.Now(),
 	}
