@@ -76,6 +76,8 @@ jobs:
 
       - name: Wait for artifact metadata to be queryable
         timeout-minutes: 10
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euxo pipefail
           for i in $(seq 1 50); do
