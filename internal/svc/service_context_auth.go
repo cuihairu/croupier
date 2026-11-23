@@ -162,20 +162,24 @@ func (m *AuthMiddleware) Handle(c *gin.Context) {
 		return
 	}
 
-	// 获取 Authorization header，fallback 到 ?token= query param
-	// （EventSource 不支持自定义 headers，SSE 前端通过 ?token= 传递 JWT）
-	var token string
+	// AUD-044：全部 protected 端点只认 Authorization: Bearer header。
+	// 历史上此处还接受 ?token= query param（SSE 前端经 EventSource 无法
+	// 自定义 header），令牌因此落入访问日志/浏览器历史/Referer。C-004 后
+	// 前端 SSE 已改走 fetch 流 + Authorization header（web/src/services/
+	// core/http.ts 的 createEventSource），query 通道再无仓内消费方，整体
+	// 移除：需要流式订阅的客户端同样走 fetch 流（或反向代理注入 header），
+	// 不再把 JWT 放进 URL。
 	authHeader := c.GetHeader("Authorization")
-	if authHeader != "" {
-		tokenParts := strings.SplitN(authHeader, " ", 2)
-		if len(tokenParts) != 2 || tokenParts[0] != "Bearer" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid authorization header format", "message": "授权头格式错误"})
-			return
-		}
-		token = tokenParts[1]
-	} else {
-		token = c.Query("token")
+	if authHeader == "" {
+		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "missing authorization", "message": "未授权"})
+		return
 	}
+	tokenParts := strings.SplitN(authHeader, " ", 2)
+	if len(tokenParts) != 2 || tokenParts[0] != "Bearer" {
+		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid authorization header format", "message": "授权头格式错误"})
+		return
+	}
+	token := tokenParts[1]
 
 	if token == "" {
 		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "missing authorization", "message": "未授权"})

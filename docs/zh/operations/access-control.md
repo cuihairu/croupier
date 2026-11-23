@@ -34,7 +34,7 @@ title: 权限控制说明（RBAC、鉴权、敏感操作与堡垒机现状）
 
 ### 请求侧校验
 
-- **取令牌**：`Authorization: Bearer` 头，SSE 等 `<img>`/EventSource 场景回退 `?token=` query 参数（`internal/svc/service_context.go:1629-1641`）。
+- **取令牌**：仅 `Authorization: Bearer <JWT>` 头。此前为 SSE 等 `<img>`/EventSource 场景保留的 `?token=` query 回退已移除（AUD-044）：它把 JWT 写进 URL、访问日志、浏览器历史与 `Referer` 头，且仓内已无消费方——SSE 客户端现经 fetch 流带 header（C-004，`web/src/services/core/http.ts`）。见 `internal/svc/service_context_auth.go`。
 - **authenticate**：`:1736` 起——解析 claims 后强制比对 `admins.token_version` 当前值（`:1747-1751`，`checkTokenVersion` `:1758`）：改密码/禁用/登出会使库中版本递增，旧令牌立即失效。账号行不存在（`ErrRecordNotFound`，即软/硬删除的管理员）同样拒绝该令牌（AUD-010）；只有真存储故障才保持可用性优先放行。带短 TTL 缓存降低查库频率。
 - **mfaGate**：`:1686-1707`——站点安全策略 `MFARequired` 开启时，未绑定 TOTP 的账号除白名单前缀外一律 `403 mfa_required`（`:1699-1703`）。
 - **公开端点白名单**：`routes.go:108-116` 注册的公开路由（registry 只读、OpenAPI 只读、更新检查、CI webhook、告警推入、玩家客服等）不经过 Authority；webhook/告警端点的令牌与 HMAC 校验在各 handler 内部（`:110-112` 注释）。Prometheus 抓取端点开启时加入免认证白名单（`service_context.go:1615`）。

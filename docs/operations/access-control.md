@@ -34,7 +34,7 @@ For security and operations roles: an inventory of this repo's real permission-c
 
 ### Request-Side Verification
 
-- **Token extraction**: the `Authorization: ***` header, with a `?token=` query fallback for `<img>`/EventSource scenarios such as SSE (`internal/svc/service_context.go:1629-1641`).
+- **Token extraction**: the `Authorization: Bearer <JWT>` header only. The former `?token=` query fallback for `<img>`/EventSource scenarios was removed (AUD-044): it put JWTs into URLs, access logs, browser history and `Referer` headers, and no in-repo consumer remained — SSE clients now stream via fetch with the header (C-004, `web/src/services/core/http.ts`). See `internal/svc/service_context_auth.go`.
 - **authenticate**: from `:1736` — after parsing claims it force-compares the current `admins.token_version` (`:1747-1751`, `checkTokenVersion` `:1758`): password change/disable/logout increments the stored version, invalidating old tokens immediately. A missing account row (`ErrRecordNotFound`, i.e. soft/hard-deleted admin) rejects the token as well (AUD-010); only a genuine storage failure stays availability-first bypass. A short-TTL cache reduces database lookups.
 - **mfaGate**: `:1686-1707` — when the site security policy `MFARequired` is on, accounts without TOTP bound get `403 mfa_required` except for whitelisted prefixes (`:1699-1703`).
 - **Public endpoint whitelist**: public routes registered at `routes.go:108-116` (registry read-only, OpenAPI read-only, update check, CI webhook, alert push, player support, etc.) bypass Authority; token and HMAC verification for webhook/alert endpoints lives inside each handler (`:110-112` comment). The Prometheus scrape endpoint joins the no-auth whitelist when enabled (`service_context.go:1615`).

@@ -427,6 +427,9 @@ func TestAuthMiddleware_Handle(t *testing.T) {
 		r.GET("/any", handler)
 		r.GET("/healthz", handler)
 		r.GET("/api/v1/auth/login", handler)
+		// AUD-044 用例需要一条 SSE 形态路径，证明 query token 在 SSE 路由上
+		// 同样不被接受（全部端点一律 Authorization header）。
+		r.GET("/api/v1/messages/stream", handler)
 		return r
 	}
 
@@ -478,10 +481,24 @@ func TestAuthMiddleware_Handle(t *testing.T) {
 		assert.Contains(t, w.Body.String(), "alice")
 	})
 
-	t.Run("valid token via query", func(t *testing.T) {
+	// AUD-044：query token 通道整体移除（含 SSE 路径）——令牌不再经 URL 传递。
+	t.Run("query token rejected (header only)", func(t *testing.T) {
 		token, err := jwtutil.Sign("test-secret-for-svc", "bob", nil, 43, 0, time.Now())
 		require.NoError(t, err)
-		req := httptest.NewRequest(http.MethodGet, "/any?token="+token, nil)
+		for _, path := range []string{"/any?token=" + token, "/api/v1/messages/stream?token=" + token} {
+			req := httptest.NewRequest(http.MethodGet, path, nil)
+			w := httptest.NewRecorder()
+			newEngine().ServeHTTP(w, req)
+			assert.Equal(t, http.StatusUnauthorized, w.Code, "query token 必须不再被接受: %s", path)
+			assert.Contains(t, w.Body.String(), "missing authorization", "query token 必须按未携带凭据处理")
+		}
+	})
+
+	t.Run("header token accepted on sse path", func(t *testing.T) {
+		token, err := jwtutil.Sign("test-secret-for-svc", "bob", nil, 43, 0, time.Now())
+		require.NoError(t, err)
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/messages/stream", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
 		w := httptest.NewRecorder()
 		newEngine().ServeHTTP(w, req)
 		assert.Equal(t, http.StatusOK, w.Code)
