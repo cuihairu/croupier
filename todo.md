@@ -2303,9 +2303,10 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 状态／条件：2026-11-16 复核属实——TTL 硬编码 24h 无 refresh。
   - 完成证据：`internal/security/jwtutil/token.go` 拆 SignAccess(2h,typ=access)/SignRefresh(7d,typ=refresh,带随机 jti——NumericDate 秒级精度下同秒两次签发字节级相同的实测坑)+Parse 统一拒绝 typ=refresh（全部认证路径零改动继承）/ParseRefresh 反向拒绝 access；`admin_refresh_tokens` 表（迁移 0067 三处同步）只存 SHA-256，兑换 MarkUsed 轮换挂链，已兑换/已吊销再现金即 RevokeAllForAdmin 整族吊销+审计 auth.token_refresh_reuse；POST /auth/refresh（匿名，凭据即令牌）；登录 `useRefresh:true` opt-in，legacy 24h 单 token 行为不变（存储不可用自动回退）。LOCAL VERIFIED：`go test ./internal/...` 全绿（jwtutil/auth/migrations 新用例 8+7+2），guard PASSED，tsc/jest 467 套全绿，docs build 通过。已知边界：web/移动端尚未 opt-in（仍 24h token，属前端后续工作）；OIDC/OAuth 回调登录不发刷新令牌（useRefresh 仅密码登录生效）；传输仍 JSON body/localStorage，cookie 化属 C-005 延期。
 
-- [ ] **AUD-053 · P3 · 修复 · Backup 创建幂等键**
+- [x] **AUD-053 · P3 · 修复 · Backup 创建幂等键** — 4933fc5d2
   - 依赖：—。交付与验收：`internal/api/backup/service.go:75-106` 按 name/type/时间窗或客户端 Idempotency-Key 去重 pending/succeeded；带并发去重用例。
   - 状态／条件：2026-11-16 复核属实——双击/重试并发创建多份重备份。
+  - 完成证据：`backups.idempotency_key` 指针列 + 唯一索引（迁移 0068 三处同步；NULL 多行三方言不冲突）；Create 预检同键 pending/succeeded 复用、failed 行让位键后重试建新行（ReleaseIdempotencyKey），并发双写由唯一索引兜底、冲突方回落已存在行（isIdempotencyConflict 三方言文案）；无键时 name+type 10 分钟窗兜底（自动生成名含秒戳，同秒双击同被收住）；handler 兼容 Idempotency-Key 头。LOCAL VERIFIED：backup 包 6 用例含 8 并发同键全员同 ID/库内单行、migrations 0068 存量形态复刻（Drop 列+索引再补齐）+注册断言；`go test ./internal/...` exit 0、guard PASSED、tsc 0 错、jest 467 套/5514 用例全绿（首跑 6 套红为 go test+docs build 同机并发负载 flake，空载全量重跑全绿）、docs build 通过。
 
 - [ ] **AUD-054 · P3 · 修复 · 删除旧式 PermissionMiddleware 死代码**
   - 依赖：—。交付与验收：确认无挂载引用后删除 `internal/service/permission/middleware.go:117-127`、`internal/common/middleware/auth.go:104` 的旧式实现（字符串 context key + gin.H 直写）。
