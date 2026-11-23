@@ -2175,9 +2175,12 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 验证：`safeUrl.test.ts` 新增 `safeRelativeHref` 套件（允许同源相对路径含百分号编码、拒绝协议相对/绝对/`javascript:`/`data:`/反斜杠/控制字符/非根路径/nullish、trim）；`pnpm exec jest --testPathPatterns "(safeUrl|Permissions/UsersV2)"` 5 套件 47 用例全绿、`pnpm --dir web run tsc` 0 错误、`bash scripts/dashboard_vnext_guard.sh` PASSED、`prettier --check` 清洁。LOCAL VERIFIED。
   - 已知边界：`safeExternalHref` 仍只管外部 URL；全仓其余 `window.open` 汇（Ops/Alerts×5、Traces×2、PreviewRuntime、InvocationResponse、Dev/Tools、RightContent、compositeRuntime、Support/Tickets）有的已走 `safeUrl`/`safeExternalHref`、有的用字面常量——非本项范围，未逐一改；`window.open` 未统一加 `noopener`（既有行为不变，另属强化项，留待后续）；`safeRelativeHref` 仅做位置/字符校验，不解析 URL（同源前提由调用方常量前缀保证）。
 
-- [ ] **AUD-034 · P3 · 修复 · DevopsSessionsPanel 中文硬编码文案未走 i18n**
+- [x] **AUD-034 · P3 · 修复 · DevopsSessionsPanel 中文硬编码文案未走 i18n**（commit a971a5d7b）
   - 依赖：—。交付与验收：面板内按钮/表单/确认弹窗/空态文案提取到 locale 文件并经 `intl.formatMessage`；注意与本面板测试断言文案联动更新。
   - 状态／条件：2026-11-16 复核属实（全组件裸中文串）。
+  - 修复：新建 `web/src/locales/zh-CN/opsAgents.ts` + `en-US/opsAgents.ts`（`pages.opsAgents.sessions.*` 43 键：面板标题/刷新/开会话/空态、状态五态、七列表头、接入/关闭/关闭会话、开 SSH 会话表单全量（agentId required/extra/placeholder/empty、目标主机 label/required/placeholder、端口/列/行、协议脚注）、关闭确认（标题/内容/ok）、抽屉（标题/脚注）、agent 下线选项 `{id}（离线）`、openFailed/closeSuccess），聚合进 `zh-CN.ts`/`en-US.ts`（import + spread）；`DevopsSessionsPanel.tsx` 全部硬编码中文改经 `useIntl()` 的 `fmt(id, defaultMessage)`，`STATUS_META` 重构为 `STATUS_CONFIG`（配色静态 + 文案 descriptor），`loadAgentOptions` 下线标签走 `intl.formatMessage` 插值并补 `[intl]` 依赖；顺手收掉同文件 AUD-030 残留一处（`err instanceof Error ? err.message : '会话打开失败'` → `extractErrorMessage(err, fmt(...))`——原 grep 模式 `: String(` 未覆盖字面量回退形态）。
+  - 验证：`devopsSessionsPanel.test.tsx` 的 `useIntl` mock 改稳定引用 + `jest.fn`（组件现经 `useCallback([intl])` 依赖 intl 身份，每渲染新建对象会致 effect 无限重建），新增回归「extracts panel strings through intl ids (AUD-034)」断言标题/刷新/开会话/空态/列头/行动作均走 `pages.opsAgents.sessions.*` 键；既有断言按 defaultMessage 透传不变全绿。`pnpm exec jest --testPathPatterns "Ops/Agents"` 7 套件 33 用例全绿、`pnpm --dir web run tsc` 0 错误、`bash scripts/dashboard_vnext_guard.sh` PASSED、`prettier --check` 清洁。LOCAL VERIFIED。
+  - 已知边界：面板内 `DevopsTerminal` 组件（含其自带状态文案）与 `Ops/Agents/index.tsx` 的 `AGENT_META`（title/description/empty）仍为硬编码中文——AGENT_META 属页面骨架文案非本项「面板内」范围，DevopsTerminal 另有独立测试面，均未在本项收；en-US 译文为机器初翻未经母语审校。
 
 - [ ] **AUD-035 · P3 · 修复 · DevopsSessionsPanel 关闭/刷新按钮无 loading 防重复点击**
   - 依赖：—。交付与验收：关闭（含确认弹窗 onOk）与刷新按钮在请求期间置 loading/禁用；刷新可复用 `loading` 态，关闭按会话 ID 粒度防抖。
