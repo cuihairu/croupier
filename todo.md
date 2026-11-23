@@ -2234,9 +2234,12 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 完成证据：commit `b9c840f87`（`configs/permissions.json` 30 条管理域码 + `internal/handler/routes_permission_matrix.go` 矩阵与中间件 + `internal/handler/routes.go` 挂载 + `internal/handler/permission_matrix_test.go` + `docs/security.md`/`docs/zh/security.md` 同步）；`go test ./internal/... -count=1` 全绿。
   - 已知边界：backup/storage/admin/role/page 等域已服务层门禁，不入矩阵避免双门禁语义冲突；`/messages/stream`（本人收件箱 SSE）与 `/announcements/active` 用户侧公告保留 JWT 认证（自服务面，非管理操作，故不门禁）；`/messages` 仅群发 `/messages/broadcast` 门禁写面；certificate 写面兼容既有 `certificates:manage` 授权；既有非 admin 角色操作员访问管理面需经 RBAC 页授予对应 `<域>:read/write`（AUD-039 同型收紧，属预期安全行为）。
 
-- [ ] **AUD-043 · P1 · 修复 · CICD webhook payload scope 绑定 integration**
+- [x] **AUD-043 · P1 · 修复 · CICD webhook payload scope 绑定 integration**（commit `85222bb9b`）
   - 依赖：ce667c63d（fail-closed 已修，本条为残余半边）。交付与验收：回写 payload 的 game/env 与 integration 配置一致才接受，不一致 4xx 拒绝；带跨 scope 回写拒绝用例。
-  - 状态／条件：2026-11-16 复核属实——token 校验已补，payload game/env 仍未绑定。
+  - 状态／条件：**DONE · LOCAL VERIFIED（2026-11-23，commit 85222bb9b）**：`IngestWebhook`（`internal/api/cicd/webhook.go`）改为把作用域绑定到 integration——token 校验通过后新增 `validateWebhookScope`（+ `bindScopeField`）：payload 提供 game/env 时必须与 integration 配置精确一致才接受；integration 未配置该作用域而 payload 携带 → 拒（scope 注入）；payload 冲突 → 拒（跨 scope 回写）。落库作用域改为只取 integration 配置（原 `firstNonEmpty(row.GameID, p.GameID)` 在 integration 未配作用域时会采信 payload 注入值，已移除该采信面）。拒绝响应为 400 + 稳定码 `scope_mismatch`（`errorx.NewBadRequestWithCode`，符合响应契约，前端可分支）。校验置于 token 校验之后、`ValidateCicdWebhook` 之前（凭据→作用域绑定→载荷校验）。
+  - 验证：新增 `internal/api/cicd/aud043_scope_binding_test.go` 两个用例——`TestCicdWebhook_Aud043_ScopeBoundToIntegration`（省略作用域 200 且落库取 integration 的 demo/prod；payload 与配置一致 200 幂等；game_id 冲突 400 `scope_mismatch` 且构建数不变；env 冲突 400）+ `TestCicdWebhook_Aud043_NoScopeInjectionWhenIntegrationUnconfigured`（未配作用域 integration 的 payload 注入 400 且零落库；省略作用域仍 200）；`go test ./internal/api/cicd/... -count=1` 全绿；`go test ./internal/... -count=1` 全绿（exit 0，0 FAIL）；`go vet ./internal/api/cicd/` 清洁；`gofmt -l` 清洁。用例对旧实现敏感（旧 `firstNonEmpty` 语义下冲突/注入均为 200，断言 400 必失败）。
+  - 完成证据：commit `85222bb9b`（`internal/api/cicd/webhook.go` validateWebhookScope/bindScopeField + 落库作用域改取 integration；`internal/api/cicd/aud043_scope_binding_test.go`）；`go test ./internal/... -count=1` 全绿。
+  - 已知边界：integration 创建/更新未强制要求 game/env 非空，未配作用域的接入只能接收省略作用域的回写（构建记录作用域为空，与存量行为一致）；如要强制作用域，属 integration 创建校验的单独收口。webhook 仍为公开端点（token 鉴权），token 未配置时保持 fail-closed 拒绝（ce667c63d）。
 
 - [ ] **AUD-044 · P2 · 修复 · query token 收敛到 SSE 路由**
   - 依赖：—。交付与验收：`internal/svc/service_context_auth.go:164-176` 与 `internal/handler/routes.go:56` 的 `?token=` fallback 仅对显式 SSE 路由启用且配一次性短时 token；其余端点只认 Authorization header。
