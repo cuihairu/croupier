@@ -2263,9 +2263,12 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 完成证据：`internal/api/cicd/service.go`（TestConnection）、`internal/api/cicd/aud046_probe_guard_test.go`、`internal/api/cicd/service_paths_test.go`（契约更新）、`docs/operations/external-service-probing.md` + `docs/zh/operations/external-service-probing.md` 新增 CI/CD 连通性测试小节。
   - 已知边界：私网拦截是站点守卫开关（sec.ssrfProtection）项，默认关时不对自托管内网 CI 额外收紧——与仓库既有 secguard 口径一致（开关注解在 external-service-probing.md 出站安全策略小节）。
 
-- [ ] **AUD-047 · P2 · 修复 · 未知错误统一 opaque 500**
+- [x] **AUD-047 · P2 · 修复 · 未知错误统一 opaque 500**（commit `4135cd74a`）
   - 依赖：—。交付与验收：`internal/common/response/response.go:107-108` 未知错误改 opaque message + correlation id，原文仅入日志；带响应契约回归。
-  - 状态／条件：2026-11-16 复核属实——`err.Error()` 直出可泄漏 GORM/驱动细节。
+  - 状态／条件：DONE · LOCAL VERIFIED（commit `4135cd74a`）——`Error` 兜底分支（所有分类错误未命中后的未知错误）不再回传 `err.Error()` 原文：响应为 `{error: internal_error, message: 稳定文案+追踪号, details.correlationId}`；原文经 `slog.ErrorContext`（含 correlationId/path）进服务端日志。correlationId 为 8 字节 crypto/rand hex（rand 失败退纳秒时间戳 36 进制，仍可关联）。nil error 顺带修复：旧实现兜底解引用直接 panic，现统一落 opaque 500（`TestError_NilError` 契约同步更新）。分类错误（validation/bad_request/not_found/AppError 码表/CodeError）行为不变。
+  - 验证：`go build ./...` 通过；`internal/common/response/aud047_opaque_500_test.go` 新增 2 用例（典型 GORM 泄漏原文零片段回传 + correlationId 合法 hex 且 message 可回查；两错误追踪号独立）；`go test ./internal/...` 全绿。存量 24 处原文断言按语义分流收口：客户端输入错误改 errorx 分类呈现（configexplorer 绑定校验/只读源 400、resourcecatalog chosenSource 400、ops synthetics 缺参 400、sitesettings ldap/oidc 未启用 400、page SetMenu 走 PageNotFoundError 404、cicd Trigger/RefreshBuild provider 构造 400）；内部路径注入故障断言改 opaque 契约（500 + `internal_error` + NotContains 原文，涉及 function/function-api/monitoring/platform/ops/page/storage/console/component/support 共 10 包）。
+  - 完成证据：`internal/common/response/response.go`、`internal/common/response/aud047_opaque_500_test.go`、`internal/common/response/response_test.go`（nil 契约）、`docs/security.md` + `docs/zh/security.md` 新增 AUD-047 说明。
+  - 已知边界：仅收敛统一出口 `response.Error` 的未知错误兜底；不经该出口的直写响应（SSE/健康检查/文件下载等显式例外，及 monitoring 健康输出原文属 AUD-053 范畴）不在本条覆盖内。
 
 - [ ] **AUD-048 · P2 · 修复 · Warehouse 查询强制 current scope**
   - 依赖：—。交付与验收：`internal/api/analytics/warehouse.go:141/247` 请求 game/env 只可收窄不可替换，空值不得展开为无过滤。
