@@ -10,6 +10,7 @@ import (
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	versionutil "github.com/cuihairu/croupier/internal/common/version"
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
+	driveropenapi "github.com/cuihairu/croupier/internal/drivers/openapi"
 	funcopenapi "github.com/cuihairu/croupier/internal/function/openapi"
 	"github.com/cuihairu/croupier/internal/model"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
@@ -101,7 +102,7 @@ func (s *Service) functionMetaInputForBinding(
 	runtimeMeta reg.FunctionMeta,
 ) dashboardservice.FunctionMetaInput {
 	openAPIOp := openAPIOperationFromSource(source, operation.OperationID)
-	inputSchema := openAPIRequestSchema(openAPIOp)
+	inputSchema := sourceBindingInput(source, operation, openAPIOp)
 	if inputSchema == "" {
 		inputSchema = strings.TrimSpace(runtimeMeta.InputSchema)
 	}
@@ -133,6 +134,16 @@ func (s *Service) functionMetaInputForBinding(
 		Tags:              tags,
 		TimeoutMs:         operation.TimeoutMs,
 	}
+}
+
+func sourceBindingInput(source *model.OpenAPISource, operation OpenAPISourceOperation, op *openapi3.Operation) string {
+	if operation.requestInput != "" {
+		return operation.requestInput
+	}
+	if request := operation.Request; source != nil && request != nil && (len(request.Parameters) > 0 || request.Body != nil) {
+		return driveropenapi.ProjectInput(operation.OperationID, request, sourceSchemaRoot(source.GetSpec())).Schema
+	}
+	return openAPIRequestSchema(op)
 }
 
 // createUnboundContractsForSource 为无运行时函数的 operation 生成 unbound
@@ -262,7 +273,7 @@ func (s *Service) functionMetaInputForOperation(
 		Enabled:           true,
 		Summary:           firstNonEmpty(operation.Summary, operation.OperationID),
 		Description:       operation.Description,
-		InputSchema:       openAPIRequestSchema(openAPIOp),
+		InputSchema:       sourceBindingInput(source, operation, openAPIOp),
 		OutputSchema:      openAPIResponseSchema(openAPIOp),
 		Resource:          strings.TrimSpace(operation.Resource),
 		Operation:         strings.TrimSpace(operation.Operation),

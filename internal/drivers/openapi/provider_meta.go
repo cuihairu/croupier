@@ -33,6 +33,7 @@ func (p *Provider) GetMethodDetails() map[string]*MethodDetails {
 			Deprecated:   method.Deprecated,
 			Parameters:   method.Parameters,
 			Request:      method.Request,
+			Diagnostics:  method.projection.Diagnostics,
 			Resource:     method.Resource,
 			Risk:         method.Risk,
 			Operation:    method.Operation,

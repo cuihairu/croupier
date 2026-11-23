@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/dashboard/spec"
 	"github.com/cuihairu/croupier/internal/platform/provider"
 	"github.com/cuihairu/croupier/internal/platform/ratelimit"
 )
@@ -171,7 +172,8 @@ type APIMethod struct {
 	Parameters []ParameterMapping `yaml:"parameters" json:"parameters"`
 
 	// Request is the discovered OpenAPI request contract.
-	Request *RequestContract `yaml:"-" json:"-"`
+	Request    *RequestContract `yaml:"-" json:"-"`
+	projection InputProjection
 
 	// RequestBody defines how to map the request body
 	RequestBody *RequestBodyMapping `yaml:"request_body" json:"requestBody"`
@@ -293,6 +295,7 @@ type MethodDetails struct {
 	Deprecated  bool
 	Parameters  []ParameterMapping
 	Request     *RequestContract
+	Diagnostics []spec.Diagnostic
 
 	// OpenAPI 3.0.3 Extension fields (x-*)
 	Resource   string // x-resource

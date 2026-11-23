@@ -74,3 +74,22 @@ paths:
       responses:
         "204":
           description: Updated
+  /compatible:
+    post:
+      operationId: createCompatible
+      parameters:
+        - name: scope
+          in: query
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+      responses:
+        "204":
+          description: Created

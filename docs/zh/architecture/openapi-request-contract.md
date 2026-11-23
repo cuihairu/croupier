@@ -16,4 +16,4 @@ Source 按 operation 存储 `request`，Provider 对同一份文档派生同一�
 
 显式 Provider 配置和 Swagger 2.0 继续使用既有映射。新派生的兼容诊断需在上传、重读及重新导入时可查。参数序列化组合、媒体类型协商、复杂引用及默认 UI 生成状态由后续任务覆盖。
 
-[共享 fixture](../../../testdata/openapi/sui-request.yaml) 包含 path-item 继承、operation 覆盖、必填 header、cookie、query/body 同名，以及带 query 的根数组和标量。
+[共享 fixture](https://github.com/cuihairu/croupier/blob/main/testdata/openapi/sui-request.yaml) 包含 path-item 继承、operation 覆盖、必填 header、cookie、query/body 同名，以及带 query 的根数组和标量。

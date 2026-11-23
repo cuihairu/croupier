@@ -352,6 +352,11 @@ func (s *Service) SourceDiagnostics(ctx context.Context, req *OpenAPISourceGetRe
 	if err := source.GetDiagnostics(&diags); err != nil {
 		return nil, err
 	}
+	var operations []OpenAPISourceOperation
+	if err := source.GetOperations(&operations); err != nil {
+		return nil, err
+	}
+	diags = hydrateLegacyRequests(source, operations, diags)
 	return &OpenAPISourceDiagnosticsResponse{
 		SourceID:    source.SourceID,
 		Diagnostics: diags,

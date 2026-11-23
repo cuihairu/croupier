@@ -143,6 +143,15 @@ func parseOpenAPISource(raw []byte) *parsedOpenAPISource {
 		parsed.InfoVersion = strings.TrimSpace(doc.Info.Version)
 	}
 	parsed.Operations, parsed.Diagnostics = extractSourceOperations(doc, parsed.Diagnostics)
+	root := sourceSchemaRoot(raw)
+	for i := range parsed.Operations {
+		operation := &parsed.Operations[i]
+		projection := driveropenapi.ProjectInput(operation.OperationID, operation.Request, root)
+		if len(operation.Request.Parameters) > 0 || operation.Request.Body != nil {
+			operation.requestInput = projection.Schema
+		}
+		parsed.Diagnostics = append(parsed.Diagnostics, projection.Diagnostics...)
+	}
 	if len(parsed.Operations) == 0 && !hasErrorDiagnostic(parsed.Diagnostics) {
 		parsed.Diagnostics = append(parsed.Diagnostics, sourceDiagnostic(
 			"openapi_no_operations",
@@ -152,6 +161,12 @@ func parseOpenAPISource(raw []byte) *parsedOpenAPISource {
 		))
 	}
 	return parsed
+}
+
+func sourceSchemaRoot(raw json.RawMessage) map[string]any {
+	var root map[string]any
+	_ = json.Unmarshal(raw, &root)
+	return root
 }
 
 func extractSourceOperations(doc *openapi3.T, diags []spec.Diagnostic) ([]OpenAPISourceOperation, []spec.Diagnostic) {

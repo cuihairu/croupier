@@ -47,6 +47,10 @@ func (p *Provider) Call(ctx context.Context, method string, request []byte) ([]b
 		return nil, &provider.ProviderDisabledError{Name: p.Name()}
 	}
 
+	if apiMethod.projection.Grouped {
+		return nil, fmt.Errorf("operation %q requires location-grouped input", apiMethod.Name)
+	}
+
 	// Parse request
 	var reqData map[string]interface{}
 	if len(request) > 0 {

@@ -195,11 +195,11 @@ func (p *Provider) parseOpenAPISpec(spec []byte) error {
 
 			// Create APIMethod
 			request := requests[requestOperation{path: apiPath, method: httpMethod}]
-			var inputSchema string
+			var projection InputProjection
 			if request != nil {
-				inputSchema = legacyInputSchema(request, openapi)
+				projection = ProjectInput(methodName, request, openapi)
 			} else {
-				inputSchema = extractInputSchema(methodObj, openapi)
+				projection.Schema = extractInputSchema(methodObj, openapi)
 			}
 			apiMethod := &APIMethod{
 				Name:         methodName,
@@ -220,7 +220,8 @@ func (p *Provider) parseOpenAPISpec(spec []byte) error {
 				Enabled:      enabled,
 				Permission:   permission,
 				Version:      strings.TrimSpace(versionOverride),
-				InputSchema:  inputSchema,
+				InputSchema:  projection.Schema,
+				projection:   projection,
 				OutputSchema: extractOutputSchema(methodObj, openapi),
 			}
 

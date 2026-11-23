@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
+	driveropenapi "github.com/cuihairu/croupier/internal/drivers/openapi"
 	"github.com/cuihairu/croupier/internal/function/registrationguard"
 	"github.com/cuihairu/croupier/internal/model"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
@@ -53,6 +54,9 @@ func sourceSummaryFromModel(source *model.OpenAPISource) OpenAPISourceSummary {
 func sourceDetailFromModel(source *model.OpenAPISource, bindings []model.OpenAPISourceBinding) OpenAPISourceDetail {
 	var operations []OpenAPISourceOperation
 	_ = source.GetOperations(&operations)
+	summary := sourceSummaryFromModel(source)
+	summary.Diagnostics = hydrateLegacyRequests(source, operations, summary.Diagnostics)
+	summary.DiagnosticCount = len(summary.Diagnostics)
 	bindingDTOs := make([]OpenAPISourceBindingDTO, 0, len(bindings))
 	bindingByOperation := make(map[string]OpenAPISourceBindingDTO, len(bindings))
 	for _, binding := range bindings {
@@ -68,11 +72,37 @@ func sourceDetailFromModel(source *model.OpenAPISource, bindings []model.OpenAPI
 		}
 	}
 	return OpenAPISourceDetail{
-		OpenAPISourceSummary: sourceSummaryFromModel(source),
+		OpenAPISourceSummary: summary,
 		Spec:                 source.GetSpec(),
 		Operations:           operations,
 		Bindings:             bindingDTOs,
 	}
+}
+
+// Older rows have the raw OpenAPI document and operation IDs but no request snapshot.
+func hydrateLegacyRequests(source *model.OpenAPISource, operations []OpenAPISourceOperation, diagnostics []spec.Diagnostic) []spec.Diagnostic {
+	missing := make(map[string]int)
+	for i, operation := range operations {
+		if operation.Request == nil {
+			missing[operation.OperationID] = i
+		}
+	}
+	if len(missing) == 0 {
+		return diagnostics
+	}
+	parsed := parseOpenAPISource(source.GetSpec())
+	for _, operation := range parsed.Operations {
+		if i, ok := missing[operation.OperationID]; ok {
+			operations[i].Request = operation.Request
+		}
+	}
+	for _, diagnostic := range parsed.Diagnostics {
+		if _, ok := missing[diagnostic.FunctionID]; ok &&
+			(diagnostic.Code == driveropenapi.FlatInputCollision || diagnostic.Code == driveropenapi.FlatInputConstraint) {
+			diagnostics = append(diagnostics, diagnostic)
+		}
+	}
+	return diagnostics
 }
 
 func bindingDTOFromModel(binding model.OpenAPISourceBinding) OpenAPISourceBindingDTO {

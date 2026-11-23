@@ -239,6 +239,12 @@ func TestInputSchemaParity_KinMatchesLegacy(t *testing.T) {
 				diffs = append(diffs, fmt.Sprintf("%s/%s: operation missing in kin result", tc.name, name))
 				continue
 			}
+			switch tc.name {
+			case "non-object-body", "allof-body":
+				// These already used a body wrapper. A grouped envelope now rejects
+				// undeclared top-level fields to prevent ambiguous placement.
+				oldSchema = strings.Replace(oldSchema, "{", `{"additionalProperties":false,`, 1)
+			}
 			if !jsonEqual(oldSchema, newSchema) {
 				diffs = append(diffs, fmt.Sprintf("%s/%s:\n  old: %s\n  new: %s", tc.name, name, oldSchema, newSchema))
 			}
