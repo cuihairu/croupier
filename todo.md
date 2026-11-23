@@ -2227,9 +2227,12 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 依赖：游戏方契约拍板（SDK 签名 vs 玩家会话 proof）。交付与验收：`internal/api/support/player.go:127-165` 身份由签名会话派生 game/env/player；列表防枚举。
   - 状态／条件：**BLOCKED（2026-11-23）**——缺用户拍板：身份来源二选一未定（SDK 签名会话派生 vs 玩家会话 proof），两者实现面与鉴权面不同，平台侧不能单方裁决；拍板后恢复。2026-11-16 复核属实——匿名 create 采信 query/body，list 仅按提交 playerId 过滤可枚举他人工单。
 
-- [ ] **AUD-042 · P1 · 修复 · 管理域权限矩阵统一挂载**
+- [x] **AUD-042 · P1 · 修复 · 管理域权限矩阵统一挂载**（commit `b9c840f87`）
   - 依赖：AUD-039（storage 先行）。交付与验收：建立管理域→权限矩阵（provider delete/reload、backup、cicd、incident、config、tool、announcement、certificate、rate_limit、schema、message、faq、ticket、player、task、schedule 等），路由或服务层统一挂 least-privilege guard，与 RBAC 页面对齐并带 403 用例。
-  - 状态／条件：2026-11-16 复核属实——大量管理面仅 JWT；本条为矩阵化收口，与既有零散挂账合并。
+  - 状态／条件：**DONE · LOCAL VERIFIED（2026-11-23，commit b9c840f87）**：新增集中式管理域→权限矩阵（`internal/handler/routes_permission_matrix.go`，`managementPermissionMatrix` 前缀表），挂 `protected.Use(permissionMatrixGuard(serverCtx))`（JWT Authority 之后，`internal/handler/routes.go`）。15 个管理域（providers/cicd/incidents/incident-categories/incident-reports/configs/config-explorer/tools/admin/announcements/certificates/rate-limits/schemas/faqs/tickets/players/tasks/schedules）按动词分侧：GET/HEAD/OPTIONS 要求 `<域>:read`，POST/PUT/PATCH/DELETE 要求 `<域>:write`，`admin:all` 恒放行（最长前缀匹配，前缀边界拒绝相邻路径）。权限码 30 条写入 `configs/permissions.json`（RBAC 页 `ListPermissions` 可勾选授予）；守卫引用与目录由 `TestManagementPermissionMatrix_CatalogAligned` 机械对齐，防「引用目录不存在的码」。
+  - 验证：新增 `internal/handler/permission_matrix_test.go`（目录对齐 + 最长前缀/边界匹配 + 403/200 行为面：零角色 403 `permission_denied`、超管放行、仅持 `providers:write` 写放行读拒、未命中路径直通）；`go test ./internal/handler/ -count=1` 全绿；`go test ./internal/... -count=1` 全绿（exit 0，load 5.9）；`go vet` 清洁；`gofmt -l` 清洁；`cd docs && CI=true pnpm build` 绿；`bash scripts/dashboard_vnext_guard.sh` PASSED。
+  - 完成证据：commit `b9c840f87`（`configs/permissions.json` 30 条管理域码 + `internal/handler/routes_permission_matrix.go` 矩阵与中间件 + `internal/handler/routes.go` 挂载 + `internal/handler/permission_matrix_test.go` + `docs/security.md`/`docs/zh/security.md` 同步）；`go test ./internal/... -count=1` 全绿。
+  - 已知边界：backup/storage/admin/role/page 等域已服务层门禁，不入矩阵避免双门禁语义冲突；`/messages/stream`（本人收件箱 SSE）与 `/announcements/active` 用户侧公告保留 JWT 认证（自服务面，非管理操作，故不门禁）；`/messages` 仅群发 `/messages/broadcast` 门禁写面；certificate 写面兼容既有 `certificates:manage` 授权；既有非 admin 角色操作员访问管理面需经 RBAC 页授予对应 `<域>:read/write`（AUD-039 同型收紧，属预期安全行为）。
 
 - [ ] **AUD-043 · P1 · 修复 · CICD webhook payload scope 绑定 integration**
   - 依赖：ce667c63d（fail-closed 已修，本条为残余半边）。交付与验收：回写 payload 的 game/env 与 integration 配置一致才接受，不一致 4xx 拒绝；带跨 scope 回写拒绝用例。
