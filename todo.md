@@ -2161,9 +2161,12 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 验证：`pnpm exec jest --testPathPatterns "Ops/Agents"` 7 套件 32 用例全绿、`pnpm --dir web run tsc` 0 错误、`bash scripts/dashboard_vnext_guard.sh` PASSED、`prettier --check` 清洁；既有测试不断言旧文案（`__tests__/index.test.tsx` 只用 `AGENT_META.synthetics.empty`），无 pin 用例需同步。LOCAL VERIFIED。
   - 已知边界：文案级修正，不含功能变更；Ops 页为硬编码文案非 PageSpec，无三层文档同步面。
 
-- [ ] **AUD-032 · P2 · 修复 · MenuManagement listPageDrafts pageSize=200 未封顶**
+- [x] **AUD-032 · P2 · 修复 · MenuManagement listPageDrafts pageSize=200 未封顶**（commit 771de39e9）
   - 依赖：—。交付与验收：`web/src/pages/MenuManagement/index.tsx:57` 硬编码 `pageSize: 200` 直传后端；定合理上限或复用统一分页常量。
   - 状态／条件：2026-11-16 复核属实（ExecutionLogs 半句不实——其用 `PAGE_SIZE=20` 常量，已核伪不收）。
+  - 修复：`MenuManagement/index.tsx` 引入命名常量 `ALL_DRAFTS_PAGE_SIZE = 200`（含注释）替换裸魔法数——取值与服务端硬上限对齐（`internal/api/page/dto.go` 的 `maxPageDraftPageSize=200`，超限被服务端钳制）；注释写明拉取意图（菜单节点↔挂载页关联一次性取全）与已知边界（scope 内草稿超上限时超出部分不进入挂载选择器，页面量级「几十」不触发，增长到数百需改服务端按 menuId 直查或分页拉全，而非提高本上限）。非改分页语义（仍单窗口拉全），仅命名化 + 边界文档化。
+  - 验证：`MenuManagement/__tests__/index.test.tsx` 首用例加断言 `mockedListPageDrafts` 以 `{ pageSize: 200 }` 调用（钉住拉取窗口，防回退魔法数）；`pnpm exec jest --testPathPatterns "MenuManagement"` 3 套件 38 用例全绿、`pnpm --dir web run tsc` 0 错误、`bash scripts/dashboard_vnext_guard.sh` PASSED、`prettier --check` 清洁。LOCAL VERIFIED。
+  - 已知边界：上限对齐后端 200，非「真实全量」——scope 内草稿数突破 200 时挂载选择器静默缺项；如实注明在常量注释，未在本项引入服务端直查（超出当前验收范围）。
 
 - [ ] **AUD-033 · P2 · 修复 · window.open 未统一走 safeUrl 模式**
   - 依赖：—。交付与验收：`web/src/pages/Permissions/UsersV2/index.tsx:401` 相对路径拼接未走 `safeUrl`/`safeExternalHref` 校验；现风险低（encodeURIComponent+同源前缀），做模式统一并加注释。
