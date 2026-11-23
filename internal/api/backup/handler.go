@@ -1,6 +1,8 @@
 package backup
 
 import (
+	"strings"
+
 	"github.com/cuihairu/croupier/internal/common/response"
 	"github.com/gin-gonic/gin"
 )
@@ -35,6 +37,10 @@ func (h *Handler) Create(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, err)
 		return
+	}
+	// AUD-053：幂等键兼容 Idempotency-Key 头（body 未携带时生效）。
+	if strings.TrimSpace(req.IdempotencyKey) == "" {
+		req.IdempotencyKey = c.GetHeader("Idempotency-Key")
 	}
 
 	resp, err := h.service.Create(c.Request.Context(), &req)

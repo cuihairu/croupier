@@ -23,6 +23,10 @@ import (
 const officialBackupAdvancedID = "official.backup-advanced"
 const backupRecordsKey = "backups"
 
+// backupDedupeWindow 是无客户端幂等键时的同名同类型去重时间窗（AUD-053）：
+// 双击/快速重试兜底；正常运维节奏（同名定时备份间隔 ≥ 窗口）不受影响。
+const backupDedupeWindow = 10 * time.Minute
+
 type Service struct {
 	svcCtx *svc.ServiceContext
 }
@@ -90,14 +94,42 @@ func (s *Service) Create(ctx context.Context, req *BackupCreateRequest) (*Backup
 		name = fmt.Sprintf("%s-%s", backupType, time.Now().UTC().Format("20060102-150405"))
 	}
 
+	// AUD-053 创建幂等：同键活跃（pending/succeeded）备份直接复用——重试/
+	// 双击不再叠加重备份；failed 不算活跃（失败后同键重试建新备份）。
+	// 无客户端键时按 name+type 时间窗兜底（自动生成名含秒级时间戳，同秒
+	// 双击会撞出同名，同样被窗口收住）。
+	idemKey := strings.TrimSpace(req.IdempotencyKey)
+	if idemKey != "" {
+		if existing, err := s.svcCtx.BackupModel.FindActiveByIdempotencyKey(ctx, idemKey); err == nil && existing != nil {
+			return &BackupCreateResponse{Backup: buildBackupDTO(existing)}, nil
+		}
+		// 同键 failed 行让位：失败后重试建新行，唯一索引不得挡路
+		//（预检未命中 = 无活跃行；可能存在 failed 行占着键）。
+		if err := s.svcCtx.BackupModel.ReleaseIdempotencyKey(ctx, idemKey); err != nil {
+			return nil, err
+		}
+	} else if existing, err := s.svcCtx.BackupModel.FindRecentDuplicateByNameType(ctx, name, backupType, backupDedupeWindow); err == nil && existing != nil {
+		return &BackupCreateResponse{Backup: buildBackupDTO(existing)}, nil
+	}
+
 	backup := &model.Backup{
 		BackupID: utils.GenerateBackupID(),
 		Name:     name,
 		Type:     backupType,
 		Status:   "pending",
 	}
+	if idemKey != "" {
+		backup.IdempotencyKey = &idemKey
+	}
 
 	if err := s.svcCtx.BackupModel.Create(ctx, backup); err != nil {
+		// 并发双写竞争：预检双双落空后同键插入，唯一索引兜底——后到方
+		// 回落到已存在行，对外仍是一次成功的幂等创建。
+		if idemKey != "" && isIdempotencyConflict(err) {
+			if existing, ferr := s.svcCtx.BackupModel.FindActiveByIdempotencyKey(ctx, idemKey); ferr == nil && existing != nil {
+				return &BackupCreateResponse{Backup: buildBackupDTO(existing)}, nil
+			}
+		}
 		return nil, err
 	}
 	_ = s.upsertBackupToExtension(ctx, buildBackupDTO(backup))
@@ -129,6 +161,14 @@ func (s *Service) Create(ctx context.Context, req *BackupCreateRequest) (*Backup
 	return &BackupCreateResponse{
 		Backup: buildBackupDTO(backup),
 	}, nil
+}
+
+// isIdempotencyConflict 识别幂等键唯一索引冲突（AUD-053）：三方言的错误
+// 文案都带列名（sqlite "UNIQUE constraint failed: backups.idempotency_key"、
+// postgres "duplicate key value violates unique constraint ...idempotency_key"、
+// mysql "Duplicate entry ... for key 'idempotency_key'"）。
+func isIdempotencyConflict(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "idempotency_key")
 }
 
 // executor 构造真实备份执行器（driver 不支持或存储未就绪时返回 nil，

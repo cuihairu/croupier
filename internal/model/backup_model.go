@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"time"
 
 	"gorm.io/gorm"
 )
@@ -78,6 +79,51 @@ func (m *BackupModel) DeleteByBackupID(ctx context.Context, backupID string) err
 	}
 
 	return m.db.WithContext(ctx).Where("backup_id = ?", trimmed).Delete(&Backup{}).Error
+}
+
+// FindActiveByIdempotencyKey 按幂等键取活跃备份（AUD-053）：pending/
+// succeeded 算活跃（重试复用）；failed 不算（失败后同键重试应创建新备份）。
+// 同键活跃行最多一条（幂等键唯一索引 + Create 侧冲突回落保证）。
+func (m *BackupModel) FindActiveByIdempotencyKey(ctx context.Context, key string) (*Backup, error) {
+	trimmed := strings.TrimSpace(key)
+	if trimmed == "" {
+		return nil, errors.New("idempotency key is required")
+	}
+	var backup Backup
+	if err := m.db.WithContext(ctx).
+		Where("idempotency_key = ? AND status IN ?", trimmed, []string{"pending", "succeeded"}).
+		Order("created_at DESC").
+		First(&backup).Error; err != nil {
+		return nil, err
+	}
+	return &backup, nil
+}
+
+// ReleaseIdempotencyKey 把同键 failed 行的幂等键让位（AUD-053）：失败后
+// 同键重试要建新行，唯一索引不得挡路——先释放旧行的键再插入。只动 failed
+// 行；并发双释放无害（第二次是 no-op）。
+func (m *BackupModel) ReleaseIdempotencyKey(ctx context.Context, key string) error {
+	return m.db.WithContext(ctx).Model(&Backup{}).
+		Where("idempotency_key = ? AND status = ?", strings.TrimSpace(key), "failed").
+		Update("idempotency_key", nil).Error
+}
+
+// FindRecentDuplicateByNameType 找时间窗内同名同类型的活跃备份（AUD-053
+// 无客户端幂等键时的双击兜底：连续两次提交同名 full 备份只创建一次）。
+func (m *BackupModel) FindRecentDuplicateByNameType(ctx context.Context, name, backupType string, window time.Duration) (*Backup, error) {
+	trimmed := strings.TrimSpace(name)
+	if trimmed == "" {
+		return nil, errors.New("backup name is required")
+	}
+	var backup Backup
+	if err := m.db.WithContext(ctx).
+		Where("name = ? AND type = ? AND status IN ? AND created_at >= ?",
+			trimmed, backupType, []string{"pending", "succeeded"}, time.Now().Add(-window)).
+		Order("created_at DESC").
+		First(&backup).Error; err != nil {
+		return nil, err
+	}
+	return &backup, nil
 }
 
 // List returns paginated backups.

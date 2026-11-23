@@ -553,3 +553,36 @@ func migrateAdminRefreshTokenTable(ctx context.Context, sqlDB *sql.DB) error {
 	}
 	return nil
 }
+
+// backupIdempotencyKeyMigration 为 0068：backups.idempotency_key 列 + 唯一
+// 索引（AUD-053 备份创建幂等键）。加列 0025/0066 模式；列是指针列——不带键
+// 的行存 NULL，多行 NULL 三方言均不冲突；唯一索引兜同键并发双写（后到方
+// 冲突回落到已存在行）；缺表跳过（fanout 重放到无该表的库不报错、不建空壳）。
+func backupIdempotencyKeyMigration() *goose.Migration {
+	return goose.NewGoMigration(68,
+		&goose.GoFunc{RunDB: migrateBackupIdempotencyKey},
+		nil,
+	)
+}
+
+func migrateBackupIdempotencyKey(ctx context.Context, sqlDB *sql.DB) error {
+	db, err := wrapGorm(sqlDB)
+	if err != nil {
+		return err
+	}
+	m := db.Migrator()
+	if !m.HasTable(&model.Backup{}) {
+		return nil
+	}
+	if !m.HasColumn(&model.Backup{}, "idempotency_key") {
+		if err := m.AddColumn(&model.Backup{}, "IdempotencyKey"); err != nil {
+			return fmt.Errorf("migrate: 0068 add backups.idempotency_key: %w", err)
+		}
+	}
+	if !m.HasIndex(&model.Backup{}, "IdempotencyKey") {
+		if err := m.CreateIndex(&model.Backup{}, "IdempotencyKey"); err != nil {
+			return fmt.Errorf("migrate: 0068 create backups.idempotency_key unique index: %w", err)
+		}
+	}
+	return nil
+}

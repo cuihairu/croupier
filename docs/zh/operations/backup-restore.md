@@ -32,6 +32,11 @@ curl -X DELETE -H "Authorization: Bearer ***" https://<server>:18780/api/v1/back
 
 调度：crontab 直接调 API（或用平台自身的定时调度功能托管）。
 
+创建幂等（AUD-053）：重试/双击不会叠加重备份——请求携带 `idempotencyKey`
+（或 `Idempotency-Key` 头）时，同键的 `pending`/`succeeded` 备份直接复用
+（`failed` 备份会让位该键，重试会创建新备份）；不带键时同名同类型在
+10 分钟窗口内同样去重。并发重复由唯一索引兜底。
+
 ## 备份范围清单
 
 | 对象                                                         | 方式                | 备注                                                     |

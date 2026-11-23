@@ -32,6 +32,12 @@ curl -X DELETE -H "Authorization: Bearer ***" https://<server>:18780/api/v1/back
 
 Scheduling: call the API directly from crontab (or use the platform's scheduled scheduling feature to host itself).
 
+Creation idempotency (AUD-053): retries/double-clicks do not stack heavy backups —
+a request carrying an `idempotencyKey` (or an `Idempotency-Key` header) reuses the
+existing `pending`/`succeeded` backup with the same key (a `failed` backup frees the
+key so a retry creates a new one); without a key, same `name`+`type` within a 10-minute
+window dedupes the same way. Concurrent duplicates are fenced by a unique index.
+
 ## Backup Scope Checklist
 
 | Object                                                               | Method                           | Notes                                                                                                                                       |

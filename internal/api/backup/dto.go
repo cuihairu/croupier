@@ -29,6 +29,10 @@ type BackupsListResponse struct {
 type BackupCreateRequest struct {
 	Name string `json:"name"`
 	Type string `json:"type"` // full, incremental
+	// IdempotencyKey 客户端幂等键（AUD-053）：重试/双击携带同一键时，
+	// pending/succeeded 的同键备份直接复用，不再叠加重备份；失败（failed）
+	// 后同键重试会创建新备份。handler 侧兼容 Idempotency-Key 头。
+	IdempotencyKey string `json:"idempotencyKey,omitempty"`
 }
 
 // BackupCreateResponse represents the response after creating a backup

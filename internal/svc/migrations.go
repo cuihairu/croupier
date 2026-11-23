@@ -175,6 +175,9 @@ import (
 //   0067 (Go)   admin_refresh_tokens 表（AUD-052 刷新令牌轮换的持久状态：
 //               兑换/重放判定依赖已兑换（used_at）与已吊销（revoked）记录；
 //               新表 CreateTable，索引随建表一次建出；重复运行幂等）
+//   0068 (Go)   backups.idempotency_key 列 + 唯一索引（AUD-053 备份创建幂等
+//               键：同键 pending/succeeded 只建一次，并发双写冲突方回落到
+//               已存在行；指针列 NULL 不冲突；缺表跳过）
 
 func init() {
 	registerSvcMigrations()
@@ -252,6 +255,7 @@ func registerSvcMigrations() {
 		powerRequestTargetStatusMigration(),
 		externalTokenScopeColumnsMigration(),
 		adminRefreshTokenTableMigration(),
+		backupIdempotencyKeyMigration(),
 	); err != nil {
 		// panic-ok: init 期迁移注册表组装失败属开发期错误（迁移函数
 		// 引用漂移），进程不可安全启动（CR-FIX-22 豁免清单）。
