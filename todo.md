@@ -2140,9 +2140,12 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
 
 > 来源：`docs/review/aud-cov-005-web-console-2026-11-16.md`。P0×0；P1×4 中 3 条已当场修（2f6d79d01 SSE 畸形帧 / 95072aaeb effect 依赖 / c430996a2 面板竞态守卫），第 4 条（Schedules payload JSON）复核为「已有 try/catch 兜底、缺字段级校验」，按 P2 处置并已修（payloadRule 字段级校验）。下列为逐条复核确认属实的 P2/P3；已核伪两条见报告附注。
 
-- [ ] **AUD-029 · P2 · 修复 · 权限页删除动作失败仍弹成功提示**
+- [x] **AUD-029 · P2 · 修复 · 权限页删除动作失败仍弹成功提示**（commit ec0fa2255）
   - 依赖：—。交付与验收：`web/src/pages/Permissions/UsersV2/index.tsx:241`、`web/src/pages/Permissions/RolesV2/index.tsx:112` 的 `remove()` 给 `deleteAdmin`/`deleteRole` 补 try/catch，失败走错误提示且不弹「已删除」；参照 `Functions/DetailTabs.tsx` 既有模式；带失败分支回归用例。
   - 状态／条件：2026-11-16 复核属实——`await deleteAdmin(rec.id)` 后无条件 `getMessage()?.success(...)`，异常被 Popconfirm Promise 吞掉。
+  - 修复：`web/src/pages/Permissions/UsersV2/index.tsx`、`web/src/pages/Permissions/RolesV2/index.tsx` 的 `remove()` 包 try/catch——成功分支不变（deleteX → toast 已删除 → refresh）；失败分支 `getMessage()?.error(extractErrorMessage(err, intl.formatMessage({ id: '...toast.deleteFailed', defaultMessage: '删除失败' })))`，不弹「已删除」也不刷新。沿用 `Functions/DetailTabs.tsx` 的 try/catch 结构，错误文案走 `@/utils/errors` 的 `extractErrorMessage`（而非 `err instanceof Error ? err.message : String(err)`，避免 AUD-030 直出形态）；新增 `toast.deleteFailed` 于 zh-CN/en-US 两语言 × Users/Roles 四份 locale。
+  - 验证：新增失败分支回归——`UsersV2/__tests__/adminActions.test.tsx`「删除失败时不弹「已删除」且展示后端错误消息」、`RolesV2/__tests__/index.test.tsx`「删除失败：deleteRole reject → 错误提示 + 不弹「已删除」」（各自 mock 响应形 rejection `{response:{data:{message}}}`，断言 `success` 未调用、`error` 收到后端 message）。突变验证：临时把 UsersV2 `remove` 还原为无 try/catch 旧形态，「删除失败」用例立即失败（`mockMessageApi.error` 未被调用），恢复后全绿。`pnpm --dir web run tsc` 0 错误、`pnpm exec jest --testPathPatterns "Permissions/(UsersV2|RolesV2)/__tests__"` 5 套件 50 用例全绿、`bash scripts/dashboard_vnext_guard.sh` PASSED、`prettier --check` 清洁。LOCAL VERIFIED。
+  - 已知边界：AUD-029 范围仅两页 `remove()`；同页 `toggleStatus`（updateAdmin 后同样无 catch，Popconfirm 吞异常）属同族未覆盖，未在 AUD-029 范围，留待后续扫查；错误文案优先取后端统一错误体 message（`extractErrorMessage`），无则回落「删除失败」。
 
 - [ ] **AUD-030 · P2 · 修复 · 原始异常消息直出（可能泄漏后端细节）**
   - 依赖：—。交付与验收：`web/src/pages/Functions/DetailTabs.tsx:671`、`web/src/pages/Functions/Directory/useDirectoryPage.ts:213` 的 `err instanceof Error ? err.message : String(err)` 改走 `extractErrorMessage(err, 兜底文案)`；同型残留全仓扫一遍一并收。
