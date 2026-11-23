@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/audit"
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/common/response"
 	"github.com/cuihairu/croupier/internal/model"
@@ -71,9 +72,16 @@ func (s *Service) IngestWebhook(ctx context.Context, integrationID uint, gotToke
 	// fail-closed：token 未配置 = 拒绝投递，不再退化为开放端点
 	want := strings.TrimSpace(row.Token)
 	if want == "" {
+		// AUD-049：denied 路径同样留痕（外部 token 面，actor 记固定机器身份）。
+		audit.LogWrite(s.svcCtx.AuditService, ctx, audit.EventCicdWebhookDenied,
+			audit.StateDenied, webhookActor, "cicd_integration", fmt.Sprint(row.ID),
+			map[string]interface{}{"reason": "token_unconfigured", "pipeline": p.Pipeline, "externalId": p.ExternalID})
 		return nil, errorx.NewUnauthorized("integration 未配置 webhook token，拒绝回写")
 	}
 	if !constantTimeEqual(gotToken, want) {
+		audit.LogWrite(s.svcCtx.AuditService, ctx, audit.EventCicdWebhookDenied,
+			audit.StateDenied, webhookActor, "cicd_integration", fmt.Sprint(row.ID),
+			map[string]interface{}{"reason": "token_mismatch", "pipeline": p.Pipeline, "externalId": p.ExternalID})
 		return nil, errorx.NewUnauthorized("webhook token 不匹配")
 	}
 	// AUD-043：回写 payload 的 game/env 只可确认 integration 配置，不可注入。
@@ -82,10 +90,17 @@ func (s *Service) IngestWebhook(ctx context.Context, integrationID uint, gotToke
 	// 与 integration 精确一致，否则拒绝；未提供时作用域仅由 integration 派生。
 	gameID, env, serr := validateWebhookScope(row.GameID, row.Env, p.GameID, p.Env)
 	if serr != nil {
+		// AUD-049：跨 scope / scope 注入回写是外部写入尝试，留痕 denied。
+		audit.LogWrite(s.svcCtx.AuditService, ctx, audit.EventCicdWebhookDenied,
+			audit.StateDenied, webhookActor, "cicd_integration", fmt.Sprint(row.ID),
+			map[string]interface{}{"reason": "scope_conflict", "pipeline": p.Pipeline, "externalId": p.ExternalID})
 		return nil, serr
 	}
 	status, verr := model.ValidateCicdWebhook(p.Pipeline, p.ExternalID, p.Status)
 	if verr != nil {
+		audit.LogWrite(s.svcCtx.AuditService, ctx, audit.EventCicdWebhookDenied,
+			audit.StateDenied, webhookActor, "cicd_integration", fmt.Sprint(row.ID),
+			map[string]interface{}{"reason": "invalid_payload", "pipeline": p.Pipeline, "externalId": p.ExternalID})
 		return nil, errorx.NewBadRequest(verr.Error())
 	}
 	now := time.Now()
@@ -119,8 +134,19 @@ func (s *Service) IngestWebhook(ctx context.Context, integrationID uint, gotToke
 	if err != nil {
 		return nil, err
 	}
+	// AUD-049：成功回写留痕（状态推进是外部 CI 驱动的数据变更）。
+	audit.LogWrite(s.svcCtx.AuditService, ctx, audit.EventCicdWebhookIngest,
+		audit.StateSuccess, webhookActor, "cicd_build", fmt.Sprint(saved.ID),
+		map[string]interface{}{
+			"integrationId": row.ID, "pipeline": build.Pipeline, "externalId": build.ExternalID,
+			"status": build.Status, "gameId": build.GameID, "env": build.Env,
+		})
 	return &WebhookResponse{Build: buildBuildDTO(saved)}, nil
 }
+
+// webhookActor 是外部 CI 回写的固定审计身份（外部系统无平台用户，
+// actor 无法取自 JWT；记录经 eventType + integrationId 关联到具体接入）。
+const webhookActor = "cicd-webhook"
 
 // constantTimeEqual 用 crypto/subtle 防时序侧信道（空串一律不等）。
 func constantTimeEqual(a, b string) bool {

@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/audit"
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/logic/utils"
 	objstore "github.com/cuihairu/croupier/internal/platform/objstore"
@@ -44,6 +45,21 @@ func (s *Service) requirePermission(ctx context.Context, message string, require
 	}
 	_, _, err := utils.RequireAnyPermission(ctx, s.svcCtx, message, required...)
 	return err
+}
+
+// auditStorage 是对象存储敏感写路径的统一留痕（AUD-049）：denied（权限
+// 门禁拒绝）与 success（副作用完成后）共用同一事件类型，差异只在 outcome。
+// actor 取请求上下文用户名（无上下文时留空，记录仍可按事件类型 + path 回查）。
+func (s *Service) auditStorage(ctx context.Context, event audit.AuditEventType, state, operation, path string, extra map[string]interface{}) {
+	details := map[string]interface{}{"operation": operation}
+	for k, v := range extra {
+		details[k] = v
+	}
+	actor := ""
+	if name, err := utils.CurrentUsername(ctx); err == nil {
+		actor = name
+	}
+	audit.LogWrite(s.svcCtx.AuditService, ctx, event, state, actor, "storage_object", path, details)
 }
 
 // requireStoragePermission 拒绝对通用对象存储的操作（AUD-016）。
@@ -221,6 +237,7 @@ func (s *Service) UploadObject(ctx context.Context, req *UploadObjectRequest) (*
 		return nil, errorx.NewBadRequest("path is required")
 	}
 	if err := s.requireStoragePermission(ctx); err != nil {
+		s.auditStorage(ctx, audit.EventStorageUpload, audit.StateDenied, "upload", path, nil)
 		return nil, err
 	}
 	if err := guardWritablePath(path); err != nil {
@@ -251,6 +268,7 @@ func (s *Service) UploadObject(ctx context.Context, req *UploadObjectRequest) (*
 	if err := store.Put(ctx, path, reader, size, contentType); err != nil {
 		return nil, errorx.NewInternalError(fmt.Sprintf("上传对象失败: %v", err))
 	}
+	s.auditStorage(ctx, audit.EventStorageUpload, audit.StateSuccess, "upload", path, nil)
 	return &UploadObjectResponse{Path: path}, nil
 }
 
@@ -265,6 +283,7 @@ func (s *Service) DeleteObject(ctx context.Context, req *DeleteObjectRequest) (*
 		return nil, errorx.NewBadRequest("path is required")
 	}
 	if err := s.requireStoragePermission(ctx); err != nil {
+		s.auditStorage(ctx, audit.EventStorageDelete, audit.StateDenied, "delete", path, nil)
 		return nil, err
 	}
 	if err := guardWritablePath(path); err != nil {
@@ -276,6 +295,7 @@ func (s *Service) DeleteObject(ctx context.Context, req *DeleteObjectRequest) (*
 	if err := store.Delete(ctx, path); err != nil {
 		return nil, errorx.NewInternalError(fmt.Sprintf("删除对象失败: %v", err))
 	}
+	s.auditStorage(ctx, audit.EventStorageDelete, audit.StateSuccess, "delete", path, nil)
 	return &DeleteObjectResponse{Path: path}, nil
 }
 
@@ -289,6 +309,7 @@ func (s *Service) BatchDeleteObjects(ctx context.Context, req *BatchDeleteObject
 		return nil, errorx.NewBadRequest("paths is required")
 	}
 	if err := s.requireStoragePermission(ctx); err != nil {
+		s.auditStorage(ctx, audit.EventStorageDelete, audit.StateDenied, "batch_delete", "", nil)
 		return nil, err
 	}
 	// 受保护前缀整单拒绝而非逐条跳过：避免「其余已删、受保护条目失败」的
@@ -318,6 +339,9 @@ func (s *Service) BatchDeleteObjects(ctx context.Context, req *BatchDeleteObject
 		}
 		resp.Deleted = append(resp.Deleted, path)
 	}
+	// AUD-049：批量删除逐条成功/失败计数一并留痕（失败条目见各 store.Delete 日志）。
+	s.auditStorage(ctx, audit.EventStorageDelete, audit.StateSuccess, "batch_delete", "",
+		map[string]interface{}{"deleted": len(resp.Deleted), "failed": len(resp.Failed)})
 	return resp, nil
 }
 
@@ -333,6 +357,7 @@ func (s *Service) CreateDirectory(ctx context.Context, req *CreateDirectoryReque
 		return nil, errorx.NewBadRequest("prefix is required")
 	}
 	if err := s.requireStoragePermission(ctx); err != nil {
+		s.auditStorage(ctx, audit.EventStorageDirectory, audit.StateDenied, "directory_create", prefix, nil)
 		return nil, err
 	}
 	if err := guardWritablePath(prefix); err != nil {
@@ -348,6 +373,7 @@ func (s *Service) CreateDirectory(ctx context.Context, req *CreateDirectoryReque
 	}
 
 	slog.InfoContext(ctx, "创建目录成功", "prefix", prefix)
+	s.auditStorage(ctx, audit.EventStorageDirectory, audit.StateSuccess, "directory_create", prefix, nil)
 	return &CreateDirectoryResponse{Prefix: prefix}, nil
 }
 
@@ -363,6 +389,7 @@ func (s *Service) RenameDirectory(ctx context.Context, req *RenameDirectoryReque
 		return nil, errorx.NewBadRequest("oldPrefix and newPrefix are required")
 	}
 	if err := s.requireStoragePermission(ctx); err != nil {
+		s.auditStorage(ctx, audit.EventStorageDirectory, audit.StateDenied, "directory_rename", oldPrefix, nil)
 		return nil, err
 	}
 	// 重命名双向边界：移出受保护前缀同样改变平台命名空间布局。
@@ -381,6 +408,7 @@ func (s *Service) RenameDirectory(ctx context.Context, req *RenameDirectoryReque
 	if err := store.RenamePrefix(ctx, oldPrefix, newPrefix); err != nil {
 		return nil, errorx.NewInternalError(fmt.Sprintf("重命名目录失败: %v", err))
 	}
+	s.auditStorage(ctx, audit.EventStorageDirectory, audit.StateSuccess, "directory_rename", oldPrefix, nil)
 	return &RenameDirectoryResponse{
 		OldPrefix: oldPrefix,
 		NewPrefix: newPrefix,

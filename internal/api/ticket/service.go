@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/cuihairu/croupier/internal/api/bug"
+	"github.com/cuihairu/croupier/internal/audit"
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/dbenum"
 	"github.com/cuihairu/croupier/internal/logic/utils"
@@ -18,6 +19,23 @@ import (
 type Service struct {
 	svcCtx *svc.ServiceContext
 }
+
+// auditTicket 是工单域敏感写路径的统一留痕（AUD-049）：创建/更新/删除/
+// 状态流转/评论/bug 关联共用事件类型，成功/失败/denied 差异只在 outcome。
+func (s *Service) auditTicket(ctx context.Context, event audit.AuditEventType, state, action, resourceID string, extra map[string]interface{}) {
+	details := map[string]interface{}{"action": action}
+	for k, v := range extra {
+		details[k] = v
+	}
+	actor := ""
+	if name, err := utils.CurrentUsername(ctx); err == nil {
+		actor = name
+	}
+	audit.LogWrite(s.svcCtx.AuditService, ctx, event, state, actor, "ticket", resourceID, details)
+}
+
+// ticketActorID 是写留痕的资源 ID 形态（工单 id → 字符串）。
+func ticketActorID(id uint) string { return fmt.Sprint(id) }
 
 func NewService(svcCtx *svc.ServiceContext) *Service {
 	return &Service{svcCtx: svcCtx}
@@ -101,6 +119,8 @@ func (s *Service) Create(ctx context.Context, req *CreateRequest) (*CreateRespon
 		return nil, err
 	}
 
+	s.auditTicket(ctx, audit.EventTicketCreate, audit.StateSuccess, "create", ticketActorID(ticket.ID),
+		map[string]interface{}{"title": ticket.Title, "gameId": ticket.GameID, "env": ticket.Env, "assignee": ticket.Assignee})
 	s.notifyAssignee(ctx, ticket, ticket.Assignee, commentAuthor(ctx))
 
 	return &CreateResponse{
@@ -168,6 +188,7 @@ func (s *Service) Update(ctx context.Context, req *UpdateRequest) (*UpdateRespon
 
 	before, err := s.ticketForScope(ctx, id)
 	if err != nil {
+		s.auditTicket(ctx, audit.EventTicketUpdate, audit.StateDenied, "update", ticketActorID(id), nil)
 		return nil, err
 	}
 	prevAssignee := before.Assignee
@@ -184,6 +205,7 @@ func (s *Service) Update(ctx context.Context, req *UpdateRequest) (*UpdateRespon
 	if newAssignee, _ := updates["assignee"].(string); newAssignee != prevAssignee {
 		s.notifyAssignee(ctx, ticket, newAssignee, commentAuthor(ctx))
 	}
+	s.auditTicket(ctx, audit.EventTicketUpdate, audit.StateSuccess, "update", ticketActorID(id), nil)
 
 	return &UpdateResponse{
 		Ticket: buildTicketDTO(ticket),
@@ -206,9 +228,14 @@ func (s *Service) Delete(ctx context.Context, req *DeleteRequest) error {
 		return err
 	}
 	if err := requireTicketScope(ctx, ticket); err != nil {
+		s.auditTicket(ctx, audit.EventTicketDelete, audit.StateDenied, "delete", ticketActorID(id), nil)
 		return err
 	}
-	return s.svcCtx.TicketModel.Delete(ctx, id)
+	if err := s.svcCtx.TicketModel.Delete(ctx, id); err != nil {
+		return err
+	}
+	s.auditTicket(ctx, audit.EventTicketDelete, audit.StateSuccess, "delete", ticketActorID(id), nil)
+	return nil
 }
 
 // Transition transitions a ticket to a new status
@@ -219,6 +246,7 @@ func (s *Service) Transition(ctx context.Context, req *TransitionRequest) (*Tran
 	}
 
 	if _, err := s.ticketForScope(ctx, id); err != nil {
+		s.auditTicket(ctx, audit.EventTicketTransition, audit.StateDenied, "transition", ticketActorID(id), map[string]interface{}{"to": req.Status})
 		return nil, err
 	}
 
@@ -260,6 +288,8 @@ func (s *Service) Transition(ctx context.Context, req *TransitionRequest) (*Tran
 	s.notifyTicketEvent(ctx, ticket, actor,
 		fmt.Sprintf("工单 #%d 状态变更为 %s", ticket.ID, ticket.Status),
 		fmt.Sprintf("【%s】%s", ticket.Category, ticket.Title))
+
+	s.auditTicket(ctx, audit.EventTicketTransition, audit.StateSuccess, "transition", ticketActorID(id), map[string]interface{}{"to": ticket.Status})
 
 	comments, err := s.svcCtx.TicketModel.ListComments(ctx, id)
 	if err != nil {
@@ -305,6 +335,7 @@ func (s *Service) CreateComment(ctx context.Context, req *CreateCommentRequest) 
 	}
 
 	if _, err := s.ticketForScope(ctx, id); err != nil {
+		s.auditTicket(ctx, audit.EventTicketComment, audit.StateDenied, "comment", ticketActorID(id), nil)
 		return nil, err
 	}
 
@@ -327,6 +358,7 @@ func (s *Service) CreateComment(ctx context.Context, req *CreateCommentRequest) 
 		return nil, err
 	}
 
+	s.auditTicket(ctx, audit.EventTicketComment, audit.StateSuccess, "comment", ticketActorID(id), nil)
 	return &CreateCommentResponse{
 		Items: buildCommentsDTO(comments),
 	}, nil
@@ -392,19 +424,26 @@ func (s *Service) LinkBug(ctx context.Context, ticketID uint, req *TicketBugLink
 		return errorx.NewBadRequest("bugId 不能为空")
 	}
 	if _, err := s.ticketForScope(ctx, ticketID); err != nil {
+		s.auditTicket(ctx, audit.EventTicketBugLink, audit.StateDenied, "bug_link", ticketActorID(ticketID), map[string]interface{}{"bugId": req.BugID})
 		return err
 	}
 	createdBy, _ := utils.CurrentUsername(ctx)
 	if err := s.svcCtx.BugModel.LinkBugTicket(ctx, req.BugID, ticketID, createdBy); err != nil {
 		return bug.TranslateBugLinkError(err)
 	}
+	s.auditTicket(ctx, audit.EventTicketBugLink, audit.StateSuccess, "bug_link", ticketActorID(ticketID), map[string]interface{}{"bugId": req.BugID})
 	return nil
 }
 
 // UnlinkBug removes the ticket↔bug association (#25).
 func (s *Service) UnlinkBug(ctx context.Context, ticketID, bugID uint) error {
 	if _, err := s.ticketForScope(ctx, ticketID); err != nil {
+		s.auditTicket(ctx, audit.EventTicketBugUnlink, audit.StateDenied, "bug_unlink", ticketActorID(ticketID), map[string]interface{}{"bugId": bugID})
 		return err
 	}
-	return s.svcCtx.BugModel.UnlinkBugTicket(ctx, bugID, ticketID)
+	if err := s.svcCtx.BugModel.UnlinkBugTicket(ctx, bugID, ticketID); err != nil {
+		return err
+	}
+	s.auditTicket(ctx, audit.EventTicketBugUnlink, audit.StateSuccess, "bug_unlink", ticketActorID(ticketID), map[string]interface{}{"bugId": bugID})
+	return nil
 }

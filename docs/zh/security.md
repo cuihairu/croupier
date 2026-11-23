@@ -58,6 +58,7 @@ RBAC/ABAC
   - 示例：`env == "prod" && has_role('admin')`
 - 管理域权限矩阵（AUD-042）：provider/cicd/incident/config/tool/announcement/certificate/rate_limit/schema/message/faq/ticket/player/task/schedule 等管理面在 JWT 认证之后统一挂 least-privilege 守卫（`internal/handler/routes_permission_matrix.go`）。读动词（GET/HEAD/OPTIONS）要求 `<域>:read`，写动词（POST/PUT/PATCH/DELETE）要求 `<域>:write`，`admin:all` 恒放行。权限码定义在 `configs/permissions.json`（RBAC 页可勾选授予），守卫引用与目录由测试机械对齐。已服务层门禁的域（storage/backup/admin/role/page）不入矩阵以免双门禁语义冲突；自服务面（`/messages/stream` 等本人收件箱、`/announcements/active` 用户侧）保留 JWT 认证，属已知边界。
 - 未知错误 opaque 化（AUD-047）：统一错误出口 `response.Error` 的兜底分支不再回传 `err.Error()` 原文（GORM/驱动错误会泄漏 SQL 片段、表名、方言错误码），只回稳定文案 + 追踪号（`details.correlationId`），原文经 `slog` 进服务端日志，凭响应内追踪号回查。已知边界：分类错误（validation/bad request/not found/AppError 码表）仍按各自语义透出，仅「未识别错误」走 opaque 兜底。
+- 敏感写路径统一留痕（AUD-049）：工单（创建/更新/删除/流转/评论/bug 关联）、事故（类别增删改、登记、更新、流转）、对象存储（上传/删除/批量删除/目录变更）、CICD webhook 回写统一走审计装饰器 `audit.LogWrite`（`internal/audit/decorator.go`），成功/失败/denied 三态共用同一事件类型（`ticket.*`/`incident.*`/`storage.*`/`cicd.webhook_*`），差异只在 outcome；denied 记录带拒绝原因（跨 scope/零角色/token 不匹配等），成功记录带操作者用户名（上下文可解析时）。留痕写失败按 ARCH-008 D4 转缺口上报，不把业务结果改成 5xx。已知边界：路由级权限矩阵（AUD-042）的拒绝不留痕，仅服务层门禁拒绝落 denied；storage 的 SignedUrl/列表读门禁不在本条范围。
 
 Rate limit & Concurrency
 

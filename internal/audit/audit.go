@@ -176,6 +176,28 @@ const (
 	EventDevopsSessionOpen  AuditEventType = "devops.session_open"
 	EventDevopsSessionClose AuditEventType = "devops.session_close"
 
+	// Incident & ticket lifecycle events (AUD-049：敏感写路径统一审计)
+	EventIncidentCreate     AuditEventType = "incident.create"
+	EventIncidentUpdate     AuditEventType = "incident.update"
+	EventIncidentTransition AuditEventType = "incident.transition"
+	EventIncidentCategory   AuditEventType = "incident.category_change"
+	EventTicketCreate       AuditEventType = "ticket.create"
+	EventTicketUpdate       AuditEventType = "ticket.update"
+	EventTicketDelete       AuditEventType = "ticket.delete"
+	EventTicketTransition   AuditEventType = "ticket.transition"
+	EventTicketComment      AuditEventType = "ticket.comment"
+	EventTicketBugLink      AuditEventType = "ticket.bug_link"
+	EventTicketBugUnlink    AuditEventType = "ticket.bug_unlink"
+
+	// Object storage events (AUD-049)
+	EventStorageUpload    AuditEventType = "storage.upload"
+	EventStorageDelete    AuditEventType = "storage.delete"
+	EventStorageDirectory AuditEventType = "storage.directory_change"
+
+	// CI/CD webhook ingestion events (AUD-049：成功回写与 denied 路径双留痕)
+	EventCicdWebhookIngest AuditEventType = "cicd.webhook_ingest"
+	EventCicdWebhookDenied AuditEventType = "cicd.webhook_denied"
+
 	// Admin events
 	EventUserCreate AuditEventType = "admin.user_create"
 	EventUserUpdate AuditEventType = "admin.user_update"

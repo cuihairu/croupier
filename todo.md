@@ -2277,9 +2277,12 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 完成证据：`internal/api/analytics/warehouse.go`（守卫 + 三查询）、`internal/api/analytics/warehouse_scope_test.go`、`internal/api/analytics/warehouse_test.go`、`internal/api/analytics/coverage_extra_test.go`、`internal/api/analytics/coverage_v9_test.go`、`docs/architecture/game-environment-scope.md` §12.5 规则条 + `docs/zh/architecture/game-environment-scope.md`。
   - 已知边界：仅收敛三张 ClickHouse 聚合表读取路径（daily_users/minute_online/daily_revenue）；`Facade` 的 `domainWarehouse` 路径同样经 `warehouseScope` 生效（其 filter 的 gameId/env 须与 current scope 一致，否则 403）；同包其余报表（overview/payments/retention 等）的 `svc.ResolveGameID` 口径不在本条范围。
 
-- [ ] **AUD-049 · P2 · 修复 · 敏感写路径补统一审计**
+- [x] **AUD-049 · P2 · 修复 · 敏感写路径补统一审计**（commit `<HASH>`）
   - 依赖：AUD-042（权限矩阵先行，denied 面随 guard 收敛）。交付与验收：incident/ticket 变更、storage 删除/上传、cicd webhook 成功与 denied 路径接 AuditService.Log；统一 decorator 覆盖成功/失败/denied 三态。
-  - 状态／条件：2026-11-16 复核属实。
+  - 状态／条件：DONE · LOCAL VERIFIED（commit `<HASH>`）——新增统一审计装饰器 `audit.LogWrite`（`internal/audit/decorator.go`）：三态 `StateSuccess`/`StateFailure`/`StateDenied` 共用同一事件类型与字段形态，差异只在 outcome；留痕写失败按 ARCH-008 D4 转 `ReportWriteGap`，不把业务结果改成 5xx。四类写路径全部接入：工单（创建/更新/删除/流转/评论/bug 关联，`ticket.*`）、事故（类别增删改/登记/更新/流转，`incident.*`）、对象存储（上传/删除/批量删除/目录变更，`storage.*`）、CICD webhook（ingest 成功 + token/scope 拒绝，`cicd.webhook_ingest`/`cicd.webhook_denied`）；denied 记录带拒绝原因，成功记录带操作者用户名（上下文可解析时）。actor 由调用方解析后传入——audit 包不得 import 业务侧 actor 解析器（否则 logic/utils→svc→audit 成环），解析不到时留空、凭 eventType+details 回查。
+  - 验证：四个包各新增 `aud049_*_test.go`（cicd/storage/incident/ticket）：断言成功留痕（outcome/actor/resource/details）与 denied 留痕（跨 scope、零角色、无用户名 ctx、token 不匹配、scope 冲突）；`InMemoryAuditStore.List` 底层是 map（遍历顺序随机），断言一律按 outcome/operation/reason 子集过滤不依赖顺序（曾因此翻出 order-dependent flake，已按子集断言修复并以 -count=3 复跑验证）。`go build ./...` 通过；`go test ./internal/...` 全绿（172 包）；`scripts/dashboard_vnext_guard.sh` PASSED；`pnpm --dir web run tsc` 0 错误；`pnpm --dir web test` 全绿（467 套件/5514 用例）；`cd docs && CI=true pnpm build` 通过。
+  - 完成证据：`internal/audit/decorator.go`、`internal/audit/audit.go`（事件常量）、`internal/api/cicd/webhook.go`、`internal/api/storage/service.go`、`internal/api/incident/service.go`、`internal/api/ticket/service.go`、四份 `aud049_*_test.go`、`docs/security.md` + `docs/zh/security.md`（AUD-049 规则条）。
+  - 已知边界：路由级权限矩阵（AUD-042）的拒绝不留痕，仅服务层门禁拒绝落 denied；storage 的 SignedUrl/列表读门禁不在本条范围。
 
 - [ ] **AUD-050 · P2 · 修复 · Ticket/CICD 多步写包事务**
   - 依赖：—。交付与验收：`internal/api/ticket/service.go:202-209`（状态备注+状态更新）与 `internal/api/cicd/service.go:283-287`（删 builds+删 integration）包 GORM transaction；带第二步失败回滚用例。

@@ -13,12 +13,27 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/audit"
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/svc"
 	"gorm.io/gorm"
 )
+
+// auditIncident 是事故域敏感写路径的统一留痕（AUD-049）：类别变更、事故
+// 登记与状态流转共用事件类型，成功/失败/denied 差异只在 outcome。
+func (s *Service) auditIncident(ctx context.Context, event audit.AuditEventType, state, action, resourceID string, extra map[string]interface{}) {
+	details := map[string]interface{}{"action": action}
+	for k, v := range extra {
+		details[k] = v
+	}
+	actor := ""
+	if name, err := utils.CurrentUsername(ctx); err == nil {
+		actor = name
+	}
+	audit.LogWrite(s.svcCtx.AuditService, ctx, event, state, actor, "incident", resourceID, details)
+}
 
 // categorySlugPattern 类别 slug 闭式约束（小写字母/数字/连字符）。
 var categorySlugPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,63}$`)
@@ -82,6 +97,7 @@ func (s *Service) CreateCategory(ctx context.Context, req *CategoryUpsertRequest
 		}
 		return nil, err
 	}
+	s.auditIncident(ctx, audit.EventIncidentCategory, audit.StateSuccess, "category_create", fmt.Sprint(row.ID), map[string]interface{}{"slug": row.Slug, "name": row.Name})
 	dto := toCategoryDTO(row)
 	return &dto, nil
 }
@@ -111,6 +127,7 @@ func (s *Service) UpdateCategory(ctx context.Context, id uint, req *CategoryUpse
 	if err != nil {
 		return nil, err
 	}
+	s.auditIncident(ctx, audit.EventIncidentCategory, audit.StateSuccess, "category_update", fmt.Sprint(id), map[string]interface{}{"slug": row.Slug})
 	dto := toCategoryDTO(row)
 	return &dto, nil
 }
@@ -155,7 +172,11 @@ func (s *Service) DeleteCategory(ctx context.Context, id uint) error {
 			Update("category_id", uncategorizedID).Error; err != nil {
 			return err
 		}
-		return tx.Delete(&model.IncidentCategory{}, id).Error
+		if err := tx.Delete(&model.IncidentCategory{}, id).Error; err != nil {
+			return err
+		}
+		s.auditIncident(ctx, audit.EventIncidentCategory, audit.StateSuccess, "category_delete", fmt.Sprint(id), map[string]interface{}{"slug": row.Slug})
+		return nil
 	})
 }
 
@@ -252,6 +273,8 @@ func (s *Service) CreateIncident(ctx context.Context, req *IncidentCreateRequest
 		}
 		return nil, false, err
 	}
+	s.auditIncident(ctx, audit.EventIncidentCreate, audit.StateSuccess, "create", fmt.Sprint(row.ID),
+		map[string]interface{}{"title": row.Title, "severity": row.Severity, "categoryId": row.CategoryID, "gameId": row.GameID, "env": row.Env})
 	dto := s.toIncidentDTO(ctx, row)
 	DispatchLifecycle(ctx, s.svcCtx, row, LifecycleIncidentCreated)
 	return &dto, true, nil
@@ -297,6 +320,7 @@ func (s *Service) UpdateIncident(ctx context.Context, id uint, req *IncidentUpda
 		return nil, err
 	}
 	if err := requireIncidentScope(ctx, row); err != nil {
+		s.auditIncident(ctx, audit.EventIncidentUpdate, audit.StateDenied, "update", fmt.Sprint(id), nil)
 		return nil, err
 	}
 	// 归属迁移只允许落进当前 scope：把事故改挂到别的 game/env 等价于跨
@@ -395,6 +419,7 @@ func (s *Service) UpdateIncident(ctx context.Context, id uint, req *IncidentUpda
 	if escalated {
 		DispatchLifecycle(ctx, s.svcCtx, row, LifecycleIncidentEscalated)
 	}
+	s.auditIncident(ctx, audit.EventIncidentUpdate, audit.StateSuccess, "update", fmt.Sprint(id), nil)
 	dto := s.toIncidentDTO(ctx, row)
 	return &dto, nil
 }
@@ -411,6 +436,7 @@ func (s *Service) TransitionIncident(ctx context.Context, id uint, req *Incident
 		return nil, err
 	}
 	if err := requireIncidentScope(ctx, row); err != nil {
+		s.auditIncident(ctx, audit.EventIncidentTransition, audit.StateDenied, "transition", fmt.Sprint(id), map[string]interface{}{"to": req.Status})
 		return nil, err
 	}
 	updates := map[string]interface{}{"status": req.Status}
@@ -437,6 +463,8 @@ func (s *Service) TransitionIncident(ctx context.Context, id uint, req *Incident
 	if req.Status == model.IncidentStatusResolved {
 		DispatchLifecycle(ctx, s.svcCtx, row, LifecycleIncidentResolved)
 	}
+	s.auditIncident(ctx, audit.EventIncidentTransition, audit.StateSuccess, "transition", fmt.Sprint(id),
+		map[string]interface{}{"to": req.Status, "gameId": row.GameID, "env": row.Env})
 	dto := s.toIncidentDTO(ctx, row)
 	return &dto, nil
 }
