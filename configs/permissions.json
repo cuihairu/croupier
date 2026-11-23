@@ -285,5 +285,215 @@
     "description": "批准/拒绝审批申请（approve/reject）",
     "category": "approval",
     "module": "ops"
+  },
+  {
+    "code": "providers:read",
+    "name": "Provider 查看",
+    "description": "查看 Provider（SDK）注册与能力信息",
+    "category": "provider",
+    "module": "ops"
+  },
+  {
+    "code": "providers:write",
+    "name": "Provider 管理",
+    "description": "删除 / 重载 Provider 注册",
+    "category": "provider",
+    "module": "ops"
+  },
+  {
+    "code": "cicd:read",
+    "name": "CICD 查看",
+    "description": "查看 CICD 流水线与部署记录",
+    "category": "cicd",
+    "module": "devops"
+  },
+  {
+    "code": "cicd:write",
+    "name": "CICD 管理",
+    "description": "创建 / 触发 / 管理 CICD 流水线与集成",
+    "category": "cicd",
+    "module": "devops"
+  },
+  {
+    "code": "incidents:read",
+    "name": "事故查看",
+    "description": "查看事故、事故分类与报告",
+    "category": "incident",
+    "module": "ops"
+  },
+  {
+    "code": "incidents:write",
+    "name": "事故管理",
+    "description": "创建 / 更新 / 变更事故状态与分类",
+    "category": "incident",
+    "module": "ops"
+  },
+  {
+    "code": "configs:read",
+    "name": "配置查看",
+    "description": "查看运行配置与配置版本",
+    "category": "config",
+    "module": "system"
+  },
+  {
+    "code": "configs:write",
+    "name": "配置管理",
+    "description": "创建 / 更新 / 回滚运行配置",
+    "category": "config",
+    "module": "system"
+  },
+  {
+    "code": "tools:read",
+    "name": "工具查看",
+    "description": "查看内部运维工具与执行记录",
+    "category": "tool",
+    "module": "dev"
+  },
+  {
+    "code": "tools:write",
+    "name": "工具管理",
+    "description": "执行 / 管理内部运维工具",
+    "category": "tool",
+    "module": "dev"
+  },
+  {
+    "code": "announcements:read",
+    "name": "公告查看",
+    "description": "查看公告列表",
+    "category": "announcement",
+    "module": "ops"
+  },
+  {
+    "code": "announcements:write",
+    "name": "公告管理",
+    "description": "创建 / 编辑 / 删除公告",
+    "category": "announcement",
+    "module": "ops"
+  },
+  {
+    "code": "certificates:read",
+    "name": "证书查看",
+    "description": "查看证书监控信息",
+    "category": "certificate",
+    "module": "system"
+  },
+  {
+    "code": "certificates:write",
+    "name": "证书管理",
+    "description": "管理 SSL 证书监控（与既有 certificates:manage 等价）",
+    "category": "certificate",
+    "module": "system"
+  },
+  {
+    "code": "rate_limits:read",
+    "name": "限流查看",
+    "description": "查看限流规则",
+    "category": "rate_limit",
+    "module": "ops"
+  },
+  {
+    "code": "rate_limits:write",
+    "name": "限流管理",
+    "description": "创建 / 更新 / 删除限流规则",
+    "category": "rate_limit",
+    "module": "ops"
+  },
+  {
+    "code": "schemas:read",
+    "name": "Schema 查看",
+    "description": "查看数据 Schema",
+    "category": "schema",
+    "module": "dashboard"
+  },
+  {
+    "code": "schemas:write",
+    "name": "Schema 管理",
+    "description": "创建 / 更新 / 删除数据 Schema",
+    "category": "schema",
+    "module": "dashboard"
+  },
+  {
+    "code": "messages:read",
+    "name": "消息查看",
+    "description": "查看站内消息（本人消息自服务面）",
+    "category": "message",
+    "module": "ops"
+  },
+  {
+    "code": "messages:write",
+    "name": "消息群发",
+    "description": "向全员广播站内消息",
+    "category": "message",
+    "module": "ops"
+  },
+  {
+    "code": "faqs:read",
+    "name": "FAQ 查看",
+    "description": "查看帮助文档条目",
+    "category": "faq",
+    "module": "support"
+  },
+  {
+    "code": "faqs:write",
+    "name": "FAQ 管理",
+    "description": "创建 / 编辑 / 删除帮助文档条目",
+    "category": "faq",
+    "module": "support"
+  },
+  {
+    "code": "tickets:read",
+    "name": "工单查看",
+    "description": "查看客服工单",
+    "category": "ticket",
+    "module": "support"
+  },
+  {
+    "code": "tickets:write",
+    "name": "工单管理",
+    "description": "创建 / 处理 / 关闭客服工单",
+    "category": "ticket",
+    "module": "support"
+  },
+  {
+    "code": "players:read",
+    "name": "玩家查看",
+    "description": "查看玩家信息",
+    "category": "player",
+    "module": "game"
+  },
+  {
+    "code": "players:write",
+    "name": "玩家管理",
+    "description": "管理玩家信息（封禁 / 资料修改等）",
+    "category": "player",
+    "module": "game"
+  },
+  {
+    "code": "tasks:read",
+    "name": "任务查看",
+    "description": "查看异步任务与执行日志",
+    "category": "task",
+    "module": "ops"
+  },
+  {
+    "code": "tasks:write",
+    "name": "任务管理",
+    "description": "创建 / 取消 / 触发异步任务",
+    "category": "task",
+    "module": "ops"
+  },
+  {
+    "code": "schedules:read",
+    "name": "调度查看",
+    "description": "查看调度任务",
+    "category": "schedule",
+    "module": "ops"
+  },
+  {
+    "code": "schedules:write",
+    "name": "调度管理",
+    "description": "创建 / 启停 / 删除调度任务",
+    "category": "schedule",
+    "module": "ops"
   }
 ]

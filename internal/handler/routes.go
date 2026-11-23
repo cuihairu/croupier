@@ -56,6 +56,10 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 	// 需要认证的路由（使用 Authority 中间件）
 	protected := v1.Group("/")
 	protected.Use(serverCtx.Authority)
+	// AUD-042：管理域→权限矩阵（least-privilege）。在 JWT 认证之后按
+	// 路由前缀+动词做权限校验，未命中矩阵的路径（自服务/公开/已服务层
+	// 门禁的域）直接放行；命中即 403 permission_denied。
+	protected.Use(permissionMatrixGuard(serverCtx))
 
 	// 网站配置：公开快照 + admin 写入（L3 覆盖层，handler 已提前创建）
 	// 通知服务：依赖 Layered（渠道配置）与消息模型（站内信）。

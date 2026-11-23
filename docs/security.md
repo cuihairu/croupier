@@ -52,6 +52,7 @@ RBAC/ABAC
 - ABAC（简易表达式）：在函数描述 `auth.allow_if` 中配置表达式（==、!=、&&、||、has_role('admin')）
   - 可用变量：`user`、`game_id`、`env`、`function_id`
   - 示例：`env == "prod" && has_role('admin')`
+- 管理域权限矩阵（AUD-042）：provider/cicd/incident/config/tool/announcement/certificate/rate_limit/schema/message/faq/ticket/player/task/schedule 等管理面在 JWT 认证之后统一挂 least-privilege 守卫（`internal/handler/routes_permission_matrix.go`）。读动词（GET/HEAD/OPTIONS）要求 `<域>:read`，写动词（POST/PUT/PATCH/DELETE）要求 `<域>:write`，`admin:all` 恒放行。权限码定义在 `configs/permissions.json`（RBAC 页可勾选授予），守卫引用与目录由测试机械对齐。已服务层门禁的域（storage/backup/admin/role/page）不入矩阵以免双门禁语义冲突；自服务面（`/messages/stream` 等本人收件箱、`/announcements/active` 用户侧）保留 JWT 认证，属已知边界。
 
 Rate limit & Concurrency
 
