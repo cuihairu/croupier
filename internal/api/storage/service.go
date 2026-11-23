@@ -166,6 +166,11 @@ func (s *Service) ListObjects(ctx context.Context, req *ListObjectsRequest) (*Li
 	if err != nil {
 		return nil, err
 	}
+	// AUD-039：列表读取面同属存储管理面，按粗粒度统一门禁（admin:all |
+	// uploads:write，与 AUD-016 写面同一权限）；前缀级 ABAC 后续拆。
+	if err := s.requireStoragePermission(ctx); err != nil {
+		return nil, err
+	}
 	prefix := normalizeStoragePath(req.Prefix)
 	if prefix != "" && strings.HasSuffix(req.Prefix, "/") && !strings.HasSuffix(prefix, "/") {
 		prefix += "/"
