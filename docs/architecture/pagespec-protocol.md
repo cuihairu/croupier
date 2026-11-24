@@ -91,6 +91,58 @@ The Server generates a default FormPresentationSpec from the input JSON Schema; 
 
 Historical form presentation data offers no conversion or import path; the only option is export/backup before the old path is deleted, followed by manual reconstruction in Page Studio against the current FormPresentationSpec. Old data must never enter the new page publish flow.
 
+### Display-vs-call parameter boundary (SUI-045)
+
+The form an operator sees and the request that is finally sent are two different objects, joined by three orthogonal responsibilities:
+
+| Layer                  | Content                                                                             | Responsibility                                                                                                     |
+| ---------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Base form (jsonSchema) | `FormPresentationSpec.jsonSchema` (derived from the function contract input schema) | Source of truth for the call: field set, types, `required`, constraints                                            |
+| Display overrides      | per-field `fields[]` overrides + `layout`/`groups`/buttons                          | Operator input surface: how fields are presented and which are visible/enabled                                     |
+| Binding                | `PageBinding.selectors.input.assignments` (Selector AST)                            | Call value mapping: maps form/row/selection/detail/page_state/literal sources onto payload targets (`$.` pointers) |
+
+Display overrides never modify the jsonSchema, and bindings never modify the presentation. `SchemaFormRenderer` consumes the first two to produce the input surface; on the server `buildBindingPayloadFromSelectors` (`internal/api/console/console_execute.go:523`) consumes the binding and the execution context to produce the request payload — the payload is built **only** from selector assignments; a field without an assignment never reaches the payload.
+
+**Two-way split of `FormFieldSpec` fields:**
+
+- **Display-only (no effect on the call):** `label`/`placeholder`/`description`/`role`/`unit`/`perTarget`/`widget`/`width`/`order`/`enumOptions`/`remoteOptions`/`widgetProps`, plus page-level `layout`/`groups`/`submitButton`/`cancelButton`. `layout` illustrates the boundary: `deriveRuntimeSchema` maps it only into `formContext` layout config (`web/src/components/SchemaFormRenderer/index.tsx:480-500`) and never touches the schema, validation, or payload — **under the same schema and the same binding, standard and compact layouts produce identical requests** (the design premise of SUI-031/036).
+- **Call-affecting (changes values or validation):**
+  - `defaultValue` — seeds form initial values: fills only `undefined` fields, binding injection/`initialValues` wins, `null`/empty string count as provided and are not overwritten (`applySpecDefaults`, `index.tsx:412-424`);
+  - `visible`/`visibleWhen`/`disabled` — visibility (see below);
+  - `required`/`validationRules` — merged into the runtime schema: `required: true` adds the key, `required: false` revokes a schema-level required, `min`/`max` map to ajv keywords per type, `pattern` is written directly, `custom` is explicitly warned and ignored (`mergeFieldValidity`, `index.tsx:352-408`).
+
+**Three exits for hidden fields** (the SUI-015 boundary):
+
+1. **Value is retained:** a hidden field (unsatisfied `visibleWhen`, or `visible: false`, via the unified `isFieldHidden` predicate) stays in the schema as `ui:widget: "hidden"`, its value stays in form state; the submit payload goes through the single projection `projectSubmitValues` (SUI-014's unified submit-value rule, `index.tsx:445-450`) — hidden keys are dropped per current values, everything else is kept verbatim; native submit and the imperative `getSubmitValues()` (`index.tsx:661-665`) share that one rule, while `getValues()` returns every value including hidden ones and is for state mirroring only (`index.tsx:680-688`).
+2. **Binding-reachable:** a hidden field's value can enter the payload through a binding `{ kind: "form", path }` — the server reads it by path from execution context `context.form` (`resolveSourceValue`, `console_execute.go:593-594`); in the browser `projectBindingContext` narrows the context to the fields actually referenced by the published selector (`web/src/components/PageRenderer/runtime.ts:78-120`), so a hidden field referenced by a selector still ships with the narrowed result. **A hidden required field whose value comes from a binding is executable.**
+3. **Server-side backstop:** the hidden-required exemption applies only to the **client** runtime schema (removed from `required`, `index.tsx:538-540`); the server validates the final payload _after_ bindings are applied — `validateBindingExecutePayload` returns a structured 422 for payloads that do not match the input schema (`console_execute.go:507-521`). **A hidden required item with no source at all (no assignment, no literal/default-transform fallback) therefore gets a field-level structured error on the server** and is never silently dropped and sent as a wrong request.
+
+**Final validation order** (already the implemented order; unchanged after SUI-014's unified submit-value interface):
+
+- Client: binding injection (dialog params / row injection / cascade, passed as `initialValues`) → `applySpecDefaults` seeds → `deriveRuntimeSchema` (visibleWhen exempted from required → `mergeFieldValidity` override merge → required strings get `minLength: 1`) → AJV submit validation → the single projection `projectSubmitValues` drops hidden keys → `onFinish`. Injection **overwrites** rather than fills gaps: when the injected JSON changes the whole form resets to the seeded values (`index.tsx:633-639`).
+- Server (`executeBindingFromSnapshot`, `console_execute.go:186-202`): executor bound → binding fresh → governance → **first** `buildBindingPayloadFromSelectors` applies all bindings and default transforms → **then** `validateBindingExecutePayload` validates the final request → idempotency claim → approval gate → dispatch. That is "validate the final request only after bindings and explicit defaults are applied."
+
+**Legacy compatibility:** the four override classes — `required` (including `required: false` revocation), `defaultValue`, `visible`/`visibleWhen`, and `validationRules` — keep their current semantics (locked by `web/src/components/SchemaFormRenderer/__tests__/field-validity.test.tsx`); this section adds no wire fields and is purely a semantic clarification. The split also constrains the display-variant protocol (SUI-031): a variant may override display-only fields only; call-affecting fields are part of the call contract and no variant may change them.
+
+**Examples** (one function `player.ban`, schema with `playerId *`, `env *`, `reason *`, `notifyDays`):
+
+- **Standard vs compact layout:** the two variants differ only in `layout` (`vertical` vs a compact grid) and `width`; schema, call-affecting field overrides, and binding are identical → the same input produces the **same** request `{ "playerId": ..., "env": ..., "reason": ..., "notifyDays": ... }` under both layouts.
+- **Manual entry vs selected-row injection:** the same target `$/playerId` via two sources — manual entry `{ kind: "form", path: "/playerId" }` (a form field the operator types into); row injection `{ kind: "row", path: "/id" }` (a row-action dialog seeds the selected row's `id` as the form's initial values; the published runtime `mapRowParams` → `openDialog`, `web/src/components/PageRenderer/compositeRuntime.tsx:1063/865`; the editor preview aligns via `openDialogPrefill`, `PreviewRuntime.tsx:104`). Both go through the same value path: the injected value is seeded as `initialValues`, and a later user edit wins.
+- **Missing required source:** `env` is schema-required, the display override hides it with `visible: false`, and no assignment provides it. The client exempts and strips it → the payload lacks `env` → the server returns 422:
+
+```json
+{
+  "error": "validation_failed",
+  "message": "binding payload does not match input schema",
+  "details": {
+    "bindingId": "ban-1",
+    "functionId": "player.ban",
+    "schema": "inputSchema",
+    "error": "payload does not match schema: jsonschema validation failed with 'file:///...schema.json#' - at '': missing property 'env'"
+  }
+}
+```
+
 ### Descriptor presentation hints (x-ui-\*)
 
 Game/SDK sides may declare `x-ui-*` extension fields on field schemas inside `input_schema`

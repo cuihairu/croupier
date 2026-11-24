@@ -35,21 +35,21 @@ OpenAPI operation / SDK descriptor
 
 所有 SDK 必须收敛到同一 FunctionContract：
 
-| 字段                      | OpenAPI 来源                    | SDK 字段       | 说明                                                        |
-| ------------------------- | ------------------------------- | -------------- | ----------------------------------------------------------- |
-| `id`                      | `operationId`                   | `id`           | 稳定函数 ID                                                 |
-| `version`                 | 文档/服务版本                   | `version`      | 函数契约版本                                                |
-| `summary` / `description` | 标准字段                        | 同名字段       | 目录和诊断说明，非菜单事实                                  |
-| `inputSchema`             | request body schema             | `inputSchema`  | 请求 JSON Schema                                            |
-| `outputSchema`            | response schema                 | `outputSchema` | 响应 JSON Schema                                            |
-| `resourceKey`             | REST path 推导或 `x-resource`   | `resource`     | 稳定业务资源 key                                            |
-| `operationKey`            | REST operation 或 `x-operation` | `operation`    | 业务动作 key                                                |
-| `capability`              | REST 形态推导或 `x-capability`  | `capability`   | 受控业务语义，非 UI                                         |
-| `execution`               | 标准响应/`x-execution`          | `execution`    | `sync` 或 `task`                                            |
-| `approval`                | `x-approval`                    | `approval`     | 是否需要审批及可选 policyKey，与 execution 正交             |
-| `risk` / `permission`     | `x-risk` / `x-permission`       | 同名字段       | 治理约束；risk 为 `safe/warning/high/danger`                |
-| `enabled` / `deprecated`  | 标准字段                        | 同名字段       | 目录与执行开关；disabled 合同持久化保留但不可执行、不可发布 |
-| `tags`                    | 标准字段                        | `tags`         | 目录与检索用途，非菜单事实                                  |
+| 字段                      | OpenAPI 来源                    | SDK 字段       | 说明                                                                                             |
+| ------------------------- | ------------------------------- | -------------- | ------------------------------------------------------------------------------------------------ |
+| `id`                      | `operationId`                   | `id`           | 稳定函数 ID                                                                                      |
+| `version`                 | 文档/服务版本                   | `version`      | 函数契约版本                                                                                     |
+| `summary` / `description` | 标准字段                        | 同名字段       | 目录和诊断说明，非菜单事实                                                                       |
+| `inputSchema`             | request body schema             | `inputSchema`  | 该 operation 的[请求契约](./openapi-request-contract.md)面向操作者的投影；参数/body 划分见该文档 |
+| `outputSchema`            | response schema                 | `outputSchema` | 响应 JSON Schema                                                                                 |
+| `resourceKey`             | REST path 推导或 `x-resource`   | `resource`     | 稳定业务资源 key                                                                                 |
+| `operationKey`            | REST operation 或 `x-operation` | `operation`    | 业务动作 key                                                                                     |
+| `capability`              | REST 形态推导或 `x-capability`  | `capability`   | 受控业务语义，非 UI                                                                              |
+| `execution`               | 标准响应/`x-execution`          | `execution`    | `sync` 或 `task`                                                                                 |
+| `approval`                | `x-approval`                    | `approval`     | 是否需要审批及可选 policyKey，与 execution 正交                                                  |
+| `risk` / `permission`     | `x-risk` / `x-permission`       | 同名字段       | 治理约束；risk 为 `safe/warning/high/danger`                                                     |
+| `enabled` / `deprecated`  | 标准字段                        | 同名字段       | 目录与执行开关；disabled 合同持久化保留但不可执行、不可发布                                      |
+| `tags`                    | 标准字段                        | `tags`         | 目录与检索用途，非菜单事实                                                                       |
 
 ### 命名约定
 
@@ -123,6 +123,10 @@ SDK 和 OpenAPI Source 导入边界只接受 FunctionContract 字段。页面展
 ## JSON Schema 支持子集
 
 生成器只对以下子集保证生成可直接发布的表单与列表：object/array/scalar 类型、`required`、`enum`、格式 hint（`date`、`date-time`）和本地 `$defs`/`$ref`。`oneOf`/`anyOf`/`discriminator`、远程 `$ref` 等更复杂的组合不影响函数注册，但表单与列生成必须降级为 `needs_review` 并记录 diagnostic，不得硬吞后生成不可用的默认页面。
+
+方言在判定前先归一（SUI-009）：OpenAPI 3.0 `nullable: true` 与 3.1 `type: [T, "null"]` 都统一为 2020-12 风格 `type` 数组（`"null"` 恒在末位），主类型（非 null）驱动控件，两侧声明同一可空语义。多类型联合（>1 个非 null 类型）、条件 schema（`if`/`then`/`else`、`dependentSchemas`）、元组（`prefixItems`、`items` 为数组）不能直接成表单 —— 降级为 `needs_review` 并记 `openapi_schema_dialect_keyword` 诊断（需 JSON 编辑或手工绑定 / discriminator），绝不静默误渲染。Go 判定器与 web 镜像对同一批样例判定一致（两侧 parity 测试锁定）。
+
+方向也在表单见到 schema 之前解析（SUI-010）：喂给 `inputSchema` 的请求 schema 已剔除 `readOnly` 字段（`required` 收缩跳过它们），响应 schema 已剔除 `writeOnly` 字段 —— 客户端绝不为服务端拥有的值提供输入，也绝不把客户端提供的密钥当作服务端输出来校验。`openapi_schema_readonly_dropped` / `openapi_schema_writeonly_dropped` 诊断记录剔除；详见[请求契约](./openapi-request-contract.md)文档。
 
 ## OpenAPI Source 与执行绑定
 

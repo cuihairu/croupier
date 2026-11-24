@@ -10,45 +10,48 @@
 
 ### OpenAPI 导入与发送
 
-- [ ] **SUI-001 · P0 · 设计 · 定义统一的 OpenAPI 请求表示**
+- [x] **SUI-001 · P0 · 设计 · 定义统一的 OpenAPI 请求表示** ✅ be8c136fe
   - 依赖：—。交付与验收：固定参数位置、名称、必填、序列化方式及请求体媒体类型的表达。用 fixture 表达 path、query、header、cookie，以及同名参数和根数组 body；明确旧平铺契约的兼容边界。
-  - 状态／条件：未开始。
+  - 交付：`internal/dashboard/spec/request_contract.go`（canonical 类型）；设计文档 `docs/architecture/openapi-request-contract.md` + `docs/zh/...`（含投影规则、兼容边界、执行映射）；descriptor-v2 交叉引用。证据：`go build ./internal/dashboard/spec/` 通过；be8c136fe。
 
-- [ ] **SUI-002 · P0 · 实现 · 保真提取 Source 请求契约**
+- [x] **SUI-002 · P0 · 实现 · 保真提取 Source 请求契约** ✅ 45796d6d1
   - 依赖：SUI-001。交付与验收：提取 operation 与 path-item 参数及完整 body schema。回归样例覆盖 query/body 同名、必填 header、根数组和 body 根级约束，派生结果逐项可追溯。
-  - 状态／条件：未开始。
+  - 交付：kin 前端 `ExtractOperationRequestContractKin` + map 前端 `ExtractOperationRequestContractMap`（operation 覆盖 path-item、完整 body schema、序列化默认、$ref 内联）。证据：`TestRequestContract_KinPathItemParamsMergedWithOverride`/`_KinHeaderCookieCaptured`/`_KinRootArrayBodyPreserved`/`_BodyRootConstraintForcesStructured`/`_QueryBodySameNameCollision`；45796d6d1。
 
-- [ ] **SUI-003 · P0 · 实现 · Provider 复用统一请求提取**
+- [x] **SUI-003 · P0 · 实现 · Provider 复用统一请求提取** ✅ 45796d6d1
   - 依赖：SUI-001, SUI-002。交付与验收：同一 3.x fixture 经上传与运行时发现得到相同的规范请求。既有 Provider 配置和 Swagger 2.0 兼容用例通过。
-  - 状态／条件：未开始。
+  - 交付：`provider_discover.go` 复用统一提取（kin 优先、map 兜底）；对拍测试 `TestRequestContract_KinMapParity` + `TestInputSchemaParity_KinMatchesLegacy`；Swagger 2.0 兼容 `TestRequestContract_Swagger20Compat`（in:body / formData / consumes）；既有 config-file provider 用例通过（`TestProviderCallWithRequestBody` 等）。证据：45796d6d1。
 
-- [ ] **SUI-004 · P0 · 实现 · 安全处理旧平铺入参**
+- [x] **SUI-004 · P0 · 实现 · 安全处理旧平铺入参** ✅ 45796d6d1
   - 依赖：SUI-001。交付与验收：已有无歧义对象输入维持原接口。新派生遇到同名冲突或无法保留的约束时给出 operation 与字段级诊断，覆盖旧绑定重读和重新导入。
-  - 状态／条件：未开始。
+  - 交付：`ProjectOperationInputSchema` 三模式（flat/structured/body_only）；字节稳定平铺 `TestRequestContract_FlatProjectionByteStable`；字段级诊断（`DiagRequestParameterCollision`/`DiagRequestBodyShapeNonFlat` 带 `Field`）；api 侧重读/重导 `TestOpenAPIRequestSchemaReimportStable`。证据：45796d6d1。
 
-- [ ] **SUI-005 · P0 · 实现 · 保留根数组和标量 JSON 请求体**
+- [x] **SUI-005 · P0 · 实现 · 保留根数组和标量 JSON 请求体** ✅ 8427322d6
   - 依赖：SUI-002, SUI-003。交付与验收：根数组和标量在存在 query 参数时仍能通过请求映射送达上游，断言实际 HTTP body 的 JSON 类型及值。
-  - 状态／条件：未开始。
+  - 交付：`Provider.Call`/`buildRequest` 消费请求契约解析调用方 payload（`resolveCallInput`），structured/body_only body 原样发送；`TestProviderCall_ContractRootShapePreserved` 断言 query + body JSON 类型与值（数组/标量/对象根 + flat 回归）。证据：8427322d6。
 
-- [ ] **SUI-006 · P1 · 实现 · 按 OpenAPI 序列化参数**
+- [x] **SUI-006 · P1 · 实现 · 按 OpenAPI 序列化参数** ✅ 0109f42bf
   - 依赖：SUI-002, SUI-003。交付与验收：验证公开声明支持的参数位置和 `style/explode` 组合。fixture 断言 path 替换、query 数组和对象、header 与 cookie 的实际 HTTP 值。无法执行的组合返回诊断。
-  - 状态／条件：未开始。
+  - 交付：执行器按位置与 style/explode 序列化（`param_serialize.go`：path simple/label/matrix、query form/spaceDelimited/pipeDelimited/deepObject、header simple、cookie form 原始值；逐项转义 + 字面分隔符，spaceDelimited 用 `+`）。支持矩阵公开声明于 `docs/architecture/openapi-request-contract.md#parameter-serialization-sui-006`（+中文镜像）。不可执行组合以诊断 `openapi_parameter_serialization_unsupported` 在两个提取前端记录（`request_contract.go`），执行器同因拒绝请求。契约与 legacy config 方法统一走序列化器，query/path 值补齐 URL 编码。证据：`TestSerializeParamValue_Matrix`（全矩阵单测）；`TestProviderCall_ParameterSerializationWire`（httptest 线上断言 path 替换/转义、query 数组/对象/deepObject、header、cookie 与不可执行报错）；`TestProviderCall_LegacyConfigSerialization`（旧行为不回归）；`TestRequestContract_SerializationDiagnostics`（kin/map 诊断同文）；`go build ./...` 通过；`bash scripts/dashboard_vnext_guard.sh` PASSED；`cd docs && CI=true pnpm build` 通过；0109f42bf。
 
-- [ ] **SUI-007 · P1 · 实现 · 确定性选择请求和响应媒体类型**
+- [x] **SUI-007 · P1 · 实现 · 确定性选择请求和响应媒体类型**
   - 依赖：SUI-001。交付与验收：同一多媒体类型文档重复导入结果一致。输入以执行器支持能力选择媒体类型，输出 schema 从声明的成功响应派生，缺少可执行媒体类型时提案记录原因。
-  - 状态／条件：未开始。
+  - 交付：媒体类型按执行器能力确定性选择（`internal/dashboard/spec/request_body_media.go`：`SelectRequestBodyMediaType` 可执行集 = `application/json` + RFC-6839 `application/*+json`，`application/json` 优先、后缀其次、同 rank 字典序；`SelectExecutableMediaType` 供 2.0 `consumes` 声明序；`IsJSONMediaType`/`IsExecutableRequestBodyMediaType`）。kin/map 两个提取前端同源选择（`request_contract.go`/`request_contract_map.go`）；无可执行媒体类型时以诊断 `openapi_request_body_no_executable_media`（severity warning、field=body、message 列声明集与可执行集）记录原因，body 槽位不设（取代旧「不可执行媒体类型静默成为槽位并错标 JSON」）。执行器（`provider_call.go` `contractBodyContentType`）以所选媒体类型设 `Content-Type`；存量契约记录不可执行媒体类型时同因拒绝。输出 schema 从声明成功响应派生（200 优先、其余 2xx 升序、优先 application/json）；上传管线 `openAPIResponseSchema`/`openAPIMediaSchemaJSON` 去 map 迭代不定序、驱动 `extractOutputSchema` 同口径。支持矩阵公开声明于 `docs/architecture/openapi-request-contract.md#media-type-selection-sui-007`（+中文镜像）。证据：`TestIsJSONMediaType`/`TestIsExecutableRequestBodyMediaType`/`TestSelectRequestBodyMediaType_PreferenceAndTieBreak`/`TestSelectRequestBodyMediaType_Deterministic`/`TestSelectExecutableMediaType_ConsumesOrder`/`TestRequestBodyMediaDiagnostic`（spec 单测）；`TestRequestContract_ExecutableMediaTypeSelected`/`TestRequestContract_ExecutableMediaTypeSuffix`/`TestRequestContract_NoExecutableMediaTypeRecordsReason`（kin/map 同码）；`TestRequestContract_RepeatedImportDeterministic`（同一文档 20 次导入逐方法 JSONEq）；`TestRequestContract_Swagger20ConsumesCapability`；`TestProviderCall_BodyMediaTypeSentAsContentType`/`TestProviderCall_StaleNonExecutableBodyMediaTypeRefused`；`TestOpenAPIResponseSchemaDeterministic`（上传管线）/`TestExtractOutputSchema_Ascending2xx`（驱动）；`go build ./...` 通过；`go test ./internal/...` 全绿（172 pkg ok）；`bash scripts/dashboard_vnext_guard.sh` PASSED；`cd docs && CI=true pnpm build` 通过；a4ebdfbad。
 
 - [ ] **SUI-008 · P1 · 实现 · 将本地 schema 引用封装成独立契约**
+  - ⚠️ 2026-11-24 合账：main 于 11-23 整体重构 `driveropenapi`/`dashboard/spec` API（request_contract_map/request_contract/schema_dialect/schema_direction 等新文件随 lane 丢弃），**Go 侧未落**；lane 仅 web 侧（`web/src/utils/schemaDialect.ts` 等 6 文件）与 docs 已合并。需在新 API 上重落。
   - 依赖：SUI-002, SUI-003。交付与验收：脱离 OpenAPI 文档后，嵌套及递归本地引用仍可解析或明确进入待审。验证缺失引用、循环引用和外部引用边界。
-  - 状态／条件：未开始。
+  - 交付：契约提取把无法内联的 schema 引用显式标记待审（取代旧「缺失/循环引用静默坍缩为匿名对象、外部引用保留但无信号」）。`resolveSchemaRefs`/`resolveRefPointer`（`internal/drivers/openapi/input_schema.go`）经 `issues *[]refIssue` 收集三类边界并记入契约诊断 `openapi_schema_reference_unresolved`（spec `SchemaReferenceUnresolvedDiagnostic`：severity warning、field=声明 `$ref` 指针原文、message 命名边界——`missing target in the document` / `cyclic reference past the inlining depth cap` / `reference outside the document`）。kin 前端（`request_contract.go`）与 map 前端（`request_contract_map.go`）同机收集、同序追加（`refIssuesToDiagnostics` 按 ref+reason 去重）；`output_schema.go`/旧 `extractInputSchema` 保持静默（传 nil）。嵌套本地引用照常内联（无诊断）；循环引用在内联深度上限（16）处截断并记 cyclic（kin/map 同深同形）；缺失引用坍缩为 `{"type":"object"}` 并记 missing；外部引用原样保留 `{"$ref":...}` 并记 external。kin loader 拒载悬空/外部引用（整份文档回落 map 前端），故后两个边界经 map 前端记录同样的诊断。支持矩阵公开声明于 `docs/architecture/openapi-request-contract.md#schema-reference-resolution-sui-008`（+中文镜像）。证据：`TestSchemaReferenceUnresolvedDiagnostic`（spec 单测）；`TestSchemaRef_NestedLocalRefsResolve`/`TestSchemaRef_CyclicRefRecordsDiagnostic`（kin/map 对拍，含整契约 JSONEq）/`TestSchemaRef_MissingRefRecordsDiagnostic`/`TestSchemaRef_ExternalRefRecordsDiagnostic`/`TestSchemaRef_SameRefDedupedPerContract`/`TestSchemaRef_FallbackDiscoveryRecordsDiagnostic`（生产发现路径）；`go build ./...` 通过；`go test ./internal/...` 全绿（172 pkg ok，`internal/api/ops` 与 `internal/app/agent` 为负载 flake、隔离复跑通过）；`bash scripts/dashboard_vnext_guard.sh` PASSED；`cd docs && CI=true pnpm build` 通过（EXIT=0）；dabdf24de。
 
 - [ ] **SUI-009 · P1 · 实现 · 归一化 OpenAPI 3.0 与 3.1 schema 方言**
+  - ⚠️ 2026-11-24 合账：main 于 11-23 整体重构 `driveropenapi`/`dashboard/spec` API（request_contract_map/request_contract/schema_dialect/schema_direction 等新文件随 lane 丢弃），**Go 侧未落**；lane 仅 web 侧（`web/src/utils/schemaDialect.ts` 等 6 文件）与 docs 已合并。需在新 API 上重落。
   - 依赖：SUI-002, SUI-003。交付与验收：对照测试覆盖 3.0 `nullable`、3.1 联合类型、缺失值与显式 null，并明确条件 schema、元组等关键字的支持或诊断。前端和服务端对声明支持的样例判定一致。
-  - 状态／条件：未开始。
+  - 交付：新增 `internal/dashboard/spec/schema_dialect.go` —— 方言检测 `DetectSchemaDialect`（按 `openapi` 字段判 3.0/3.1）、方言归一 `NormalizeSchemaDialect`（`nullable:true` 折入 `type` 数组、`"null"` 移末位使主类型恒为首元素、递归子 schema 位置、非 schema 值如 default/example/enum 透传）、能力判定 `ClassifySchemaSupport`（supported/degraded/unsupported；条件 schema `if`/`then`/`else`/`dependentSchemas`、元组 `prefixItems`/`items`-数组、多类型联合→degraded）、诊断 `openapi_schema_dialect_keyword`（warning，field=schema JSON 指针，`DialectNotesToDiagnostics` 按 (path,keyword) 排序保证重导入字节一致）；`NormalizeRequestContractDialect` 归一契约全部参数 + body schema 并追加能力诊断。kin 前端（`request_contract.go`）与 map 前端（`request_contract_map.go`）同机调用 `NormalizeRequestContractDialect(contract, DetectSchemaDialect(root))`；`output_schema.go` 输出 schema 同机归一（响应校验器 Draft 7 不认 `nullable`，不归一会拒合法 null）；`openapi_parser.go`/`openapi_binding.go` 传 specRoot 供方言检测。缺省 vs 显式 null 语义钉住（`required` 内缺省即非法、可空必填字段可发 `null`、不可空显式 `null` 被校验器拒）。生成器 `generator_report.go` 的 `schemaTypeFromObject` 改为主类型解析（`type` 数组取首个非 null，与前端 `primarySchemaType` 同规则；SUI-009 前对 `["string","null"]` 返回 `""` 使可空字段 placeholder 兜底静默丢失）。前端 `web/src/utils/schemaDialect.ts` 镜像（`primarySchemaType`/`isNullableSchema`/`classifySchemaSupport`/`subschemasOf`），SchemaFormRenderer `templates.tsx`/`widgets.tsx`/`widgets-upload.tsx`/`index.tsx` 统一改读主类型（`fieldSchemaType`/`isMultiple`/`multiple`/子字段必填与 min/max 派生）。支持矩阵公开声明于 `docs/architecture/openapi-request-contract.md#schema-dialect-normalization-sui-009` 与 `docs/architecture/openapi-sdk-descriptor-v2.md#the-supported-json-schema-subset`（+中文镜像）。证据：spec 单测 20 例（nullable 折入/3.1 联合/`"null"` 末位/缺省 vs 显式 null/条件/元组/非 schema 值透传/递归/byte-stable/诊断确定性 30 迭代/ClassifySchemaSupport 样例/DetectSchemaDialect）；kin/map 对拍 parity 测试 6 例（3.0 nullable 归一、3.1 union 归一、30/31 同规范形态、degraded 关键字诊断、draft-07 元组回落 map、校验接受 null 拒缺省）；生成器 `TestExtraSchemaTypeFromObject_TypeArray`/`TestExtraSchemaTypeFromObject_FeedsWidgetDerivation`；前端 `tests/schemaDialect.test.ts` 14 例；SchemaFormRenderer 全量 15 套件 197 例绿；`go build ./...` 通过；`go test ./internal/...` 全绿（首跑 1 例负载 flake、隔离复跑全绿）；`pnpm --dir web run tsc` 0 错；`bash scripts/dashboard_vnext_guard.sh` PASSED；`cd docs && CI=true pnpm build` 通过（EXIT=0）；98aa42524。
 
 - [ ] **SUI-010 · P1 · 实现 · 区分请求和响应字段方向**
+  - ⚠️ 2026-11-24 合账：main 于 11-23 整体重构 `driveropenapi`/`dashboard/spec` API（request_contract_map/request_contract/schema_dialect/schema_direction 等新文件随 lane 丢弃），**Go 侧未落**；lane 仅 web 侧（`web/src/utils/schemaDialect.ts` 等 6 文件）与 docs 已合并。需在新 API 上重落。
   - 依赖：SUI-008, SUI-009。交付与验收：处理 `readOnly/writeOnly` 对输入、输出和必填集合的作用。嵌套字段、引用字段与普通字段都经过请求和响应 fixture 验证。
-  - 状态／条件：未开始。
+  - 交付：新增 `internal/dashboard/spec/schema_direction.go` —— `SchemaDirection`（request/response）与 `droppedKeyword`（request→`readOnly`、response→`writeOnly`）；`FilterSchemaDirection` 在**深拷贝**上工作（输入不被突变），根级标记时整份 schema 归 nil（请求 body 槽位整体剔除、响应无输出 schema 可校验）；递归位置：`properties` / `items` / `additionalProperties`（对象形式，被标记时该槽位删除）/ `allOf`+`anyOf`+`oneOf` 成员 / `dependentSchemas`，另递归但**永不移除成员**：`if`/`then`/`else`/`not`/`contains`/`propertyNames`（移除条件分支改变条件语义，SUI-009 已判 degraded）与元组 `prefixItems`/`items`-数组（换位改变元组语义）；`$defs`/`definitions` 不动（SUI-008 内联后是未用素材）。`adjustRequired` 仅在确有剔除时收缩 `required`（收缩为空则删键——空 `required` 是无效 schema），无剔除时结构原样返回保证字节稳定。方向匹配的标记存活（请求侧保留 `writeOnly`、响应侧保留 `readOnly`）。诊断 `openapi_schema_readonly_dropped` / `openapi_schema_writeonly_dropped`（warning，field=schema JSON 指针），`DirectionNotesToDiagnostics` 按 (path,keyword) 排序。`CanonicalizeRequestContract` = 方言归一（SUI-009）→ 方向过滤；两个前端（`request_contract.go`/`request_contract_map.go`）同机调用，且 `requestContractDiagnostics`（SUI-004 平铺/序列化）改为**过滤后**计算——否则 readOnly 属性与参数同名会发假阳性冲突诊断、整体 readOnly 的 body 会被误判非平铺。`output_schema.go` 输出 schema 同机过滤；`openapi_parser.go` 的 `openAPISchemaRefJSONWithDialect` 同口径（归一→响应方向过滤，nil 时返回空让调用方按「无 JSON 成功响应」处理）。文档 `docs/architecture/openapi-request-contract.md#schema-field-direction-sui-010`（+中文镜像）公开递归位置表、required 收缩规则、两条诊断与「响应侧过滤无诊断通道」已知边界；`openapi-sdk-descriptor-v2.md` 支持子集补方向解析说明（+中文镜像）。证据：spec 单测 24 例（普通/嵌套/引用内联/数组 items/additionalProperties/allOf+anyOf 成员/根级标记/条件与元组不移除/匹配标记存活/`$defs` 不动/required 收缩为空删键/无剔除 required 不改/字节稳定/nil/输入不被突变/诊断映射/诊断排序/30 迭代确定性/契约级参数+body+诊断/body 根标记/归一+过滤复合）；驱动层 parity 5 例（kin/map 对同一 readOnly 文档契约逐 JSON 同形且普通+嵌套+`$ref`-内联三处剔除、必填集逐层收缩、剔除进诊断；`extractOutputSchema` 响应侧剔除 writeOnly+required 收缩；响应根级 writeOnly→无输出 schema 落下一 2xx；无 readOnly 不发诊断；readOnly 属性与参数同名过滤后不再冲突且投影回 flat）；`go test ./internal/...` 全绿；受影响包 `go build` 通过（全量 `go build ./...` 的 cmd 链接失败是本机根盘 100% 满的环境问题、非编译错误）；`pnpm --dir web run tsc` 0 错；`bash scripts/dashboard_vnext_guard.sh` PASSED；`cd docs && CI=true pnpm build` 通过（EXIT=0）；未改 web（过滤在服务端完成）。360756c65。
 
 - [ ] **SUI-011 · P1 · 实现 · 生成 schema 兼容性诊断**
   - 依赖：SUI-004, SUI-007, SUI-008, SUI-009, SUI-047。交付与验收：给出可直接生成、可降级编辑或需人工修复的状态与字段路径。覆盖 `allOf/oneOf/anyOf/discriminator`、悬空引用、根值及媒体类型。无法正确发送的 operation 不生成可直接执行的默认提案。
@@ -64,13 +67,13 @@
 
 ### 表单值、校验与默认界面
 
-- [ ] **SUI-014 · P0 · 修复 · 统一表单的提交取值接口**
+- [x] **SUI-014 · P0 · 修复 · 统一表单的提交取值接口** ✅ 2d4825d3c ddae70725
   - 依赖：SUI-045。交付与验收：原生提交、调试、资源创建/编辑、行操作和组合页经同一提交取值逻辑。隐藏前后的编辑值可恢复，提交 payload 严格按统一的投影规则生成。
-  - 状态／条件：未开始。
+  - 交付：`SchemaFormRenderer` 唯一投影 `projectSubmitValues`/`getSubmitValues()`/`isFieldHidden`（原生提交与命令式同一规则，2d4825d3c）；`ResourcePageRenderer`、`Functions/Invoke`、`CloneModal` 命令式提交改走 `getSubmitValues()`（ddae70725）；组合页经 `onFinish` 原生路径。证据：`submit-values.test.tsx`（原生/命令式剔除-恢复对拍）本机单跑通过；`compositeDialog.test.tsx` 10/10 通过；2d4825d3c ddae70725。
 
-- [ ] **SUI-015 · P0 · 修复 · 以最终绑定参数校验调用契约**
+- [x] **SUI-015 · P0 · 修复 · 以最终绑定参数校验调用契约** ✅ d775c708d 2d4825d3c ddae70725
   - 依赖：SUI-014, SUI-045。交付与验收：统一可见性、旧呈现校验规则与参数绑定的边界。绑定及明确默认值应用完再校验最终请求；隐藏且无绑定来源的必填项有结构化错误，隐藏且由绑定提供的合法值可执行。
-  - 状态／条件：未开始。
+  - 交付：验收已由边界定义 + 统一投影 + 既有服务端校验顺序满足，无新增代码。边界定义在 SUI-045（`console_execute.go:196-200` 先 `buildBindingPayloadFromSelectors` 应用绑定与 default transform、后 `validateBindingExecutePayload` 校验最终请求，`console_execute.go:507-521` 结构化 422）；可见性与提交裁剪统一为 `isFieldHidden`/`projectSubmitValues`（2d4825d3c）。证据：`go test ./internal/api/console/ -run 'TestServiceExecuteBinding(RejectsMissingRequiredPayloadField|UsesRowSelectorWithoutPassingWholeRow|RejectsPayloadTypeMismatch|IgnoresUnselectedContextFields)$'` 4/4 通过；`field-validity.test.tsx` 18/18 通过；d775c708d 2d4825d3c ddae70725。
 
 - [ ] **SUI-016 · P1 · 实现 · 对齐两条服务端入口的 schema 校验策略**
   - 依赖：SUI-009。交付与验收：Console 执行与函数直接调用使用同一组对照 fixture。区分缺少 schema 和 schema 编译失败，钉住显式及省略 `additionalProperties` 的契约行为与合法字典数据。
@@ -196,9 +199,9 @@
 
 ### 设计更新与组件审查
 
-- [ ] **SUI-045 · P0 · 设计 · 明确展示与调用参数的边界**
+- [x] **SUI-045 · P0 · 设计 · 明确展示与调用参数的边界** ✅ d775c708d
   - 依赖：—。交付与验收：更新 [PageSpec 协议](docs/zh/architecture/pagespec-protocol.md#formpresentationspec)，明确展示覆盖项、基础表单与 Binding 的职责、隐藏必填字段的取值来源和最终校验顺序。记录旧页面的 `required`、默认值、可见性和校验覆盖如何兼容。用同一函数的标准与紧凑布局、手填和选中行注入两类绑定，以及缺少必填来源的例子说明预期请求或诊断。
-  - 状态／条件：未开始。
+  - 交付：`docs/zh/architecture/pagespec-protocol.md` + 英文镜像 `docs/architecture/pagespec-protocol.md` 新增「展示与调用参数的边界（SUI-045）」小节：三层职责（jsonSchema/展示覆盖/Binding）、FormFieldSpec 字段两分（纯展示 vs 调用相关）、隐藏字段三出口、客户端+服务端最终校验顺序、旧页面四类覆盖兼容、三例（标准 vs 紧凑、手填 vs 行注入、缺少必填来源）。并入 origin/main 后按 SUI-014 落地形态复核引用（`projectSubmitValues`/`getSubmitValues`/`isFieldHidden` 唯一提交投影）。证据：`go build ./...` 通过；`go test ./internal/drivers/openapi/... ./internal/api/openapi/... ./internal/dashboard/spec/...` 通过；`bash scripts/dashboard_vnext_guard.sh` PASSED；`CI=true pnpm --dir docs build` 通过；`pnpm --dir web run tsc` 0 错误；面向本域 web 套件（SchemaFormRenderer/Functions/services/Invoke/PageRenderer）在超时提升到 30s 后通过（submit-values/visible-when/widgets-select 三套件 18/18 全绿）；d775c708d。
 
 - [ ] **SUI-046 · P1 · 审查 · 逐项核对现有 UI 组件和组件模板**
   - 依赖：—。交付与验收：对照编辑器注册表、数据库中的内置模板定义和发布渲染器，清点表单、表格、详情、动作等区块与模板。逐项记录属性、函数依赖、参数来源、输出与联动，标注预览和发布差异。用代表模板走一次插入、发布、执行，验证复制后的页面配置及模板更新提醒，记录每个发现的证据。

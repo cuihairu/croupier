@@ -14,6 +14,7 @@ import { Widgets as AntdWidgets } from '@rjsf/antd';
 import type { GenericObjectType, RJSFSchema, WidgetProps } from '@rjsf/utils';
 import { useRemoteOptions } from './useRemoteOptions';
 import type { RemoteOptionsSpec } from '@/types/dashboard';
+import { primarySchemaType } from '@/utils/schemaDialect';
 
 type WidgetPropsAlias = WidgetProps;
 
@@ -28,7 +29,8 @@ function toValueArray(value: unknown): string[] {
 
 function isMultiple(props: GenericObjectType, schema: RJSFSchema): boolean {
   if (typeof props.multiple === 'boolean') return props.multiple;
-  return schema.type === 'array';
+  // SUI-009：type 数组（可空/联合）以主类型判定，`["array","null"]` 仍是多值。
+  return primarySchemaType(schema) === 'array';
 }
 
 function normalizeNode(raw: unknown, labelKey: string, valueKey: string) {

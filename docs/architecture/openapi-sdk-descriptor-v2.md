@@ -35,21 +35,21 @@ For the detailed page model see the [Dashboard resource/page model](./dashboard-
 
 All SDKs must converge on the same FunctionContract:
 
-| Field                     | OpenAPI source                     | SDK field      | Notes                                                        |
-| ------------------------- | ----------------------------------- | -------------- | ------------------------------------------------------------- |
-| `id`                      | `operationId`                       | `id`           | Stable function ID                                            |
-| `version`                 | Document/service version            | `version`      | Function contract version                                     |
-| `summary` / `description` | Standard fields                     | Same-named     | Catalog and diagnostic descriptions, not menu facts           |
-| `inputSchema`             | request body schema                 | `inputSchema`  | Request JSON Schema                                           |
-| `outputSchema`            | response schema                     | `outputSchema` | Response JSON Schema                                          |
-| `resourceKey`             | Derived from the REST path or `x-resource` | `resource` | Stable business resource key                               |
-| `operationKey`            | REST operation or `x-operation`     | `operation`    | Business action key                                           |
-| `capability`              | Derived from REST shape or `x-capability` | `capability` | Governed business semantics, not UI                        |
-| `execution`               | Standard responses/`x-execution`    | `execution`    | `sync` or `task`                                              |
-| `approval`                | `x-approval`                        | `approval`     | Whether approval is required plus an optional policyKey; orthogonal to execution |
-| `risk` / `permission`     | `x-risk` / `x-permission`           | Same-named     | Governance constraints; risk is `safe/warning/high/danger`    |
-| `enabled` / `deprecated`  | Standard fields                     | Same-named     | Catalog and execution switches; a disabled contract is persisted but not executable and not publishable |
-| `tags`                    | Standard fields                     | `tags`         | Catalog and search purposes, not menu facts                   |
+| Field                     | OpenAPI source                             | SDK field      | Notes                                                                                                                                               |
+| ------------------------- | ------------------------------------------ | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                      | `operationId`                              | `id`           | Stable function ID                                                                                                                                  |
+| `version`                 | Document/service version                   | `version`      | Function contract version                                                                                                                           |
+| `summary` / `description` | Standard fields                            | Same-named     | Catalog and diagnostic descriptions, not menu facts                                                                                                 |
+| `inputSchema`             | request body schema                        | `inputSchema`  | The operator-facing projection of the operation's [request contract](./openapi-request-contract.md); see that document for the parameter/body split |
+| `outputSchema`            | response schema                            | `outputSchema` | Response JSON Schema                                                                                                                                |
+| `resourceKey`             | Derived from the REST path or `x-resource` | `resource`     | Stable business resource key                                                                                                                        |
+| `operationKey`            | REST operation or `x-operation`            | `operation`    | Business action key                                                                                                                                 |
+| `capability`              | Derived from REST shape or `x-capability`  | `capability`   | Governed business semantics, not UI                                                                                                                 |
+| `execution`               | Standard responses/`x-execution`           | `execution`    | `sync` or `task`                                                                                                                                    |
+| `approval`                | `x-approval`                               | `approval`     | Whether approval is required plus an optional policyKey; orthogonal to execution                                                                    |
+| `risk` / `permission`     | `x-risk` / `x-permission`                  | Same-named     | Governance constraints; risk is `safe/warning/high/danger`                                                                                          |
+| `enabled` / `deprecated`  | Standard fields                            | Same-named     | Catalog and execution switches; a disabled contract is persisted but not executable and not publishable                                             |
+| `tags`                    | Standard fields                            | `tags`         | Catalog and search purposes, not menu facts                                                                                                         |
 
 ### Naming conventions
 
@@ -71,14 +71,14 @@ It answers "what does the function do in the resource's lifecycle", not "where i
 
 When an OpenAPI document satisfies both the stable-path and schema conditions, the Server must produce high-confidence CRUD semantics:
 
-| OpenAPI operation               | Default capability           | Additional validation                                  |
-| -------------------------------- | ----------------------------- | -------------------------------------------------------- |
-| `GET /players`                   | `collection_query`            | A collection schema is recognizable; pagination is an optional capability |
-| `POST /players`                  | `create`                      | The request body maps to the resource input              |
-| `GET /players/{playerId}`        | `item_query`                  | The path parameter is an identity candidate              |
-| `PUT/PATCH /players/{playerId}`  | `update`                      | The request body can be associated with the identity     |
-| `DELETE /players/{playerId}`     | `delete`                      | The identity can be associated                           |
-| Other REST operations            | `action` / `task` / `report`  | Requires an explicit execution or verifiable response traits |
+| OpenAPI operation               | Default capability           | Additional validation                                                     |
+| ------------------------------- | ---------------------------- | ------------------------------------------------------------------------- |
+| `GET /players`                  | `collection_query`           | A collection schema is recognizable; pagination is an optional capability |
+| `POST /players`                 | `create`                     | The request body maps to the resource input                               |
+| `GET /players/{playerId}`       | `item_query`                 | The path parameter is an identity candidate                               |
+| `PUT/PATCH /players/{playerId}` | `update`                     | The request body can be associated with the identity                      |
+| `DELETE /players/{playerId}`    | `delete`                     | The identity can be associated                                            |
+| Other REST operations           | `action` / `task` / `report` | Requires an explicit execution or verifiable response traits              |
 
 Derived semantics must record their source and confidence. When a REST path violates the conventions, the identity is unverifiable, or the schema is contradictory, the platform degrades to an OperationPage Proposal with a diagnostic — it must not guess Resource CRUD.
 
@@ -123,6 +123,10 @@ An importer encountering any of these page fields must return structured diagnos
 ## The supported JSON Schema subset
 
 The generator guarantees directly publishable forms and lists only for this subset: object/array/scalar types, `required`, `enum`, format hints (`date`, `date-time`), and local `$defs`/`$ref`. More complex combinations such as `oneOf`/`anyOf`/`discriminator` and remote `$ref` do not affect function registration, but form and column generation must degrade to `needs_review` with a recorded diagnostic — never silently swallow them and generate an unusable default page.
+
+Schema dialect is normalized before classification (SUI-009): OpenAPI 3.0 `nullable: true` and 3.1 `type: [T, "null"]` both canonicalize to a 2020-12 style `type` array with `"null"` last, so the primary (non-null) type drives the control and both declare the same nullability. A multi-type union (more than one non-null type), a conditional schema (`if`/`then`/`else`, `dependentSchemas`), and a tuple (`prefixItems`, `items` as an array) are not directly formable — they degrade to `needs_review` with the `openapi_schema_dialect_keyword` diagnostic (JSON editing or a manual binding / discriminator is required), never silently mis-rendered. The Go classifier and the web mirror classify the same samples identically (locked by the parity tests on both sides).
+
+Direction is also resolved before the form sees the schema (SUI-010): the request schema that feeds `inputSchema` has `readOnly` fields removed (`required` shrinks past them), and the response schema has `writeOnly` fields removed — the client never offers an input for a server-owned value and never validates a client-supplied secret as server output. The `openapi_schema_readonly_dropped` / `openapi_schema_writeonly_dropped` diagnostics record the removals; see the [request contract](./openapi-request-contract.md) document.
 
 ## OpenAPI Source and execution binding
 

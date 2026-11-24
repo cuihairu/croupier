@@ -30,6 +30,7 @@ import type {
 } from '@/types/dashboard';
 import { localizedText } from '@/utils/localizedText';
 import { humanizeFieldKey } from '@/utils/humanize';
+import { primarySchemaType } from '@/utils/schemaDialect';
 import { matchesCondition } from '@/components/PageRenderer/sectionCondition';
 import { customWidgets } from './widgets';
 import { uploadFields, uploadWidgets } from './widgets-upload';
@@ -376,8 +377,10 @@ function mergeFieldValidity(schema: RJSFSchema, field: FormFieldSpec): void {
       case 'min':
       case 'max': {
         if (!child || typeof rule.value !== 'number') break;
-        const isArray = child.type === 'array';
-        const isNumber = child.type === 'number' || child.type === 'integer';
+        // SUI-009：type 数组（可空/联合）以主类型判定控件语义。
+        const childType = primarySchemaType(child);
+        const isArray = childType === 'array';
+        const isNumber = childType === 'number' || childType === 'integer';
         if (rule.type === 'min') {
           if (isArray) child.minItems = rule.value;
           else if (isNumber) child.minimum = rule.value;
@@ -548,7 +551,9 @@ export function deriveRuntimeSchema(
     const requiredProps = schema.properties as Record<string, RJSFSchema> | undefined;
     for (const key of schema.required) {
       const child = requiredProps?.[key];
-      if (child && child.type === 'string' && child.minLength === undefined) {
+      // SUI-009：可空字符串（type:["string","null"]）主类型仍是 string，
+      // 必填非空规则照常（null 是显式值，不豁免非空必填）。
+      if (child && primarySchemaType(child) === 'string' && child.minLength === undefined) {
         child.minLength = 1;
       }
     }
