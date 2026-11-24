@@ -68,6 +68,34 @@ jobs:
         working-directory: docs
         run: pnpm build
 
+      - name: Purge stale same-run Pages artifacts
+        timeout-minutes: 3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          curl -s -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/artifacts?per_page=100" \
+            | python3 -c '
+          import json, sys, os, urllib.request
+          d = json.load(sys.stdin)
+          tok = os.environ["GITHUB_TOKEN"]
+          repo = os.environ["GITHUB_REPOSITORY"]
+          stale = [a for a in d.get("artifacts", []) if a.get("name") == "github-pages"]
+          ids = ",".join(str(a["id"]) for a in stale)
+          print("stale artifact ids:", ids or "none")
+          for a in stale:
+              req = urllib.request.Request(
+                  "https://api.github.com/repos/%s/actions/artifacts/%d" % (repo, a["id"]),
+                  method="DELETE",
+                  headers={"Authorization": "Bearer " + tok})
+              try:
+                  urllib.request.urlopen(req)
+                  print("deleted", a["id"])
+              except Exception as e:
+                  print("delete failed", a["id"], e)
+          '
+
       - name: Upload artifact
         timeout-minutes: 3
         uses: actions/upload-pages-artifact@v5.0.0
@@ -86,9 +114,9 @@ jobs:
               "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/artifacts?per_page=100")
             code=$(echo "${resp}" | tail -1)
             count=$(echo "${resp}" | head -n -1 \
-              | python3 -c 'import json,sys; d=json.load(sys.stdin); print(sum(1 for a in d.get("artifacts",[]) if a.get("name")=="github-pages"))' 2>/dev/null || echo 0)
-            if [ "${count:-0}" -ge 1 ]; then
-              echo "artifact visible (attempt ${i}, http ${code})"
+              | python3 -c 'import json,sys; d=json.load(sys.stdin); print(sum(1 for a in d.get("artifacts",[]) if a.get("name")=="github-pages" and not a.get("expired")))' 2>/dev/null || echo 0)
+            if [ "${count:-0}" -eq 1 ]; then
+              echo "artifact visible exactly-once (attempt ${i}, http ${code})"
               exit 0
             fi
             echo "attempt ${i}: http=${code} count=${count}; sleeping 10s"
@@ -97,7 +125,7 @@ jobs:
             fi
             sleep 10
           done
-          echo "artifact never became queryable"
+          echo "artifact never became queryable exactly-once"
           exit 1
 
       - name: Deploy to GitHub Pages
