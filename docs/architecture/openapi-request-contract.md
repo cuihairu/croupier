@@ -515,7 +515,7 @@ executor keeps the legacy behaviour.
   pipeline's `openAPIResponseSchema`) filter a response schema through the same
   `writeOnly` rule, but they have no diagnostic channel of their own, so a
   removed `writeOnly` field is not recorded. The `openapi_schema_writeonly_dropped`
-  code exists for a response filter with a channel (`FilterJSONSchemaDirection`
+  code exists for a response filter with a channel (`FilterSchemaDirection`
   takes a `notes` collector); the request side always records its
   `readOnly` drops in `OperationRequestContract.Diagnostics`.
 - A request-body schema flagged `readOnly` at its root drops the body slot

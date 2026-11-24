@@ -1913,3 +1913,45 @@ func TestService_CreateSource_WithTimeoutMs(t *testing.T) {
 	_, err = service3.CreateSource(openAPITestContext(), &OpenAPISourceCreateRequest{Spec: rawSpec(t, mk("fast"))})
 	require.ErrorContains(t, err, "invalid")
 }
+
+// TestOpenAPIResponseSchemaDirection：SUI-010——上传管线/绑定预览的响应
+// schema 与驱动输出同口径剔除 writeOnly 字段（该路径无诊断通道，见
+// docs/architecture/openapi-request-contract.md）。
+func TestOpenAPIResponseSchemaDirection(t *testing.T) {
+	t.Parallel()
+
+	build := func(rootWriteOnly bool) *openapi3.Operation {
+		schema := openapi3.NewObjectSchema()
+		secret := openapi3.NewStringSchema()
+		secret.WriteOnly = true
+		id := openapi3.NewStringSchema()
+		schema.WithProperty("secret", secret)
+		schema.WithProperty("id", id)
+		schema.WithRequired([]string{"secret", "id"})
+		if rootWriteOnly {
+			schema.WriteOnly = true
+		}
+		resp := openapi3.NewResponse().WithDescription("ok")
+		resp.Content = openapi3.NewContentWithJSONSchema(schema)
+		op := openapi3.NewOperation()
+		op.Responses = openapi3.NewResponses()
+		op.Responses.Set("200", &openapi3.ResponseRef{Value: resp})
+		return op
+	}
+
+	t.Run("write_only_field_dropped", func(t *testing.T) {
+		out := openAPIResponseSchema(build(false))
+		require.NotEmpty(t, out)
+		var parsed map[string]any
+		require.NoError(t, json.Unmarshal([]byte(out), &parsed))
+		props := parsed["properties"].(map[string]any)
+		assert.NotContains(t, props, "secret", "the server must not return the writeOnly field")
+		assert.Contains(t, props, "id")
+		assert.Equal(t, []any{"id"}, parsed["required"], "the required set shrinks past the dropped field")
+	})
+
+	t.Run("root_write_only_yields_no_schema", func(t *testing.T) {
+		assert.Empty(t, openAPIResponseSchema(build(true)),
+			"a response schema that belongs to the request side entirely yields no output schema")
+	})
+}

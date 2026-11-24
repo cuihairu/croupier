@@ -72,12 +72,13 @@ func extractInputSchema(methodObj, root map[string]interface{}) string {
 }
 
 // extractInputSchemaWithIssues is extractInputSchema plus the contract-level
-// diagnostics of the map fallback path (SUI-008/SUI-009): unresolved schema
-// references and degraded dialect keywords. The provider surfaces them as
-// method diagnostics.
+// diagnostics of the map fallback path (SUI-008/SUI-009/SUI-010): unresolved
+// schema references, degraded dialect keywords and dropped readOnly fields.
+// The provider surfaces them as method diagnostics.
 func extractInputSchemaWithIssues(methodObj, root map[string]interface{}) (string, []spec.Diagnostic) {
 	var issues []refIssue
 	var notes []spec.DialectNote
+	var directionNotes []spec.DirectionNote
 	properties := make(map[string]interface{})
 	var required []string
 
@@ -88,25 +89,38 @@ func extractInputSchemaWithIssues(methodObj, root map[string]interface{}) (strin
 		if param.required {
 			required = appendUniqueString(required, param.name)
 		}
-		properties[param.name] = param.schema
+		filtered := spec.FilterSchemaDirection(param.schema, spec.SchemaDirectionRequest, &directionNotes)
+		if filtered == nil {
+			// A flagged parameter root keeps the parameter with an empty
+			// schema (SUI-010): addressing must never break, so the field
+			// stays visible in the flat schema instead of vanishing.
+			filtered = map[string]interface{}{}
+		}
+		properties[param.name] = filtered
 	}
 
 	if resolved, ok := extractJSONBodySchema(methodObj, root, &issues); ok {
-		if typ, _ := resolved["type"].(string); typ == "object" {
-			if bodyProps, ok := resolved["properties"].(map[string]interface{}); ok {
-				for key, value := range bodyProps {
-					properties[key] = value
-				}
-			}
-			if bodyRequired, ok := resolved["required"].([]interface{}); ok {
-				for _, item := range bodyRequired {
-					if name, ok := item.(string); ok {
-						required = appendUniqueString(required, name)
+		// SUI-010: the request side loses its readOnly fields; a body whose
+		// root is flagged belongs to the response side entirely and the
+		// operation is left with no body to send.
+		resolved = spec.FilterSchemaDirection(resolved, spec.SchemaDirectionRequest, &directionNotes)
+		if resolved != nil {
+			if typ, _ := resolved["type"].(string); typ == "object" {
+				if bodyProps, ok := resolved["properties"].(map[string]interface{}); ok {
+					for key, value := range bodyProps {
+						properties[key] = value
 					}
 				}
+				if bodyRequired, ok := resolved["required"].([]interface{}); ok {
+					for _, item := range bodyRequired {
+						if name, ok := item.(string); ok {
+							required = appendUniqueString(required, name)
+						}
+					}
+				}
+			} else {
+				properties["body"] = resolved
 			}
-		} else {
-			properties["body"] = resolved
 		}
 	}
 
@@ -117,12 +131,14 @@ func extractInputSchemaWithIssues(methodObj, root map[string]interface{}) (strin
 	// SUI-009: normalize the assembled schema to the canonical dialect form
 	// so the fallback path matches the contract path (nullable folding,
 	// degraded-keyword notes).
-	schema = spec.NormalizeSchemaDialect(schema, spec.DetectSchemaDialect(root), &notes)
+	dialect := spec.DetectSchemaDialect(root)
+	schema = spec.NormalizeSchemaDialect(schema, dialect, &notes)
 	// Input originates from json.Unmarshal output, so Marshal cannot fail
 	// (same shape as the spec merge in parseOpenAPISpec).
 	encoded, _ := json.Marshal(schema)
 	diagnostics := refIssuesToDiagnostics(issues)
 	diagnostics = append(diagnostics, spec.DialectNotesToDiagnostics(notes)...)
+	diagnostics = append(diagnostics, spec.DirectionNotesToDiagnostics(directionNotes)...)
 	return string(encoded), diagnostics
 }
 

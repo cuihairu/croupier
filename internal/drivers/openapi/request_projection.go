@@ -23,9 +23,10 @@ type InputProjection struct {
 
 // ProjectInput keeps compatible object fields flat and groups fields when
 // flattening would conflate inputs or drop constraints. The contract is
-// canonicalized first (SUI-008/SUI-009): schema references are inlined
-// against the document and the dialect normalized, so the projection — and
-// the flat/grouped diagnostics computed from it — always sees the standalone
+// canonicalized first (SUI-008/SUI-009/SUI-010): schema references are
+// inlined against the document, the dialect is normalized and the request side
+// is stripped of response-only fields, so the projection — and the
+// flat/grouped diagnostics computed from it — always sees the standalone
 // canonical schema.
 func ProjectInput(operationID string, request *RequestContract, root map[string]any) InputProjection {
 	var projection InputProjection

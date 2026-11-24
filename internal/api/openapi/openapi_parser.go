@@ -677,6 +677,30 @@ func openAPIRequestSchema(op *openapi3.Operation) string {
 	return string(raw)
 }
 
+// openAPIResponseSchemaDirection strips the fields the server must not
+// return from a response schema (SUI-010: `writeOnly`). This path has no
+// diagnostic channel — the response schema of the source-upload and binding
+// preview surfaces — so the drop is silent by design
+// (docs/architecture/openapi-request-contract.md).
+func openAPIResponseSchemaDirection(schema string) string {
+	if schema == "" {
+		return ""
+	}
+	var parsed map[string]interface{}
+	if err := json.Unmarshal([]byte(schema), &parsed); err != nil {
+		return schema
+	}
+	filtered := spec.FilterSchemaDirection(parsed, spec.SchemaDirectionResponse, nil)
+	if filtered == nil {
+		return ""
+	}
+	encoded, err := json.Marshal(filtered)
+	if err != nil {
+		return schema
+	}
+	return string(encoded)
+}
+
 func openAPIResponseSchema(op *openapi3.Operation) string {
 	if op == nil || op.Responses == nil {
 		return ""
@@ -684,14 +708,14 @@ func openAPIResponseSchema(op *openapi3.Operation) string {
 	for _, code := range []string{"200", "201", "default"} {
 		if ref := op.Responses.Value(code); ref != nil && ref.Value != nil {
 			if schema := openAPIMediaSchemaJSON(ref.Value.Content); schema != "" {
-				return schema
+				return openAPIResponseSchemaDirection(schema)
 			}
 		}
 	}
 	for _, ref := range op.Responses.Map() {
 		if ref != nil && ref.Value != nil {
 			if schema := openAPIMediaSchemaJSON(ref.Value.Content); schema != "" {
-				return schema
+				return openAPIResponseSchemaDirection(schema)
 			}
 		}
 	}
