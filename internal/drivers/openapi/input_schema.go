@@ -71,11 +71,13 @@ func extractInputSchema(methodObj, root map[string]interface{}) string {
 	return schema
 }
 
-// extractInputSchemaWithIssues is extractInputSchema plus the unresolved
-// references collected while inlining (SUI-008); the provider fallback path
-// surfaces them as method diagnostics.
-func extractInputSchemaWithIssues(methodObj, root map[string]interface{}) (string, []refIssue) {
+// extractInputSchemaWithIssues is extractInputSchema plus the contract-level
+// diagnostics of the map fallback path (SUI-008/SUI-009): unresolved schema
+// references and degraded dialect keywords. The provider surfaces them as
+// method diagnostics.
+func extractInputSchemaWithIssues(methodObj, root map[string]interface{}) (string, []spec.Diagnostic) {
 	var issues []refIssue
+	var notes []spec.DialectNote
 	properties := make(map[string]interface{})
 	var required []string
 
@@ -112,10 +114,16 @@ func extractInputSchemaWithIssues(methodObj, root map[string]interface{}) (strin
 	if len(required) > 0 {
 		schema["required"] = required
 	}
+	// SUI-009: normalize the assembled schema to the canonical dialect form
+	// so the fallback path matches the contract path (nullable folding,
+	// degraded-keyword notes).
+	schema = spec.NormalizeSchemaDialect(schema, spec.DetectSchemaDialect(root), &notes)
 	// Input originates from json.Unmarshal output, so Marshal cannot fail
 	// (same shape as the spec merge in parseOpenAPISpec).
 	encoded, _ := json.Marshal(schema)
-	return string(encoded), issues
+	diagnostics := refIssuesToDiagnostics(issues)
+	diagnostics = append(diagnostics, spec.DialectNotesToDiagnostics(notes)...)
+	return string(encoded), diagnostics
 }
 
 // derivedParam is one caller-facing parameter projected into the input schema.

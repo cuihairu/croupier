@@ -400,8 +400,30 @@ func schemaRootType(outputSchema spec.JSONSchema) string {
 	return schemaTypeFromObject(parseJSONObject(jsonRaw(outputSchema)))
 }
 
+// schemaTypeFromObject resolves the primary schema type of a schema object
+// (SUI-009): a plain `type` string passes through; a `type` array yields the
+// first non-null entry (the same rule as the web mirror's primarySchemaType),
+// so a nullable `["string","null"]` field keeps its string placeholder instead
+// of silently losing it.
 func schemaTypeFromObject(obj map[string]json.RawMessage) string {
-	return rawString(obj["type"])
+	raw := obj["type"]
+	if len(raw) == 0 {
+		return ""
+	}
+	var single string
+	if err := json.Unmarshal(raw, &single); err == nil {
+		return single
+	}
+	var types []string
+	if err := json.Unmarshal(raw, &types); err == nil {
+		for _, typ := range types {
+			if typ != "null" {
+				return typ
+			}
+		}
+		return "null"
+	}
+	return ""
 }
 
 func jsonRaw(schema spec.JSONSchema) json.RawMessage {

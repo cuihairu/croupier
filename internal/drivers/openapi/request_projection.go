@@ -22,19 +22,21 @@ type InputProjection struct {
 }
 
 // ProjectInput keeps compatible object fields flat and groups fields when
-// flattening would conflate inputs or drop constraints. Schema references
-// that cannot be inlined into the standalone projection are recorded as
-// diagnostics (SUI-008).
+// flattening would conflate inputs or drop constraints. The contract is
+// canonicalized first (SUI-008/SUI-009): schema references are inlined
+// against the document and the dialect normalized, so the projection — and
+// the flat/grouped diagnostics computed from it — always sees the standalone
+// canonical schema.
 func ProjectInput(operationID string, request *RequestContract, root map[string]any) InputProjection {
 	var projection InputProjection
-	var issues []refIssue
+	canonical, canonicalDiagnostics := canonicalizeRequest(operationID, request, root)
 	diagnose := func(code, field, message string) {
 		projection.Diagnostics = append(projection.Diagnostics, spec.Diagnostic{
 			Code: code, Severity: spec.SeverityWarning, FunctionID: operationID, Field: field, Message: message,
 		})
 	}
 	fields := make(map[string]string)
-	for _, p := range request.Parameters {
+	for _, p := range canonical.Parameters {
 		if previous, ok := fields[p.Name]; ok {
 			diagnose(FlatInputCollision, p.Origin.Pointer+"/name",
 				fmt.Sprintf("Input %q also appears at %s", p.Name, previous))
@@ -43,17 +45,17 @@ func ProjectInput(operationID string, request *RequestContract, root map[string]
 	}
 
 	var body map[string]any
-	if request.Body != nil {
-		media, hasJSON := request.Body.Content["application/json"]
-		body, _ = resolvedRequestSchema(media.Schema, root, &issues)
-		bodyPath := request.Body.Origin.Pointer
+	if canonical.Body != nil {
+		media, hasJSON := canonical.Body.Content["application/json"]
+		body, _ = resolvedRequestSchema(media.Schema, root, nil)
+		bodyPath := canonical.Body.Origin.Pointer
 		schemaPath := bodyPath + "/content/application~1json/schema"
 		if !hasJSON {
 			diagnose(FlatInputConstraint, bodyPath+"/content", "No application/json body is declared")
 		} else if body == nil || body["type"] != "object" {
 			diagnose(FlatInputConstraint, schemaPath, "Request body requires its own JSON value")
 		} else if len(fields) > 0 {
-			if !request.Body.Required {
+			if !canonical.Body.Required {
 				diagnose(FlatInputConstraint, bodyPath+"/required", "Flat input cannot identify whether the optional body was supplied")
 			}
 			for _, name := range slices.Sorted(maps.Keys(body)) {
@@ -87,30 +89,31 @@ func ProjectInput(operationID string, request *RequestContract, root map[string]
 	switch {
 	case len(projection.Diagnostics) > 0:
 		projection.Grouped = true
-		projection.Schema = groupedInputSchema(request, root, body, &issues)
+		projection.Schema = groupedInputSchema(canonical, root, body)
 	case len(fields) == 0 && body != nil:
 		raw, _ := json.Marshal(body)
 		projection.Schema = string(raw)
 	default:
-		projection.Schema = legacyInputSchema(request, root, body, &issues)
+		projection.Schema = legacyInputSchema(canonical, root, body)
 	}
-	// Unresolved references (SUI-008) precede the projection diagnostics so a
-	// stable import order keeps the stored diagnostic list deterministic.
-	projection.Diagnostics = append(refIssuesToDiagnostics(issues), projection.Diagnostics...)
+	// Canonicalization diagnostics (unresolved references SUI-008, dialect
+	// keywords SUI-009) precede the projection diagnostics so a stable import
+	// order keeps the stored diagnostic list deterministic.
+	projection.Diagnostics = append(canonicalDiagnostics, projection.Diagnostics...)
 	for i := range projection.Diagnostics {
 		projection.Diagnostics[i].FunctionID = operationID
 	}
 	return projection
 }
 
-func groupedInputSchema(request *RequestContract, root map[string]any, body map[string]any, issues *[]refIssue) string {
+func groupedInputSchema(request *RequestContract, root map[string]any, body map[string]any) string {
 	parameters := make(map[string]map[string]any)
 	requiredParams := make(map[string][]string)
 	for _, p := range request.Parameters {
 		if parameters[p.In] == nil {
 			parameters[p.In] = make(map[string]any)
 		}
-		parameters[p.In][p.Name] = parameterInputSchema(p, root, issues)
+		parameters[p.In][p.Name] = parameterInputSchema(p, root)
 		if p.Required {
 			requiredParams[p.In] = append(requiredParams[p.In], p.Name)
 		}

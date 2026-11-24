@@ -32,7 +32,7 @@ func kinRequestContracts(spec []byte) map[requestOperation]*RequestContract {
 }
 
 // legacyInputSchema joins a compatible set of parameters and object fields.
-func legacyInputSchema(request *RequestContract, root map[string]any, body map[string]any, issues *[]refIssue) string {
+func legacyInputSchema(request *RequestContract, root map[string]any, body map[string]any) string {
 	properties := make(map[string]interface{})
 	var required []string
 
@@ -43,7 +43,7 @@ func legacyInputSchema(request *RequestContract, root map[string]any, body map[s
 		if param.Required {
 			required = appendUniqueString(required, param.Name)
 		}
-		properties[param.Name] = parameterInputSchema(param, root, issues)
+		properties[param.Name] = parameterInputSchema(param, root)
 	}
 
 	bodyProps, _ := body["properties"].(map[string]any)
@@ -66,8 +66,8 @@ func legacyInputSchema(request *RequestContract, root map[string]any, body map[s
 	return string(encoded)
 }
 
-func parameterInputSchema(param RequestParameter, root map[string]any, issues *[]refIssue) map[string]any {
-	prop, _ := resolvedRequestSchema(param.Schema, root, issues)
+func parameterInputSchema(param RequestParameter, root map[string]any) map[string]any {
+	prop, _ := resolvedRequestSchema(param.Schema, root, nil)
 	if len(prop) == 0 {
 		prop = map[string]any{"type": "string"}
 	}

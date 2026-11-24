@@ -199,12 +199,13 @@ func (p *Provider) parseOpenAPISpec(spec []byte) error {
 			if request != nil {
 				projection = ProjectInput(methodName, request, openapi)
 			} else {
-				// Map fallback: unresolved references surface as method
-				// diagnostics here (SUI-008) — kin refuses such documents,
-				// so the boundaries land on this path.
-				fallbackSchema, fallbackIssues := extractInputSchemaWithIssues(methodObj, openapi)
+				// Map fallback: contract-level diagnostics (unresolved
+				// references SUI-008, dialect keywords SUI-009) surface here
+				// — kin refuses such documents, so the boundaries land on
+				// this path.
+				fallbackSchema, fallbackDiagnostics := extractInputSchemaWithIssues(methodObj, openapi)
 				projection.Schema = fallbackSchema
-				for _, diagnostic := range refIssuesToDiagnostics(fallbackIssues) {
+				for _, diagnostic := range fallbackDiagnostics {
 					diagnostic.FunctionID = methodName
 					projection.Diagnostics = append(projection.Diagnostics, diagnostic)
 				}

@@ -311,3 +311,68 @@ func TestExtraBuildFormFields(t *testing.T) {
 	assert.Equal(t, spec.FormWidgetSelect, byKey["region"].Widget)
 	assert.NotEmpty(t, byKey["level"].Label["zh-CN"])
 }
+
+// ---------------------------------------------------------------------------
+// SUI-009: primary-type extraction feeds widget/placeholder derivation
+// ---------------------------------------------------------------------------
+
+func TestExtraSchemaTypeFromObject_TypeArray(t *testing.T) {
+	// 单类型：原样返回
+	assert.Equal(t, "string", schemaTypeFromObject(map[string]json.RawMessage{
+		"type": json.RawMessage(`"string"`),
+	}))
+
+	// 3.1 可空：type 数组取首个非 null 主类型（"null" 归一后恒在末位）
+	assert.Equal(t, "string", schemaTypeFromObject(map[string]json.RawMessage{
+		"type": json.RawMessage(`["string","null"]`),
+	}))
+
+	// 多类型联合：取首个非 null
+	assert.Equal(t, "integer", schemaTypeFromObject(map[string]json.RawMessage{
+		"type": json.RawMessage(`["integer","string","null"]`),
+	}))
+
+	// "null" 在前（未归一输入）：仍取首个非 null 主类型
+	assert.Equal(t, "integer", schemaTypeFromObject(map[string]json.RawMessage{
+		"type": json.RawMessage(`["null","integer"]`),
+	}))
+
+	// 全 null：返回 "null"
+	assert.Equal(t, "null", schemaTypeFromObject(map[string]json.RawMessage{
+		"type": json.RawMessage(`["null"]`),
+	}))
+
+	// 无 type：返回 ""
+	assert.Equal(t, "", schemaTypeFromObject(map[string]json.RawMessage{}))
+	assert.Equal(t, "", schemaTypeFromObject(nil))
+
+	// 畸形 type：返回 ""（不 panic）
+	assert.Equal(t, "", schemaTypeFromObject(map[string]json.RawMessage{
+		"type": json.RawMessage(`42`),
+	}))
+}
+
+func TestExtraSchemaTypeFromObject_FeedsWidgetDerivation(t *testing.T) {
+	// 可空字段（3.0 nullable / 3.1 type 数组）应推导出与不可空同款控件：
+	// 服务端 defaultWidgetForSchema 走 schemaTypeFromObject，须取主类型而非 ""
+	nullable := spec.JSONSchema(`{
+		"type":"object",
+		"required":["nickname"],
+		"properties":{
+			"nickname":{"type":["string","null"],"title":"昵称"},
+			"level":{"type":"integer","nullable":true}
+		}
+	}`)
+	fields := buildFormFields(nullable, "zh-CN")
+	byKey := map[string]spec.FormFieldSpec{}
+	for _, f := range fields {
+		byKey[f.Key] = f
+	}
+	// 可空 string 无 x-widget/format：不强制 widget（渲染端按主类型派生 Input），
+	// 但 placeholder 兜底必须命中——它走 schemaTypeFromObject(prop)=="string"，
+	// SUI-009 前对 type 数组返回 "" 会静默丢失 placeholder。
+	assert.Equal(t, spec.FormWidget(""), byKey["nickname"].Widget)
+	assert.NotNil(t, byKey["nickname"].Placeholder, "可空 string 的 placeholder 兜底须生效")
+	assert.Equal(t, spec.FormWidgetNumber, byKey["level"].Widget,
+		"3.0 nullable integer 应派生 number 控件")
+}
