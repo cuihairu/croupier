@@ -67,7 +67,7 @@ func extractOutputSchema(methodObj, root map[string]interface{}) string {
 		if !ok {
 			continue
 		}
-		resolved, ok := resolveSchemaRefs(schemaMap, root, 0).(map[string]interface{})
+		resolved, ok := resolveSchemaRefs(schemaMap, root, 0, nil).(map[string]interface{})
 		if !ok {
 			continue
 		}

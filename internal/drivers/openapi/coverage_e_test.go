@@ -49,7 +49,7 @@ func TestCoverageE_ExtractParameterSchemasSkipsNonObjectEntries(t *testing.T) {
 			map[string]interface{}{"name": "page", "required": true},
 		},
 	}
-	params := extractParameterSchemas(methodObj, map[string]interface{}{})
+	params := extractParameterSchemas(methodObj, map[string]interface{}{}, nil)
 	assert.Len(t, params, 1)
 	assert.Equal(t, "page", params[0].name)
 	assert.True(t, params[0].required)
@@ -69,7 +69,7 @@ func TestCoverageE_ExtractJSONBodySchemaNegativeShapes(t *testing.T) {
 		{"requestBody": map[string]interface{}{"content": map[string]interface{}{"text/plain": map[string]interface{}{}}}},
 	}
 	for i, methodObj := range cases {
-		res, ok := extractJSONBodySchema(methodObj, root)
+		res, ok := extractJSONBodySchema(methodObj, root, nil)
 		assert.False(t, ok, "case %d", i)
 		assert.Nil(t, res, "case %d", i)
 	}
@@ -81,7 +81,8 @@ func TestCoverageE_ResolveRefPointerThroughNonMapNode(t *testing.T) {
 	root := map[string]interface{}{
 		"a": map[string]interface{}{"b": "scalar"},
 	}
-	res := resolveRefPointer("#/a/b/c", root, 0)
+	var issues []refIssue
+	res := resolveRefPointer("#/a/b/c", root, 0, &issues)
 	assert.Equal(t, map[string]interface{}{"type": "object"}, res)
 }
 
@@ -101,7 +102,7 @@ func TestCoverageE_ExtractJSONBodySchemaRefToScalarNode(t *testing.T) {
 			},
 		},
 	}
-	res, ok := extractJSONBodySchema(methodObj, root)
+	res, ok := extractJSONBodySchema(methodObj, root, nil)
 	assert.False(t, ok)
 	assert.Nil(t, res)
 }

@@ -32,7 +32,7 @@ func kinRequestContracts(spec []byte) map[requestOperation]*RequestContract {
 }
 
 // legacyInputSchema joins a compatible set of parameters and object fields.
-func legacyInputSchema(request *RequestContract, root map[string]any, body map[string]any) string {
+func legacyInputSchema(request *RequestContract, root map[string]any, body map[string]any, issues *[]refIssue) string {
 	properties := make(map[string]interface{})
 	var required []string
 
@@ -43,7 +43,7 @@ func legacyInputSchema(request *RequestContract, root map[string]any, body map[s
 		if param.Required {
 			required = appendUniqueString(required, param.Name)
 		}
-		properties[param.Name] = parameterInputSchema(param, root)
+		properties[param.Name] = parameterInputSchema(param, root, issues)
 	}
 
 	bodyProps, _ := body["properties"].(map[string]any)
@@ -66,8 +66,8 @@ func legacyInputSchema(request *RequestContract, root map[string]any, body map[s
 	return string(encoded)
 }
 
-func parameterInputSchema(param RequestParameter, root map[string]any) map[string]any {
-	prop, _ := resolvedRequestSchema(param.Schema, root)
+func parameterInputSchema(param RequestParameter, root map[string]any, issues *[]refIssue) map[string]any {
+	prop, _ := resolvedRequestSchema(param.Schema, root, issues)
 	if len(prop) == 0 {
 		prop = map[string]any{"type": "string"}
 	}
@@ -80,12 +80,14 @@ func parameterInputSchema(param RequestParameter, root map[string]any) map[strin
 	return prop
 }
 
-// resolvedRequestSchema retains the existing local reference behavior of input projections.
-func resolvedRequestSchema(raw json.RawMessage, root map[string]interface{}) (map[string]interface{}, bool) {
+// resolvedRequestSchema retains the existing local reference behavior of
+// input projections. issues collects the references that could not be
+// inlined (SUI-008); nil keeps the legacy silent behavior.
+func resolvedRequestSchema(raw json.RawMessage, root map[string]interface{}, issues *[]refIssue) (map[string]interface{}, bool) {
 	var value interface{}
 	if err := json.Unmarshal(raw, &value); err != nil {
 		return nil, false
 	}
-	resolved, ok := resolveSchemaRefs(value, root, 0).(map[string]interface{})
+	resolved, ok := resolveSchemaRefs(value, root, 0, issues).(map[string]interface{})
 	return resolved, ok
 }

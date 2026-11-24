@@ -22,9 +22,12 @@ type InputProjection struct {
 }
 
 // ProjectInput keeps compatible object fields flat and groups fields when
-// flattening would conflate inputs or drop constraints.
+// flattening would conflate inputs or drop constraints. Schema references
+// that cannot be inlined into the standalone projection are recorded as
+// diagnostics (SUI-008).
 func ProjectInput(operationID string, request *RequestContract, root map[string]any) InputProjection {
 	var projection InputProjection
+	var issues []refIssue
 	diagnose := func(code, field, message string) {
 		projection.Diagnostics = append(projection.Diagnostics, spec.Diagnostic{
 			Code: code, Severity: spec.SeverityWarning, FunctionID: operationID, Field: field, Message: message,
@@ -42,7 +45,7 @@ func ProjectInput(operationID string, request *RequestContract, root map[string]
 	var body map[string]any
 	if request.Body != nil {
 		media, hasJSON := request.Body.Content["application/json"]
-		body, _ = resolvedRequestSchema(media.Schema, root)
+		body, _ = resolvedRequestSchema(media.Schema, root, &issues)
 		bodyPath := request.Body.Origin.Pointer
 		schemaPath := bodyPath + "/content/application~1json/schema"
 		if !hasJSON {
@@ -84,24 +87,30 @@ func ProjectInput(operationID string, request *RequestContract, root map[string]
 	switch {
 	case len(projection.Diagnostics) > 0:
 		projection.Grouped = true
-		projection.Schema = groupedInputSchema(request, root, body)
+		projection.Schema = groupedInputSchema(request, root, body, &issues)
 	case len(fields) == 0 && body != nil:
 		raw, _ := json.Marshal(body)
 		projection.Schema = string(raw)
 	default:
-		projection.Schema = legacyInputSchema(request, root, body)
+		projection.Schema = legacyInputSchema(request, root, body, &issues)
+	}
+	// Unresolved references (SUI-008) precede the projection diagnostics so a
+	// stable import order keeps the stored diagnostic list deterministic.
+	projection.Diagnostics = append(refIssuesToDiagnostics(issues), projection.Diagnostics...)
+	for i := range projection.Diagnostics {
+		projection.Diagnostics[i].FunctionID = operationID
 	}
 	return projection
 }
 
-func groupedInputSchema(request *RequestContract, root map[string]any, body map[string]any) string {
+func groupedInputSchema(request *RequestContract, root map[string]any, body map[string]any, issues *[]refIssue) string {
 	parameters := make(map[string]map[string]any)
 	requiredParams := make(map[string][]string)
 	for _, p := range request.Parameters {
 		if parameters[p.In] == nil {
 			parameters[p.In] = make(map[string]any)
 		}
-		parameters[p.In][p.Name] = parameterInputSchema(p, root)
+		parameters[p.In][p.Name] = parameterInputSchema(p, root, issues)
 		if p.Required {
 			requiredParams[p.In] = append(requiredParams[p.In], p.Name)
 		}
