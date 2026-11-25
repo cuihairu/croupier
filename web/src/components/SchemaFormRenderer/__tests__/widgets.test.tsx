@@ -14,8 +14,11 @@ import { act, fireEvent, render, waitFor } from '@testing-library/react';
 import type { RJSFSchema, WidgetProps } from '@rjsf/utils';
 import {
   CascaderWidget,
+  DateWidget,
+  DateTimeWidget,
   RateWidget,
   RemoteSelectWidget,
+  TimeWidget,
   TreeSelectWidget,
   customWidgets,
 } from '../widgets';
@@ -764,10 +767,15 @@ describe('RemoteSelectWidget', () => {
 });
 
 describe('customWidgets 注册表', () => {
-  it('treeSelect/cascader/rate/select 指向对应实现', () => {
+  it('treeSelect/cascader/rate/select/date 系指向对应实现', () => {
     expect(customWidgets.treeSelect).toBe(TreeSelectWidget);
     expect(customWidgets.cascader).toBe(CascaderWidget);
     expect(customWidgets.rate).toBe(RateWidget);
     expect(customWidgets.select).toBe(RemoteSelectWidget);
+    // SUI-022：registry key 与 rjsf getWidget widgetMap 一致（format 缺省路径
+    // 与 x-widget 路径同一次注册全收）
+    expect(customWidgets.DateWidget).toBe(DateWidget);
+    expect(customWidgets.DateTimeWidget).toBe(DateTimeWidget);
+    expect(customWidgets.TimeWidget).toBe(TimeWidget);
   });
 });

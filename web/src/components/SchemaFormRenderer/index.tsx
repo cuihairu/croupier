@@ -92,7 +92,9 @@ function normalizeJsonValue(value: unknown): JSONValue {
   }
   if (isObject(value)) {
     return Object.fromEntries(
-      Object.entries(value).map(([key, item]) => [key, normalizeJsonValue(item)]),
+      Object.entries(value)
+        .filter(([, item]) => item !== undefined)
+        .map(([key, item]) => [key, normalizeJsonValue(item)]),
     );
   }
   return null;
@@ -100,8 +102,13 @@ function normalizeJsonValue(value: unknown): JSONValue {
 
 function normalizeFormValues(value: unknown): FormValues {
   if (!isObject(value)) return {};
+  // SUI-022：undefined 值键直接剔除，不折成 null。rjsf v6 清空 leaf 后键以
+  // undefined 滞留在 state.formData（AJV 校验时被 JSON 序列化剥掉，但这里的
+  // 投影若折成 null，null 会复活进提交 payload 并撞服务端 type 校验）。
   return Object.fromEntries(
-    Object.entries(value).map(([key, item]) => [key, normalizeJsonValue(item)]),
+    Object.entries(value)
+      .filter(([, item]) => item !== undefined)
+      .map(([key, item]) => [key, normalizeJsonValue(item)]),
   );
 }
 

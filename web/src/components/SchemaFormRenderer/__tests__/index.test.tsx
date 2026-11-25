@@ -872,7 +872,7 @@ describe('SchemaFormRenderer 组件', () => {
     expect(stub()).toHaveAttribute('data-formdata', '{"mode":"batch","targetPlayer":"p9"}');
   });
 
-  it('提交剔除隐藏字段并归一化值（含 undefined/函数→null）', async () => {
+  it('提交剔除隐藏字段并归一化值（undefined 键剔除、null/函数→null；SUI-022）', async () => {
     // visibleSpec：formValues 为 {} 时 mode 不满足 visibleWhen → 隐藏
     const onFinish = jest.fn();
     render(<SchemaFormRenderer spec={visibleSpec} initialValues={{}} onFinish={onFinish} />);
@@ -886,7 +886,7 @@ describe('SchemaFormRenderer 组件', () => {
       nil: null,
       arr: [1, 'a', { deep: 1 }],
       obj: { k: 'v' },
-      miss: null,
+      // SUI-022：miss 为 undefined——清空滞留形态直接剔除，不折成 null
       fn: null,
     });
   });
@@ -919,7 +919,7 @@ describe('SchemaFormRenderer imperative handle', () => {
       nil: null,
       arr: [1, 'a', { deep: 1 }],
       obj: { k: 'v' },
-      miss: null,
+      // SUI-022：miss（undefined）键剔除
       fn: null,
     });
   });
