@@ -283,7 +283,8 @@ func TestServiceSaveDraftRejectsInvalidPageType(t *testing.T) {
 	assert.Contains(t, err.Error(), "type must be resource, operation, task, or report")
 }
 
-// T12 放宽：仅 en-US 的存量形态不再被拒（默认名称必填、翻译可选）。
+// T12 relaxation: pre-existing en-US-only forms are no longer rejected (the
+// default name is required, translations are optional).
 func TestServiceSaveDraftAcceptsEnOnlyTitle(t *testing.T) {
 	service, ctx, _ := newPageTestService(t, "pages:edit")
 	revision := 0
@@ -303,7 +304,8 @@ func TestServiceSaveDraftAcceptsEnOnlyTitle(t *testing.T) {
 	assert.Equal(t, "test.page", resp.PageKey)
 }
 
-// T12 放宽后全空仍拒：title 一个非空 locale 都没有。
+// After the T12 relaxation, fully empty titles are still rejected: the title
+// has not a single non-empty locale.
 func TestServiceSaveDraftRejectsEmptyTitle(t *testing.T) {
 	service, ctx, _ := newPageTestService(t, "pages:edit")
 	revision := 0
@@ -323,8 +325,9 @@ func TestServiceSaveDraftRejectsEmptyTitle(t *testing.T) {
 	assert.Contains(t, err.Error(), "title must include a non-empty value in at least one locale")
 }
 
-// T-M8 后分类名称由菜单系统（menu_items.labels）提供，页面规格只保留
-// category.key，保存草稿不再要求 category.labels。
+// After T-M8, category names come from the menu system (menu_items.labels),
+// and the page spec keeps only category.key, so saving a draft no longer
+// requires category.labels.
 func TestServiceSaveDraftAllowsCategoryWithoutLabels(t *testing.T) {
 	service, ctx, _ := newPageTestService(t, "pages:edit")
 	revision := 0
@@ -700,7 +703,8 @@ func TestCountErrorsV2(t *testing.T) {
 	assert.Equal(t, 2, countErrors(diags))
 }
 
-// T12 放宽：任一 locale 非空即过（默认名称必填、翻译可选）。
+// T12 relaxation: any single non-empty locale passes (the default name is
+// required, translations are optional).
 func TestHasDefaultLocaleV2(t *testing.T) {
 	assert.False(t, hasDefaultLocale(nil))
 	assert.False(t, hasDefaultLocale(spec.LocalizedText{}))

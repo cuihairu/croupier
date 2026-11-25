@@ -57,8 +57,8 @@ func TestRebuildAllProposals_RegeneratesStaleGeneratorVersion(t *testing.T) {
 	updated, err := proposalModel.FindByScopeAndKey(ctx, gameID, env, key)
 	require.NoError(t, err)
 	assert.Equal(t, contractsvc.PageProposalGeneratorVersion, updated.GeneratorVersion)
-	// humanize 兜底：重生成的标题/列名为 Humanize 后的可读形式，
-	// 不再保留旧生成器的裸 key。
+	// humanize fallback: regenerated titles/column names are the readable
+	// Humanize forms, no longer keeping the old generator's bare keys.
 	assert.Contains(t, string(updated.PageSpec), "Player")
 	assert.NotContains(t, string(updated.PageSpec), "\"zh-CN\":\"player\"")
 }
@@ -107,7 +107,8 @@ func seedResourceProposal(t *testing.T, service *Service) {
 	require.NoError(t, contractSvc.RebuildProposalsForResource(ctx, "demo-game", "development", "player"))
 }
 
-// F：一键发布全部——ready 提案全部通过真实 accept-and-publish 链路上架。
+// F: one-click publish all -- every ready proposal goes live through the real
+// accept-and-publish chain.
 func TestBulkPublish_PublishesAllReadyProposals(t *testing.T) {
 	service, ctx, _ := newPageTestService(t, "pages:publish")
 	seedResourceProposal(t, service)
@@ -116,13 +117,14 @@ func TestBulkPublish_PublishesAllReadyProposals(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotEmpty(t, resp.Published)
 
-	// 再次执行：无 pending ready 提案 → 空发布
+	// Run it again: no pending ready proposals -> empty publish
 	resp2, err := service.BulkPublish(ctx, &PageBulkRequest{})
 	require.NoError(t, err)
 	assert.Empty(t, resp2.Published)
 }
 
-// F：一键下架全部——已发布页面逐个走真实 Unpublish 链路。
+// F: one-click unpublish all -- each published page goes offline through the
+// real Unpublish chain.
 func TestBulkUnpublish_OfflinesAllPublished(t *testing.T) {
 	service, ctx, _ := newPageTestService(t, "pages:publish")
 	seedResourceProposal(t, service)
