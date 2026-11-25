@@ -179,6 +179,10 @@ Server 从 input JSON Schema 生成默认 FormPresentationSpec；管理员只能
 
 边界：JSON 编辑器只覆盖已声明的非对象根——`degraded` 的对象根（条件关键字、元组、联合）仍走结构化表单，变体渲染属于 SUI-042/043；JSON 形态下 `externalErrors` 字段级注入不适用（整体校验一次失败）；manual 层级（缺少请求映射）仍产出 `needs_review` 提案——具体原因作为按 `functionId` 关联的 `openapi_schema_compatibility*` 诊断展示在 OpenAPI Sources operations 表（`requestCompatibility` 列，层级 Tag + 至多三条原因行）与 Functions 详情诊断中。
 
+### 每实例字段 ID（SUI-027）
+
+渲染器按 rjsf `idPrefix`（`{前缀}_{路径}`，默认 `root`）生成每个字段控件的 id、label `htmlFor` 与错误/说明 `aria` 关联。同页挂载两个同 schema 表单（一个契约两个区块的组合页或双预览）时，若 id 前缀不变，两实例产出相同 id、label/错误/说明跨实例串扰。`SchemaFormRenderer` 按存活实例分配前缀：首个实例保持默认 `root`（既有 `#root_*` 页面选择器与用例不受影响），并发实例依次领取 `root-2`/`root-3`…；实例卸载即归还，串行重渲染重新领回 `root` 而不漂移。前缀在实例生命周期内领取一次（`useRef`），同一实例重渲染时稳定，只有重新挂载才可能换号。
+
 ### 展示与调用参数的边界（SUI-045）
 
 操作者看到的表单与最终发出的请求是两个不同对象，中间由三层正交职责连接：

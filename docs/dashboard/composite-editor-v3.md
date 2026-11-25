@@ -101,6 +101,10 @@ Section forms with no presentation config render as the standard vertical form: 
 
 A section whose bound contract declares a non-object root (`array`, a bare scalar, `null`) can no longer be expressed, so the section renders the JSON editor instead of the bare execute button: the operator edits the whole request payload as one text block, sees the concrete reason (the declared root type), and submits through the same validator and execute chain as structured forms — the array/scalar goes to the binding verbatim and merges into page state as `{ values: payload }`. The same editor backs operation pages and dialogs via the shared `SchemaFormRenderer`. See the [PageSpec protocol](../architecture/pagespec-protocol.md#json-editing-for-non-object-root-requests-sui-026).
 
+## Per-instance field IDs (SUI-027)
+
+Two sections of one contract (same schema) on a composite page, or the dual preview, each get their own field-id namespace: labels, error text, and descriptions bind to the instance they belong to instead of the first match in the DOM, and re-rendering one instance does not renumber the other. See the [PageSpec protocol](../architecture/pagespec-protocol.md#per-instance-field-ids-sui-027).
+
 ## Known boundaries
 
 - No new widget implementations landed in SUI-020: `DateRange` and `RichText` remain declared-only and silently fall back to the type default; `Code`/`JSON` remain plain textarea strings and do not parse or validate content. Capability hints are informational only and do not change submission values.

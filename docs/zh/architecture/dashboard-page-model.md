@@ -528,6 +528,8 @@ PageSpec 必须与组件库解耦。未来更换表单或图表库时只替换 r
 
 **非对象根请求的 JSON 编辑（SUI-026）**：声明非对象根（`array`/裸标量/`null`，SUI-011 `degraded` 层级）的契约在生成页面与组合页区块经 `JsonRootEditor` 渲染而非结构化表单：同一编辑器以 schema 默认值或显式初值为种子，走与对象表单相同的 handle 契约、校验器、绑定与执行链，解析后的 payload 原样发出、不套对象壳。操作者能看到不能渲染结构化表单的具体原因（根类型）与实际编辑入口；组合页数组/标量 payload 以 `{ values: payload }` 并入页面状态并原样到达执行。边界：对象根的 `degraded` 形态仍走结构化表单（变体渲染属 SUI-042/043），JSON 形态下 `externalErrors` 注入不适用，manual 层级仍需评审提案、原因展示在 OpenAPI Sources 兼容性列。见 [PageSpec 协议](./pagespec-protocol.md#非对象根请求的json-编辑sui-026)。
 
+**每实例字段 ID（SUI-027）**：字段 id 及其 label/错误的 `aria` 关联按存活 `SchemaFormRenderer` 实例命名空间隔离（首个实例 `root`，并发实例依次 `root-2`/`root-3`…，卸载归还），同页两个同 schema 表单的 label 与错误各自关联本实例，重渲染时关联稳定。见 [PageSpec 协议](./pagespec-protocol.md#每实例字段-idsui-027)。
+
 JSON Schema 是函数输入/输出的持久化标准；表单展示由 `FormPresentationSpec` 表达，协议定义见 [PageSpec 协议规范](./pagespec-protocol.md)，渲染链路与唯一 runtime 约束见 ProComponents 页面生成与运行时。
 
 `FormPresentationSpec` 只负责表单展示，不改变 FunctionContract payload；保存和发布都必须经过服务端结构校验，校验失败必须报错并要求管理员修复。表单 runtime 固定为 `@rjsf/antd + @rjsf/validator-ajv8`，项目内禁止并行保留第二套表单运行时。

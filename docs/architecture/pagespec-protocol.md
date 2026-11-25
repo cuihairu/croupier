@@ -179,6 +179,10 @@ The same applies to composite sections: a section whose `form.jsonSchema` declar
 
 Boundaries: the JSON editor covers declared non-object roots only — a `degraded` object root (conditional keywords, tuples, unions) keeps the structured form, and variant rendering belongs to SUI-042/043; `externalErrors` field-level injection does not apply in JSON mode (the whole payload fails as one); the manual tier (missing request mapping) still produces `needs_review` proposals — its concrete reasons surface as `openapi_schema_compatibility*` diagnostics keyed by `functionId` in the OpenAPI Sources operations table (`requestCompatibility` column, tier tag + up to three reason lines) and Functions detail diagnostics.
 
+### Per-instance field IDs (SUI-027)
+
+The renderer generates every field control's id, `label htmlFor`, and error/description `aria` linkage from the rjsf `idPrefix` (`{prefix}_{path}`, default `root`). Two same-schema forms mounted on one page (a composite page with two sections of one contract, or the dual preview) would otherwise produce identical ids and cross-associate labels, errors, and descriptions between instances. `SchemaFormRenderer` allocates the prefix per live instance: the first instance keeps the default `root` (existing `#root_*` page selectors and tests stay valid), concurrent instances claim `root-2`/`root-3`…, and an unmounted instance releases its prefix so a serial re-render reclaims `root` instead of drifting. The prefix is claimed once per instance lifetime (`useRef`) and is stable across re-renders of the same instance; only a remount may change it.
+
 ### Display-vs-call parameter boundary (SUI-045)
 
 The form an operator sees and the request that is finally sent are two different objects, joined by three orthogonal responsibilities:

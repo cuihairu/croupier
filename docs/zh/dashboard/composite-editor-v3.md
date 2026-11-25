@@ -535,6 +535,10 @@ wire 契约见 [PageSpec 协议规范](../architecture/pagespec-protocol.md)「�
 
 绑定契约声明非对象根（`array`、裸标量、`null`）的区块无法用结构化控件表达，因此渲染 JSON 编辑器而非裸执行按钮：操作者把整段请求 payload 当一个文本块编辑，能看到具体原因（声明的根类型），提交与结构化表单走同一校验器与执行链——数组/标量原样送达绑定，并以 `{ values: payload }` 并入页面状态。操作页与弹窗共用 `SchemaFormRenderer`，同一编辑器自动生效。见 [PageSpec 协议](../architecture/pagespec-protocol.md#非对象根请求的json-编辑sui-026)。
 
+## 每实例字段 ID（SUI-027）
+
+组合页上同一契约的两个区块（同 schema）或双预览各自拥有独立字段 id 命名空间：label、错误文本与说明关联所属实例，而不是 DOM 中第一个同 id 控件；重渲染某个实例不会改掉另一实例的编号。见 [PageSpec 协议](../architecture/pagespec-protocol.md#每实例字段-idsui-027)。
+
 ## 9. 已知边界
 
 - SUI-020 未新增任何 widget 实现：`DateRange` 与 `RichText` 仍仅声明、未实现，静默回退到类型默认控件；`Code`/`JSON` 仍是普通 textarea 字符串，不解析也不校验内容。能力提示仅为提示信息，不改变提交值。
