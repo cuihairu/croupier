@@ -1,6 +1,8 @@
-// 补齐 release 包剩余可覆盖分支（group C）：
-// handler.UploadArtifact 的 ShouldBindUri 校验失败分支。uri DTO 仅含单个
-// string 字段，mapURI 无法失败，须以 Validator 注入强制校验失败。
+// Fills in the remaining coverable branches of the release package
+// (group C): the ShouldBindUri validation failure branch of
+// handler.UploadArtifact. The uri DTO holds a single string field, so mapURI
+// cannot fail; a Validator injection is needed to force the validation
+// failure.
 package release
 
 import (

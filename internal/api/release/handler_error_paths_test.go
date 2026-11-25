@@ -16,7 +16,8 @@ import (
 	"github.com/cuihairu/croupier/internal/model"
 )
 
-// uri 绑定失败（缺少 :id 参数）应直接 400，不触达 service。
+// A uri binding failure (missing :id param) should return 400 directly,
+// without reaching the service.
 func TestHandlerUploadArtifact_BadUriBinding(t *testing.T) {
 	f := newFixture(t)
 	h := NewHandler(f.svc)
@@ -36,12 +37,14 @@ func TestHandlerUploadArtifact_BadUriBinding(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/releases/%d/artifact", rel.ID), &buf)
 	req.Header.Set("Content-Type", mw.FormDataContentType())
 	c.Request = req
-	// 故意不设置 c.Params：ShouldBindUri 找不到 id → 绑定失败
+	// c.Params is deliberately left unset: ShouldBindUri cannot find the id
+	// -> binding fails
 	h.UploadArtifact(c)
 	assert.Equal(t, http.StatusBadRequest, w.Code, w.Body.String())
 }
 
-// multipart 上传携带非法 manifest 时，service 错误应经 handler 统一回错。
+// For a multipart upload carrying an invalid manifest, the service error must
+// come back through the handler's unified error path.
 func TestHandlerUploadArtifact_ServiceErrorThroughHandler(t *testing.T) {
 	f := newFixture(t)
 	h := NewHandler(f.svc)

@@ -238,8 +238,10 @@ func (s *Service) CheckUpdate(ctx context.Context, req *CheckUpdateRequest) (*Ch
 			resp.URL = url
 		}
 	}
-	// Delta（P2 增量下发）：客户端当前版本与新版本的 manifest 都存在时，
-	// 计算变更文件清单（新增+变更；删除由客户端对差集自行清理）。
+	// Delta (P2 incremental delivery): when both the client's current version
+	// and the new version have manifests, compute the list of changed files
+	// (added + modified; deletions are cleaned up by the client against the
+	// difference set itself).
 	if current := strings.TrimSpace(req.CurrentVersion); current != "" {
 		if delta, size := computeDelta(ctx, s.svcCtx.ReleaseModel, model.CheckUpdateQuery{
 			GameID: matched.GameID, Env: matched.Env, Channel: matched.Channel, Platform: matched.Platform,
@@ -286,7 +288,7 @@ func computeDelta(ctx context.Context, m *model.GameReleaseModel, scope model.Ch
 		}
 	}
 	if len(files) == 0 {
-		return []string{}, 0 // 空差集：manifest 有但内容一致（罕见）
+		return []string{}, 0 // empty difference set: manifests exist but contents match (rare)
 	}
 	sort.Strings(files)
 	return files, size
