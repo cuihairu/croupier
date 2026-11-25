@@ -1,9 +1,10 @@
-// 覆盖目标：backup service.saveBackupsToExtensionInstallation 的
-// CurrentUsername 命中分支（service.go:347-349）。
+// Coverage target: the CurrentUsername hit branch of backup
+// service.saveBackupsToExtensionInstallation (service.go:347-349).
 //
-// 该函数的 operator 默认 "system"，仅当 ctx 注入非空 username 时改写；
-// 现有用例均以 context.Background() 调用，本文件注入 username 并回读
-// 校验落库内容。
+// The operator of this function defaults to "system" and is rewritten only when a
+// non-empty username is injected into ctx; existing cases all call it with
+// context.Background(). This file injects a username and reads it back to verify
+// the landed content.
 package backup
 
 import (

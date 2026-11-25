@@ -1,9 +1,11 @@
-// AUD-007 回归：全局备份接口补齐操作授权。
+// AUD-007 regression: the global backup endpoints gained operation authorization.
 //
-// 覆盖零角色账号（存在但无任何角色/权限）在列表、创建、下载、删除四个操作
-// 上均被服务层 RequireAnyPermission 拒绝（403 / permission_denied），且拒绝
-// 时无任何副作用（不返回列表条目、不新建备份行、不删除目标备份、不产出下载
-// 重定向或文件流）。超管（HasAdminRole 直通）作为对照保持可用。
+// Covers a zero-role account (exists but has no roles/permissions) being rejected by
+// the service-layer RequireAnyPermission (403 / permission_denied) across the four
+// operations list, create, download, delete, with no side effects on rejection (no
+// list entries returned, no backup row created, target backup not deleted, no download
+// redirect or file stream produced). The super-admin (HasAdminRole pass-through)
+// remains usable as the control.
 package backup
 
 import (
@@ -18,11 +20,12 @@ import (
 	"gorm.io/gorm"
 )
 
-// backupViewerUsername 是「零角色」账号：管理员存在、登录上下文正常，但未被
-// 分配任何角色，因此权限集合为空，RequireAnyPermission 必须拒绝。
+// backupViewerUsername is the "zero-role" account: the admin exists and the login
+// context is normal, but no role is assigned, so the permission set is empty and
+// RequireAnyPermission must reject.
 const backupViewerUsername = "backup_norole_viewer"
 
-// seedBackupViewer 幂等创建零角色账号并返回用户名。
+// seedBackupViewer idempotently creates the zero-role account and returns the username.
 func seedBackupViewer(t *testing.T, db *gorm.DB) string {
 	t.Helper()
 	ctx := context.Background()
@@ -35,13 +38,13 @@ func seedBackupViewer(t *testing.T, db *gorm.DB) string {
 	return backupViewerUsername
 }
 
-// viewerCtx 返回携带零角色账号用户名的请求上下文。
+// viewerCtx returns a request context carrying the zero-role account's username.
 func (e *backupFlowEnv) viewerCtx(t *testing.T) context.Context {
 	t.Helper()
 	return context.WithValue(context.Background(), "username", backupViewerUsername)
 }
 
-// assertPermissionDenied 断言为 403 / permission_denied 的稳定拒绝。
+// assertPermissionDenied asserts a stable 403 / permission_denied rejection.
 func assertPermissionDenied(t *testing.T, err error) {
 	t.Helper()
 	require.Error(t, err, "低权限请求必须被拒绝")
@@ -51,7 +54,7 @@ func assertPermissionDenied(t *testing.T, err error) {
 	assert.Equal(t, "permission_denied", codeErr.ErrorCode())
 }
 
-// backupRowCount 统计备份表行数，用于「无副作用」断言。
+// backupRowCount counts the rows in the backup table, for the "no side effects" assertions.
 func backupRowCount(t *testing.T, db *gorm.DB) int64 {
 	t.Helper()
 	var n int64
@@ -59,15 +62,17 @@ func backupRowCount(t *testing.T, db *gorm.DB) int64 {
 	return n
 }
 
-// TestBackupService_ZeroRolePermissionDenied 验证四个备份操作对零角色账号一律
-// 403，且每个操作都无副作用；对照超管账号保持可用。
+// TestBackupService_ZeroRolePermissionDenied verifies all four backup operations return
+// 403 for a zero-role account with no side effects per operation; the super-admin
+// control account remains usable.
 func TestBackupService_ZeroRolePermissionDenied(t *testing.T) {
 	env := setupBackupFlowEnv(t)
 	adminCtx := env.authCtx(t)
 	seedBackupViewer(t, env.db)
 	viewerCtx := env.viewerCtx(t)
 
-	// 对照：超管可正常建备份并读取列表，证明数据面存在、拒绝非「资源缺失」。
+	// Control: the super-admin can create a backup and read the list normally, proving
+	// the data plane exists and the rejection is not "resource missing".
 	created, err := env.service.Create(adminCtx, &BackupCreateRequest{Name: "perm-target", Type: "full"})
 	require.NoError(t, err)
 	require.NotEmpty(t, created.Id)
@@ -75,32 +80,33 @@ func TestBackupService_ZeroRolePermissionDenied(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, allowedResp.Items)
 
-	// List：403，且不返回任何条目。
+	// List: 403, and no entries are returned.
 	listResp, err := env.service.List(viewerCtx, &BackupsListRequest{})
 	assertPermissionDenied(t, err)
 	assert.Nil(t, listResp)
 
-	// Create：403，且不新增备份行。
+	// Create: 403, and no backup row is added.
 	before := backupRowCount(t, env.db)
 	createResp, err := env.service.Create(viewerCtx, &BackupCreateRequest{Name: "should-not-exist"})
 	assertPermissionDenied(t, err)
 	assert.Nil(t, createResp)
 	assert.Equal(t, before, backupRowCount(t, env.db), "拒绝创建不得留下任何备份记录")
 
-	// Delete：403，且目标备份仍然存在。
+	// Delete: 403, and the target backup still exists.
 	err = env.service.Delete(viewerCtx, &BackupDeleteRequest{ID: created.Id})
 	assertPermissionDenied(t, err)
 	_, err = env.svcCtx.BackupModel.FindByBackupID(adminCtx, created.Id)
 	require.NoError(t, err, "拒绝删除后目标备份必须仍然存在")
 
-	// Download：403，且不产出重定向或文件流。
+	// Download: 403, and no redirect or file stream is produced.
 	payload, err := env.service.Download(viewerCtx, &BackupDownloadRequest{ID: created.Id})
 	assertPermissionDenied(t, err)
 	assert.Nil(t, payload)
 }
 
-// TestHandler_BackupPermission_ZeroRoleDenied 走 handler + 路由，验证 403 与
-// permission_denied 稳定错误码落到 HTTP 响应，且无副作用。
+// TestHandler_BackupPermission_ZeroRoleDenied goes through the handler + router and
+// verifies the 403 and the permission_denied stable error code land in the HTTP
+// response with no side effects.
 func TestHandler_BackupPermission_ZeroRoleDenied(t *testing.T) {
 	env := setupBackupFlowEnv(t)
 	seedBackupViewer(t, env.db)
@@ -121,7 +127,8 @@ func TestHandler_BackupPermission_ZeroRoleDenied(t *testing.T) {
 		assert.Contains(t, rec.Body.String(), "permission_denied", "%s %s 应携带 permission_denied 稳定码", tc.method, tc.path)
 	}
 
-	// 拒绝后数据面不变：目标备份仍在，未新建备份。
+	// The data plane is unchanged after rejection: the target backup still exists and
+	// no backup was created.
 	row, err := env.svcCtx.BackupModel.FindByBackupID(context.Background(), "bkp-perm")
 	require.NoError(t, err)
 	assert.Equal(t, "bkp-perm", row.BackupID)

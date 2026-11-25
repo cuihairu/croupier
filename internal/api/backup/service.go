@@ -23,8 +23,10 @@ import (
 const officialBackupAdvancedID = "official.backup-advanced"
 const backupRecordsKey = "backups"
 
-// backupDedupeWindow 是无客户端幂等键时的同名同类型去重时间窗（AUD-053）：
-// 双击/快速重试兜底；正常运维节奏（同名定时备份间隔 ≥ 窗口）不受影响。
+// backupDedupeWindow is the dedupe window for same-name same-type backups when no
+// client idempotency key is present (AUD-053): it guards against double clicks and
+// rapid retries; normal ops cadence (scheduled same-name backups spaced >= the
+// window) is unaffected.
 const backupDedupeWindow = 10 * time.Minute
 
 type Service struct {
@@ -94,17 +96,21 @@ func (s *Service) Create(ctx context.Context, req *BackupCreateRequest) (*Backup
 		name = fmt.Sprintf("%s-%s", backupType, time.Now().UTC().Format("20060102-150405"))
 	}
 
-	// AUD-053 创建幂等：同键活跃（pending/succeeded）备份直接复用——重试/
-	// 双击不再叠加重备份；failed 不算活跃（失败后同键重试建新备份）。
-	// 无客户端键时按 name+type 时间窗兜底（自动生成名含秒级时间戳，同秒
-	// 双击会撞出同名，同样被窗口收住）。
+	// AUD-053 create idempotency: a backup with the same key that is active
+	// (pending/succeeded) is reused as-is - retries/double clicks no longer stack
+	// duplicate backups; failed does not count as active (a retry after failure
+	// builds a new backup with the same key).
+	// Without a client key, a name+type time window is the fallback (auto-generated
+	// names carry a second-level timestamp, so same-second double clicks collide on
+	// the same name and are caught by the window too).
 	idemKey := strings.TrimSpace(req.IdempotencyKey)
 	if idemKey != "" {
 		if existing, err := s.svcCtx.BackupModel.FindActiveByIdempotencyKey(ctx, idemKey); err == nil && existing != nil {
 			return &BackupCreateResponse{Backup: buildBackupDTO(existing)}, nil
 		}
-		// 同键 failed 行让位：失败后重试建新行，唯一索引不得挡路
-		//（预检未命中 = 无活跃行；可能存在 failed 行占着键）。
+		// A failed row with the same key yields: after a failure a retry creates a new
+		// row and the unique index must not block it
+		// (pre-check miss = no active row; a failed row may still be holding the key).
 		if err := s.svcCtx.BackupModel.ReleaseIdempotencyKey(ctx, idemKey); err != nil {
 			return nil, err
 		}
@@ -123,8 +129,9 @@ func (s *Service) Create(ctx context.Context, req *BackupCreateRequest) (*Backup
 	}
 
 	if err := s.svcCtx.BackupModel.Create(ctx, backup); err != nil {
-		// 并发双写竞争：预检双双落空后同键插入，唯一索引兜底——后到方
-		// 回落到已存在行，对外仍是一次成功的幂等创建。
+		// Concurrent double-write race: after both pre-checks miss, a same-key insert
+		// lands on the unique index as the safety net - the later arrival falls back to
+		// the existing row and the caller still sees one successful idempotent create.
 		if idemKey != "" && isIdempotencyConflict(err) {
 			if existing, ferr := s.svcCtx.BackupModel.FindActiveByIdempotencyKey(ctx, idemKey); ferr == nil && existing != nil {
 				return &BackupCreateResponse{Backup: buildBackupDTO(existing)}, nil
@@ -137,13 +144,15 @@ func (s *Service) Create(ctx context.Context, req *BackupCreateRequest) (*Backup
 		fmt.Sprintf(`{"backup_id":"%s","type":"%s"}`, backup.BackupID, backup.Type),
 	)
 
-	// 真实执行（异步）：导出 → 校验 → 上传对象存储 → 更新记录。
-	// 失败置 failed 并保留错误信息；立即响应 pending 状态给调用方。
+	// Real execution (async): export -> verify -> upload to object storage -> update
+	// the record. On failure the status is set to failed with the error message kept;
+	// the caller immediately gets the pending status.
 	if exec := s.executor(); exec != nil {
 		backupID, name, backupType := backup.BackupID, backup.Name, backup.Type
 		go func() {
-			// WithoutCancel 从入参派生：备份异步执行与请求生命周期解绑
-			// （客户端断开不中断），保留 ctx 值（game DB 路由等）（CR-FIX-22）。
+			// WithoutCancel derives from the input ctx: the async backup is decoupled
+			// from the request lifecycle (a client disconnect does not abort it) while
+			// ctx values are preserved (game DB routing etc.) (CR-FIX-22).
 			bg, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Minute)
 			defer cancel()
 			if err := exec.RunBackup(bg, backupID, name, backupType); err != nil {
@@ -163,16 +172,18 @@ func (s *Service) Create(ctx context.Context, req *BackupCreateRequest) (*Backup
 	}, nil
 }
 
-// isIdempotencyConflict 识别幂等键唯一索引冲突（AUD-053）：三方言的错误
-// 文案都带列名（sqlite "UNIQUE constraint failed: backups.idempotency_key"、
-// postgres "duplicate key value violates unique constraint ...idempotency_key"、
-// mysql "Duplicate entry ... for key 'idempotency_key'"）。
+// isIdempotencyConflict recognizes idempotency-key unique-index conflicts (AUD-053):
+// all three dialects carry the column name in the error text (sqlite "UNIQUE
+// constraint failed: backups.idempotency_key",
+// postgres "duplicate key value violates unique constraint ...idempotency_key",
+// mysql "Duplicate entry ... for key 'idempotency_key'").
 func isIdempotencyConflict(err error) bool {
 	return err != nil && strings.Contains(err.Error(), "idempotency_key")
 }
 
-// executor 构造真实备份执行器（driver 不支持或存储未就绪时返回 nil，
-// Create 退化为纯记录模式，与旧行为兼容）。
+// executor builds the real backup executor (returns nil when the driver is
+// unsupported or storage is not ready; Create then degrades to record-only mode,
+// compatible with the old behavior).
 func (s *Service) executor() *backupexec.Executor {
 	if s == nil || s.svcCtx == nil || s.svcCtx.BackupModel == nil || s.svcCtx.ObjectStore == nil {
 		return nil
@@ -250,10 +261,12 @@ func (s *Service) Download(ctx context.Context, req *BackupDownloadRequest) (*Do
 		return payload, nil
 	}
 
-	// AUD-COV-001 P1：其余形态一律按对象 key 经 objstore 读取。原实现按
-	// 记录 location 接受 file:// 与任意绝对/相对路径直读本地文件系统，可
-	// 被诱导读取服务器任意文件；objstore 驱动自带 base 目录内校验（file
-	// 驱动 validateAndCleanPath），与备份执行器写入/恢复语义同源。
+	// AUD-COV-001 P1: every other shape is read through objstore by object key. The
+	// original implementation trusted the record's location, accepting file:// and any
+	// absolute/relative path to read the local filesystem directly, which could be
+	// coaxed into reading arbitrary server files; the objstore drivers carry their own
+	// within-base-directory validation (the file driver's validateAndCleanPath), the
+	// same semantics as the backup executor's write/restore path.
 	if s.svcCtx.ObjectStore == nil {
 		return nil, errorx.NewInternalError("对象存储未就绪")
 	}
@@ -283,10 +296,12 @@ func (s *Service) tryRemoteDownload(location string) (*DownloadPayload, bool) {
 	}, true
 }
 
-// objectSize 经 List 前缀查询精确匹配取对象大小（Store 接口无 Stat）。前缀取
-// key 的父目录而非完整 key：file 驱动的 List 以目录为根做 walk，完整 key 会
-// 命中「跳过根目录本身」拿不到条目；对象存储驱动按前缀列出同目录对象。根级
-// key（无 "/"）用空前缀列全量，按 marker 翻页兜底。
+// objectSize fetches the object size via a List prefix query with exact matching
+// (the Store interface has no Stat). The prefix is the key's parent directory, not
+// the full key: the file driver's List walks with the directory as root, so a full
+// key hits the "skip the root itself" branch and yields no entry; object-storage
+// drivers list same-directory objects by prefix. A root-level key (no "/") lists
+// everything with an empty prefix, paging by marker as the fallback.
 func (s *Service) objectSize(ctx context.Context, key string) (int64, error) {
 	prefix := ""
 	if idx := strings.LastIndex(key, "/"); idx >= 0 {
@@ -380,9 +395,9 @@ func (s *Service) loadBackupsFromExtensionInstallation(ctx context.Context) ([]B
 	if !exists || raw == nil {
 		return nil, false, nil
 	}
-	// raw 来自 json.Unmarshal(map[string]any) 的取值，值类型仅可能为 JSON
-	// 基础类型（nil/bool/float64/string/[]any/map[string]any），再 Marshal 恒
-	// 成功，error 分支不可达，已删除。
+	// raw comes from json.Unmarshal(map[string]any), so value types can only be the
+	// JSON basic types (nil/bool/float64/string/[]any/map[string]any); re-Marshal
+	// always succeeds, the error branch is unreachable and was removed.
 	data, _ := json.Marshal(raw)
 	items := []Backup{}
 	if err := json.Unmarshal(data, &items); err != nil {

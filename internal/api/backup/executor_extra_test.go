@@ -1,7 +1,7 @@
-// 覆盖目标：executor 支持分支与默认分支、Create 的异步 RunBackup 成功/
-// 失败事件、Delete 的 DeleteByBackupID 错误、resolveBackupPath 的 Abs 失败、
-// findActiveBackupInstallation 的 List 错误、saveBackups 的 UpdateConfig 错误、
-// upsert/remove 的扩展记录加载错误。
+// Coverage targets: the executor supported branch and default branch, Create's async
+// RunBackup success/failure events, Delete's DeleteByBackupID error, resolveBackupPath's
+// Abs failure, findActiveBackupInstallation's List error, saveBackups's UpdateConfig
+// error, and upsert/remove's extension record loading errors.
 package backup
 
 import (
@@ -27,7 +27,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// ---- 测试替身 ----
+// ---- test doubles ----
 
 type execObjStoreStub struct {
 	putErr error
@@ -51,13 +51,15 @@ func (s *execObjStoreStub) RenamePrefix(ctx context.Context, oldPrefix, newPrefi
 	return nil
 }
 
-// backupExecEnvSeq 给每次调用发互不重名的内存库。按 t.Name() 命名不够：
-// -count=3 让同一用例名跑三遍，上一遍的连接池未关尽时同名库仍存活，
-// 本遍插入同一 BackupID 会撞 UNIQUE 约束（backups.backup_id 2067）。
+// backupExecEnvSeq hands out a uniquely named in-memory database per call. Naming by
+// t.Name() is not enough: -count=3 runs the same case name three times, and if the
+// previous run's connection pool has not fully closed, a database with the same name
+// is still alive, so inserting the same BackupID this run hits the UNIQUE constraint
+// (backups.backup_id 2067).
 var backupExecEnvSeq atomic.Int64
 
-// newExecTestEnv 建独立内存库 env（不共享 backupFlowDB），driver/dataSource
-// 可控以驱动 executor 分支。
+// newExecTestEnv builds an env with an isolated in-memory database (not sharing
+// backupFlowDB), with driver/dataSource controllable to drive executor branches.
 func newExecTestEnv(t *testing.T, driver, dataSource string, store objstore.Store) *backupFlowEnv {
 	t.Helper()
 	dbName := fmt.Sprintf("execenv_%d", backupExecEnvSeq.Add(1))
@@ -105,8 +107,9 @@ func TestExecutor_UnsupportedDriver(t *testing.T) {
 	assert.Nil(t, env.service.executor(), "不支持的 driver 应回退纯记录模式")
 }
 
-// writeRealSQLiteDB 建一个真实 SQLite 库：备份执行器用 VACUUM INTO 生成一致性
-// 快照，源必须是合法数据库文件（纯文本冒充会直接失败，AUD-009）。
+// writeRealSQLiteDB creates a real SQLite database: the backup executor uses VACUUM
+// INTO to produce a consistent snapshot, so the source must be a valid database file
+// (passing off plain text fails outright, AUD-009).
 func writeRealSQLiteDB(t *testing.T, path string) {
 	t.Helper()
 	db, err := gorm.Open(gsqlite.Open(path), &gorm.Config{})
@@ -205,7 +208,8 @@ func TestSaveBackupsToExtensionInstallation_UpdateConfigError(t *testing.T) {
 	env := newExecTestEnv(t, "", "", nil)
 	installBackupAdvancedExtension(t, env, map[string]any{})
 
-	// UpdateConfig 内部 Get(query) 先行，Save 走 update 回调。
+	// UpdateConfig runs Get(query) first internally, and Save goes through the update
+	// callback.
 	injectBackupCallback(t, env.db, "update")
 	err := env.service.saveBackupsToExtensionInstallation(context.Background(), []Backup{{Id: "bkp-save"}})
 	require.Error(t, err)

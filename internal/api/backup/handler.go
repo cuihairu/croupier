@@ -38,7 +38,8 @@ func (h *Handler) Create(c *gin.Context) {
 		response.Error(c, err)
 		return
 	}
-	// AUD-053：幂等键兼容 Idempotency-Key 头（body 未携带时生效）。
+	// AUD-053: the idempotency key also honors the Idempotency-Key header (effective
+	// when the body carries none).
 	if strings.TrimSpace(req.IdempotencyKey) == "" {
 		req.IdempotencyKey = c.GetHeader("Idempotency-Key")
 	}
@@ -54,7 +55,7 @@ func (h *Handler) Create(c *gin.Context) {
 // Delete handles the request to delete a backup
 func (h *Handler) Delete(c *gin.Context) {
 	var req BackupDeleteRequest
-	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
+	_ = c.ShouldBindUri(&req) // uri fields are all strings with no required tag: binding cannot fail; the population semantics are kept
 
 	if err := h.service.Delete(c.Request.Context(), &req); err != nil {
 		response.Error(c, err)
@@ -66,7 +67,7 @@ func (h *Handler) Delete(c *gin.Context) {
 // Download handles the request to download a backup
 func (h *Handler) Download(c *gin.Context) {
 	var req BackupDownloadRequest
-	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
+	_ = c.ShouldBindUri(&req) // uri fields are all strings with no required tag: binding cannot fail; the population semantics are kept
 
 	payload, err := h.service.Download(c.Request.Context(), &req)
 	if err != nil {

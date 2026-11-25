@@ -1,12 +1,16 @@
 package backup
 
-// AUD-053 备份创建幂等键测试：
-// - 同键顺序重试 → 复用已存在行（pending/succeeded 算活跃）
-// - 并发同键多写 → 唯一索引兜底，全员拿同一行、库里只有一行
-// - failed 行不算活跃 → 同键重试建新备份
-// - 无键时 name+type 时间窗兜底（双击）；不同类型/超窗不误伤
-// 断言不依赖列表顺序；并发用例走独立库（SetMaxOpenConns(1) 串行化连接，
-// 竞争路径仍被覆盖：预检落空 → 插入冲突 → 回落）。
+// AUD-053 backup creation idempotency key tests:
+// - sequential retry with the same key -> reuses the existing row (pending/succeeded
+//   count as active)
+// - concurrent writes with the same key -> the unique index is the fallback; everyone
+//   gets the same row and only one row lands in the database
+// - a failed row does not count as active -> a same-key retry creates a new backup
+// - without a key, a name+type time window is the fallback (double click); different
+//   types / expired windows are not falsely caught
+// Assertions do not depend on list order; concurrency cases use an isolated database
+// (SetMaxOpenConns(1) serializes connections while the competing path is still
+// covered: precheck misses -> insert conflict -> fall back to reuse).
 import (
 	"context"
 	"fmt"
@@ -22,8 +26,10 @@ import (
 	"gorm.io/gorm"
 )
 
-// aud053Env 独立内存库（单连接）：并发用例不被 sqlite 共享缓存锁拖成假红；
-// 超管种子复用 flows 包助手，让服务层 RequireAnyPermission 直通。
+// aud053Env is an isolated in-memory database (single connection): concurrency cases
+// are not dragged into a false red by the sqlite shared-cache lock; the super-admin
+// seed reuses the flows package helper so the service-layer RequireAnyPermission
+// passes through.
 func aud053Env(t *testing.T) (*Service, *gorm.DB, context.Context) {
 	t.Helper()
 	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
@@ -57,7 +63,8 @@ func aud053CountByName(t *testing.T, db *gorm.DB, name string) int64 {
 	return n
 }
 
-// 同键顺序重试复用：第二次 Create 返回同一备份，库里只有一行。
+// Sequential retry with the same key reuses: the second Create returns the same backup
+// and only one row lands in the database.
 func TestAud053_IdempotencyKeySequentialRetryReuses(t *testing.T) {
 	s, db, ctx := aud053Env(t)
 
@@ -70,7 +77,8 @@ func TestAud053_IdempotencyKeySequentialRetryReuses(t *testing.T) {
 	assert.EqualValues(t, 1, aud053CountByKey(t, db, "aud053-key-seq"))
 }
 
-// succeeded 也算活跃：执行完成的备份同键重试同样复用（不叠加重备份）。
+// succeeded also counts as active: a completed backup reuses on a same-key retry
+// (no stacking of duplicate backups).
 func TestAud053_SucceededBackupStillDeduplicates(t *testing.T) {
 	s, db, ctx := aud053Env(t)
 
@@ -85,7 +93,8 @@ func TestAud053_SucceededBackupStillDeduplicates(t *testing.T) {
 	assert.EqualValues(t, 1, aud053CountByKey(t, db, "aud053-key-done"))
 }
 
-// failed 不算活跃：失败后同键重试创建新备份（重试语义）。
+// failed does not count as active: after a failure a same-key retry creates a new
+// backup (retry semantics).
 func TestAud053_FailedBackupAllowsRetryWithSameKey(t *testing.T) {
 	s, db, ctx := aud053Env(t)
 
@@ -97,11 +106,13 @@ func TestAud053_FailedBackupAllowsRetryWithSameKey(t *testing.T) {
 	second, err := s.Create(ctx, &BackupCreateRequest{Name: "aud053-fail-retry", Type: "full", IdempotencyKey: "aud053-key-fail"})
 	require.NoError(t, err)
 	assert.NotEqual(t, first.Backup.Id, second.Backup.Id, "失败后同键重试必须建新备份")
-	// 旧 failed 行已让位键（NULL），键上只剩新行——后续同键请求继续正确幂等。
+	// The old failed row has released the key (NULL), leaving only the new row on the
+	// key - later same-key requests stay correctly idempotent.
 	assert.EqualValues(t, 1, aud053CountByKey(t, db, "aud053-key-fail"))
 }
 
-// 并发同键多写：预检竞争双双落空 → 唯一索引兜底 → 全员同一行、库里一行。
+// Concurrent same-key writes: the racing prechecks both miss -> the unique index is
+// the fallback -> everyone gets one row and the database holds a single row.
 func TestAud053_ConcurrentSameKeyCreatesSingleRow(t *testing.T) {
 	s, db, ctx := aud053Env(t)
 
@@ -135,7 +146,8 @@ func TestAud053_ConcurrentSameKeyCreatesSingleRow(t *testing.T) {
 	assert.EqualValues(t, 1, aud053CountByKey(t, db, "aud053-key-conc"), "库里必须只有一行")
 }
 
-// 无键时 name+type 时间窗兜底：同名同类型窗内复用；不同类型不误伤。
+// Without a key, the name+type time window is the fallback: same name and type reuse
+// within the window; different types are not falsely caught.
 func TestAud053_NameTypeWindowDedupe(t *testing.T) {
 	s, db, ctx := aud053Env(t)
 
@@ -151,7 +163,8 @@ func TestAud053_NameTypeWindowDedupe(t *testing.T) {
 	assert.NotEqual(t, first.Backup.Id, incremental.Backup.Id, "不同类型是不同备份，不受窗口误伤")
 }
 
-// 超窗不复用：同名同类型但行已老于窗口 → 新建（正常运维节奏不受影响）。
+// Expired window does not reuse: same name and type but the row is older than the
+// window -> create fresh (normal operations cadence is unaffected).
 func TestAud053_ExpiredWindowAllowsNewBackup(t *testing.T) {
 	s, db, ctx := aud053Env(t)
 

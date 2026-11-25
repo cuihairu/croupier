@@ -34,8 +34,9 @@ type backupFlowEnv struct {
 	router  *gin.Engine
 }
 
-// backupSuperAdminUsername 是备份测试用的超管账号（HasAdminRole 直通分支），
-// 在共享库中幂等创建一次，供服务层 RequireAnyPermission 授权检查通过。
+// backupSuperAdminUsername is the super-admin account used by the backup tests (the
+// HasAdminRole pass-through branch); it is created idempotently once in the shared
+// database so the service-layer RequireAnyPermission authorization check passes.
 const backupSuperAdminUsername = "backup_superadmin"
 
 var backupFlowDB *gorm.DB
@@ -59,9 +60,10 @@ func backupFlowSharedDB(t *testing.T) *gorm.DB {
 	return backupFlowDB
 }
 
-// seedBackupSuperAdmin 幂等创建名为 backupSuperAdminUsername 的超管账号并返回
-// 用户名。超管角色经 HasAdminRole 直通授权，无需具体权限行；用于让既有用例在
-// 新增的服务层授权门后继续通过。
+// seedBackupSuperAdmin idempotently creates the super-admin account named
+// backupSuperAdminUsername and returns the username. The super_admin role is
+// authorized through HasAdminRole pass-through with no specific permission rows; this
+// keeps existing cases passing after the newly added service-layer authorization gate.
 func seedBackupSuperAdmin(t *testing.T, db *gorm.DB) string {
 	t.Helper()
 	ctx := context.Background()
@@ -91,7 +93,8 @@ func seedBackupSuperAdmin(t *testing.T, db *gorm.DB) string {
 	return backupSuperAdminUsername
 }
 
-// authCtx 返回携带超管用户名的请求上下文，满足服务层 RequireAnyPermission。
+// authCtx returns a request context carrying the super-admin username, satisfying the
+// service-layer RequireAnyPermission.
 func (e *backupFlowEnv) authCtx(t *testing.T) context.Context {
 	t.Helper()
 	return context.WithValue(context.Background(), "username", backupSuperAdminUsername)
@@ -453,8 +456,9 @@ func TestService_Download_SuccessFlow(t *testing.T) {
 	env := setupBackupFlowEnv(t)
 	ctx := env.authCtx(t)
 
-	// AUD-COV-001 P1 后下载走 objstore：对象经 file 驱动写入 base 目录，
-	// 记录 location = 对象 key（与备份执行器写入语义一致）。
+	// After AUD-COV-001 P1, download goes through objstore: the object is written to
+	// the base directory via the file driver, recording location = object key
+	// (consistent with the backup executor's write semantics).
 	base := t.TempDir()
 	store, err := objstore.OpenFile(ctx, objstore.Config{BaseDir: base})
 	require.NoError(t, err)
@@ -486,8 +490,9 @@ func TestService_Download_SuccessFlow(t *testing.T) {
 	}()
 }
 
-// AUD-COV-001 P1：file:// 与绝对/越界路径不再直读本地文件系统（任意文件
-// 读取面已收敛到 objstore 语义），一律拒绝。
+// AUD-COV-001 P1: file:// and absolute/out-of-bounds paths no longer read the local
+// filesystem directly (the arbitrary-file read surface has converged onto objstore
+// semantics) and are rejected outright.
 func TestService_Download_RejectsLocalFilesystemPaths(t *testing.T) {
 	env := setupBackupFlowEnv(t)
 	ctx := env.authCtx(t)
@@ -521,14 +526,16 @@ func TestService_Download_RejectsLocalFilesystemPaths(t *testing.T) {
 	}
 }
 
-// 旧 file:// 直读用例已由 TestService_Download_RejectsLocalFilesystemPaths
-// 取代（AUD-COV-001 P1：file:// 不再映射本地路径）。
+// The old file:// direct-read case was replaced by
+// TestService_Download_RejectsLocalFilesystemPaths (AUD-COV-001 P1: file:// no longer
+// maps local paths).
 
 func TestService_Download_RelativePath(t *testing.T) {
 	env := setupBackupFlowEnv(t)
 	ctx := env.authCtx(t)
 
-	// 相对 key 语义收敛到 objstore：相对 base 目录解析，不再相对进程 CWD。
+	// Relative key semantics converge onto objstore: resolved against the base
+	// directory, no longer against the process CWD.
 	store, err := objstore.OpenFile(ctx, objstore.Config{BaseDir: t.TempDir()})
 	require.NoError(t, err)
 	env.svcCtx.ObjectStore = store
@@ -551,8 +558,9 @@ func TestService_Download_RelativePath(t *testing.T) {
 	assert.Equal(t, int64(3), payload.Size)
 }
 
-// listOkGetFailStub：List 报告对象存在但 Get 失败，覆盖「打开对象失败」分支
-// （旧实现的 unix socket open ENXIO 场景在 objstore 语义下不可达，以注入替代）。
+// listOkGetFailStub: List reports the object exists but Get fails, covering the
+// "failed to open object" branch (the old implementation's unix socket open ENXIO
+// scenario is unreachable under objstore semantics, replaced by injection).
 type listOkGetFailStub struct{}
 
 func (s *listOkGetFailStub) Put(ctx context.Context, key string, r objstore.ReadSeeker, size int64, contentType string) error {
@@ -774,8 +782,9 @@ func doBackupRequest(t *testing.T, env *backupFlowEnv, method, path, body string
 	return doBackupRequestAs(t, env, method, path, body, backupSuperAdminUsername)
 }
 
-// doBackupRequestAs 以指定用户名发起备份路由请求（模拟 AuthMiddleware 在
-// 请求上下文放置 username 的契约），驱动服务层授权门的允许/拒绝两端。
+// doBackupRequestAs issues a backup route request as the given username (simulating
+// the AuthMiddleware contract of placing username in the request context), driving
+// both the allow and deny sides of the service-layer authorization gate.
 func doBackupRequestAs(t *testing.T, env *backupFlowEnv, method, path, body, username string) *httptest.ResponseRecorder {
 	t.Helper()
 	req := httptest.NewRequest(method, path, strings.NewReader(body))
@@ -829,7 +838,8 @@ func TestHandler_Download(t *testing.T) {
 	env := setupBackupFlowEnv(t)
 	ctx := env.authCtx(t)
 
-	// AUD-COV-001 P1 后：handler 下载走 objstore（记录 location = 对象 key）。
+	// After AUD-COV-001 P1: handler download goes through objstore (recording
+	// location = object key).
 	store, err := objstore.OpenFile(ctx, objstore.Config{BaseDir: t.TempDir()})
 	require.NoError(t, err)
 	env.svcCtx.ObjectStore = store
@@ -889,7 +899,8 @@ func TestService_Download_FileURIInvalid(t *testing.T) {
 	require.NoError(t, err)
 	env.svcCtx.ObjectStore = store
 
-	// file:// 不再映射本地路径：控制字符 URI 按「对象不存在」收敛（fail-closed）
+	// file:// no longer maps local paths: a control-character URI converges onto
+	// "object not found" (fail-closed)
 	createBackupRow(t, env, &model.Backup{
 		BackupID: "bkp-bad-uri",
 		Location: "file://\x7f/backup.tar",
