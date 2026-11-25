@@ -24,7 +24,7 @@ func sui011RequestDiagnostic() spec.Diagnostic {
 		Severity:   spec.SeverityWarning,
 		FunctionID: "player.get",
 		Field:      "$.body.content",
-		Message:    "request body declares no application/json media type; the executor cannot send those media types",
+		Message:    "request body declares no application/json media type; no configured executor path delivers those media types from a generated page",
 	}
 }
 

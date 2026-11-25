@@ -99,7 +99,7 @@ func assessBody(operationID string, body *RequestBody) []spec.Diagnostic {
 		}
 		formOnly = false
 		findings = append(findings, finding(operationID, spec.RequestCompatibilityManual, pointer,
-			"request body media "+media+" is not sent by the executor; declare application/json to make the operation callable"))
+			"request body media "+media+" is not reachable from a generated page: the executor serializes it only when configured for multipart, and the upload widgets still hand it file URLs instead of file bytes"))
 	}
 	if !hasJSON {
 		if formOnly {
@@ -110,7 +110,7 @@ func assessBody(operationID string, body *RequestBody) []spec.Diagnostic {
 		}
 		findings = append(findings, finding(operationID, spec.RequestCompatibilityManual, "$.body.content",
 			"request body declares no application/json media type (declared: "+joinMediaTypes(body.Content)+
-				"); the executor cannot send those media types"))
+				"); no configured executor path delivers those media types from a generated page"))
 	}
 	return findings
 }

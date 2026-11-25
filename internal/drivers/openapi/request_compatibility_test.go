@@ -2,6 +2,7 @@ package openapi
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
@@ -148,13 +149,17 @@ func TestAssessRequestCompatibility_MultipartOnlyBodyIsManual(t *testing.T) {
 	}}}
 	got := AssessRequestCompatibility("upload", request, compatibilityRoot(t))
 	assert.Equal(t, spec.RequestCompatibilityManual, got.Status)
-	var unsendable bool
+	var unsendable, boundary bool
 	for _, diagnostic := range got.Diagnostics {
 		if diagnostic.Field == "$.body.content.multipart~1form-data" {
 			unsendable = true
+			// SUI-013: the executor serializes multipart when configured, so the
+			// finding must name the real reason the page cannot deliver the payload.
+			boundary = strings.Contains(diagnostic.Message, "file bytes")
 		}
 	}
 	assert.True(t, unsendable, "expected the unsendable media finding, got %+v", got.Diagnostics)
+	assert.True(t, boundary, "the finding must state that the page hands over file URLs, got %+v", got.Diagnostics)
 }
 
 func TestAssessRequestCompatibility_JSONBesideMultipartIsManual(t *testing.T) {

@@ -3,10 +3,13 @@ package openapi
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
+	"net/textproto"
 	"net/url"
 	"sort"
 	"strconv"
@@ -144,9 +147,20 @@ func (p *Provider) buildRequest(ctx context.Context, apiMethod *APIMethod, reqDa
 	// Build request body if needed
 	if apiMethod.Method == "POST" || apiMethod.Method == "PUT" || apiMethod.Method == "PATCH" {
 		if apiMethod.RequestBody != nil {
-			bodyBytes, ct := p.buildBody(apiMethod.RequestBody, reqData)
-			body = bytes.NewReader(bodyBytes)
-			contentType = ct
+			// SUI-013: a multipart body is streamed from a temp buffer with the
+			// boundary the writer generated, so it takes the reader branch; the
+			// other serializers are buffered bytes.
+			if apiMethod.RequestBody.Type == "multipart" {
+				payload, ct, err := buildMultipartBody(apiMethod.RequestBody, reqData)
+				if err != nil {
+					return nil, err
+				}
+				body, contentType = payload, ct
+			} else {
+				bodyBytes, ct := p.buildBody(apiMethod.RequestBody, reqData)
+				body = bytes.NewReader(bodyBytes)
+				contentType = ct
+			}
 		} else if len(reqData) > 0 {
 			// OpenAPI semantics: parameters consumed by path/query/header
 			// addressing must not leak into the request body.
@@ -318,6 +332,216 @@ func formValueString(value interface{}) string {
 	default:
 		return fmt.Sprintf("%v", typed)
 	}
+}
+
+// multipartFileValue is one file field: the request data carries an object
+// with a filename and the bytes the operator uploaded.
+type multipartFileValue struct {
+	Filename string
+	Content  []byte
+}
+
+// multipartFileValues decodes one request-data field into file parts. The
+// upload contract (SUI-013) is the web Upload widget's value: a data URL or a
+// URL string plus the original filename — single value for a file field,
+// an array for a multi-file field. A bare string is treated as a data URL
+// whose filename is derived from the media type.
+func multipartFileValues(value interface{}) ([]multipartFileValue, error) {
+	switch typed := value.(type) {
+	case []interface{}:
+		parts := make([]multipartFileValue, 0, len(typed))
+		for _, item := range typed {
+			part, err := multipartFileValueFromField(item)
+			if err != nil {
+				return nil, err
+			}
+			if part != nil {
+				parts = append(parts, *part)
+			}
+		}
+		return parts, nil
+	default:
+		part, err := multipartFileValueFromField(value)
+		if err != nil {
+			return nil, err
+		}
+		if part == nil {
+			return nil, nil
+		}
+		return []multipartFileValue{*part}, nil
+	}
+}
+
+func multipartFileValueFromField(value interface{}) (*multipartFileValue, error) {
+	switch typed := value.(type) {
+	case nil:
+		return nil, nil
+	case map[string]interface{}:
+		// Object form: {filename, content}; content is either a data URL or
+		// raw base64.
+		filename, _ := typed["filename"].(string)
+		contentRaw, hasContent := typed["content"]
+		if !hasContent {
+			return nil, nil
+		}
+		data, mediaType, err := decodeUploadPayload(contentRaw)
+		if err != nil {
+			return nil, err
+		}
+		if filename == "" {
+			filename = uploadFilename(mediaType)
+		}
+		return &multipartFileValue{Filename: filename, Content: data}, nil
+	case string:
+		// A bare string is only unambiguously a file when it is a data URL;
+		// anything else is companion text (a name, an id, a note) and stays a
+		// text part. Raw base64 is only a file payload inside the upload
+		// object form, where the field is explicitly the content slot.
+		if !strings.HasPrefix(typed, "data:") {
+			return nil, nil
+		}
+		data, mediaType, err := decodeUploadPayload(typed)
+		if err != nil {
+			return nil, err
+		}
+		return &multipartFileValue{Filename: uploadFilename(mediaType), Content: data}, nil
+	default:
+		return nil, fmt.Errorf("file field value must be an upload object or a data URL string, got %T", value)
+	}
+}
+
+// decodeUploadPayload accepts the two payload shapes the upload widget
+// contract can reach the executor with: a data URL (data:<type>;base64,<data>)
+// or raw base64. The media type of a data URL is returned for filename
+// derivation.
+func decodeUploadPayload(value interface{}) ([]byte, string, error) {
+	text, ok := value.(string)
+	if !ok {
+		return nil, "", fmt.Errorf("file content must be a data URL or base64 text, got %T", value)
+	}
+	if strings.HasPrefix(text, "data:") {
+		separator := strings.Index(text, ";base64,")
+		if separator < 0 {
+			return nil, "", fmt.Errorf("file data URL must be base64 encoded")
+		}
+		mediaType := strings.TrimPrefix(text[:separator], "data:")
+		data, err := base64.StdEncoding.DecodeString(text[separator+len(";base64,"):])
+		if err != nil {
+			return nil, "", fmt.Errorf("file data URL payload is not valid base64: %w", err)
+		}
+		return data, mediaType, nil
+	}
+	data, err := base64.StdEncoding.DecodeString(text)
+	if err != nil {
+		return nil, "", fmt.Errorf("file content must be a data URL or base64 text: %w", err)
+	}
+	return data, "", nil
+}
+
+// uploadFilename derives a filename from the declared media type so the
+// upstream sees a recognizable part even when the caller sent a bare URL.
+func uploadFilename(mediaType string) string {
+	extension := ""
+	switch strings.ToLower(strings.TrimSpace(mediaType)) {
+	case "image/png":
+		extension = "png"
+	case "image/jpeg", "image/jpg":
+		extension = "jpg"
+	case "image/gif":
+		extension = "gif"
+	case "image/webp":
+		extension = "webp"
+	case "application/pdf":
+		extension = "pdf"
+	case "text/plain":
+		extension = "txt"
+	case "application/json":
+		extension = "json"
+	case "application/octet-stream":
+		extension = "bin"
+	}
+	if extension == "" {
+		return "upload"
+	}
+	return "upload." + extension
+}
+
+// buildMultipartBody serializes one multipart/form-data request body. An
+// explicit field mapping names the wire keys; without one the remaining
+// request data is sent under its own names. A field whose value carries
+// upload payloads becomes file parts (one per value); every other field
+// becomes a text part. The body is buffered, so the generated boundary is
+// part of the returned Content-Type header.
+func buildMultipartBody(bodyConfig *RequestBodyMapping, reqData map[string]interface{}) (io.Reader, string, error) {
+	// (source field -> wire name) pairs; without an explicit mapping every
+	// request-data field is sent under its own name. Source fields are
+	// processed in sorted order so the wire form is deterministic.
+	type wireField struct {
+		source string
+		name   string
+	}
+	var fields []wireField
+	if len(bodyConfig.Fields) > 0 {
+		for dstField, srcField := range bodyConfig.Fields {
+			if _, ok := reqData[srcField]; ok {
+				fields = append(fields, wireField{source: srcField, name: dstField})
+			}
+		}
+	} else {
+		for key := range reqData {
+			fields = append(fields, wireField{source: key, name: key})
+		}
+	}
+	sort.Slice(fields, func(i, j int) bool { return fields[i].source < fields[j].source })
+
+	buffer := &bytes.Buffer{}
+	writer := multipart.NewWriter(buffer)
+	for _, field := range fields {
+		if err := addMultipartField(writer, field.name, reqData[field.source]); err != nil {
+			return nil, "", err
+		}
+	}
+	contentType := writer.FormDataContentType()
+	if err := writer.Close(); err != nil {
+		return nil, "", err
+	}
+	return bytes.NewReader(buffer.Bytes()), contentType, nil
+}
+
+// addMultipartField writes one field: upload payloads as file parts, any other
+// value as a text part with the form encoding used by formValueString.
+func addMultipartField(writer *multipart.Writer, name string, value interface{}) error {
+	if files, err := multipartFileValues(value); err != nil {
+		return err
+	} else if len(files) > 0 {
+		for _, file := range files {
+			header := make(textproto.MIMEHeader)
+			header.Set("Content-Disposition", fmt.Sprintf(`form-data; name="%s"; filename="%s"`, escapeQuotes(name), escapeQuotes(file.Filename)))
+			header.Set("Content-Type", "application/octet-stream")
+			part, err := writer.CreatePart(header)
+			if err != nil {
+				return err
+			}
+			if _, err := part.Write(file.Content); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	if value == nil {
+		return nil
+	}
+	part, err := writer.CreateFormField(name)
+	if err != nil {
+		return err
+	}
+	_, err = part.Write([]byte(formValueString(value)))
+	return err
+}
+
+// escapeQuotes quotes a name or filename for a Content-Disposition header.
+func escapeQuotes(value string) string {
+	return strings.NewReplacer(`\`, `\\`, `"`, `\"`).Replace(value)
 }
 
 // applyTemplate applies a simple template with {{ .field }} placeholders.
