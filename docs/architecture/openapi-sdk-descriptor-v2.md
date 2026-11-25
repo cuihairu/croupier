@@ -128,6 +128,10 @@ Schema dialect is normalized before classification (SUI-009): OpenAPI 3.0 `nulla
 
 Direction is also resolved before the form sees the schema (SUI-010): the request schema that feeds `inputSchema` has `readOnly` fields removed (`required` shrinks past them), and the response schema has `writeOnly` fields removed — the client never offers an input for a server-owned value and never validates a client-supplied secret as server output. The `openapi_schema_readonly_dropped` / `openapi_schema_writeonly_dropped` diagnostics record the removals; see the [request contract](./openapi-request-contract.md) document.
 
+### Server-side validation policy (SUI-016)
+
+Console execution and the direct function invoke enforce an input schema with one verdict engine (`internal/validation.ValidateJSONSchemaVerdict`) and therefore the same policy; a shared fixture table (`internal/validation/validationtest`) is asserted verbatim by both entries so a divergence fails a fixture instead of drifting silently. The policy: a **missing schema** passes through (no contract to enforce; the game server remains the authoritative runtime validator); a **schema that fails to compile, or a payload that is not valid JSON**, is rejected as a defect instead of being silently treated as absent (fail-closed, the same direction as ARCH-027); a **contract violation** surfaces the field paths (required paths aggregated separately). Unknown fields follow standard JSON Schema semantics: accepted unless the schema explicitly declares `additionalProperties: false`; a schema form of `additionalProperties` validates the unknown values; an object without `properties` is a free-form dictionary and accepts any keys. The entries keep their own HTTP shapes (invoke maps a violation to 400, the console binding payload maps to 422).
+
 ### Request compatibility tiers (SUI-011)
 
 The tier is classified on the canonical request contract (after SUI-008/009/010), so it can never disagree with what the form actually renders. Every operation gets exactly one tier, and every construct that lowers it is reported with its field path — a JSON pointer into the request contract:

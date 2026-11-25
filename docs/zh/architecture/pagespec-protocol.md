@@ -115,7 +115,7 @@ Server 从 input JSON Schema 生成默认 FormPresentationSpec；管理员只能
 
 1. **值保留**：隐藏（`visibleWhen` 不满足或 `visible: false`，统一谓词 `isFieldHidden`）字段以 `ui:widget: "hidden"` 保留在 schema 中，值保留在表单状态；提交 payload 经唯一投影 `projectSubmitValues`（SUI-014 统一提交取值，`index.tsx:445-450`）生成——隐藏键按当前值剔除、其余键原样保留，原生提交与命令式 `getSubmitValues()`（`index.tsx:661-665`）共用同一条规则；`getValues()` 返回含隐藏字段的全部值，仅用于状态镜像/回显（`index.tsx:680-688`）。
 2. **绑定可达**：隐藏字段的值可经绑定 `{ kind: "form", path }` 进入 payload——服务端从执行上下文 `context.form` 按 path 取值（`resolveSourceValue`，`console_execute.go:593-594`）；浏览器端 `projectBindingContext` 把上下文裁剪到发布 selector 实际引用的字段（`web/src/components/PageRenderer/runtime.ts:78-120`），隐藏字段若被 selector 引用仍随裁剪结果送达。**隐藏且由绑定提供的合法值可执行。**
-3. **服务端兜底**：隐藏必填的豁免只发生在**客户端**运行时 schema（从 `required` 摘除，`index.tsx:538-540`）；服务端在绑定应用之后校验最终 payload——`validateBindingExecutePayload` 对不匹配 input schema 的 payload 返回结构化 422（`console_execute.go:507-521`）。**隐藏且无任何来源（无 assignment、无 literal/default transform 兜底）的必填项因此在服务端得到字段级结构化错误**，不会被静默丢弃后发出错请求。
+3. **服务端兜底**：隐藏必填的豁免只发生在**客户端**运行时 schema（从 `required` 摘除，`index.tsx:538-540`）；服务端在绑定应用之后校验最终 payload——`validateBindingExecutePayload` 对不匹配 input schema 的 payload 返回结构化 422（`console_execute.go:512-544`）。**隐藏且无任何来源（无 assignment、无 literal/default transform 兜底）的必填项因此在服务端得到字段级结构化错误**，不会被静默丢弃后发出错请求。自 SUI-016 起判定引擎与未知字段策略与函数直接调用入口共享：缺少 schema 放行、无法编译的 schema（或非 JSON payload）按缺陷拒绝而非当作无契约，未知字段遵循标准 JSON Schema 语义（未声明 `additionalProperties: false` 即放行）——同一组对照 fixture 锁定两个入口。
 
 **最终校验顺序**（已按此序实现；SUI-014 统一提交取值后维持）：
 

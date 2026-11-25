@@ -128,6 +128,10 @@ SDK 和 OpenAPI Source 导入边界只接受 FunctionContract 字段。页面展
 
 方向也在表单见到 schema 之前解析（SUI-010）：喂给 `inputSchema` 的请求 schema 已剔除 `readOnly` 字段（`required` 收缩跳过它们），响应 schema 已剔除 `writeOnly` 字段 —— 客户端绝不为服务端拥有的值提供输入，也绝不把客户端提供的密钥当作服务端输出来校验。`openapi_schema_readonly_dropped` / `openapi_schema_writeonly_dropped` 诊断记录剔除；详见[请求契约](./openapi-request-contract.md)文档。
 
+### 服务端校验策略（SUI-016）
+
+Console 执行与函数直接调用用同一个判定引擎（`internal/validation.ValidateJSONSchemaVerdict`）执行 input schema，因此策略一致；共享对照 fixture 表（`internal/validation/validationtest`）被两个入口逐条断言，入口间分歧表现为 fixture 失败而非静默漂移。策略：**缺少 schema** 放行（无契约可验；游戏服务端仍是权威运行时校验方）；**schema 无法编译、或 payload 不是合法 JSON** 按缺陷拒绝，不静默当作无契约（fail-closed，与 ARCH-027 同向）；**契约违规**上报字段路径（缺必填单独聚合）。未知字段遵循标准 JSON Schema 语义：未显式声明 `additionalProperties: false` 即放行；`additionalProperties` 为 schema 形式时对未知值做校验；无 `properties` 的对象即自由字典、接受任意键。两个入口保留各自的 HTTP 形态（直接调用违规映射 400，console 绑定 payload 映射 422）。
+
 ### 请求兼容性分级（SUI-011）
 
 分级在归一后的请求契约上判定（SUI-008/009/010 之后），因此分级结果不会与表单实际渲染的内容不一致。每个 operation 得到且仅得到一个层级，每一个拉低层级的构造都带字段路径上报 —— 即请求契约内的 JSON pointer：
