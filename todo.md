@@ -88,9 +88,9 @@
   - 依赖：—。交付与验收：以 JSON Pointer 定位字段并兼容旧顶层 key。测试对象子字段、数组项字段、键名含点或斜杠的场景，以及未知路径的诊断。
   - 状态／条件：LOCAL VERIFIED（2026-11-25）：新增 `web/src/utils/fieldPath.ts` 解析 RFC 6901 指针（`~0`/`~1` 转义、`-` 数组段），保留裸顶层 key 旧语义；renderer 的 label/description/enumNames、required、validationRules、disabled、visible、defaultValue 与提交投影均按解析出的路径落到对应 schema/uiSchema/值分支；未知路径只告警不伪造 schema。证据：`fieldPath.test.ts` 16/16、`pointer-fields.test.tsx` 12/12（含真实渲染与提交）、renderer+schemaHints 226/226、web 全量 jest 471 suites / 5585 tests 全绿 exit 0（450s）；`pnpm run tsc` 0 错误；`bash scripts/dashboard_vnext_guard.sh` PASSED；`cd docs && CI=true pnpm build` 通过；`go build ./internal/dashboard/...` 通过。文档：`docs/architecture/pagespec-protocol.md`、`docs/architecture/dashboard-page-model.md`、`docs/dashboard/composite-editor-v3.md` 中英双树同步。边界如实：点号属性名按裸 key 字面处理、不是路径缩写；`ui:order` 仅接受顶层属性名，指针字段不入列；穿越数组的值写入/删除为 no-op（数组整体提交）；未知路径当前是 `console.warn`，保存/发布拦截由 SUI-021 补；Go 默认派生与 Web 指针推导对齐由 SUI-025 补。证据：5b7a2c032（代码+测试）、781ff1182（文档）。
 
-- [ ] **SUI-020 · P1 · 实现 · 建立表单控件能力表**
+- [x] **SUI-020 · P1 · 实现 · 建立表单控件能力表** ✅ cf90d428d
   - 依赖：—。交付与验收：为已注册控件声明适用 schema 类型、输出值形状及回退。对照测试覆盖 DateRange、RichText、Switch、Code、JSON 的实际能力，编辑器选项与注册能力一致。
-  - 状态／条件：未开始。
+  - 状态／条件：LOCAL VERIFIED（2026-11-25）：新增 `web/src/utils/widgetCapabilities.ts` 共享能力表，覆盖全部 26 个 `FormWidget`，逐项记录可接受 schema 类型、提交值形态、实际 `implemented` 状态和回退行为，事实来源为 `widgetToRjsf` 与自定义 widget/field 注册表；Page Studio 12 个控件选项各带原生 `title` 能力提示，选项值不变。证据：`widgetCapabilities.test.ts` 7/7（26 枚举全覆盖、字段完整性、DateRange/RichText 仅声明、Switch 布尔、Code/JSON 字符串 textarea、编辑器选项子集）、FormPresentationEditor 与 SchemaFormRenderer 定向 111/111；`pnpm run tsc` 0 错误；web 全量 jest 472 suites / 5594 tests 全绿 exit 0（387s）；guard PASSED；docs build 通过；Go build 通过。文档：协议/页面模型/编辑器使用中英双树同步。边界如实：本项只建能力表与提示、未新增控件实现，DateRange/RichText 仍仅声明、静默回退到类型默认控件；Code/JSON 仍是普通 textarea 字符串，不解析或校验内容；能力提示仅为提示信息，不改变提交值。证据：cf90d428d（代码+测试）、d211d5ca7（文档）。
 
 - [ ] **SUI-021 · P1 · 实现 · 校验保存与发布的表单呈现配置**
   - 依赖：SUI-019, SUI-020。交付与验收：校验未知字段、重复或冲突分组、不兼容控件及非法宽度。错误能定位表单和字段，已有合法 PageSpec 能重新发布。
