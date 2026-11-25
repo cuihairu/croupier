@@ -9,9 +9,10 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// platformServiceAPI 是 Handler 对 Service 的最小接口缝隙：Service 三个方法
-// 把错误经 resp.Code 表达、恒返回 nil error，err != nil 分支仅在测试注入
-// 故障实现时可触达。
+// platformServiceAPI is the minimal interface seam the Handler needs from the
+// Service: all three Service methods express errors through resp.Code and always
+// return a nil error; the err != nil branch is only reachable with a fault-injected
+// test implementation.
 type platformServiceAPI interface {
 	Call(ctx context.Context, req *CallPlatformRequest) (*CallPlatformResponse, error)
 	ListPlatforms(ctx context.Context) (*ListPlatformsResponse, error)
