@@ -118,6 +118,17 @@ Display seeds (`initialValues` / `defaultValue` / previously submitted values) a
 
 Boundaries: the serialization contract follows the widget, not a separate option — `x-widget: DatePicker` on a `format: date-time` field submits the date-only form (and vice versa for `TimePicker`); UTC consumers get an identical instant after parsing; cross-day display of `Z`/offset seeds in non-UTC timezones is intentional; `DateRange` remains declared-only (SUI-020). Verification: real rjsf engine e2e (`datetime-widgets.test.tsx`) asserts submitted strings and clear behavior through the actual RJSF submit path under both UTC and non-UTC process timezones.
 
+### Enum label association (SUI-023)
+
+Enum dropdown labels attach to values, never to positions. The GUX-017 rendering chain (schema `x-enum-options` / `FormFieldSpec.enumOptions` → `ui:options.enumNames`, because rjsf v5's `optionsList` consumes only `ui:options.enumNames`) is unchanged, but the label table is now built by matching `String(value)` keys against the schema's `enum` array instead of relying on declaration order:
+
+- **Scalar values are equal**: hint/option `value` accepts strings, numbers, and booleans (previously non-string hint values were silently dropped, so numeric enums fell back to raw values); `false` associates normally — it is a value, not an empty state.
+- **Reordered options**: `x-enum-options` or `enumOptions` entries may be listed in any order; labels follow the schema `enum` order because the association is keyed by value.
+- **Missing labels/translations**: an enum value without a matching entry renders the raw value string (never a fabricated label); a hint whose value is not in `enum` is ignored and cannot desynchronize the table; the emitted `enumNames` array always has the same length and order as `enum` (rjsf matches by index, so length alignment is the correctness precondition). A label declared with only `zh-CN` renders that label (the GUX-017 locale precedence, `zh-CN` first, is unchanged; locale-following for all form copy is SUI-024).
+- **Submitted values are untouched**: labels live only in `ui:options.enumNames`/schema `enumNames`; `schema.enum` is never rewritten. A real-rjsf submit-path e2e (`enum-labels.test.tsx`) selects an option by its visible label and asserts the payload carries the raw enum value (numeric `2`, not the label text).
+
+Without a schema `enum` the `fields` path falls back to declaration order (legacy contract, unchanged behavior).
+
 Visibility conditions are restricted expressions: they cannot read row/detail data or call functions:
 
 ```ts

@@ -519,6 +519,10 @@ wire 契约见 [PageSpec 协议规范](../architecture/pagespec-protocol.md)「�
 
 组合页区块表单里的日期类字段提交的是操作者选择的值，不是折算到 UTC 的瞬时值：`date` 提交本地日历日期 `YYYY-MM-DD`，`date-time` 提交带显式本地偏移的 RFC3339（`2026-01-31T08:30:45+08:00`），`time` 提交 `HH:mm:ss`，清空则把键从提交值中彻底移除（旧行为是滞留 `null` 进请求、随后撞 schema 校验）。antd 主题内置日期控件丢弃本地偏移、core 的 time 控件拼坏 Dayjs 值，因此 SchemaFormRenderer 注册三个覆盖实现（`DateWidget`/`DateTimeWidget`/`TimeWidget`），`format: date/date-time/time` 缺省路径与 `x-widget: DatePicker/TimePicker` 路径都解析到它们。种子（默认值、上次提交值）：naive DB 风格串按本地墙钟显示，`Z`/偏移串保持瞬时值。完整序列化契约与边界见 [PageSpec 协议](../architecture/pagespec-protocol.md#日期时间值序列化sui-022)（契约跟随 widget 选择：`format: date-time` 字段配 `x-widget: DatePicker` 会提交纯日期形态）。
 
+## 枚举标签按值关联（SUI-023）
+
+区块表单里的枚举下拉标签按值关联，绝不按位置关联：数值与布尔枚举值（含 `false`）拿到声明的标签，重排的 `x-enum-options`/`enumOptions` 声明按 schema `enum` 顺序渲染，无声明标签的值回退原始值字符串。标签绝不改变提交的枚举值——按可见标签点选选项提交的是原始值（枚举标签链路沿用 GUX-017：schema hints 解析进固定 rjsf runtime 的 `ui:options.enumNames`）。见 [PageSpec 协议](../architecture/pagespec-protocol.md#枚举标签按值关联sui-023)。
+
 ## 9. 已知边界
 
 - SUI-020 未新增任何 widget 实现：`DateRange` 与 `RichText` 仍仅声明、未实现，静默回退到类型默认控件；`Code`/`JSON` 仍是普通 textarea 字符串，不解析也不校验内容。能力提示仅为提示信息，不改变提交值。

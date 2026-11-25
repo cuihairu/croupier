@@ -118,6 +118,17 @@ interface RemoteOptionsSpec {
 
 边界：序列化契约跟随 widget，而非独立选项——`format: date-time` 字段配 `x-widget: DatePicker` 会提交纯日期形态（`TimePicker` 反之）；按 UTC 设计的消费方解析后得到同一瞬时；非 UTC 时区下带 `Z`/偏移种子的跨日显示是有意行为；`DateRange` 仍仅声明（SUI-020）。验证：真实 rjsf 引擎 e2e（`datetime-widgets.test.tsx`）在 UTC 与非 UTC 进程时区下经实际 RJSF 提交路径断言提交串与清空行为。
 
+### 枚举标签按值关联（SUI-023）
+
+枚举下拉标签按值关联，绝不按位置关联。GUX-017 的渲染链路不变（schema `x-enum-options` / `FormFieldSpec.enumOptions` → `ui:options.enumNames`，因 rjsf v5 的 `optionsList` 只消费 `ui:options.enumNames`），但标签表现在按 `String(value)` 键与 schema 的 `enum` 数组匹配构建，不再依赖声明顺序：
+
+- **标量值同权**：hint/option 的 `value` 接受字符串、数值与布尔（旧实现静默丢弃非字符串 hint 值，数值枚举只能回退裸值）；`false` 正常关联——它是值，不是空态。
+- **重排选项**：`x-enum-options` 或 `enumOptions` 条目可按任意顺序声明；标签跟随 schema `enum` 顺序，因为关联以值为键。
+- **缺标签/缺翻译**：没有匹配条目的枚举值渲染原始值字符串（绝不伪造标签）；value 不在 `enum` 内的 hint 被忽略，不会使标签表错位；输出的 `enumNames` 数组与 `enum` 同长同序（rjsf 按下标取用，长度对齐是正确性前提）。只声明 `zh-CN` 的标签照常渲染（GUX-017 的 zh 优先取值链不变；全表单文案跟随 locale 见 SUI-024）。
+- **提交值不受影响**：标签只存在于 `ui:options.enumNames`/schema 级 `enumNames`；`schema.enum` 绝不重写。真实 rjsf 提交路径 e2e（`enum-labels.test.tsx`）按可见标签点选选项，断言 payload 携带原始枚举值（数值 `2`，而非标签文本）。
+
+无 schema `enum` 时 `fields` 路径按声明顺序兜底（旧契约，行为不变）。
+
 可见性条件是受限表达式，不能读 row/详情数据或调用函数：
 
 ```ts
