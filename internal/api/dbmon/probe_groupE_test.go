@@ -1,6 +1,7 @@
-// 覆盖目标（组 E）：
-//   - probe.Probe 的 sql.Open 失败分支（probe.go:68-71）
-//   - service.UpdateSource 的更新后重读失败分支（service.go:103-105）
+// Coverage targets (group E):
+//   - the sql.Open failure branch of probe.Probe (probe.go:68-71)
+//   - the reload-after-update failure branch of service.UpdateSource
+//     (service.go:103-105)
 package dbmon
 
 import (
@@ -18,9 +19,9 @@ import (
 	"gorm.io/gorm"
 )
 
-// 无 "/" 的 mysql DSN 在 go-sql-driver 的 OpenConnector 阶段即被拒绝
-// （ParseDSN: missing the slash），sql.Open 返回错误 → 探测结果承载
-// open 错误而非接口报错。
+// A mysql DSN without "/" is rejected already at the OpenConnector stage of
+// go-sql-driver (ParseDSN: missing the slash), sql.Open returns an error, and
+// the probe result carries the open error instead of the endpoint erroring.
 func TestProbe_SQLOpenInvalidDSNGroupE(t *testing.T) {
 	src := &model.DBSource{Model: gorm.Model{ID: 1}, Name: "bad-dsn", Driver: "mysql", Kind: model.DBSourceKindSelf}
 
@@ -34,8 +35,9 @@ func TestProbe_SQLOpenInvalidDSNGroupE(t *testing.T) {
 	assert.Equal(t, "mysql", res.Driver)
 }
 
-// UpdateSource 流程中的 query 序列：FindOne(#1) → Update → FindOne(#2)。
-// 注入第 2 次 query 起失败的回调，覆盖更新成功后重读失败的分支。
+// Query sequence in the UpdateSource flow: FindOne(#1) → Update → FindOne(#2).
+// Inject a callback that fails from the 2nd query on, covering the reload
+// failure after a successful update.
 func TestService_UpdateSource_ReloadErrorGroupE(t *testing.T) {
 	dbmonSvc, srcModel, _, db := newDBMonDBFixture(t)
 	ctx := context.Background()
@@ -65,15 +67,18 @@ func TestService_UpdateSource_ReloadErrorGroupE(t *testing.T) {
 	assert.Nil(t, resp)
 }
 
-// 覆盖目标：probe.Probe 的成功主路径（连通判定过 → 电池跑 → res.OK=true）。
-// driver 名被 driverName 钉死为已注册真 driver（mysql/pgx），无法注册同名
-// 假 driver，故经 openDB 注入缝替换为 sqlmock 构造的 *sql.DB（B 类）。
+// Coverage target: the success main path of probe.Probe (reachability verdict
+// passes → the battery runs → res.OK=true). The driver name is pinned by
+// driverName to the registered real drivers (mysql/pgx) and a fake driver
+// under the same name cannot be registered, so the openDB injection seam
+// substitutes a sqlmock-built *sql.DB (class B).
 func TestProbe_OKViaSQLMockGroupS(t *testing.T) {
 	db, mock, err := sqlmock.New(sqlmock.MonitorPingsOption(true))
 	require.NoError(t, err)
 	defer func() { _ = db.Close() }()
 
-	// 连通判定（DBChecker 收口）：Ping + 只读断言 SELECT 1。
+	// Reachability verdict (closed out into DBChecker): Ping + the read-only
+	// assertion SELECT 1.
 	mock.ExpectPing()
 	mock.ExpectQuery(regexp.QuoteMeta("SELECT 1")).
 		WillReturnRows(sqlmock.NewRows([]string{"1"}).AddRow(1))

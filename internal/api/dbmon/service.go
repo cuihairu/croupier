@@ -100,7 +100,8 @@ func (s *Service) UpdateSource(ctx context.Context, req *SourceUpdateRequest) (*
 	if req.Env != nil {
 		updates["env"] = strings.TrimSpace(*req.Env)
 	}
-	// 归属 agent：指针非 nil 即以提交值为准（空串 = 解归属）。
+	// Owning agent: whenever the pointer is non-nil the submitted value wins
+	// (empty string = release ownership).
 	if req.OwnerAgentID != nil {
 		updates["owner_agent_id"] = strings.TrimSpace(*req.OwnerAgentID)
 	}

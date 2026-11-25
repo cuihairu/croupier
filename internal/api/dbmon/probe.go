@@ -4,11 +4,15 @@
 // executed with a hard timeout on a read-only connection. Metrics a cloud
 // RDS does not expose are reported as unavailable (degraded), never guessed.
 //
-// 连通判定收口 core/healthprobe.DBChecker（R4 评审简档 §6：探测实现只留
-// 一份）：不可用 = 连不上（Ping 或只读断言失败），error 串即不可用原因。
-// 诊断电池（连接水位/锁等待/死锁计数）是 gate 语义而非探测语义——留本端点，
-// 复用同一次执行打开的同一连接，不独立连库（一份实现两处消费）。电池查询
-// 失败只降级指标，不改变可用性判定。
+// The reachability verdict is closed out into core/healthprobe.DBChecker
+// (R4 review profile §6: keep a single copy of the probe implementation):
+// unavailable = cannot connect (Ping or the read-only assertion fails), and
+// the error string is the reason for unavailability. The diagnostic battery
+// (connection watermark / lock waits / deadlock count) is gate semantics, not
+// probe semantics -- it stays in this endpoint and reuses the same connection
+// opened for that one execution instead of connecting separately (one
+// implementation, two consumers). A failing battery query only degrades the
+// metrics; it never changes the availability verdict.
 package dbmon
 
 import (
@@ -22,7 +26,8 @@ import (
 	"github.com/cuihairu/croupier/internal/model"
 )
 
-// verdictTimeout 连通判定硬超时（对齐 DBChecker 默认，只读不写）。
+// verdictTimeout is the hard timeout for the reachability verdict (aligned
+// with the DBChecker default; read-only, never writes).
 const verdictTimeout = 5 * time.Second
 
 // ProbeResult is the normalized snapshot for one source.
@@ -63,9 +68,11 @@ type LockWait struct {
 	Query       string  `json:"query,omitempty"`
 }
 
-// openDB 是 sql.Open 的测试注入缝：生产恒为 sql.Open。driver 名被
-// driverName 钉死为已注册的真 driver（mysql/pgx），单测无法注册同名假
-// driver，只能经此缝注入 sqlmock 构造的 *sql.DB 以覆盖成功主路径。
+// openDB is the test injection seam for sql.Open: production always uses
+// sql.Open. The driver name is pinned by driverName to the registered real
+// drivers (mysql/pgx), so unit tests cannot register a fake driver under the
+// same name; the only way to cover the success main path with a *sql.DB
+// built from sqlmock is to inject it through this seam.
 var openDB = sql.Open
 
 // Probe runs all checks against one source with a per-query timeout.
@@ -86,8 +93,11 @@ func Probe(ctx context.Context, src *model.DBSource, dsn string) (*ProbeResult, 
 	}
 	defer func() { _ = db.Close() }()
 
-	// 连通判定走 DBChecker（探测实现只留一份）：Ping + 只读断言，error 即
-	// 不可用原因串。连不上时电池不再执行（连接是死的，查询只会徒劳）。
+	// The reachability verdict goes through DBChecker (keep a single copy of
+	// the probe implementation): Ping + read-only assertion, and the error is
+	// the unavailability reason string. When the source is unreachable the
+	// battery is not executed at all (the connection is dead; queries would
+	// only be wasted effort).
 	pctx, cancel := context.WithTimeout(ctx, verdictTimeout)
 	defer cancel()
 	chk := &healthprobe.DBChecker{Timeout: verdictTimeout}
@@ -124,8 +134,10 @@ func probeMySQL(ctx context.Context, db *sql.DB, res *ProbeResult) {
 	rows, err := db.QueryContext(ctx,
 		"SHOW GLOBAL STATUS WHERE Variable_name IN ('Threads_connected','Threads_running','Innodb_deadlocks','Queries','Com_commit','Com_rollback')")
 	if err != nil {
-		// 不可达已在 DBChecker 连通判定拦下（Error=连不上）；这里读不到
-		// 状态表 = 监控账号权限不足，指标降级，不改可用性判定。
+		// Unreachability was already caught by the DBChecker reachability
+		// verdict (Error = cannot connect); failing to read the status tables
+		// here = the monitoring account lacks privileges, so the metrics
+		// degrade and the availability verdict is unchanged.
 		return
 	}
 	statuses := map[string]string{}
@@ -193,8 +205,10 @@ SELECT
   current_setting('max_connections')::int
 FROM pg_stat_activity`).Scan(&cur, &active, &maxc)
 	if err != nil {
-		// 不可达已在 DBChecker 连通判定拦下（Error=连不上）；这里读不到
-		// 状态表 = 监控账号权限不足，指标降级，不改可用性判定。
+		// Unreachability was already caught by the DBChecker reachability
+		// verdict (Error = cannot connect); failing to read the status tables
+		// here = the monitoring account lacks privileges, so the metrics
+		// degrade and the availability verdict is unchanged.
 		return
 	}
 	res.Connections = &ConnectionsInfo{Current: cur, Active: active, Max: maxc}

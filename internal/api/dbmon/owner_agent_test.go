@@ -1,8 +1,10 @@
 package dbmon
 
-// R4：DB 源归属 agent（ownerAgentId）的 API 面——创建携带、更新换绑/解
-// 归属、未提交不动现值。归属 agent 的周期探测下发消费面在 server
-// control_handler（按 owner_agent_id 派生 db 目标）。
+// R4: the API surface for the agent a DB source is owned by (ownerAgentId)
+// -- carried on create, rebind / unbind on update, and left untouched when
+// the field is not submitted. The periodic probe dispatch consumed by the
+// owning agent lives in the server control_handler (it derives db targets by
+// owner_agent_id).
 
 import (
 	"context"
@@ -72,7 +74,7 @@ func TestDBMonSource_OwnerAgentRoundTrip(t *testing.T) {
 		}))
 	}
 
-	// 创建带归属。
+	// Create with ownership.
 	rec := doDBMonReq(r, http.MethodPost, "/dbmon/sources", fmt.Sprintf(`{
 		"name":"归属主库","driver":"mysql","kind":"self","dsn":%q,
 		"gameId":"demo","env":"prod","ownerAgentId":"agent-sidecar-1"
@@ -82,7 +84,7 @@ func TestDBMonSource_OwnerAgentRoundTrip(t *testing.T) {
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &created))
 	assert.Equal(t, "agent-sidecar-1", created.OwnerAgentId)
 
-	// 换绑归属 agent。
+	// Rebind the owning agent.
 	rec = doDBMonReq(r, http.MethodPut, fmt.Sprintf("/dbmon/sources/%d", created.Id),
 		`{"ownerAgentId":"agent-devops-2"}`)
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
@@ -90,16 +92,19 @@ func TestDBMonSource_OwnerAgentRoundTrip(t *testing.T) {
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &updated))
 	assert.Equal(t, "agent-devops-2", updated.OwnerAgentId)
 
-	// 空串 = 解归属（回落 server 诊断端点兜底）。
+	// Empty string = unbind ownership (fall back to the server diagnostic
+	// endpoint as the fallback path).
 	rec = doDBMonReq(r, http.MethodPut, fmt.Sprintf("/dbmon/sources/%d", created.Id),
 		`{"ownerAgentId":""}`)
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
-	// 新变量：clear 响应因 omitempty 缺 ownerAgentId 键，复用 updated 会残留旧值。
+	// Fresh variable: the clear response omits the ownerAgentId key because of
+	// omitempty, so reusing updated would leave the old value in place.
 	var cleared SourceResponse
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &cleared))
 	assert.Empty(t, cleared.OwnerAgentId)
 
-	// 未提交归属字段：不改动现值（指针语义，与「空串=解归属」区分）。
+	// Ownership field not submitted: the current value is left unchanged
+	// (pointer semantics, distinct from "empty string = unbind").
 	rec = doDBMonReq(r, http.MethodPut, fmt.Sprintf("/dbmon/sources/%d", created.Id),
 		`{"ownerAgentId":"agent-sidecar-3","name":"改名不丢归属"}`)
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())

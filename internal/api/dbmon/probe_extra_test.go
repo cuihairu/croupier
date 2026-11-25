@@ -1,6 +1,8 @@
-// 覆盖目标：probe.go 的 probeMySQL/probePostgres 成功与失败分支（经 sqlmock
-// 模拟 *sql.DB，不依赖真实 MySQL/Postgres），以及 service.go/handler.go 中
-// 模型层错误路径（List/Create/Update/ProbeAll 失败、无 DSN 源的探测回退）。
+// Coverage targets: the success and failure branches of
+// probeMySQL/probePostgres in probe.go (a sqlmock-simulated *sql.DB, no real
+// MySQL/Postgres), plus the model-layer error paths in service.go/handler.go
+// (List/Create/Update/ProbeAll failures, probe fallback for a DSN-less
+// source).
 package dbmon
 
 import (
@@ -23,10 +25,11 @@ import (
 	"gorm.io/gorm"
 )
 
-// ginEngine 仅为可读性别名，实际就是 *gin.Engine。
+// ginEngine is just a readability alias; it really is *gin.Engine.
 type ginEngine = gin.Engine
 
-// ---- probeMySQL / probePostgres（直接以 sqlmock 构造 *sql.DB 调用内部探针） ----
+// ---- probeMySQL / probePostgres (call the internal probes directly with a
+// sqlmock-built *sql.DB) ----
 
 func TestProbeMySQL_SuccessViaSQLMock(t *testing.T) {
 	db, mock, err := sqlmock.New()
@@ -76,7 +79,8 @@ func TestProbeMySQL_MinimalStatusViaSQLMock(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { _ = db.Close() }()
 
-	// 无死锁/查询计数键 → 对应指针保持 nil；max_connections 查询失败 → Max=-1。
+	// No deadlock/query-count keys → the corresponding pointers stay nil;
+	// a failing max_connections query → Max=-1.
 	statusRows := sqlmock.NewRows([]string{"Variable_name", "Value"}).
 		AddRow("Threads_connected", "7").
 		AddRow("Threads_running", "2")
@@ -111,7 +115,8 @@ func TestProbeMySQL_StatusQueryError(t *testing.T) {
 	res := &ProbeResult{}
 	probeMySQL(context.Background(), db, res)
 
-	// 可用性判定归 DBChecker 连通判定；电池查询失败只降级指标。
+	// The availability verdict belongs to the DBChecker reachability verdict;
+	// a failing battery query only degrades the metrics.
 	assert.Empty(t, res.Error)
 	require.NoError(t, mock.ExpectationsWereMet())
 }
@@ -125,7 +130,8 @@ func TestProbeMySQL_LockWaitScanErrorSkipped(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"Variable_name", "Value"}))
 	mock.ExpectQuery(regexp.QuoteMeta("SELECT @@max_connections")).
 		WillReturnRows(sqlmock.NewRows([]string{"max_connections"}))
-	// wait_secs 列给字符串 → Scan 到 float64 失败 → 该行被跳过。
+	// A string in the wait_secs column → Scan into float64 fails → the row is
+	// skipped.
 	mock.ExpectQuery("innodb_lock_waits").WillReturnRows(
 		sqlmock.NewRows([]string{"waiter", "blocker", "table_name", "wait_secs", "query"}).
 			AddRow("trx-1", "trx-9", "t", "not-a-float", "q"))
@@ -180,7 +186,8 @@ func TestProbePostgres_StatusQueryError(t *testing.T) {
 	res := &ProbeResult{}
 	probePostgres(context.Background(), db, res)
 
-	// 可用性判定归 DBChecker 连通判定；电池查询失败只降级指标。
+	// The availability verdict belongs to the DBChecker reachability verdict;
+	// a failing battery query only degrades the metrics.
 	assert.Empty(t, res.Error)
 	require.NoError(t, mock.ExpectationsWereMet())
 }
@@ -192,7 +199,7 @@ func TestProbePostgres_DeadlockAndLockScanFailuresDegrade(t *testing.T) {
 
 	mock.ExpectQuery("pg_stat_activity").WillReturnRows(
 		sqlmock.NewRows([]string{"cur", "active", "maxc"}).AddRow(int64(1), int64(0), int64(10)))
-	// 死锁计数与锁等待查询失败 → 降级，不置 Error。
+	// Deadlock-count and lock-wait queries fail → degraded, no Error set.
 	mock.ExpectQuery("pg_stat_database").WillReturnError(errors.New("denied"))
 	mock.ExpectQuery("pg_locks").WillReturnError(errors.New("denied"))
 
@@ -205,9 +212,11 @@ func TestProbePostgres_DeadlockAndLockScanFailuresDegrade(t *testing.T) {
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
-// ---- Probe 连通判定（DBChecker 收口，§6 探测实现只留一份） ----
+// ---- Probe reachability verdict (closed out into DBChecker; §6: keep a
+// single copy of the probe implementation) ----
 
-// swapOpenDB 覆盖 openDB 测试缝，注入 sqlmock 连接并返回还原函数。
+// swapOpenDB overrides the openDB test seam, injects a sqlmock connection and
+// returns a restore function.
 func swapOpenDB(t *testing.T, db *sql.DB) func() {
 	t.Helper()
 	orig := openDB
@@ -221,7 +230,8 @@ func TestProbe_CheckerVerdictFailureShortCircuits(t *testing.T) {
 	defer func() { _ = db.Close() }()
 	defer swapOpenDB(t, db)()
 
-	// 连通判定失败（Ping 不通）→ Error=checker 原因串，电池不再执行。
+	// Reachability verdict fails (Ping fails) → Error = the checker reason
+	// string, the battery is not executed.
 	mock.ExpectPing().WillReturnError(errors.New("dial tcp: refused"))
 
 	src := &model.DBSource{Model: gorm.Model{ID: 1}, Name: "dead-db",
@@ -241,7 +251,8 @@ func TestProbe_CheckerVerdictSuccessRunsBattery(t *testing.T) {
 	defer func() { _ = db.Close() }()
 	defer swapOpenDB(t, db)()
 
-	// 连通判定（Ping + SELECT 1 只读断言）通过 → 跑电池，OK=true。
+	// Reachability verdict (Ping + the SELECT 1 read-only assertion) passes →
+	// the battery runs, OK=true.
 	mock.ExpectPing()
 	mock.ExpectQuery(regexp.QuoteMeta("SELECT 1")).
 		WillReturnRows(sqlmock.NewRows([]string{"1"}).AddRow(1))
@@ -265,7 +276,7 @@ func TestProbe_CheckerVerdictSuccessRunsBattery(t *testing.T) {
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
-// ---- service 层错误路径 ----
+// ---- service-layer error paths ----
 
 func newDBMonDBFixture(t *testing.T) (*Service, *model.DBSourceModel, *model.AlertModel, *gorm.DB) {
 	t.Helper()
@@ -306,7 +317,8 @@ func TestDBMonService_UpdateSource_UpdateError(t *testing.T) {
 		GameID: "demo", Env: "prod", Enabled: true}
 	require.NoError(t, srcModel.Create(ctx, src))
 
-	// 删除更新目标列：FindOne 成功、Validate 通过，但 Updates 报 SQL 错误。
+	// Drop the updated-target column: FindOne succeeds and Validate passes,
+	// but Updates fails with a SQL error.
 	require.NoError(t, db.Exec("ALTER TABLE db_sources DROP COLUMN sort").Error)
 	sort := 3
 	_, err := dbmonSvc.UpdateSource(ctx, &SourceUpdateRequest{
@@ -329,7 +341,8 @@ func TestDBMonService_ProbeAll_SourceWithoutDSNReportsError(t *testing.T) {
 	src := &model.DBSource{Name: "no-dsn", Driver: "mysql", Kind: model.DBSourceKindSelf, DSN: goodDSN,
 		GameID: "demo", Env: "prod", Enabled: true}
 	require.NoError(t, srcModel.Create(ctx, src))
-	// 绕过 service 校验把 DSN 清空，模拟历史脏数据。
+	// Bypass the service validation and blank the DSN, simulating legacy dirty
+	// data.
 	require.NoError(t, srcModel.Update(ctx, src.ID, map[string]interface{}{"dsn": ""}))
 
 	resp, err := dbmonSvc.ProbeAll(ctx)
@@ -339,7 +352,7 @@ func TestDBMonService_ProbeAll_SourceWithoutDSNReportsError(t *testing.T) {
 	assert.Contains(t, resp.Results[0].Error, "no DSN")
 }
 
-// ---- handler 层错误路径 ----
+// ---- handler-layer error paths ----
 
 func newDBMonEnvWithDB(t *testing.T) (*ginEngine, *gorm.DB) {
 	t.Helper()

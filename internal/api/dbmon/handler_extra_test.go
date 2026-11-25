@@ -16,7 +16,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	// 注册真实驱动,让 probe 走到拨号失败分支而非 sql.Open 报 unknown driver。
+	// Register real drivers so the probe reaches the dial-failure branch
+	// instead of sql.Open failing with unknown driver.
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
@@ -60,7 +61,8 @@ const goodDSN = "monitor:sec%ret@tcp(10.0.0.1:3306)/game"
 func TestDBMonHandler_SourceCRUDRoundTrip(t *testing.T) {
 	r, _, _, _ := newDBMonTestEnv(t)
 
-	// 创建:driver/kind 归一化、DSN 脱敏、默认 enabled、createdBy 取上下文用户。
+	// Create: driver/kind normalization, DSN masking, enabled defaults to
+	// true, createdBy comes from the context user.
 	rec := doDBMonReq(r, http.MethodPost, "/dbmon/sources", fmt.Sprintf(`{
 		"name":"游戏主库","driver":"MySQL","kind":" Self ","dsn":%q,"gameId":"demo","env":"prod","sort":3
 	}`, goodDSN))
@@ -76,7 +78,7 @@ func TestDBMonHandler_SourceCRUDRoundTrip(t *testing.T) {
 	assert.Equal(t, "alice", created.CreatedBy)
 	assert.Equal(t, 3, created.Sort)
 
-	// 列表。
+	// List.
 	rec = doDBMonReq(r, http.MethodGet, "/dbmon/sources", "")
 	require.Equal(t, http.StatusOK, rec.Code)
 	var list SourceListResponse
@@ -84,7 +86,7 @@ func TestDBMonHandler_SourceCRUDRoundTrip(t *testing.T) {
 	require.Len(t, list.Items, 1)
 	assert.Equal(t, "monitor:***@tcp(10.0.0.1:3306)/game", list.Items[0].DsnMask)
 
-	// 更新:改名 + 关闭 enabled。
+	// Update: rename + disable enabled.
 	rec = doDBMonReq(r, http.MethodPut, fmt.Sprintf("/dbmon/sources/%d", created.Id),
 		`{"name":"主库-2","enabled":false}`)
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
@@ -93,11 +95,11 @@ func TestDBMonHandler_SourceCRUDRoundTrip(t *testing.T) {
 	assert.Equal(t, "主库-2", updated.Name)
 	assert.False(t, updated.Enabled)
 
-	// 空更新 → 400。
+	// Empty update → 400.
 	rec = doDBMonReq(r, http.MethodPut, fmt.Sprintf("/dbmon/sources/%d", created.Id), `{}`)
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 
-	// 删除后列表为空。
+	// After delete the list is empty.
 	rec = doDBMonReq(r, http.MethodDelete, fmt.Sprintf("/dbmon/sources/%d", created.Id), "")
 	require.Equal(t, http.StatusOK, rec.Code)
 	rec = doDBMonReq(r, http.MethodGet, "/dbmon/sources", "")
@@ -160,7 +162,7 @@ func TestDBMonService_UpdateSourceFieldValidation(t *testing.T) {
 	require.NoError(t, srcModel.Create(ctx, src))
 	id := fmt.Sprintf("%d", src.ID)
 
-	// 合并后校验:非法 kind / driver / root DSN 均拒绝。
+	// Validate after merge: invalid kind / driver / root DSN are all rejected.
 	badKind, badDriver, rootDSN := "gcp", "oracle", "root:pw@tcp(10.0.0.2)/x"
 	for _, tc := range []struct {
 		name string
@@ -178,7 +180,7 @@ func TestDBMonService_UpdateSourceFieldValidation(t *testing.T) {
 		})
 	}
 
-	// 合法部分更新:DSN / gameID / env / sort 往返。
+	// Valid partial update: DSN / gameID / env / sort round trip.
 	newDSN := "monitor:pw2@tcp(10.0.0.9:3306)/game2"
 	gameID, env, sort := "game2", "dev", 7
 	resp, err := dbmonSvc.UpdateSource(ctx, &SourceUpdateRequest{
@@ -224,7 +226,8 @@ func TestDBMonHandler_ProbeAllDegradedOnUnreachable(t *testing.T) {
 	r, _, srcModel, alertModel := newDBMonTestEnv(t)
 	ctx := context.Background()
 
-	// 坏 DSN 的 mysql 源(enabled)、正常但 disabled 的源、坏 DSN 的 postgres 源。
+	// A mysql source with a bad DSN (enabled), a healthy but disabled source,
+	// and a postgres source with a bad DSN.
 	require.NoError(t, srcModel.Create(ctx, &model.DBSource{
 		Name: "bad-mysql", Driver: "mysql", Kind: model.DBSourceKindSelf, GameID: "demo", Env: "prod",
 		DSN: "ro:ro@tcp(127.0.0.1:1)/none?timeout=1s&readTimeout=1s", Enabled: true,
@@ -232,7 +235,8 @@ func TestDBMonHandler_ProbeAllDegradedOnUnreachable(t *testing.T) {
 	off := &model.DBSource{Name: "disabled", Driver: "mysql", Kind: model.DBSourceKindSelf, DSN: goodDSN,
 		GameID: "demo", Env: "prod"}
 	require.NoError(t, srcModel.Create(ctx, off))
-	// Create 会把零值 Enabled=false 吞成列默认 true,用 map 更新关闭。
+	// Create swallows the zero-value Enabled=false into the column default
+	// true, so close it with a map update.
 	require.NoError(t, srcModel.Update(ctx, off.ID, map[string]interface{}{"enabled": false}))
 	require.NoError(t, srcModel.Create(ctx, &model.DBSource{
 		Name: "bad-pg", Driver: "postgres", Kind: model.DBSourceKindAliyun, GameID: "demo", Env: "prod",
@@ -243,28 +247,31 @@ func TestDBMonHandler_ProbeAllDegradedOnUnreachable(t *testing.T) {
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 	var resp ProbeAllResponse
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
-	// disabled 源被跳过。
+	// Disabled sources are skipped.
 	require.Len(t, resp.Results, 2)
 	byName := map[string]ProbeResult{}
 	for _, res := range resp.Results {
 		byName[res.Name] = res
 	}
 
-	// mysql:连接失败 → degraded(结果带 error,接口不 500)。
+	// mysql: connection failure → degraded (the result carries an error, the
+	// endpoint does not 500).
 	mysqlRes, ok := byName["bad-mysql"]
 	require.True(t, ok, "bad-mysql should be probed")
 	assert.False(t, mysqlRes.OK)
 	assert.NotEmpty(t, mysqlRes.Error)
 	assert.False(t, mysqlRes.ProbedAt.IsZero())
 
-	// postgres 源返回结果而非接口报错(当前实现对查询失败静默降级,仅校验不 500)。
+	// The postgres source returns a result rather than an endpoint error (the
+	// current implementation degrades silently on query failure; only check
+	// that it does not 500).
 	pgRes, ok := byName["bad-pg"]
 	require.True(t, ok, "bad-pg should be probed")
 	assert.Equal(t, "postgres", pgRes.Driver)
 	_, ok = byName["disabled"]
 	assert.False(t, ok, "disabled source should be skipped")
 
-	// 探测失败不产生告警。
+	// Probe failures produce no alerts.
 	alerts, _, err := alertModel.List(ctx, model.ListAlertsOptions{})
 	require.NoError(t, err)
 	assert.Empty(t, alerts)
@@ -310,8 +317,8 @@ func TestRaiseAlertsIfNeeded(t *testing.T) {
 		src := &model.DBSource{Name: "s", Driver: "mysql", DSN: goodDSN, GameID: "demo", Env: "prod",
 			LockWaitWarn: 2}
 		require.NoError(t, srcModel.Create(ctx, src))
-		dbmonSvc.raiseAlertsIfNeeded(ctx, src, lockWaitRes(2, nil)) // 等于阈值不触发
-		dbmonSvc.raiseAlertsIfNeeded(ctx, src, lockWaitRes(3, nil)) // 超过触发
+		dbmonSvc.raiseAlertsIfNeeded(ctx, src, lockWaitRes(2, nil)) // equal to threshold does not fire
+		dbmonSvc.raiseAlertsIfNeeded(ctx, src, lockWaitRes(3, nil)) // above fires
 		alerts, _, err := alertModel.List(ctx, model.ListAlertsOptions{})
 		require.NoError(t, err)
 		require.Len(t, alerts, 1)
@@ -363,17 +370,17 @@ func TestRaiseAlertsIfNeeded(t *testing.T) {
 		require.NoError(t, srcModel.Create(ctx, src))
 
 		dbmonSvc.raiseAlertsIfNeeded(ctx, src, lockWaitRes(6, nil))
-		dbmonSvc.raiseAlertsIfNeeded(ctx, src, lockWaitRes(7, nil)) // 已 firing → 去重
+		dbmonSvc.raiseAlertsIfNeeded(ctx, src, lockWaitRes(7, nil)) // already firing → dedup
 		alerts, _, err := alertModel.List(ctx, model.ListAlertsOptions{})
 		require.NoError(t, err)
 		require.Len(t, alerts, 1)
 
-		dbmonSvc.raiseAlertsIfNeeded(ctx, src, lockWaitRes(0, nil)) // 恢复 → resolved
+		dbmonSvc.raiseAlertsIfNeeded(ctx, src, lockWaitRes(0, nil)) // recovery → resolved
 		alerts, _, err = alertModel.List(ctx, model.ListAlertsOptions{Status: "resolved"})
 		require.NoError(t, err)
 		require.Len(t, alerts, 1)
 
-		dbmonSvc.raiseAlertsIfNeeded(ctx, src, lockWaitRes(0, nil)) // 再次 ok → 幂等
+		dbmonSvc.raiseAlertsIfNeeded(ctx, src, lockWaitRes(0, nil)) // ok again → idempotent
 		alerts, _, err = alertModel.List(ctx, model.ListAlertsOptions{})
 		require.NoError(t, err)
 		assert.Len(t, alerts, 1)

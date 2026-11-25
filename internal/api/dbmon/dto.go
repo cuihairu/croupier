@@ -14,12 +14,13 @@ type DBSource struct {
 	DsnMask string `json:"dsnMask,omitempty"`
 	GameId  string `json:"gameId,omitempty"`
 	Env     string `json:"env,omitempty"`
-	// OwnerAgentId 归属 agent（周期探测下放归属 agent 执行；空 = 未归属，
-	// server 诊断端点兜底）。R4 编号迁移 0045。
+	// OwnerAgentId is the owning agent (periodic probes are delegated to the
+	// owning agent; empty = unassigned, with the server diagnostic endpoint as
+	// fallback). Numbered migration 0045 for R4.
 	OwnerAgentId string `json:"ownerAgentId,omitempty"`
 	Enabled      bool   `json:"enabled"`
 	Sort         int    `json:"sort"`
-	// 阈值（0=平台默认）
+	// Thresholds (0 = platform default)
 	LockWaitWarn  int    `json:"lockWaitWarn,omitempty"`
 	ConnWarnRatio int    `json:"connWarnRatio,omitempty"`
 	CreatedBy     string `json:"createdBy,omitempty"`
@@ -72,8 +73,10 @@ type SourceUpdateRequest struct {
 	DSN    *string `json:"dsn"`
 	GameID *string `json:"gameId"`
 	Env    *string `json:"env"`
-	// OwnerAgentID 指针区分「未提交」与「清空归属」：非 nil 一律以提交值为准
-	// （空串 = 解归属，回落到 server 诊断端点兜底）。
+	// OwnerAgentID uses a pointer to distinguish "not submitted" from "clear
+	// ownership": whenever it is non-nil the submitted value wins (empty
+	// string = release ownership, falling back to the server diagnostic
+	// endpoint).
 	OwnerAgentID  *string `json:"ownerAgentId"`
 	Sort          *int    `json:"sort"`
 	Enabled       *bool   `json:"enabled"`
