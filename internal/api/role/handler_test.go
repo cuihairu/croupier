@@ -413,7 +413,7 @@ func TestHandler_RolesList_BindQueryError(t *testing.T) {
 
 	router.ServeHTTP(resp, req)
 
-	// Bug4 修复后：page=invalid 按契约返回 400
+	// After the Bug4 fix: page=invalid returns 400 per the contract
 	assert.Equal(t, http.StatusBadRequest, resp.Code)
 }
 

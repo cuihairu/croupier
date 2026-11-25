@@ -1,5 +1,6 @@
-// 覆盖目标（B 批）：service.go RoleDelete 事务内删除 admin_roles 悬挂
-// 引用失败的错误分支（复用既有 covFailureInjector 错误注入基建）。
+// Coverage target (batch B): the error branch inside the RoleDelete transaction
+// where deleting dangling admin_roles references fails (reuses the existing
+// covFailureInjector failure-injection harness).
 package role
 
 import (
@@ -9,9 +10,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// RoleDelete：role_permissions 清理成功后，admin_roles 绑定行删除失败
-// → 事务回滚并返回「删除用户角色绑定失败」（角色改硬删后悬挂引用
-// 清理失败的传播路径）。
+// RoleDelete: role_permissions cleanup succeeds, then deleting the admin_roles
+// binding rows fails -> the transaction rolls back and returns the "failed to delete
+// user role bindings" error (the propagation path for dangling-reference cleanup
+// failure after roles switched to hard delete).
 func TestRoleCovB_Delete_AdminRoleRowsError(t *testing.T) {
 	s, ctx, inj, db := newRoleCovEnv(t)
 	id := seedCovRole(t, db, "covdelete-adminrole")

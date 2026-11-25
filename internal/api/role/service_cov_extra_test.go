@@ -1,6 +1,7 @@
-// 覆盖目标：service.go 的 DB 错误分支（创建/更新/删除/列表事务失败传播）
-// 与 ensurePermissionIDs 失败分支。使用独立内存库 + gorm 回调注入错误，
-// 不与其他测试文件共享数据库状态。
+// Coverage target: the DB error branches of service.go (create/update/delete/list
+// transaction failure propagation) plus the ensurePermissionIDs failure branch. Uses
+// an isolated in-memory database with gorm callback error injection, so it does not
+// share database state with other test files.
 package role
 
 import (
@@ -21,11 +22,12 @@ import (
 	"gorm.io/gorm/schema"
 )
 
-// ---- gorm 错误注入基建 ----
+// ---- gorm error injection harness ----
 
 var covSchemaCache = &sync.Map{}
 
-// covStmtTable 解析当前语句操作的物理表（显式 Table 优先，其次 Model/Dest 的 schema）。
+// covStmtTable resolves the physical table the current statement operates on
+// (explicit Table wins, then the schema of Model/Dest).
 func covStmtTable(tx *gorm.DB) string {
 	if tx.Statement == nil {
 		return ""
@@ -59,8 +61,9 @@ func newCovFailureInjector() *covFailureInjector {
 	}
 }
 
-// register 在增删改查四类回调前挂接注入点；failAt 按 "op:table" 计数命中即失败，
-// failAll 对 "op:table" 全部失败。
+// register hooks the injection points before the create/query/update/delete
+// callbacks; failAt fails the Nth hit counted per "op:table", failAll fails every
+// "op:table" unconditionally.
 func (f *covFailureInjector) register(db *gorm.DB) {
 	callback := func(op string) func(tx *gorm.DB) {
 		return func(tx *gorm.DB) {
@@ -85,14 +88,14 @@ func (f *covFailureInjector) register(db *gorm.DB) {
 	}
 	_ = db.Callback().Create().Before("gorm:create").Register("cov_fail_create", callback("create"))
 	_ = db.Callback().Query().Before("gorm:query").Register("cov_fail_query", callback("query"))
-	// Scan/Rows 走 Row 处理器（gorm:row），需单独挂接才能命中
-	// GetRolesPermissionIDs 这类 Table().Scan() 查询。
+	// Scan/Rows runs through the Row processor (gorm:row), so it must be hooked
+	// separately to reach Table().Scan() queries such as GetRolesPermissionIDs.
 	_ = db.Callback().Row().Before("gorm:row").Register("cov_fail_row", callback("query"))
 	_ = db.Callback().Update().Before("gorm:update").Register("cov_fail_update", callback("update"))
 	_ = db.Callback().Delete().Before("gorm:delete").Register("cov_fail_delete", callback("delete"))
 }
 
-// ---- 独立测试环境 ----
+// ---- isolated test environment ----
 
 func newRoleCovEnv(t *testing.T) (*Service, context.Context, *covFailureInjector, *gorm.DB) {
 	t.Helper()
@@ -134,7 +137,7 @@ func newRoleCovEnv(t *testing.T) (*Service, context.Context, *covFailureInjector
 	return NewService(svcCtx), ctx, inj, db
 }
 
-// seedCovRole 创建一个待操作角色并返回其字符串 ID。
+// seedCovRole creates a role to operate on and returns its string ID.
 func seedCovRole(t *testing.T, db *gorm.DB, name string) string {
 	t.Helper()
 	role := &model.Role{Name: name, Category: "cov"}
@@ -142,9 +145,10 @@ func seedCovRole(t *testing.T, db *gorm.DB, name string) string {
 	return strconv.FormatUint(uint64(role.ID), 10)
 }
 
-// ---- service.go 错误分支 ----
+// ---- service.go error branches ----
 
-// RoleCreate：事务内 ReplacePermissions 失败（role_permissions 删除报错）。
+// RoleCreate: ReplacePermissions inside the transaction fails (the role_permissions
+// delete errors).
 func TestRoleCov_Create_ReplacePermissionsError(t *testing.T) {
 	s, ctx, inj, _ := newRoleCovEnv(t)
 	inj.failAll["delete:role_permissions"] = true
@@ -157,7 +161,7 @@ func TestRoleCov_Create_ReplacePermissionsError(t *testing.T) {
 	assert.Nil(t, resp)
 }
 
-// RoleDelete：删除 role_permissions 行失败。
+// RoleDelete: deleting the role_permissions rows fails.
 func TestRoleCov_Delete_PermissionRowsError(t *testing.T) {
 	s, ctx, inj, db := newRoleCovEnv(t)
 	id := seedCovRole(t, db, "covdelete")
@@ -168,8 +172,8 @@ func TestRoleCov_Delete_PermissionRowsError(t *testing.T) {
 	assert.Contains(t, err.Error(), "删除角色权限失败")
 }
 
-// RoleDetail：GetRolePermissionIDsCached 查询失败（权限校验占用第 1 次 rp 查询，
-// 详情为第 2 次）。
+// RoleDetail: the GetRolePermissionIDsCached query fails (the permission check
+// consumes the 1st role_permissions query, the detail call the 2nd).
 func TestRoleCov_Detail_PermissionIDsQueryError(t *testing.T) {
 	s, ctx, inj, db := newRoleCovEnv(t)
 	id := seedCovRole(t, db, "covdetail")
@@ -180,7 +184,7 @@ func TestRoleCov_Detail_PermissionIDsQueryError(t *testing.T) {
 	assert.Nil(t, resp)
 }
 
-// RoleUpdate：权限列表含不存在的权限 ID。
+// RoleUpdate: the permission list contains a nonexistent permission ID.
 func TestRoleCov_Update_InvalidPermissions(t *testing.T) {
 	s, ctx, _, db := newRoleCovEnv(t)
 	id := seedCovRole(t, db, "covupdate")
@@ -194,7 +198,7 @@ func TestRoleCov_Update_InvalidPermissions(t *testing.T) {
 	assert.Contains(t, err.Error(), "not found")
 }
 
-// RoleUpdate：roles 表更新失败。
+// RoleUpdate: the roles table update fails.
 func TestRoleCov_Update_ModelUpdateError(t *testing.T) {
 	s, ctx, inj, db := newRoleCovEnv(t)
 	id := seedCovRole(t, db, "covupdate2")
@@ -205,7 +209,7 @@ func TestRoleCov_Update_ModelUpdateError(t *testing.T) {
 	assert.Nil(t, resp)
 }
 
-// RoleUpdate：更新后 ReplacePermissions 失败。
+// RoleUpdate: ReplacePermissions after the update fails.
 func TestRoleCov_Update_ReplacePermissionsError(t *testing.T) {
 	s, ctx, inj, db := newRoleCovEnv(t)
 	id := seedCovRole(t, db, "covupdate3")
@@ -219,8 +223,8 @@ func TestRoleCov_Update_ReplacePermissionsError(t *testing.T) {
 	assert.Nil(t, resp)
 }
 
-// RoleUpdate：更新成功后 GetRoleCached 失败（roles 第 3 次查询：
-// 权限校验 1 次 + 事务 FindOne 1 次 + 回读 1 次）。
+// RoleUpdate: GetRoleCached fails after a successful update (the 3rd roles query:
+// 1x permission check + 1x transaction FindOne + 1x read-back).
 func TestRoleCov_Update_GetRoleCachedError(t *testing.T) {
 	s, ctx, inj, db := newRoleCovEnv(t)
 	id := seedCovRole(t, db, "covupdate4")
@@ -231,8 +235,8 @@ func TestRoleCov_Update_GetRoleCachedError(t *testing.T) {
 	assert.Nil(t, resp)
 }
 
-// RoleUpdate：未携带权限时更新后 GetRolePermissionIDsCached 失败
-// （rp 第 2 次查询：权限校验 1 次 + 回读 1 次）。
+// RoleUpdate: with no permissions attached, GetRolePermissionIDsCached fails after
+// the update (the 2nd role_permissions query: 1x permission check + 1x read-back).
 func TestRoleCov_Update_PermissionIDsCachedError(t *testing.T) {
 	s, ctx, inj, db := newRoleCovEnv(t)
 	id := seedCovRole(t, db, "covupdate5")
@@ -243,7 +247,7 @@ func TestRoleCov_Update_PermissionIDsCachedError(t *testing.T) {
 	assert.Nil(t, resp)
 }
 
-// RolesList：List 查询失败（roles 第 2 次查询：权限校验 1 次 + Count 1 次）。
+// RolesList: the List query fails (the 2nd roles query: 1x permission check + 1x Count).
 func TestRoleCov_List_QueryError(t *testing.T) {
 	s, ctx, inj, _ := newRoleCovEnv(t)
 	inj.failAt["query:roles"] = 2
@@ -253,7 +257,8 @@ func TestRoleCov_List_QueryError(t *testing.T) {
 	assert.Nil(t, resp)
 }
 
-// RolesList：列表成功后 GetRolesPermissionIDs 失败（rp 第 2 次查询）。
+// RolesList: GetRolesPermissionIDs fails after the list succeeds (the 2nd
+// role_permissions query).
 func TestRoleCov_List_RolesPermissionIDsError(t *testing.T) {
 	s, ctx, inj, db := newRoleCovEnv(t)
 	seedCovRole(t, db, "covlist")
@@ -264,8 +269,9 @@ func TestRoleCov_List_RolesPermissionIDsError(t *testing.T) {
 	assert.Nil(t, resp)
 }
 
-// ParseRoleID：超出 uint64 上限的输入在 ParseUint 即报错。
-// 注：超出 uint64 上限的输入在 ParseUint 即报错，无需溢出死分支。
+// ParseRoleID: input beyond the uint64 range errors out in ParseUint.
+// Note: an out-of-uint64-range input errors inside ParseUint itself, so there is no
+// overflow dead branch to exercise.
 func TestRoleCov_ParseRoleID_Overflow(t *testing.T) {
 	_, err := utils.ParseRoleID("18446744073709551616")
 	require.Error(t, err)

@@ -87,8 +87,9 @@ func (s *Service) RoleDelete(ctx context.Context, req *RoleDeleteRequest) error 
 			return errorx.NewInternalError("删除角色权限失败")
 		}
 
-		// 角色改硬删后顺手清 admin_roles 悬挂引用（软删时代同样悬挂，只
-		// 是查询过滤掩盖了问题；对齐 admin 删除清理 AdminRole 的做法）。
+		// Roles now hard-delete, so clean up dangling admin_roles references here too
+		// (they dangled under soft delete as well -- query filtering merely masked the
+		// problem; mirrors how admin deletion cleans up AdminRole).
 		if err := tx.WithContext(ctx).
 			Where("role_id = ?", roleID).
 			Delete(&model.AdminRole{}).Error; err != nil {
