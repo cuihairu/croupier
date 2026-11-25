@@ -1,8 +1,9 @@
-// 覆盖目标：export.go 的 Export/VerifyChain handler 错误分支；export_service.go
-// 的 buildAuditQuery 过滤/别名/时间窗、ExportRows 各错误与空可见域分支、
-// buildAuditItem 的 userAgent/trace_id/errorMessage 分支、VerifyChain 的
-// store 缺失/链读取失败分支；service.go 的 allows/resolveVisibleScopes
-// 各分支与 GetAuditLogs 错误分支。
+// Coverage targets: the Export/VerifyChain handler error branches in export.go;
+// in export_service.go the buildAuditQuery filters/aliases/time windows, the
+// ExportRows error and empty-visible-scope branches, the buildAuditItem
+// userAgent/trace_id/errorMessage branches, and the VerifyChain missing-store /
+// chain-read-failure branches; in service.go the allows/resolveVisibleScopes
+// branches and the GetAuditLogs error branches.
 package audit
 
 import (
@@ -35,8 +36,9 @@ func newAuditExtraDB(t *testing.T) *gorm.DB {
 	return db
 }
 
-// seedAuditViewer 创建一个带 audit:read 权限的管理员；roleName 为 super_admin
-// 时走管理员直通分支，为其他值时走受限 scope 分支。
+// seedAuditViewer creates an admin with the audit:read permission; when roleName
+// is super_admin it takes the admin passthrough branch, otherwise the restricted
+// scope branch.
 func seedAuditViewer(t *testing.T, db *gorm.DB, roleName string) (*model.Admin, string) {
 	t.Helper()
 	ctx := context.Background()
@@ -68,7 +70,7 @@ func TestHandler_GetAuditLogs_SizeAliasAndServiceError(t *testing.T) {
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 	assert.Contains(t, rec.Body.String(), `"pageSize":5`)
 
-	// DB 缺失 → service err → 500。
+	// Missing DB → service error → 500.
 	h2 := NewHandler(NewService(&svc.ServiceContext{}))
 	r2 := gin.New()
 	r2.GET("/audit", h2.GetAuditLogs)
@@ -83,7 +85,8 @@ func TestHandler_Export_QueryBindError(t *testing.T) {
 
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/audit/export?page=abc", nil))
-	// form 数值转换失败经 response.Error 兜底映射为 500（非 200）。
+	// A form numeric conversion failure is mapped to 500 (not 200) via the
+	// response.Error fallback.
 	assert.NotEqual(t, http.StatusOK, rec.Code)
 }
 
@@ -99,7 +102,7 @@ func TestHandler_Export_ExportRowsError(t *testing.T) {
 
 func TestHandler_VerifyChain_Error(t *testing.T) {
 	db := setupExportDB(t)
-	// AuditService 缺失 → VerifyChain err → 500。
+	// Missing AuditService → VerifyChain error → 500.
 	_, r := newExportHandler(t, db)
 
 	rec := httptest.NewRecorder()
@@ -121,7 +124,7 @@ func TestExportRows_DefaultLimitAndCountError(t *testing.T) {
 	seedAuditEntry(t, db, "a", "u", "g", "prod", "t", "success", nil)
 	svc := NewService(&svc.ServiceContext{DB: db})
 
-	// limit<=0 → 默认上限，不截断。
+	// limit<=0 → default limit, no truncation.
 	items, truncated, err := svc.ExportRows(context.Background(), &AuditRequest{}, 0)
 	require.NoError(t, err)
 	assert.Len(t, items, 1)
@@ -139,11 +142,11 @@ func TestExportRows_ScopeResolutionError(t *testing.T) {
 		DB: db, AdminModel: model.NewAdminModel(db), RoleModel: model.NewRoleModel(db),
 	})
 
-	// 无 username 上下文 → 权限解析失败。
+	// No username in the context → permission resolution fails.
 	_, _, err := svc.ExportRows(context.Background(), &AuditRequest{}, 10)
 	require.Error(t, err)
 
-	// 有 username 但非管理员、GameModel 缺失 → game model unavailable。
+	// A username that is not an admin plus a missing GameModel → game model unavailable.
 	_, _, err = svc.ExportRows(context.WithValue(context.Background(), "username", username), &AuditRequest{}, 10)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "game model unavailable")
@@ -153,7 +156,7 @@ func TestExportRows_EmptyVisibleScopesReturnsEmpty(t *testing.T) {
 	db := newAuditExtraDB(t)
 	seedAuditEntry(t, db, "a", "u", "g", "prod", "t", "success", nil)
 	admin, username := seedAuditViewer(t, db, "auditor")
-	// scope 指向不存在的 game → 可见域为空 → 空集。
+	// The scope points at a non-existent game → empty visible scopes → empty set.
 	require.NoError(t, model.NewAdminModel(db).SetGameEnvScope(
 		context.Background(), admin.ID, 424242, "prod"))
 
@@ -171,7 +174,7 @@ func TestExportRows_EmptyVisibleScopesReturnsEmpty(t *testing.T) {
 func TestExportRows_ScanError(t *testing.T) {
 	db := newAuditExtraDB(t)
 	seedAuditEntry(t, db, "a", "u", "g", "prod", "t", "success", nil)
-	// 破坏 timestamp 列 → 行扫描到 time.Time 失败。
+	// Corrupt the timestamp column → scanning the row into time.Time fails.
 	require.NoError(t, db.Exec("UPDATE audit_records SET timestamp = 'not-a-time'").Error)
 	svc := NewService(&svc.ServiceContext{DB: db})
 
@@ -207,15 +210,18 @@ func TestBuildAuditQuery_FiltersAliasesAndTimeWindows(t *testing.T) {
 	assert.Equal(t, int64(0), count(&AuditRequest{Start: time.Now().Add(time.Hour).Format(time.RFC3339)}))
 	assert.Equal(t, int64(2), count(&AuditRequest{End: time.Now().Add(time.Hour).Format(time.RFC3339)}))
 	assert.Equal(t, int64(0), count(&AuditRequest{End: time.Now().Add(-time.Hour).Format(time.RFC3339)}))
-	// 非法时间串被忽略（不过滤）。
+	// Invalid time strings are ignored (no filtering).
 	assert.Equal(t, int64(2), count(&AuditRequest{Start: "not-a-time", End: "also-not-a-time"}))
 }
 
-// 时区回归：audit 落库恒为 UTC（NewAuditRecord 用 time.Now().UTC()），时间窗
-// 参数必须归一 UTC 再绑定——sqlite 把 time.Time 序列化成带偏移的字符串逐字节
-// 比较，带本地偏移的参数在非 UTC 服务器上会把窗口算错（CST 机器实证：
-// Start=-1h 查出 0 行、End=-1h 查出 2 行）。窗口偏移固定 +05:30，与运行机器
-// 时区无关，修复前任何机器上都复现。
+// Timezone regression: audit records are always landed in the database as UTC
+// (NewAuditRecord uses time.Now().UTC()), and time window parameters must be
+// normalized to UTC before binding — sqlite serializes time.Time into an
+// offset-bearing string compared byte by byte, so on a non-UTC server a
+// local-offset parameter computes the wrong window (verified on a CST machine:
+// Start=-1h returned 0 rows, End=-1h returned 2 rows). The window offset is
+// pinned to +05:30, independent of the host's timezone, so this reproduced on
+// any machine before the fix.
 func TestBuildAuditQuery_TimeWindowOffsetIndependent(t *testing.T) {
 	db := newAuditExtraDB(t)
 	seedAuditEntry(t, db, "auth.login", "u1", "g1", "prod", "t1", "success", nil)
@@ -230,31 +236,32 @@ func TestBuildAuditQuery_TimeWindowOffsetIndependent(t *testing.T) {
 	}
 
 	fixed := time.FixedZone("FIXED", 5*60*60+30*60)
-	// 包住落库时刻的非本机偏移窗口 → 命中 1 行。
+	// A non-local-offset window enclosing the landing moment → matches 1 row.
 	assert.Equal(t, int64(1), count(&AuditRequest{
 		Start: time.Now().In(fixed).Add(-time.Hour).Format(time.RFC3339),
 		End:   time.Now().In(fixed).Add(time.Hour).Format(time.RFC3339),
 	}))
-	// 未来起点 → 0 行。
+	// A future start → 0 rows.
 	assert.Equal(t, int64(0), count(&AuditRequest{
 		Start: time.Now().In(fixed).Add(time.Hour).Format(time.RFC3339),
 	}))
-	// 过去终点 → 0 行。
+	// A past end → 0 rows.
 	assert.Equal(t, int64(0), count(&AuditRequest{
 		End: time.Now().In(fixed).Add(-time.Hour).Format(time.RFC3339),
 	}))
 }
 
-// ---- VerifyChain（service 层） ----
+// ---- VerifyChain (service layer) ----
 
 func TestVerifyChain_StoreUnavailableVariants(t *testing.T) {
 	db := newAuditExtraDB(t)
-	// AuditService 缺失。
+	// Missing AuditService.
 	_, err := NewService(&svc.ServiceContext{DB: db}).VerifyChain(context.Background())
 	require.Error(t, err)
 	assert.ErrorIs(t, err, errStoreUnavailable)
 
-	// 有 AuditService 但底层 store 为 nil（表非空时才检查 store）。
+	// AuditService present but the underlying store is nil (the store is only
+	// checked once the table is non-empty).
 	seedAuditEntry(t, db, "a", "u", "g", "prod", "t", "success", nil)
 	svcCtx := &svc.ServiceContext{DB: db, AuditService: auditcore.NewAuditService(nil, nil)}
 	_, err = NewService(svcCtx).VerifyChain(context.Background())
@@ -279,7 +286,7 @@ func TestVerifyChain_ChainRangeUnmarshalError(t *testing.T) {
 	require.NoError(t, err)
 	svcCtx := &svc.ServiceContext{DB: db, AuditService: auditcore.NewAuditService(auditStore, nil)}
 	seedAuditEntry(t, db, "a", "u", "g", "prod", "t", "success", nil)
-	// 破坏 actor_json → GetChainRange 反序列化失败。
+	// Corrupt actor_json → GetChainRange fails to unmarshal.
 	require.NoError(t, db.Exec("UPDATE audit_records SET actor_json = 'not-json'").Error)
 
 	_, err = NewService(svcCtx).VerifyChain(context.Background())
@@ -347,11 +354,11 @@ func TestGetAuditLogs_ScopeResolutionErrors(t *testing.T) {
 		DB: db, AdminModel: model.NewAdminModel(db), RoleModel: model.NewRoleModel(db),
 	})
 
-	// 无 username → 权限解析失败。
+	// No username → permission resolution fails.
 	_, err := svc.GetAuditLogs(context.Background(), &AuditRequest{})
 	require.Error(t, err)
 
-	// GameModel 缺失 → game model unavailable。
+	// Missing GameModel → game model unavailable.
 	_, err = svc.GetAuditLogs(context.WithValue(context.Background(), "username", username), &AuditRequest{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "game model unavailable")
@@ -381,13 +388,14 @@ func TestResolveVisibleScopes_EnvScopesErrorAndBlankEntries(t *testing.T) {
 	})
 	ctx := context.WithValue(context.Background(), "username", username)
 
-	// admin_game_env_scopes 表缺失 → GetAdminEnvScopes 失败。
+	// Missing admin_game_env_scopes table → GetAdminEnvScopes fails.
 	require.NoError(t, db.Migrator().DropTable("admin_game_env_scopes"))
 	_, _, err := svc.resolveVisibleScopes(ctx)
 	require.Error(t, err)
 	require.NoError(t, db.Migrator().CreateTable(&model.AdminGameEnvScope{}))
 
-	// 合法 scope + env 为空的脏数据：合法项进入可见域，空 env 项被跳过。
+	// A valid scope plus dirty data with a blank env: the valid entry enters the
+	// visible scopes, the blank-env entry is skipped.
 	game := &model.Game{GameID: "game-a", Name: "Game A"}
 	require.NoError(t, svc.svcCtx.GameModel.Create(context.Background(), game))
 	require.NoError(t, adminModel.SetGameEnvScope(ctx, admin.ID, game.ID, "prod"))
@@ -411,7 +419,8 @@ func TestResolveVisibleScopes_GameWithBlankGameID(t *testing.T) {
 	})
 	ctx := context.WithValue(context.Background(), "username", username)
 
-	// game 记录存在但 GameID 为空（map 插入绕过 BeforeCreate 派生逻辑）→ 跳过，可见域为空。
+	// The game record exists but GameID is blank (map insert bypasses the
+	// BeforeCreate derivation logic) → skipped, so visible scopes are empty.
 	require.NoError(t, db.Table("games").Create(map[string]interface{}{
 		"created_at": time.Now(), "updated_at": time.Now(),
 		"game_id": "", "name": "Blank",
@@ -442,10 +451,12 @@ func TestGetAuditLogs_KindAliasFilterAndCountError(t *testing.T) {
 	require.Error(t, err)
 }
 
-// 文档化行为：受限用户（有 audit:read、无任何 game scope）走 GetAuditLogs 时，
-// buildAuditQuery 返回 nil 查询而 Count 先于 nil 检查执行 → panic。
-// 这是历史生产代码缺陷（ExportRows 中 nil 检查在 Count 之前，GetAuditLogs
-// 顺序颠倒），已修复为空列表短路，本测试固定该行为。
+// Documented behavior: when a restricted user (has audit:read, no game scope at
+// all) goes through GetAuditLogs, buildAuditQuery returns a nil query while
+// Count runs before the nil check → panic. This was a historical production
+// defect (in ExportRows the nil check came before Count; GetAuditLogs had the
+// order inverted), since fixed to short-circuit with an empty list; this test
+// pins that behavior.
 func TestGetAuditLogs_EmptyVisibleScopes_ReturnsEmpty(t *testing.T) {
 	db := newAuditExtraDB(t)
 	admin, username := seedAuditViewer(t, db, "auditor")
@@ -456,7 +467,8 @@ func TestGetAuditLogs_EmptyVisibleScopes_ReturnsEmpty(t *testing.T) {
 		GameModel: model.NewGameModel(db),
 	})
 
-	// 历史缺陷：query.Count 先于 nil 检查导致 panic，已修复为空列表短路
+	// Historical defect: query.Count ran before the nil check and panicked;
+	// fixed to short-circuit with an empty list
 	resp, err := svc.GetAuditLogs(context.WithValue(context.Background(), "username", username), &AuditRequest{})
 	require.NoError(t, err)
 	require.NotNil(t, resp)

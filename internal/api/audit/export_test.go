@@ -112,7 +112,7 @@ func TestExport_CSV(t *testing.T) {
 	require.Equal(t, http.StatusOK, rec.Code)
 	assert.Contains(t, rec.Header().Get("Content-Type"), "text/csv")
 	body := rec.Body.String()
-	// BOM + 表头 + 2 行。
+	// BOM + header + 2 rows.
 	assert.True(t, bytes.HasPrefix(rec.Body.Bytes(), []byte{0xEF, 0xBB, 0xBF}))
 	assert.Contains(t, body, "id,timestamp,action,result")
 	assert.Contains(t, body, "function.invoke")
@@ -134,14 +134,15 @@ func TestExport_ScopeFiltering(t *testing.T) {
 	db := setupExportDB(t)
 	seedAuditRows(t, db, 2)
 
-	// 无鉴权模型（直连/迁移场景）→ 不限域（与 GetAuditLogs 同语义）。
+	// No auth model (direct connection/migration scenario) -> no domain
+	// restriction (same semantics as GetAuditLogs).
 	svc := NewService(newTestSvcCtxFromDB(db))
 	items, truncated, err := svc.ExportRows(context.Background(), &AuditRequest{}, 10)
 	require.NoError(t, err)
 	assert.False(t, truncated)
 	assert.Len(t, items, 2)
 
-	// 过滤条件生效：不存在的 actor → 空集。
+	// Filters take effect: a nonexistent actor -> empty set.
 	items, _, err = svc.ExportRows(context.Background(), &AuditRequest{Actor: "nobody"}, 10)
 	require.NoError(t, err)
 	assert.Empty(t, items)
@@ -174,7 +175,7 @@ func TestVerifyChain_Break(t *testing.T) {
 	svcCtx := newTestSvcCtxFromDB(db)
 	svcCtx.AuditService = audit.NewAuditService(auditStore, nil)
 
-	// 通过核心服务写入两条合法链接的记录。
+	// Write two legitimately chained records through the core service.
 	svc1 := svcCtx.AuditService
 	_, err = svc1.Log(context.Background(), "function.invoke",
 		audit.WithActorID("alice", "user", "alice"),
@@ -187,7 +188,7 @@ func TestVerifyChain_Break(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	// 篡改第一条的 hash 制造断链。
+	// Tamper with the first record's hash to break the chain.
 	require.NoError(t, db.Exec("UPDATE audit_records SET chain_hash = 'tampered' WHERE chain_sequence = 1").Error)
 
 	result, err := NewService(svcCtx).VerifyChain(context.Background())

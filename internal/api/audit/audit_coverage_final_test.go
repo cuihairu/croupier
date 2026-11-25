@@ -1,5 +1,6 @@
-// 补齐 audit 包剩余可覆盖分支：Export 截断响应头、VerifyChain 非空合法链、
-// GetAuditLogs 的 Scan 失败与 LoadCurrentAdmin 二次加载失败。
+// Covers the remaining branch coverage of the audit package: the Export
+// truncated response header, VerifyChain on a non-empty valid chain, and the
+// GetAuditLogs Scan failure and second LoadCurrentAdmin load failure.
 package audit
 
 import (
@@ -33,7 +34,8 @@ func newAuditFinalDB(t *testing.T) *gorm.DB {
 	return db
 }
 
-// bulkSeedAuditRows 批量写入 n 行审计记录（内联 INSERT，避免逐行 Create 过慢）。
+// bulkSeedAuditRows bulk-inserts n audit records (inline INSERT, to avoid the
+// slowness of creating rows one at a time).
 func bulkSeedAuditRows(t *testing.T, db *gorm.DB, n int) {
 	t.Helper()
 	const batchSize = 500
@@ -57,7 +59,7 @@ func bulkSeedAuditRows(t *testing.T, db *gorm.DB, n int) {
 	}
 }
 
-// Export 行数超过 exportRowLimit → 响应携带 X-Truncated: true。
+// Export: row count exceeds exportRowLimit → the response carries X-Truncated: true.
 func TestHandler_Export_TruncatedHeader(t *testing.T) {
 	db := newAuditFinalDB(t)
 	bulkSeedAuditRows(t, db, exportRowLimit+1)
@@ -82,7 +84,7 @@ func TestHandler_Export_TruncatedHeader(t *testing.T) {
 	assert.True(t, payload.Truncated)
 }
 
-// VerifyChain：非空且完整合法的链 → valid=true 且返回 checked 数。
+// VerifyChain: a non-empty, complete and valid chain → valid=true plus the number checked.
 func TestVerifyChain_NonEmptyValid(t *testing.T) {
 	db := newAuditFinalDB(t)
 	auditStore, err := auditcore.NewSQLAuditStore(db)
@@ -105,7 +107,7 @@ func TestVerifyChain_NonEmptyValid(t *testing.T) {
 	assert.Empty(t, result.Message)
 }
 
-// GetAuditLogs：Count 成功后行 Scan 失败（Row 处理器注入错误）。
+// GetAuditLogs: Count succeeds, then the row Scan fails (error injected via the Row handler).
 func TestGetAuditLogs_ScanError(t *testing.T) {
 	db := newAuditFinalDB(t)
 	seedAuditEntryForFinal(t, db, "auth.login", "u1", "g1", "prod")
@@ -121,7 +123,7 @@ func TestGetAuditLogs_ScanError(t *testing.T) {
 	assert.Contains(t, err.Error(), "forced scan failure")
 }
 
-// GetAuditLogs：权限校验通过后，第二次 LoadCurrentAdmin（admins 查询）失败。
+// GetAuditLogs: after the permission check passes, the second LoadCurrentAdmin (admins query) fails.
 func TestGetAuditLogs_SecondAdminLoadFails(t *testing.T) {
 	db := newAuditFinalDB(t)
 	_, username := seedAuditViewer(t, db, "auditor")
@@ -143,7 +145,8 @@ func TestGetAuditLogs_SecondAdminLoadFails(t *testing.T) {
 	})
 	_, err := svc.GetAuditLogs(context.WithValue(context.Background(), "username", username), &AuditRequest{})
 	require.Error(t, err)
-	// LoadCurrentAdmin 将底层查询错误包装为「查询管理员失败」
+	// LoadCurrentAdmin wraps the underlying query error as the admin-lookup
+	// failure message asserted below.
 	assert.Contains(t, err.Error(), "查询管理员失败")
 }
 

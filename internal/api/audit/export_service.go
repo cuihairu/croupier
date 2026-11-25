@@ -12,16 +12,17 @@ import (
 
 var errStoreUnavailable = errors.New("audit store unavailable")
 
-// buildAuditQuery 构造与 GetAuditLogs 完全一致的过滤查询
-// （作用域鉴权 + action/actor/ip/game/env/时间窗）。
-// 空 scope（受限用户无任何 game 授权）时返回 nil 查询，调用方需短路返回空集。
+// buildAuditQuery builds the same filtered query as GetAuditLogs
+// (scope authorization + action/actor/ip/game/env/time window).
+// An empty scope (a restricted user with no game grants at all) yields a nil
+// query; the caller must short-circuit and return an empty set.
 func (s *Service) buildAuditQuery(ctx context.Context, req *AuditRequest, visibleScopes auditScopeSet, unrestricted bool) *gorm.DB {
 	query := s.svcCtx.DB.WithContext(ctx).Table("audit_records")
 	// Scope authorization: non-admin viewers only see records within their
 	// game/env scopes. SQL-side so counts and pagination stay correct.
 	if !unrestricted {
 		if len(visibleScopes) == 0 {
-			return nil // 空可见域：调用方直接返回空集
+			return nil // empty visible scopes: the caller returns an empty set
 		}
 		orParts := []string{}
 		orArgs := []interface{}{}
@@ -80,8 +81,10 @@ func (s *Service) buildAuditQuery(ctx context.Context, req *AuditRequest, visibl
 	}
 	if trimmed := strings.TrimSpace(req.Start); trimmed != "" {
 		if parsed, err := time.Parse(time.RFC3339, trimmed); err == nil {
-			// 落库恒为 UTC，sqlite 序列化后逐字节比较；参数带本地偏移会在
-			// 非 UTC 时区的服务器上把时间窗算错，必须归一 UTC（见 store.go GetStats 注）。
+			// Records are always landed in the database as UTC and sqlite
+			// compares serialized bytes; a parameter carrying a local offset
+			// computes the wrong window on non-UTC servers, so it must be
+			// normalized to UTC (see the GetStats note in store.go).
 			query = query.Where("timestamp >= ?", parsed.UTC())
 		}
 	}
@@ -93,7 +96,7 @@ func (s *Service) buildAuditQuery(ctx context.Context, req *AuditRequest, visibl
 	return query
 }
 
-// ExportRows 按过滤条件导出审计行（上限保护，超限截断）。
+// ExportRows exports audit rows by filter (limit protected, truncated when exceeded).
 func (s *Service) ExportRows(ctx context.Context, req *AuditRequest, limit int) ([]AuditItem, bool, error) {
 	if s.svcCtx == nil || s.svcCtx.DB == nil {
 		return nil, false, errStoreUnavailable
@@ -137,7 +140,7 @@ func (s *Service) ExportRows(ctx context.Context, req *AuditRequest, limit int) 
 
 const exportSelectColumns = "audit_id, timestamp, event_type, outcome, actor_json, resource_json, details_json, error_message, game_id, env, ip, actor_id"
 
-// auditRawRow 与 GetAuditLogs 共用的行扫描形态。
+// auditRawRow is the row scan shape shared with GetAuditLogs.
 type auditRawRow struct {
 	AuditID      string
 	Timestamp    time.Time
@@ -153,7 +156,7 @@ type auditRawRow struct {
 	ActorID      string
 }
 
-// buildAuditItem 把原始行组装为 REST 条目。
+// buildAuditItem assembles a raw row into the REST item.
 func buildAuditItem(r *auditRawRow) AuditItem {
 	var actor, resource, details map[string]interface{}
 	if len(r.ActorJSON) > 0 {
@@ -203,7 +206,7 @@ func buildAuditItem(r *auditRawRow) AuditItem {
 	return item
 }
 
-// ChainVerifyResult 是链完整性校验结果。
+// ChainVerifyResult is the chain integrity verification result.
 type ChainVerifyResult struct {
 	Valid         bool   `json:"valid"`
 	Checked       int64  `json:"checked"`
@@ -211,7 +214,7 @@ type ChainVerifyResult struct {
 	Message       string `json:"message,omitempty"`
 }
 
-// VerifyChain 校验审计哈希链完整性（全量）。
+// VerifyChain checks audit hash chain integrity (in full).
 func (s *Service) VerifyChain(ctx context.Context) (*ChainVerifyResult, error) {
 	if s.svcCtx == nil || s.svcCtx.AuditService == nil {
 		return nil, errStoreUnavailable

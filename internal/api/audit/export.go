@@ -11,13 +11,15 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// exportRowLimit 单次导出最大行数（内存与响应体保护）。
+// exportRowLimit is the maximum number of rows per export (memory and response
+// body protection).
 const exportRowLimit = 50000
 
-// Export 处理 GET /api/v1/audit/export?format=json|csv。
+// Export handles GET /api/v1/audit/export?format=json|csv.
 //
-// 权限与过滤条件与 GetAuditLogs 完全一致（共用查询构建器）；
-// 导出上限 exportRowLimit 行，超限截断并在响应头 X-Truncated 标注。
+// Permissions and filters match GetAuditLogs exactly (shared query builder);
+// the export is capped at exportRowLimit rows, beyond which it is truncated and
+// flagged via the X-Truncated response header.
 func (h *Handler) Export(c *gin.Context) {
 	var req AuditRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
@@ -55,8 +57,9 @@ func (h *Handler) Export(c *gin.Context) {
 	}
 }
 
-// VerifyChain 处理 GET /api/v1/audit/chain/verify：
-// 校验哈希链完整性（startSeq~endSeq，缺省全量），返回首个断点。
+// VerifyChain handles GET /api/v1/audit/chain/verify:
+// it checks hash chain integrity (startSeq~endSeq, the full range by default)
+// and returns the first break point.
 func (h *Handler) VerifyChain(c *gin.Context) {
 	result, err := h.service.VerifyChain(c.Request.Context())
 	if err != nil {
@@ -75,7 +78,7 @@ func normalizeExportFormat(v string) string {
 
 func writeCSV(w gin.ResponseWriter, items []AuditItem) {
 	cw := csv.NewWriter(w)
-	// BOM：便于 Excel 识别 UTF-8。
+	// BOM: helps Excel recognize UTF-8.
 	_, _ = w.Write([]byte{0xEF, 0xBB, 0xBF})
 	header := []string{"id", "timestamp", "action", "result", "userId", "gameId", "env", "target", "traceId"}
 	_ = cw.Write(header)

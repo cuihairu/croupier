@@ -23,9 +23,11 @@ import (
 // setupAuditHandlerTest builds the handler against a real persistent
 // audit_records table (in-memory SQLite). The legacy OpsStateStore-backed
 // in-memory trail was removed.
-// auditTestDBSeq 给每次调用发互不重名的内存库。按 t.Name() 命名不够：
-// -count=3 让同一用例名跑三遍，而 file: 内存库只要还有一条连接开着就存活
-// （上一遍的连接池没关尽），于是这一遍会读到上一遍残留的审计行。
+// auditTestDBSeq hands each call a uniquely named in-memory database. Naming by
+// t.Name() is not enough: -count=3 runs the same case name three times, and a
+// file: in-memory database stays alive as long as one connection is still open
+// (the previous run's pool is not fully closed), so this run would read audit
+// rows left over from the previous run.
 var auditTestDBSeq int64
 
 func setupAuditHandlerTest(t *testing.T) *Handler {

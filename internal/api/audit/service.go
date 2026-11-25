@@ -106,9 +106,10 @@ func (s *Service) GetAuditLogs(ctx context.Context, req *AuditRequest) (*AuditLi
 
 	query := s.buildAuditQuery(ctx, req, visibleScopes, unrestricted)
 
-	// 空 scope（受限用户无任何 game 授权）时 buildAuditQuery 返回 nil
-	// 查询：必须先短路返回空列表，否则 query.Count 对 nil 指针
-	// panic（ExportRows 即是此顺序）。
+	// When the scope is empty (a restricted user with no game grants at all)
+	// buildAuditQuery returns a nil query: short-circuit with an empty list
+	// first, otherwise query.Count on a nil pointer panics (ExportRows has
+	// exactly this ordering).
 	if query == nil {
 		return &AuditListResponse{Items: []AuditItem{}, Total: 0, Page: page, PageSize: size}, nil
 	}
