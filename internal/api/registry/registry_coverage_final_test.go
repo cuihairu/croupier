@@ -1,9 +1,12 @@
-// 覆盖目标（coverage final）：
-//  1. handler.GetRegistry 的 service 错误分支：请求 context 携带 username
-//     且 svcCtx.AdminModel 未初始化 → RequireAnyPermission 失败 → 500。
-//     （handler 传入 c.Request.Context()，gin 的 c.Set 不生效，须注入 request ctx。）
-//  2. service.GetRegistry 跳过 nil / 空白 AgentID 会话的防御分支
-//     （UpsertAgent 拒绝空 AgentID，需直接写入内部 map）。
+// Coverage targets (coverage final):
+//  1. The service error branch of handler.GetRegistry: the request context
+//     carries a username while svcCtx.AdminModel is uninitialized
+//     -> RequireAnyPermission fails -> 500.
+//     (The handler passes c.Request.Context(), so gin's c.Set does not take
+//     effect; the username must be injected into the request ctx.)
+//  2. The defensive branch of service.GetRegistry that skips sessions with a
+//     nil / blank AgentID (UpsertAgent rejects a blank AgentID, so the internal
+//     map must be written directly).
 package registry
 
 import (
@@ -32,7 +35,8 @@ func TestHandler_GetRegistry_ServiceError_UnauthenticatedAdminModel(t *testing.T
 
 	req := httptest.NewRequest(http.MethodPost, "/registry", strings.NewReader("{}"))
 	req.Header.Set("Content-Type", "application/json")
-	// handler 读取 c.Request.Context()，必须把 username 注入 request context。
+	// The handler reads c.Request.Context(), so the username must be injected
+	// into the request context.
 	req = req.WithContext(context.WithValue(req.Context(), "username", "ghost"))
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
@@ -45,7 +49,8 @@ func TestService_GetRegistry_SkipsBlankAndNilSessions(t *testing.T) {
 	service := NewService(svcCtx)
 	store := svcCtx.RegistryStore
 
-	// 正常会话 + 直接写入内部 map 的 nil / 空白 AgentID 会话。
+	// A normal session plus nil / blank AgentID sessions written directly into
+	// the internal map.
 	require.NoError(t, store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "agent-ok",
 		GameID:    "game1",
