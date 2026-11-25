@@ -247,7 +247,7 @@ Page Studio 的 `FormPresentationEditor` 对所有含表单的页面（操作页
 
 ### 命名展示变体（SUI-031）
 
-一个表单可以携带多个命名的呈现形态——典型的一对是标准纵向表单与紧凑栅格——而不分叉调用契约。本节定义协议：存储已落地（SUI-032——变体随表单节点经既有草稿/快照 `SpecJSON` blob 落库，零表结构变更，typed 与服务级往返用例同证），发布前校验（SUI-033）、Page Studio 管理（SUI-034）、生效默认解析（SUI-035）与已发布表单切换（SUI-036）仍待实现——在这些任务落地前，渲染器、校验器与编辑器均不消费新字段，以下内容是它们要实现的契约。
+一个表单可以携带多个命名的呈现形态——典型的一对是标准纵向表单与紧凑栅格——而不分叉调用契约。本节定义协议：存储（SUI-032——变体随表单节点经既有草稿/快照 `SpecJSON` blob 落库，零表结构变更）与发布前校验（SUI-033——变体形状规则与当前契约新鲜度，spec 级与服务级用例同证，含回滚预检）已落地，Page Studio 管理（SUI-034）、生效默认解析（SUI-035）与已发布表单切换（SUI-036）仍待实现——在这些任务落地前，渲染器与编辑器均不消费新字段，以下内容是它们要实现的契约。
 
 **稳定表单标识。** PageSpec 中每个携带表单的位置都由稳定段 key 组成的规范路径寻址，绝不使用数组下标：`resource.createForm`、`resource.updateForm`、`resource.actions.<actionKey>.form`（ActionSpec 的 `key`）、`operation.form`、`task.form`、`report.queryForm`、`composite.sections.<sectionKey>.form`（CompositeSection 的 `key`）。区块与动作重排不改变标识。数组下标路径（如 `composite.sections[2].form.fields[0].width`）仍是校验错误的定位惯例，不是标识。变体存放在它所覆盖的表单节点内部，因此变体继承表单标识，在草稿、快照与回滚之间永不悬空。
 
@@ -308,9 +308,11 @@ interface FormVariantFieldSpec {
 
 **发布快照与回滚。** 变体与 `defaultVariant` 位于表单节点内部，因此随同一份发布快照落库——一份 digest、沿用现有表、无旁表（SUI-032）。回滚原子恢复上一快照：其变体与默认项按发布时原样回来，绝不做跨版本合并。回滚预检已在跑 `ValidatePublishablePageShape`（SUI-021）；SUI-033 把校验扩展到变体并对照**当前**函数契约，因此回滚一个变体引用了已删除/已改名契约字段的快照会在预检失败并定位到受影响变体——陈旧快照被暴露，而不是被静默发布。
 
+**契约新鲜度（SUI-033）。** 上述形状校验把变体 key 对照表单自身 `jsonSchema` 解析——其新鲜度只与草稿相同。发布路径用两道检查补齐与**当前**函数契约的差距（`ValidateVariantContractFreshness`，凡 `ValidatePageSpecInScope` 以 `publish=true` 运行处均生效，含版本化回滚预检）：契约字段删除或改名后，草稿冻结的 schema 仍能解析过期变体 key，因此发布时把每个变体字段与分组字段 key 对照承载表单所执行函数的当前 input schema 复解析，失败即 `form_variant_contract_stale`，点名受影响变体 key 与函数。载体→函数映射沿页面模型的结构性引用：resource 动作表单经 `actions[i].bindingId`，composite 表单区块经 `sections[i].bindingId`（static 区块跳过），`operation.form`/`task.form`/`report.queryForm` 经页面唯一的 `action`/`task`/`report` usage 绑定；映射缺失或歧义时跳过而不猜测。已知边界：`resource.createForm`/`updateForm` 在 spec 上没有结构性函数引用，其变体只对照表单 schema 校验（形状 + 重新生成），不对照当前契约——它们的提交接线在生成器内部。作用域无需新机制：变体在页面快照内部，快照已按 (game, env) + pageKey 作用域隔离——同 pageKey 在不同游戏/环境下变体互相独立。
+
 **旧页面与新页面。** 本协议之前发布的页面不带 `variants`，原呈现逐字渲染——不为它们发明伪变体。无变体配置的新页面同样不产出变体字段；其不带 `fields` 的基础表单即派生的标准纵向表单（SUI-025），也是本协议的零配置默认。操作者所选变体是运行时展示状态；协议只持久化发布默认——按用户/会话持久化选择不在范围内。
 
-**校验规则（此处定义，SUI-033 实现）。** `ValidateFormPresentations` 按既有 `{field, message}` details 契约新增变体检查：变体 key 非空且表单内唯一（`form_variant_key_conflict`）；`defaultVariant` 解析（`form_variant_default_unknown`）；变体字段 key 能在表单 `jsonSchema` 中解析且只携带纯展示属性（`form_variant_illegal_override`）；`widget` 类型兼容与 `width` 范围沿用基础字段的 SUI-020/SUI-021/SUI-028 规则。作用域无需新机制：变体在页面快照内部，快照已按 (game, env) + pageKey 作用域隔离——同 pageKey 在不同游戏/环境下变体互相独立。
+**校验规则（SUI-033 已实现）。** `ValidateFormPresentations` 在所有校验路径（保存/预览、发布、accept-and-publish、提案、版本化回滚预检）上按既有 `{field, message}` details 契约执行变体检查：变体 key 非空（`form_variant_key_missing`）且表单内唯一（`form_variant_key_conflict`）；`defaultVariant` 解析如上（`form_variant_default_unknown`）；变体字段 key 非空（`form_variant_field_key_missing`）、不重复（`form_variant_field_duplicate`）且能在表单 `jsonSchema` 中解析（`form_variant_field_unknown`）；变体字段上的调用相关键即使 `encoding/json` 会静默丢弃也能定位——`FormVariantFieldSpec.UnmarshalJSON` 把展示白名单外的每个键审计进 `UnknownKeys`，校验以 `form_variant_illegal_override` 报出并点名违规键；`widget` 合法性/类型兼容与 `width` 范围沿用基础字段的 SUI-020/SUI-021/SUI-028 规则，变体分组规则与基础对齐（`form_group_key_missing`/`form_group_key_duplicate`/`form_group_field_unknown`/`form_group_field_duplicate`/`form_group_field_conflict`，变体分组字段允许声明在基础 fields 或本变体 fields）。Web 端在 `web/src/utils/formValidation.ts` 镜像同一规则（`unknownVariantOverrideKeys` 承担 Go `UnmarshalJSON` 审计的角色），草稿保存前即被拦截。
 
 ### Descriptor 呈现 hints（x-ui-\*）
 

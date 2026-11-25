@@ -87,3 +87,64 @@ func TestFormPresentationVariantsLegacyShapeUnchanged(t *testing.T) {
 	assert.NotContains(t, string(raw), `"variants"`)
 	assert.NotContains(t, string(raw), `"defaultVariant"`)
 }
+
+func TestFormVariantFieldSpecUnknownKeyAudit(t *testing.T) {
+	// 调用相关键（required/visible）出现在变体字段 wire JSON 上：
+	// 类型面没有这些字段，encoding/json 默认会静默丢弃——UnmarshalJSON
+	// 必须把它们记入 UnknownKeys 供 form_variant_illegal_override 定位。
+	wire := `{"key":"reason","widget":"TextArea","required":true,"visible":false,"validationRules":[{"type":"max"}]}`
+
+	var out FormVariantFieldSpec
+	require.NoError(t, json.Unmarshal([]byte(wire), &out))
+	assert.Equal(t, "reason", out.Key)
+	assert.Equal(t, FormWidgetTextArea, out.Widget)
+	assert.Equal(t, []string{"required", "validationRules", "visible"}, out.UnknownKeys,
+		"call-affecting keys must be audited in deterministic (sorted) order")
+
+	// 白名单键不进 UnknownKeys
+	clean := FormVariantFieldSpec{Key: "reason", Widget: FormWidgetTextArea, Width: 6}
+	assert.Empty(t, clean.UnknownKeys)
+	var parsed FormVariantFieldSpec
+	require.NoError(t, json.Unmarshal([]byte(`{"key":"reason","widget":"TextArea","width":6}`), &parsed))
+	assert.Empty(t, parsed.UnknownKeys)
+}
+
+func TestFormVariantFieldSpecUnknownKeysNotSerialized(t *testing.T) {
+	field := FormVariantFieldSpec{
+		Key:         "reason",
+		Widget:      FormWidgetTextArea,
+		UnknownKeys: []string{"required", "visible"},
+	}
+	raw, err := json.Marshal(&field)
+	require.NoError(t, err)
+	assert.NotContains(t, string(raw), "required")
+	assert.NotContains(t, string(raw), "visible")
+	assert.Contains(t, string(raw), `"key":"reason"`)
+
+	// 含未知键的完整表单经类型编解码后诊断面可用、序列化面稳定
+	form := &FormPresentationSpec{
+		JSONSchema: JSONSchema(`{"type":"object","properties":{"reason":{"type":"string"}}}`),
+		Variants: []FormVariantSpec{
+			{Key: "compact", Fields: []FormVariantFieldSpec{
+				{Key: "reason", Widget: FormWidgetTextArea, UnknownKeys: []string{"required"}},
+			}},
+		},
+	}
+	assert.Contains(t, variantCodes(t, form), "form_variant_illegal_override")
+}
+
+func TestFormVariantFieldSpecUnknownKeysViaFormDecode(t *testing.T) {
+	// 从完整 FormPresentationSpec wire JSON 解码（服务层真实路径），
+	// 嵌套变体字段的未知键同样被审计。
+	wire := `{
+		"jsonSchema": {"type":"object","properties":{"reason":{"type":"string"}}},
+		"variants": [
+			{"key": "compact", "fields": [{"key": "reason", "widget": "textArea", "defaultValue": "x"}]}
+		]
+	}`
+	var out FormPresentationSpec
+	require.NoError(t, json.Unmarshal([]byte(wire), &out))
+	require.Len(t, out.Variants, 1)
+	require.Len(t, out.Variants[0].Fields, 1)
+	assert.Equal(t, []string{"defaultValue"}, out.Variants[0].Fields[0].UnknownKeys)
+}

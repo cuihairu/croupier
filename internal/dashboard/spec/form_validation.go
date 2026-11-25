@@ -87,29 +87,7 @@ func validateFormPresentation(form *FormPresentationSpec, field string) []Diagno
 				))
 			}
 		}
-		if item.Widget != "" && !isKnownFormWidget(item.Widget) {
-			diags = append(diags, publishShapeDiagnostic(
-				"form_widget_invalid",
-				fmt.Sprintf("unknown form widget %q", item.Widget),
-				base+".widget",
-			))
-		} else if item.Widget != "" && node != nil {
-			types := formSchemaTypes(node)
-			compatible, checkable := widgetTypeCompatible(item.Widget, types)
-			if checkable && !compatible {
-				diags = append(diags, publishShapeDiagnostic(
-					"form_widget_incompatible",
-					fmt.Sprintf("widget %q is not compatible with schema type %s", item.Widget, strings.Join(types, "/")),
-					base+".widget",
-				))
-			}
-		}
-
-		if item.Width < 0 || item.Width > 12 {
-			diags = append(diags, publishShapeDiagnostic(
-				"form_width_invalid", "form field width must be 0 (unset) or between 1 and 12", base+".width",
-			))
-		}
+		diags = append(diags, formWidgetWidthDiagnostics(item.Widget, item.Width, node, base)...)
 	}
 
 	seenGroups := make(map[string]bool, len(form.Groups))
@@ -181,6 +159,185 @@ func validateFormPresentation(form *FormPresentationSpec, field string) []Diagno
 			}
 			fieldGroups[key] = groupID
 		}
+	}
+
+	// 命名展示变体（SUI-031 协议，SUI-033 校验）：key 非空且唯一、
+	// defaultVariant 必须可解析到已声明变体、变体字段键必须能在
+	// jsonSchema 解析、展示覆盖遵循与基础字段相同的 widget/宽度规则、
+	// 调用相关键覆盖非法（FormVariantFieldSpec.UnmarshalJSON 把白名单外
+	// 键记入 UnknownKeys 后在此定位）。
+	variantKeys := make(map[string]bool, len(form.Variants))
+	for i := range form.Variants {
+		variant := &form.Variants[i]
+		base := fmt.Sprintf("%s.variants[%d]", field, i)
+		variantKey := strings.TrimSpace(variant.Key)
+		if variantKey == "" {
+			diags = append(diags, publishShapeDiagnostic(
+				"form_variant_key_missing", "form variant key is required", base+".key",
+			))
+		} else if variantKeys[variantKey] {
+			diags = append(diags, publishShapeDiagnostic(
+				"form_variant_key_conflict",
+				fmt.Sprintf("form variant key %q is declared more than once", variantKey),
+				base+".key",
+			))
+		}
+		if variantKey != "" {
+			variantKeys[variantKey] = true
+		}
+
+		seenVariantFields := make(map[string]bool, len(variant.Fields))
+		for j := range variant.Fields {
+			item := &variant.Fields[j]
+			vbase := fmt.Sprintf("%s.fields[%d]", base, j)
+			if len(item.UnknownKeys) > 0 {
+				diags = append(diags, publishShapeDiagnostic(
+					"form_variant_illegal_override",
+					fmt.Sprintf("form variant field overrides call-affecting keys: %s", strings.Join(item.UnknownKeys, ", ")),
+					vbase+".key",
+				))
+			}
+			vkey := strings.TrimSpace(item.Key)
+			if vkey == "" {
+				diags = append(diags, publishShapeDiagnostic(
+					"form_variant_field_key_missing", "form variant field key is required", vbase+".key",
+				))
+				continue
+			}
+			if seenVariantFields[vkey] {
+				diags = append(diags, publishShapeDiagnostic(
+					"form_variant_field_duplicate",
+					fmt.Sprintf("form variant field key %q is declared more than once", vkey),
+					vbase+".key",
+				))
+			}
+			seenVariantFields[vkey] = true
+
+			var node map[string]json.RawMessage
+			if resolvable {
+				var reason string
+				node, reason = resolveFormField(root, item.Key)
+				if reason != "" {
+					diags = append(diags, publishShapeDiagnostic(
+						"form_variant_field_unknown",
+						fmt.Sprintf("form variant field %q cannot be resolved in jsonSchema: %s", item.Key, reason),
+						vbase+".key",
+					))
+				}
+			}
+			diags = append(diags, formWidgetWidthDiagnostics(item.Widget, item.Width, node, vbase)...)
+		}
+
+		seenVariantGroups := make(map[string]bool, len(variant.Groups))
+		variantFieldGroups := make(map[string]string, len(variant.Groups))
+		for gi, group := range variant.Groups {
+			gbase := fmt.Sprintf("%s.groups[%d]", base, gi)
+			groupKey := strings.TrimSpace(group.Key)
+			if groupKey == "" {
+				diags = append(diags, publishShapeDiagnostic(
+					"form_group_key_missing", "form variant group key is required", gbase+".key",
+				))
+			} else if seenVariantGroups[groupKey] {
+				diags = append(diags, publishShapeDiagnostic(
+					"form_group_key_duplicate",
+					fmt.Sprintf("form variant group key %q is declared more than once", groupKey),
+					gbase+".key",
+				))
+			}
+			seenVariantGroups[groupKey] = true
+			variantGroupID := groupKey
+			if variantGroupID == "" {
+				variantGroupID = fmt.Sprintf("#%d", gi)
+			}
+
+			seenInVariantGroup := make(map[string]bool, len(group.Fields))
+			for j, fieldKey := range group.Fields {
+				itemField := fmt.Sprintf("%s.fields[%d]", gbase, j)
+				key := strings.TrimSpace(fieldKey)
+				if key == "" {
+					diags = append(diags, publishShapeDiagnostic(
+						"form_group_field_unknown", "form variant group field key is empty", itemField,
+					))
+					continue
+				}
+				// 变体分组的字段引用目标：jsonSchema 可解析，且字段已在
+				// 基础 fields 或本变体 fields 声明（渲染按合并后的字段集）。
+				var reason string
+				if resolvable {
+					_, resolveReason := resolveFormField(root, fieldKey)
+					reason = resolveReason
+				}
+				if !declared[key] && !seenVariantFields[key] {
+					if reason != "" {
+						reason += "; "
+					}
+					reason += "field is not declared in form.fields or variant fields"
+				}
+				if reason != "" {
+					diags = append(diags, publishShapeDiagnostic(
+						"form_group_field_unknown",
+						fmt.Sprintf("form variant group field %q is invalid: %s", fieldKey, reason),
+						itemField,
+					))
+				}
+				if seenInVariantGroup[key] {
+					diags = append(diags, publishShapeDiagnostic(
+						"form_group_field_duplicate",
+						fmt.Sprintf("form group field %q is declared more than once in group %q", fieldKey, group.Key),
+						itemField,
+					))
+					continue
+				}
+				seenInVariantGroup[key] = true
+				if owner, exists := variantFieldGroups[key]; exists && owner != variantGroupID {
+					diags = append(diags, publishShapeDiagnostic(
+						"form_group_field_conflict",
+						fmt.Sprintf("form field %q is assigned to both group %q and group %q", fieldKey, owner, group.Key),
+						itemField,
+					))
+					continue
+				}
+				variantFieldGroups[key] = variantGroupID
+			}
+		}
+	}
+	if defaultKey := strings.TrimSpace(form.DefaultVariant); defaultKey != "" && !variantKeys[defaultKey] {
+		diags = append(diags, publishShapeDiagnostic(
+			"form_variant_default_unknown",
+			fmt.Sprintf("form defaultVariant %q does not match any declared variant", form.DefaultVariant),
+			field+".defaultVariant",
+		))
+	}
+	return diags
+}
+
+// formWidgetWidthDiagnostics checks widget validity, widget/schema-type
+// compatibility and width bounds for one display override (base field or
+// variant field). node may be nil when the schema is not resolvable, in which
+// case compatibility is skipped.
+func formWidgetWidthDiagnostics(widget FormWidget, width int, node map[string]json.RawMessage, base string) []Diagnostic {
+	var diags []Diagnostic
+	if widget != "" && !isKnownFormWidget(widget) {
+		diags = append(diags, publishShapeDiagnostic(
+			"form_widget_invalid",
+			fmt.Sprintf("unknown form widget %q", widget),
+			base+".widget",
+		))
+	} else if widget != "" && node != nil {
+		types := formSchemaTypes(node)
+		compatible, checkable := widgetTypeCompatible(widget, types)
+		if checkable && !compatible {
+			diags = append(diags, publishShapeDiagnostic(
+				"form_widget_incompatible",
+				fmt.Sprintf("widget %q is not compatible with schema type %s", widget, strings.Join(types, "/")),
+				base+".widget",
+			))
+		}
+	}
+	if width < 0 || width > 12 {
+		diags = append(diags, publishShapeDiagnostic(
+			"form_width_invalid", "form field width must be 0 (unset) or between 1 and 12", base+".width",
+		))
 	}
 	return diags
 }

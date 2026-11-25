@@ -328,3 +328,197 @@ describe('collectFormValidationIssues', () => {
     expect(issues[0].field).toBe('composite.sections[2].form.fields[0].key');
   });
 });
+
+// ---------------------------------------------------------------------------
+// SUI-033：命名展示变体校验（与 Go validateFormPresentation 的变体规则对齐）
+// ---------------------------------------------------------------------------
+
+describe('form display variants (SUI-033)', () => {
+  const validVariants = () => [
+    { key: 'standard', title: { 'zh-CN': '标准' } },
+    {
+      key: 'compact',
+      layout: 'grid',
+      fields: [
+        { key: 'name', widget: 'Input', width: 6 },
+        { key: 'count', widget: 'InputNumber', width: 6 },
+      ],
+    },
+  ];
+
+  const formWithVariants = (overrides?: Record<string, unknown>) => ({
+    jsonSchema: SCHEMA,
+    layout: 'vertical',
+    fields: [{ key: 'name', widget: 'Input' }, { key: 'count', widget: 'InputNumber' }],
+    variants: validVariants(),
+    ...overrides,
+  });
+
+  it('accepts a well-formed variant set', () => {
+    expect(validateFormPresentation(formWithVariants(), 'operation.form')).toEqual([]);
+  });
+
+  it('rejects duplicate variant keys', () => {
+    const form = formWithVariants();
+    (form.variants as Array<{ key: string }>)[1].key = 'standard';
+    const issues = validateFormPresentation(form, 'operation.form');
+    expect(issues.map((issue) => issue.code)).toContain('form_variant_key_conflict');
+    expect(issues.find((issue) => issue.code === 'form_variant_key_conflict')?.field).toBe(
+      'operation.form.variants[1].key',
+    );
+  });
+
+  it('rejects an empty variant key', () => {
+    const form = formWithVariants();
+    (form.variants as Array<{ key: string }>)[0].key = '  ';
+    expect(
+      validateFormPresentation(form, 'operation.form').some(
+        (issue) => issue.code === 'form_variant_key_missing',
+      ),
+    ).toBe(true);
+  });
+
+  it('rejects a defaultVariant that resolves to nothing', () => {
+    const issues = validateFormPresentation(formWithVariants({ defaultVariant: 'dense' }), 'operation.form');
+    expect(issues).toHaveLength(1);
+    expect(issues[0]).toEqual({
+      field: 'operation.form.defaultVariant',
+      message: 'form defaultVariant "dense" does not match any declared variant',
+      code: 'form_variant_default_unknown',
+    });
+
+    const noVariants = { jsonSchema: SCHEMA, defaultVariant: 'compact' };
+    expect(
+      validateFormPresentation(noVariants as unknown as FormPresentationSpec, 'operation.form').some(
+        (issue) => issue.code === 'form_variant_default_unknown',
+      ),
+    ).toBe(true);
+
+    expect(
+      validateFormPresentation(formWithVariants({ defaultVariant: 'compact' }), 'operation.form'),
+    ).toEqual([]);
+  });
+
+  it('rejects variant fields that no longer resolve in jsonSchema', () => {
+    const form = formWithVariants();
+    (form.variants as Array<{ fields: Array<{ key: string }> }>)[1].fields = [
+      { key: 'removed', widget: 'Input' },
+    ];
+    const issues = validateFormPresentation(form, 'operation.form');
+    expect(issues).toHaveLength(1);
+    expect(issues[0]).toEqual({
+      field: 'operation.form.variants[1].fields[0].key',
+      message: expect.stringContaining('form variant field "removed" cannot be resolved in jsonSchema'),
+      code: 'form_variant_field_unknown',
+    });
+  });
+
+  it('rejects variant fields with empty or duplicate keys', () => {
+    const form = formWithVariants();
+    (form.variants as Array<{ fields: Array<{ key: string }> }>)[1].fields = [
+      { key: '  ' },
+      { key: 'name' },
+      { key: 'name' },
+    ];
+    const codes = validateFormPresentation(form, 'operation.form').map((issue) => issue.code);
+    expect(codes).toContain('form_variant_field_key_missing');
+    expect(codes).toContain('form_variant_field_duplicate');
+  });
+
+  it('rejects call-affecting overrides on variant fields', () => {
+    // 浏览器端 JSON.parse 不丢键：白名单外的键直接计数
+    //（与 Go FormVariantFieldSpec.UnmarshalJSON 的 UnknownKeys 审计等价）。
+    const wired = JSON.parse(
+      JSON.stringify({
+        jsonSchema: SCHEMA,
+        fields: [{ key: 'name', widget: 'Input' }],
+        variants: [
+          {
+            key: 'compact',
+            fields: [{ key: 'name', widget: 'Input', required: true, visible: false, defaultValue: 'x' }],
+          },
+        ],
+      }),
+    ) as FormPresentationSpec;
+    const issues = validateFormPresentation(wired, 'operation.form');
+    const illegal = issues.find((issue) => issue.code === 'form_variant_illegal_override');
+    expect(illegal).toBeDefined();
+    expect(illegal?.field).toBe('operation.form.variants[0].fields[0].key');
+    expect(illegal?.message).toContain('defaultValue');
+    expect(illegal?.message).toContain('required');
+    expect(illegal?.message).toContain('visible');
+  });
+
+  it('applies widget and width rules to variant fields', () => {
+    const form = formWithVariants();
+    (form.variants as Array<{ fields: Array<{ key: string; widget?: string; width?: number }> }>)[1].fields = [
+      { key: 'name', widget: 'Nonsense' },
+    ];
+    expect(
+      validateFormPresentation(form, 'operation.form').some((issue) => issue.code === 'form_widget_invalid'),
+    ).toBe(true);
+
+    const badType = formWithVariants();
+    (badType.variants as Array<{ fields: Array<{ key: string; widget?: string }> }>)[1].fields = [
+      { key: 'name', widget: 'InputNumber' },
+    ];
+    expect(
+      validateFormPresentation(badType, 'operation.form').some(
+        (issue) => issue.code === 'form_widget_incompatible',
+      ),
+    ).toBe(true);
+
+    const badWidth = formWithVariants();
+    (badWidth.variants as Array<{ fields: Array<{ key: string; width?: number }> }>)[1].fields = [
+      { key: 'name', width: 13 },
+    ];
+    const widthIssue = validateFormPresentation(badWidth, 'operation.form').find(
+      (issue) => issue.code === 'form_width_invalid',
+    );
+    expect(widthIssue?.field).toBe('operation.form.variants[1].fields[0].width');
+  });
+
+  it('validates variant groups against schema and merged declarations', () => {
+    const dupGroup = formWithVariants();
+    (dupGroup.variants as Array<{ groups?: Array<{ key: string; fields: string[] }> }>)[1].groups = [
+      { key: 'base', fields: ['name'] },
+      { key: 'base', fields: ['count'] },
+    ];
+    expect(
+      validateFormPresentation(dupGroup, 'operation.form').some(
+        (issue) => issue.code === 'form_group_key_duplicate',
+      ),
+    ).toBe(true);
+
+    // 字段既不在基础 fields 也不在本变体 fields → 拒绝
+    const undeclared = formWithVariants();
+    (undeclared.variants as Array<{ groups?: Array<{ key: string; fields: string[] }> }>)[1].groups = [
+      { key: 'g', fields: ['flag'] },
+    ];
+    const undeclaredIssues = validateFormPresentation(undeclared, 'operation.form');
+    expect(undeclaredIssues.some((issue) => issue.code === 'form_group_field_unknown')).toBe(true);
+    expect(
+      undeclaredIssues.find((issue) => issue.code === 'form_group_field_unknown')?.message,
+    ).toContain('not declared in form.fields or variant fields');
+
+    // 变体 fields 声明过的 key 允许进变体分组
+    const declared = formWithVariants();
+    (declared.variants as Array<{ fields: Array<{ key: string; widget?: string }>; groups?: Array<{ key: string; fields: string[] }> }>)[1].fields = [
+      { key: 'flag', widget: 'Switch' },
+    ];
+    (declared.variants as Array<{ groups?: Array<{ key: string; fields: string[] }> }>)[1].groups = [
+      { key: 'g', fields: ['name', 'flag'] },
+    ];
+    expect(validateFormPresentation(declared, 'operation.form')).toEqual([]);
+  });
+
+  it('collectFormValidationIssues sees variants through the loose page walk', () => {
+    const page = {
+      type: 'operation',
+      operation: { form: formWithVariants({ defaultVariant: 'dense' }) },
+    };
+    const issues = collectFormValidationIssues(page);
+    expect(issues).toHaveLength(1);
+    expect(issues[0].field).toBe('operation.form.defaultVariant');
+  });
+});

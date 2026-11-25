@@ -98,6 +98,13 @@ func (s *Service) ValidatePageSpecInScope(ctx context.Context, gameID, env strin
 			bindingsByID[binding.ID] = binding
 		}
 	}
+	if publish {
+		// SUI-033：发布路径把变体字段键对照当前契约 input schema 复核。
+		// 草稿 schema 可能滞后于契约（未重新生成），回滚目标的 schema 冻结
+		// 在发布快照里——发布/回滚预检不得复活指向已删除/改名契约字段的
+		// 变体（form_variant_contract_stale 定位到变体键）。
+		diags = append(diags, spec.ValidateVariantContractFreshness(page, functions)...)
+	}
 
 	return diags
 }

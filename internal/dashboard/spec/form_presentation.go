@@ -1,6 +1,9 @@
 package spec
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"sort"
+)
 
 // FormPresentationSpec defines how to render a form from JSON Schema.
 // It extends JSON Schema with presentation hints without modifying the schema itself.
@@ -107,6 +110,60 @@ type FormVariantFieldSpec struct {
 
 	// WidgetProps passes extra props to the widget
 	WidgetProps map[string]json.RawMessage `json:"widgetProps,omitempty"`
+
+	// UnknownKeys 记录反序列化时出现的、不在展示覆盖白名单内的键
+	//（json:"-"，不参与序列化）。encoding/json 默认静默丢弃未识别键，
+	// 调用相关覆盖（required/defaultValue/visible/visibleWhen/disabled/
+	// validationRules/jsonSchema 等）会无声失效；记入此处后由
+	// ValidateFormPresentations 以 form_variant_illegal_override 定位
+	//（SUI-033）。
+	UnknownKeys []string `json:"-"`
+}
+
+// variantFieldKnownKeys 是 FormVariantFieldSpec 的合法 wire 键集
+// （SUI-045 纯展示覆盖集）。出现但不在此集的键由 UnmarshalJSON 记入
+// UnknownKeys。新增展示覆盖字段时两处同步。
+var variantFieldKnownKeys = map[string]bool{
+	"key":           true,
+	"widget":        true,
+	"label":         true,
+	"placeholder":   true,
+	"description":   true,
+	"role":          true,
+	"unit":          true,
+	"perTarget":     true,
+	"width":         true,
+	"order":         true,
+	"enumOptions":   true,
+	"remoteOptions": true,
+	"widgetProps":   true,
+}
+
+// UnmarshalJSON 在标准解码之外审计未知键：把白名单外的键收集进
+// UnknownKeys（排序保证诊断稳定），让发布校验能定位并拒绝变体上的
+// 调用相关覆盖，而不是让它们无声丢失（SUI-033）。
+func (f *FormVariantFieldSpec) UnmarshalJSON(data []byte) error {
+	type variantFieldAlias FormVariantFieldSpec
+	var decoded variantFieldAlias
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		return err
+	}
+	*f = FormVariantFieldSpec(decoded)
+	var keys map[string]json.RawMessage
+	if err := json.Unmarshal(data, &keys); err != nil {
+		return err
+	}
+	var unknown []string
+	for k := range keys {
+		if !variantFieldKnownKeys[k] {
+			unknown = append(unknown, k)
+		}
+	}
+	if len(unknown) > 0 {
+		sort.Strings(unknown)
+		f.UnknownKeys = unknown
+	}
+	return nil
 }
 
 // FormLayout defines form layout type.

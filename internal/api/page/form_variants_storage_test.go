@@ -7,6 +7,7 @@ import (
 
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
 	"github.com/cuihairu/croupier/internal/model"
+	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -79,6 +80,20 @@ func parsePageSpecJSON(t *testing.T, raw string) spec.PageSpec {
 func TestFormVariantsDraftAndSnapshotRoundtrip(t *testing.T) {
 	service, ctx, _ := newPageTestService(t, "pages:edit", "pages:read", "pages:publish")
 	gameID, env := "demo-game", "development"
+
+	// SUI-033 契约新鲜度：发布时变体字段键会对照 player.action 的当前
+	// input schema 复解析——把测试契约对齐到表单 fixture 的字段集
+	//（playerId/reason/keyword），保证本测试的差异来源只在存储链。
+	rebuildFunctionContract(t, service.svcCtx.DB, ctx, "player.action", reg.FunctionMeta{
+		Enabled:      true,
+		Version:      "1.0.0",
+		Risk:         "safe",
+		Permission:   "player:action",
+		Resource:     "player",
+		Operation:    "action",
+		InputSchema:  `{"type":"object","properties":{"playerId":{"type":"string"},"reason":{"type":"string"},"keyword":{"type":"string"}}}`,
+		OutputSchema: `{"type":"object","properties":{"success":{"type":"boolean"}}}`,
+	})
 
 	// v1：无变体的旧形态（SUI-031 之前发布的页面沿用原呈现），先发布留快照。
 	legacyForm := spec.DefaultFormPresentation(spec.JSONSchema(`{
