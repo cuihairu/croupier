@@ -55,9 +55,19 @@ func collectUnsupportedSchemaValue(raw json.RawMessage, reasons map[string]struc
 		if _, ok := object["discriminator"]; ok {
 			reasons["discriminator"] = struct{}{}
 		}
+		if _, ok := object["allOf"]; ok {
+			reasons["allOf"] = struct{}{}
+		}
 		var ref string
-		if refRaw, ok := object["$ref"]; ok && json.Unmarshal(refRaw, &ref) == nil && isRemoteRef(ref) {
-			reasons["remote_$ref"] = struct{}{}
+		if refRaw, ok := object["$ref"]; ok && json.Unmarshal(refRaw, &ref) == nil && ref != "" {
+			if isRemoteRef(ref) {
+				reasons["remote_$ref"] = struct{}{}
+			} else {
+				// A local pointer still present after canonicalization could not
+				// be inlined (missing target or cyclic), so the form renderer
+				// does not know the shape behind it.
+				reasons["unresolved_$ref"] = struct{}{}
+			}
 		}
 		for _, child := range object {
 			collectUnsupportedSchemaValue(child, reasons)

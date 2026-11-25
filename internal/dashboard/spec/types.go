@@ -69,6 +69,12 @@ type FunctionContractInput struct {
 	// TimeoutMs 声明同步调用契约预算（毫秒）。0 = 未声明（沿用全局默认）。
 	// 调用链语义见 docs/architecture/sdk-wire-protocol.md「同步调用超时」。
 	TimeoutMs int
+	// RequestDiagnostics carries source-side compatibility findings (SUI-011)
+	// about how far the contract's request can be generated and sent. They are
+	// merged into the stored contract diagnostics so the proposal quality gate
+	// sees them; the projected input schema alone has already lost the media
+	// types and parameter locations that produce them.
+	RequestDiagnostics []Diagnostic
 }
 
 // ---------------------------------------------------------------------------

@@ -59,6 +59,31 @@ func toJSON(v interface{}) model.JSON {
 	return model.JSON(b)
 }
 
+// functionContractDiagnostics merges the normalizer findings with the
+// source-side request compatibility findings (SUI-011) that only the upload
+// path can see. The projected input schema has already lost the media types
+// and parameter locations behind them, so without this merge a non-JSON body
+// would register as a clean, directly executable contract.
+func functionContractDiagnostics(normalized []spec.Diagnostic, request []spec.Diagnostic) []spec.Diagnostic {
+	merged := make([]spec.Diagnostic, 0, len(normalized)+len(request))
+	merged = append(merged, normalized...)
+	for _, diagnostic := range request {
+		if !hasDiagnostic(merged, diagnostic) {
+			merged = append(merged, diagnostic)
+		}
+	}
+	return merged
+}
+
+func hasDiagnostic(diags []spec.Diagnostic, target spec.Diagnostic) bool {
+	for _, diagnostic := range diags {
+		if diagnostic.Code == target.Code && diagnostic.Field == target.Field && diagnostic.Message == target.Message {
+			return true
+		}
+	}
+	return false
+}
+
 // mergeSchemaDiffDiagnostics 在契约 upsert 前对比库中现有契约的
 // input/output schema：破坏性变更（F12）作为 Diagnostic 追加到现有
 // diagnostics 之后；无现有契约（首次注册）或非破坏性差异时原样返回。

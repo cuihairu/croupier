@@ -358,7 +358,7 @@ interface BlockedProposalIssue {
 
 - `ready`：页面全部已声明能力都有可验证的 binding、selector、治理与 renderer 支持，可直接接受并发布。ResourcePage 的写能力是可选的，因此只读 ResourcePage 也可以是 `ready`。
 - `basic`：安全的同步 OperationPage，含输入表单、确认、受控执行和结果区；可要求审批，并在审批通过后展示真实结果；可直接接受并发布。
-- `needs_review`：语义或映射不完整，必须在 Page Studio 决策后发布。
+- `needs_review`：语义或映射不完整，必须在 Page Studio 决策后发布。契约级诊断同样会强制该层级：执行器无法发送该请求的 operation（`openapi_schema_compatibility_manual`，SUI-011）、或 schema 引用无法内联的 operation（`openapi_schema_reference_unresolved`，SUI-008），都不得生成可直接执行的默认提案；而 `degraded` 兼容性层级仍可生成，因为其 JSON 编辑路径依然可用。
 - 函数不可执行、权限/风险不可校验、schema 无效或 binding 不安全时，生成 BlockedProposalIssue，禁止物化和发布；`blocked` 不是 Proposal quality。
 
 PageDraft 是用户接受 Proposal 后形成的可编辑页面；PublishedPageSpec 是包含完整 PageSpec、binding snapshot、表单展示快照和 renderer version 的不可变运行产物。Proposal 重新生成绝不覆盖 Draft 或 PublishedPageSpec。

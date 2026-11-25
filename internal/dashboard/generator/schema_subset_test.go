@@ -93,10 +93,21 @@ func TestSchemaSubsetDiagnostics_RemoteRef(t *testing.T) {
 	assert.Contains(t, diags[0].Message, "remote_$ref")
 }
 
-func TestSchemaSubsetDiagnostics_LocalRef(t *testing.T) {
+// SUI-011: a local pointer still present in the projected schema could not be
+// inlined by canonicalization (missing target or cyclic), so the form renderer
+// does not know the shape behind it. Inlined references no longer show up here.
+func TestSchemaSubsetDiagnostics_UnresolvedLocalRef(t *testing.T) {
 	schema := []byte(`{"$ref":"#/definitions/Foo"}`)
 	diags := schemaSubsetDiagnostics("fn", "field", schema)
-	assert.Nil(t, diags)
+	assert.Len(t, diags, 1)
+	assert.Contains(t, diags[0].Message, "unresolved_$ref")
+}
+
+func TestSchemaSubsetDiagnostics_AllOf(t *testing.T) {
+	schema := []byte(`{"type":"object","allOf":[{"$ref":"#/definitions/Foo"}]}`)
+	diags := schemaSubsetDiagnostics("fn", "field", schema)
+	assert.Len(t, diags, 1)
+	assert.Contains(t, diags[0].Message, "allOf")
 }
 
 func TestSchemaSubsetDiagnostics_NestedUnsupported(t *testing.T) {

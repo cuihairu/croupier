@@ -107,6 +107,12 @@ func OperationSpecFromContract(contract *model.FunctionContract) spec.OperationS
 		Risk:        spec.RiskLevel(contract.Risk.String()),
 		Permission:  strings.TrimSpace(contract.Permission),
 		Enabled:     contract.Enabled,
+		// SUI-008/SUI-011: the contract findings (unresolved references, request
+		// compatibility) must reach the generator. Without them a request the
+		// executor cannot send still produced a directly executable proposal,
+		// because the projected input schema no longer carries the media types
+		// and parameter locations those findings name.
+		Diagnostics: DiagnosticsFromJSON(json.RawMessage(contract.Diagnostics)),
 	}
 }
 

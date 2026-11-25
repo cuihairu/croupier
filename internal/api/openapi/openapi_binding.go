@@ -95,6 +95,20 @@ func (s *Service) rebuildContractForSourceBinding(
 
 // functionMetaInputForBinding 以 OpenAPI 操作为主、运行时元数据兜底组装
 // 契约重建入参。设计债清理：纯组装无出错路径，error 返回值已随签名收紧删除。
+// sourceRequestDiagnostics classifies the operation's request contract
+// (SUI-011) at the one point where the raw request shape is still on hand: the
+// projected input schema has already flattened parameters and dropped the media
+// types, so the findings have to be recorded here to reach the contract row and
+// the default proposal quality gate.
+func sourceRequestDiagnostics(source *model.OpenAPISource, operation OpenAPISourceOperation) []spec.Diagnostic {
+	if source == nil || operation.Request == nil {
+		return nil
+	}
+	compatibility := driveropenapi.AssessRequestCompatibility(
+		operation.OperationID, operation.Request, sourceSchemaRoot(source.GetSpec()))
+	return compatibility.Diagnostics
+}
+
 func (s *Service) functionMetaInputForBinding(
 	source *model.OpenAPISource,
 	operation OpenAPISourceOperation,
@@ -115,24 +129,25 @@ func (s *Service) functionMetaInputForBinding(
 		tags = append([]string(nil), runtimeMeta.Tags...)
 	}
 	return dashboardservice.FunctionMetaInput{
-		ID:                strings.TrimSpace(functionID),
-		Version:           versionutil.ValidOrDefault(runtimeMeta.Version, sourceInfoVersion(source)),
-		Enabled:           runtimeMeta.Enabled,
-		Deprecated:        runtimeMeta.Deprecated,
-		Summary:           firstNonEmpty(operation.Summary, runtimeMeta.Summary, operation.OperationID),
-		Description:       firstNonEmpty(operation.Description, runtimeMeta.Description),
-		InputSchema:       inputSchema,
-		OutputSchema:      outputSchema,
-		Resource:          firstNonEmpty(operation.Resource, runtimeMeta.Resource),
-		Operation:         firstNonEmpty(operation.Operation, runtimeMeta.Operation),
-		Capability:        firstNonEmpty(string(operation.Capability), runtimeMeta.Capability),
-		Execution:         firstNonEmpty(string(operation.Execution), runtimeMeta.Execution),
-		ApprovalRequired:  operation.Approval.Required,
-		ApprovalPolicyKey: operation.Approval.PolicyKey,
-		Risk:              firstNonEmpty(string(operation.Risk), runtimeMeta.Risk),
-		Permission:        firstNonEmpty(operation.Permission, runtimeMeta.Permission),
-		Tags:              tags,
-		TimeoutMs:         operation.TimeoutMs,
+		ID:                 strings.TrimSpace(functionID),
+		Version:            versionutil.ValidOrDefault(runtimeMeta.Version, sourceInfoVersion(source)),
+		Enabled:            runtimeMeta.Enabled,
+		Deprecated:         runtimeMeta.Deprecated,
+		Summary:            firstNonEmpty(operation.Summary, runtimeMeta.Summary, operation.OperationID),
+		Description:        firstNonEmpty(operation.Description, runtimeMeta.Description),
+		InputSchema:        inputSchema,
+		OutputSchema:       outputSchema,
+		Resource:           firstNonEmpty(operation.Resource, runtimeMeta.Resource),
+		Operation:          firstNonEmpty(operation.Operation, runtimeMeta.Operation),
+		Capability:         firstNonEmpty(string(operation.Capability), runtimeMeta.Capability),
+		Execution:          firstNonEmpty(string(operation.Execution), runtimeMeta.Execution),
+		ApprovalRequired:   operation.Approval.Required,
+		ApprovalPolicyKey:  operation.Approval.PolicyKey,
+		Risk:               firstNonEmpty(string(operation.Risk), runtimeMeta.Risk),
+		Permission:         firstNonEmpty(operation.Permission, runtimeMeta.Permission),
+		Tags:               tags,
+		TimeoutMs:          operation.TimeoutMs,
+		RequestDiagnostics: sourceRequestDiagnostics(source, operation),
 	}
 }
 
@@ -268,23 +283,24 @@ func (s *Service) functionMetaInputForOperation(
 	functionID string,
 ) dashboardservice.FunctionMetaInput {
 	return dashboardservice.FunctionMetaInput{
-		ID:                strings.TrimSpace(functionID),
-		Version:           versionutil.ValidOrDefault(sourceInfoVersion(source)),
-		Enabled:           true,
-		Summary:           firstNonEmpty(operation.Summary, operation.OperationID),
-		Description:       operation.Description,
-		InputSchema:       sourceBindingInput(source, operation, openAPIOp),
-		OutputSchema:      openAPIResponseSchema(openAPIOp),
-		Resource:          strings.TrimSpace(operation.Resource),
-		Operation:         strings.TrimSpace(operation.Operation),
-		Capability:        strings.TrimSpace(string(operation.Capability)),
-		Execution:         firstNonEmpty(string(operation.Execution), "sync"),
-		ApprovalRequired:  operation.Approval.Required,
-		ApprovalPolicyKey: operation.Approval.PolicyKey,
-		Risk:              strings.TrimSpace(string(operation.Risk)),
-		Permission:        strings.TrimSpace(operation.Permission),
-		Tags:              append([]string(nil), operation.Tags...),
-		TimeoutMs:         operation.TimeoutMs,
+		ID:                 strings.TrimSpace(functionID),
+		Version:            versionutil.ValidOrDefault(sourceInfoVersion(source)),
+		Enabled:            true,
+		Summary:            firstNonEmpty(operation.Summary, operation.OperationID),
+		Description:        operation.Description,
+		InputSchema:        sourceBindingInput(source, operation, openAPIOp),
+		OutputSchema:       openAPIResponseSchema(openAPIOp),
+		Resource:           strings.TrimSpace(operation.Resource),
+		Operation:          strings.TrimSpace(operation.Operation),
+		Capability:         strings.TrimSpace(string(operation.Capability)),
+		Execution:          firstNonEmpty(string(operation.Execution), "sync"),
+		ApprovalRequired:   operation.Approval.Required,
+		ApprovalPolicyKey:  operation.Approval.PolicyKey,
+		Risk:               strings.TrimSpace(string(operation.Risk)),
+		Permission:         strings.TrimSpace(operation.Permission),
+		Tags:               append([]string(nil), operation.Tags...),
+		TimeoutMs:          operation.TimeoutMs,
+		RequestDiagnostics: sourceRequestDiagnostics(source, operation),
 	}
 }
 

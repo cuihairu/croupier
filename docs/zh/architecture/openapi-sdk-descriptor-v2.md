@@ -128,6 +128,26 @@ SDK 和 OpenAPI Source 导入边界只接受 FunctionContract 字段。页面展
 
 方向也在表单见到 schema 之前解析（SUI-010）：喂给 `inputSchema` 的请求 schema 已剔除 `readOnly` 字段（`required` 收缩跳过它们），响应 schema 已剔除 `writeOnly` 字段 —— 客户端绝不为服务端拥有的值提供输入，也绝不把客户端提供的密钥当作服务端输出来校验。`openapi_schema_readonly_dropped` / `openapi_schema_writeonly_dropped` 诊断记录剔除；详见[请求契约](./openapi-request-contract.md)文档。
 
+### 请求兼容性分级（SUI-011）
+
+分级在归一后的请求契约上判定（SUI-008/009/010 之后），因此分级结果不会与表单实际渲染的内容不一致。每个 operation 得到且仅得到一个层级，每一个拉低层级的构造都带字段路径上报 —— 即请求契约内的 JSON pointer：
+
+| 声明的构造                                                                                           | 层级       | 诊断                                                                                | 修复方式                                                           |
+| ---------------------------------------------------------------------------------------------------- | ---------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| object / array / 标量请求体、本地 `$defs`/`$ref`、`required`、`enum`、格式 hint                      | `direct`   | —                                                                                   | —                                                                  |
+| `allOf`（任意位置）                                                                                  | `degraded` | `openapi_schema_compatibility_degraded`                                             | 拍平不保证字段顺序，改用 JSON 编辑                                 |
+| `oneOf` / `anyOf`                                                                                    | `degraded` | `openapi_schema_compatibility_degraded`                                             | 选定分支后用 JSON 编辑                                             |
+| 根为 `array` 或裸标量值的请求体                                                                      | `degraded` | `openapi_schema_compatibility_degraded`                                             | 在 `body` 下用 JSON 编辑                                           |
+| 以非 JSON content 媒体类型声明的参数                                                                 | `degraded` | `openapi_schema_compatibility_degraded`                                             | 改用 JSON schema 声明该参数                                        |
+| `discriminator`                                                                                      | `manual`   | `openapi_schema_compatibility_manual`                                               | 以 `application/json` 发送具体变体                                 |
+| 无法解析的 `$ref`（目标缺失、循环或远程）                                                            | `manual`   | `openapi_schema_compatibility_manual`（另有 `openapi_schema_reference_unresolved`） | 在源文档修正引用                                                   |
+| 请求体没有 `application/json` 媒体类型（`multipart/form-data`、`application/x-www-form-urlencoded`） | `manual`   | `openapi_schema_compatibility_manual`                                               | 声明 `application/json`；表单与 multipart 发送见 SUI-012 / SUI-013 |
+| 请求体同时声明 JSON 与其他媒体类型                                                                   | `manual`   | `openapi_schema_compatibility_manual`                                               | 去掉多余媒体类型或只发 JSON                                        |
+
+执行器目前只支持 JSON（provider 构建 JSON 请求体），因此缺少 `application/json` 属于无法发送，而非渲染上的取舍：`manual` 的 operation 不得生成可直接执行的默认提案。层级通过 `requestCompatibility` 暴露在源 operation 上，诊断随契约落库 —— 经契约投影进入提案质量门 —— 其中 `manual` 强制 `needs_review`，`degraded` 仍可生成（其 JSON 编辑路径依然可用）。
+
+Web 表单渲染器目前没有任何变体渲染，因此在 SUI-043 落地前，`allOf` / `oneOf` / `anyOf` / `discriminator` 只能通过 JSON 载荷编辑器交给运维处理。
+
 ## OpenAPI Source 与执行绑定
 
 上传 OpenAPI 单请求完成「上传即成页」全链生成（[契约与绑定正交化设计](./ui-generation-upload-pipeline.md) D1/D2/D4）：解析校验后，每个 operation 直接落库为 FunctionContract 物料（无对应运行时函数的置 `executionState=unbound`），同事务触发组件模板重建与 PageProposal 生成，响应携带 `{ operations, contractsCreated, templatesUpdated, proposalsCreated, diagnostics }` 摘要。契约存在不再以运行时注册为前提。

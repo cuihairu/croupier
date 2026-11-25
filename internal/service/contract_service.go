@@ -163,6 +163,11 @@ func (s *ContractService) rebuildContract(ctx context.Context, gameID, env, sour
 		return validationErr
 	}
 
+	// Source-side request compatibility findings (SUI-011) join the normalizer
+	// findings here, on the contract row, so the projection and the default
+	// proposal quality gate see them.
+	contractDiagnostics := functionContractDiagnostics(result.Diagnostics, input.RequestDiagnostics)
+
 	// 2. Compute source digest from the canonical normalized contract.
 	digest := computeDigest(result.Function)
 
@@ -196,13 +201,13 @@ func (s *ContractService) rebuildContract(ctx context.Context, gameID, env, sour
 		Tags:           toJSON(result.Function.Tags),
 		Source:         source,
 		SourceDigest:   digest,
-		Diagnostics:    toJSON(result.Diagnostics),
+		Diagnostics:    toJSON(contractDiagnostics),
 	}
 
 	// 4. Schema 兼容性 diff（F12）：与库中现有契约对比，破坏性变更
 	// 写入 Diagnostics 告警（不阻断注册，由告警/可视化层消费）。
 	// existing 由函数入口统一加载（T6 自动绑定检测复用同一查询）。
-	diagnostics, diffFindings, isUpdate := mergeSchemaDiffDiagnostics(existing, contract, toJSON(result.Diagnostics))
+	diagnostics, diffFindings, isUpdate := mergeSchemaDiffDiagnostics(existing, contract, toJSON(contractDiagnostics))
 	// ExecutionState 空值归一与 UpsertContract 内部一致——B2 历史判据
 	// （contractContentChanged）必须在归一后比较，否则「跳过写」与
 	// 「跳过历史」判据漂移。

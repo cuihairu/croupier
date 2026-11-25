@@ -100,7 +100,12 @@ func normalizeOptions(opts GenerateOptions) GenerateOptions {
 }
 
 func assessBaseCandidate(op spec.OperationSpec) []spec.Diagnostic {
-	var diags []spec.Diagnostic
+	// Contract-level findings (SUI-008 unresolved references, SUI-011 request
+	// compatibility) travel on the operation from the projection. Without them
+	// a request the executor cannot send would still generate a directly
+	// executable page: the projected input schema no longer carries the media
+	// types and parameter locations those findings name.
+	diags := append([]spec.Diagnostic(nil), op.Diagnostics...)
 	if strings.TrimSpace(op.FunctionID) == "" {
 		diags = append(diags, diagnostic("function_id_missing", spec.SeverityError, "functionId is required", "", "functionId"))
 	}
@@ -403,7 +408,11 @@ func operationQuality(op spec.OperationSpec, diags []spec.Diagnostic) spec.Gener
 	if hasErrorDiagnostic(diags) {
 		return spec.GeneratedPageQualityNeedsReview
 	}
-	if hasDiagnosticCode(diags, "json_schema_generation_subset_unsupported") {
+	// SUI-011: a request the executor cannot send gets no directly executable
+	// default proposal. The degraded tier is deliberately not gated: its JSON
+	// editing path stays usable.
+	if hasDiagnosticCode(diags, "json_schema_generation_subset_unsupported") ||
+		hasDiagnosticCode(diags, spec.DiagSchemaCompatibilityManual) {
 		return spec.GeneratedPageQualityNeedsReview
 	}
 	if strings.TrimSpace(op.FunctionID) == "" {

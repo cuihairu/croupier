@@ -92,19 +92,23 @@ type OpenAPISourceSummary struct {
 type OpenAPISourceOperation struct {
 	Request      *driveropenapi.RequestContract `json:"request,omitempty"`
 	requestInput string
-	OperationID  string                 `json:"operationId"`
-	Method       string                 `json:"method"`
-	Path         string                 `json:"path"`
-	Summary      string                 `json:"summary,omitempty"`
-	Description  string                 `json:"description,omitempty"`
-	Tags         []string               `json:"tags,omitempty"`
-	Operation    string                 `json:"operation,omitempty"`
-	Resource     string                 `json:"resource,omitempty"`
-	Capability   spec.CapabilityKind    `json:"capability,omitempty"`
-	Execution    spec.FunctionExecution `json:"execution,omitempty"`
-	Approval     spec.ApprovalPolicy    `json:"approval"`
-	Risk         spec.RiskLevel         `json:"risk,omitempty"`
-	Permission   string                 `json:"permission,omitempty"`
+	// RequestCompatibility is the SUI-011 tier this operation's request
+	// contract can reach (direct / degraded / manual); its field-level
+	// findings travel with the source diagnostics and with the contract.
+	RequestCompatibility string                 `json:"requestCompatibility"`
+	OperationID          string                 `json:"operationId"`
+	Method               string                 `json:"method"`
+	Path                 string                 `json:"path"`
+	Summary              string                 `json:"summary,omitempty"`
+	Description          string                 `json:"description,omitempty"`
+	Tags                 []string               `json:"tags,omitempty"`
+	Operation            string                 `json:"operation,omitempty"`
+	Resource             string                 `json:"resource,omitempty"`
+	Capability           spec.CapabilityKind    `json:"capability,omitempty"`
+	Execution            spec.FunctionExecution `json:"execution,omitempty"`
+	Approval             spec.ApprovalPolicy    `json:"approval"`
+	Risk                 spec.RiskLevel         `json:"risk,omitempty"`
+	Permission           string                 `json:"permission,omitempty"`
 	// TimeoutMs 同步调用契约预算（毫秒，x-timeout-ms 扩展）；0 = 未声明。
 	TimeoutMs  int    `json:"timeoutMs,omitempty"`
 	Bound      bool   `json:"bound"`

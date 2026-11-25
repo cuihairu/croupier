@@ -151,6 +151,13 @@ func parseOpenAPISource(raw []byte) *parsedOpenAPISource {
 			operation.requestInput = projection.Schema
 		}
 		parsed.Diagnostics = append(parsed.Diagnostics, projection.Diagnostics...)
+		// SUI-011: classify how far this request contract can be generated and
+		// sent. The tier stays on the operation so the source detail shows why
+		// it is not directly callable; the findings reach the contract through
+		// the binding path and drive the default proposal quality gate.
+		compatibility := driveropenapi.AssessRequestCompatibility(operation.OperationID, operation.Request, root)
+		operation.RequestCompatibility = compatibility.Status
+		parsed.Diagnostics = append(parsed.Diagnostics, compatibility.Diagnostics...)
 	}
 	if len(parsed.Operations) == 0 && !hasErrorDiagnostic(parsed.Diagnostics) {
 		parsed.Diagnostics = append(parsed.Diagnostics, sourceDiagnostic(

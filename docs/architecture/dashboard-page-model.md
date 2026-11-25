@@ -358,7 +358,7 @@ interface BlockedProposalIssue {
 
 - `ready`: every declared capability of the page has verifiable bindings, selectors, governance, and renderer support, and it can be accepted and published directly. A ResourcePage's write capabilities are optional, so a read-only ResourcePage can also be `ready`.
 - `basic`: a safe synchronous OperationPage with an input form, confirmation, governed execution, and a result area; it may require approval and shows the real result after approval; it can be accepted and published directly.
-- `needs_review`: semantics or mappings are incomplete; it must be published only after decisions in Page Studio.
+- `needs_review`: semantics or mappings are incomplete; it must be published only after decisions in Page Studio. Contract-level findings force it too: an operation whose request the executor cannot send (`openapi_schema_compatibility_manual`, SUI-011) or whose schema reference could not be inlined (`openapi_schema_reference_unresolved`, SUI-008) must not get a directly executable default proposal, while the `degraded` compatibility tier keeps the page generable because its JSON editing path is still usable.
 - When a function is not executable, permission/risk is unverifiable, a schema is invalid, or a binding is unsafe, a BlockedProposalIssue is generated and materialization/publishing is barred; `blocked` is not a Proposal quality.
 
 A PageDraft is the editable page formed after the user accepts a Proposal; a PublishedPageSpec is the immutable runtime artifact containing the complete PageSpec, the binding snapshot, the form presentation snapshot, and the renderer version. Proposal regeneration never overwrites a Draft or a PublishedPageSpec.
