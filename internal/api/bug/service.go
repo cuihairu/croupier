@@ -244,8 +244,8 @@ func parseBugLinks(raw json.RawMessage) (model.JSON, error) {
 			links[i].Title = deriveBugLinkTitle(links[i].URL, links[i].Kind)
 		}
 	}
-	// links 为已类型化的 []model.BugLink（纯 string 字段），Marshal 恒成功，
-	// error 分支不可达，已删除。
+	// links is already a typed []model.BugLink (pure string fields), so Marshal always
+	// succeeds and the error branch is unreachable and was deleted.
 	bytes, _ := json.Marshal(links)
 	return bytes, nil
 }

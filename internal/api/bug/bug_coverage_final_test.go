@@ -1,5 +1,6 @@
-// 补齐 bug 包剩余可覆盖分支：fingerprintStack 空行、ReportCrash 的 Create/
-// bump Update 失败、Create/Update 的模型写入失败。
+// Covers the remaining reachable branches of the bug package: blank lines in
+// fingerprintStack, ReportCrash Create / bump Update failures, and Create/Update model
+// write failures.
 package bug
 
 import (
@@ -15,7 +16,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// fingerprintStack：含空行/纯空白行的堆栈被跳过。
+// fingerprintStack: stacks containing blank / whitespace-only lines skip them.
 func TestFingerprintStack_SkipsBlankLines(t *testing.T) {
 	t.Parallel()
 
@@ -55,7 +56,7 @@ func crashRequest(stack string) *ReportCrashRequest {
 	}
 }
 
-// ReportCrash：无聚合命中时新建 Bug 失败 → 透传错误。
+// ReportCrash: creating a new Bug when no aggregation hits -> the error is passed through.
 func TestReportCrash_CreateBugFails(t *testing.T) {
 	t.Parallel()
 
@@ -68,7 +69,8 @@ func TestReportCrash_CreateBugFails(t *testing.T) {
 	assert.Contains(t, err.Error(), "forced bug create failure")
 }
 
-// ReportCrash：命中聚合后 bump 的 Update 失败 → 透传错误。
+// ReportCrash: the bump Update after an aggregation hit fails -> the error is passed
+// through.
 func TestReportCrash_BumpUpdateFails(t *testing.T) {
 	t.Parallel()
 
@@ -84,7 +86,7 @@ func TestReportCrash_BumpUpdateFails(t *testing.T) {
 	assert.Contains(t, err.Error(), "forced bug update failure")
 }
 
-// Create：模型写入失败 → 透传错误。
+// Create: a model write failure -> the error is passed through.
 func TestBugService_CreateModelFails(t *testing.T) {
 	t.Parallel()
 
@@ -97,7 +99,7 @@ func TestBugService_CreateModelFails(t *testing.T) {
 	assert.Contains(t, err.Error(), "forced bug create failure")
 }
 
-// Update：模型更新失败 → 透传错误。
+// Update: a model update failure -> the error is passed through.
 func TestBugService_UpdateModelFails(t *testing.T) {
 	t.Parallel()
 

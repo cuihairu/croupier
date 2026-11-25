@@ -1,7 +1,9 @@
-// 覆盖目标：handler 各入口的绑定错误/Get/Delete 成功路径、service Get/Update 全字段
-// 与非法枚举、List/Find 底层错误、normalizeSource/currentUsername/parseBugLinks/
-// deriveBugLinkTitle/decodeBugLinks/toInt64/firstStackLine/truncateRunes 纯函数，
-// 以及 ReportCrash 聚合分支（标题截断/平台回退/nil Extra 计数/查询错误）。
+// Coverage targets: binding errors for each handler entry plus the Get/Delete success
+// paths, service Get/Update full-field and invalid-enum handling, List/Find underlying
+// errors, the normalizeSource/currentUsername/parseBugLinks/deriveBugLinkTitle/
+// decodeBugLinks/toInt64/firstStackLine/truncateRunes pure functions, and the
+// ReportCrash aggregation branches (title truncation / platform fallback / nil Extra
+// counting / query errors).
 package bug
 
 import (
@@ -31,13 +33,13 @@ func TestBugGet_FoundAndNotFound(t *testing.T) {
 	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
 	assert.Contains(t, w.Body.String(), "查询我")
 
-	// 不存在 → 404（gorm.ErrRecordNotFound 统一映射）。
+	// Not present -> 404 (uniformly mapped from gorm.ErrRecordNotFound).
 	c, w = bugRequest(http.MethodGet, "/bugs/99", "")
 	c.Params = gin.Params{{Key: "id", Value: "99"}}
 	h.Get(c)
 	assert.Equal(t, http.StatusNotFound, w.Code)
 
-	// 非数字 id → 400。
+	// Non-numeric id -> 400.
 	c, w = bugRequest(http.MethodGet, "/bugs/abc", "")
 	c.Params = gin.Params{{Key: "id", Value: "abc"}}
 	h.Get(c)
@@ -47,8 +49,9 @@ func TestBugGet_FoundAndNotFound(t *testing.T) {
 func TestBugList_BindError(t *testing.T) {
 	db := newBugTestDB(t)
 	h := newBugHandler(db)
-	// page=abc 触发 ShouldBindQuery 失败（分支已覆盖）。注意：strconv 绑定错误
-	// 未被 response.Error 识别为 400，实际映射 500——疑似契约偏差，见交付报告。
+	// page=abc triggers a ShouldBindQuery failure (branch already covered). Note: the
+	// strconv binding error is not recognized as 400 by response.Error and actually
+	// maps to 500 - a suspected contract deviation, see the delivery report.
 	c, w := bugRequest(http.MethodGet, "/bugs?page=abc", "")
 	h.List(c)
 	assert.NotEqual(t, http.StatusOK, w.Code)
@@ -104,20 +107,20 @@ func TestBugDelete_Success(t *testing.T) {
 	db.Model(&model.Bug{}).Count(&count)
 	assert.Zero(t, count)
 
-	// 删除不存在 → 404（RowsAffected==0 → ErrRecordNotFound）。
+	// Deleting a missing record -> 404 (RowsAffected==0 -> ErrRecordNotFound).
 	c, w = bugRequest(http.MethodDelete, "/bugs/9", "")
 	c.Params = gin.Params{{Key: "id", Value: "9"}}
 	h.Delete(c)
 	assert.Equal(t, http.StatusNotFound, w.Code)
 
-	// 非法 id → 400。
+	// Invalid id -> 400.
 	c, w = bugRequest(http.MethodDelete, "/bugs/x", "")
 	c.Params = gin.Params{{Key: "id", Value: "x"}}
 	h.Delete(c)
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
-// ---- service 层直测 ----
+// ---- direct service-layer tests ----
 
 func newSvc(db *gorm.DB) *Service {
 	return NewService(&svc.ServiceContext{BugModel: model.NewBugModel(db)})
@@ -177,7 +180,7 @@ func TestBugService_UpdateAllFields(t *testing.T) {
 	assert.Equal(t, fix, resp.FixVersion)
 	assert.Equal(t, platform, resp.Platform)
 	require.Len(t, resp.Links, 1)
-	assert.Equal(t, "a/b#9", resp.Links[0].Title) // 标题自动推导
+	assert.Equal(t, "a/b#9", resp.Links[0].Title) // title derived automatically
 }
 
 func TestBugService_UpdateInvalidValues(t *testing.T) {
@@ -205,16 +208,16 @@ func TestBugService_UpdateInvalidValues(t *testing.T) {
 		})
 	}
 
-	// 无任何可更新字段。
+	// No updatable field at all.
 	_, err := s.Update(context.Background(), &BugUpdateRequest{ID: "1"})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "更新的字段")
 
-	// 非法 id。
+	// Invalid id.
 	_, err = s.Update(context.Background(), &BugUpdateRequest{ID: "zz"})
 	require.Error(t, err)
 
-	// 目标不存在：Update 0 行后 FindOne 404。
+	// Target does not exist: after Update affecting 0 rows, FindOne returns 404.
 	_, err = s.Update(context.Background(), &BugUpdateRequest{ID: "77", Title: "x"})
 	assert.ErrorIs(t, err, gorm.ErrRecordNotFound)
 }
@@ -240,10 +243,10 @@ func TestBugCreate_SourceNormalization(t *testing.T) {
 	require.Len(t, bugs, 3)
 	assert.Equal(t, "player", bugs[0].Source)
 	assert.Equal(t, "ticket", bugs[1].Source)
-	assert.Equal(t, "internal", bugs[2].Source) // 未知来源归一为 internal
+	assert.Equal(t, "internal", bugs[2].Source) // unknown sources normalize to internal
 }
 
-// ---- 纯函数直测 ----
+// ---- direct pure-function tests ----
 
 func TestNormalizeSource(t *testing.T) {
 	assert.Equal(t, "player", normalizeSource(" player "))
@@ -271,7 +274,7 @@ func TestParseBugLinks_Direct(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "links")
 
-	// 标题空白 → 从 URL 推导；已有标题 → 仅 trim。
+	// Blank title -> derived from the URL; existing title -> trimmed only.
 	out, err = parseBugLinks(json.RawMessage(`[{"url":"https://e.io/x","kind":"other","title":"  "}]`))
 	require.NoError(t, err)
 	var links []model.BugLink
@@ -287,16 +290,16 @@ func TestParseBugLinks_Direct(t *testing.T) {
 func TestDeriveBugLinkTitle(t *testing.T) {
 	assert.Equal(t, "o/r#42", deriveBugLinkTitle("https://github.com/o/r/issues/42", model.BugLinkGithubIssue))
 	assert.Equal(t, "o/r#7", deriveBugLinkTitle("https://github.com/o/r/pull/7", model.BugLinkGithubPR))
-	// 非 github kind 不做 #number 推导。
+	// Non-github kinds do no #number derivation.
 	assert.Equal(t, "github.com/o/r/issues/42", deriveBugLinkTitle("https://github.com/o/r/issues/42", model.BugLinkOther))
-	// github URL 但路径不匹配 → host+path。
+	// github URL but the path does not match -> host+path.
 	assert.Equal(t, "github.com/o/r", deriveBugLinkTitle("https://github.com/o/r", model.BugLinkGithubIssue))
-	// path 为 "/" 或空 → 仅 host。
+	// path "/" or empty -> host only.
 	assert.Equal(t, "example.com", deriveBugLinkTitle("https://example.com/", model.BugLinkOther))
 	assert.Equal(t, "example.com", deriveBugLinkTitle("https://example.com", model.BugLinkOther))
-	// 无 host → 原样返回。
+	// No host -> returned as-is.
 	assert.Equal(t, "not a url", deriveBugLinkTitle("not a url", model.BugLinkOther))
-	// 解析失败（非法转义）→ 原样返回。
+	// Parse failure (invalid escape) -> returned as-is.
 	assert.Equal(t, "http://h/%zz", deriveBugLinkTitle("http://h/%zz", model.BugLinkOther))
 }
 
@@ -339,7 +342,7 @@ func TestToInt64(t *testing.T) {
 func TestFirstStackLine(t *testing.T) {
 	assert.Equal(t, "first", firstStackLine("first\nsecond"))
 	assert.Equal(t, "single", firstStackLine("single"))
-	// 首字符即换行：i==0，返回整串。
+	// First character is the newline: i==0, so the whole string is returned.
 	assert.Equal(t, "\nrest", firstStackLine("\nrest"))
 }
 
@@ -353,13 +356,14 @@ func TestTruncateRunes(t *testing.T) {
 	assert.Equal(t, 60, utf8.RuneCountInString(got))
 }
 
-// ---- ReportCrash 分支 ----
+// ---- ReportCrash branches ----
 
 func TestReportCrash_TitleAndMetadataBranches(t *testing.T) {
 	h, db := newCrashHandler(t)
 
-	// 无 message、首行超 60 rune → 标题取首行截断；platform 非法回退空；
-	// playerId/appVersion 缺省不写 extra。
+	// No message and the first line exceeds 60 runes -> the title is the truncated
+	// first line; an invalid platform falls back to empty; absent playerId/appVersion
+	// do not write extra.
 	longLine := ""
 	for range 70 {
 		longLine += "E"
@@ -378,7 +382,7 @@ func TestReportCrash_TitleAndMetadataBranches(t *testing.T) {
 	assert.NotContains(t, stored.Extra, crashLastPlayerKey)
 	assert.NotContains(t, stored.Extra, "appVersion")
 
-	// message 提供时优先作为标题。
+	// When message is provided it takes priority as the title.
 	c, w = crashReq(http.MethodPost, "/bugs/crash", `{"gameId":"g2","message":"自定义标题","stack":"boom"}`)
 	h.ReportCrash(c)
 	require.Equal(t, http.StatusOK, w.Code)
@@ -391,7 +395,8 @@ func TestReportCrash_BumpNilExtra(t *testing.T) {
 	h, db := newCrashHandler(t)
 	stack := "lua: /game/x.lua:1: boom"
 	fp := fingerprintStack(stack)
-	// 预置同指纹但 Extra 为 nil 的 bug：bump 需自建 map。
+	// Seed a bug with the same fingerprint but nil Extra: bump has to build the map
+	// itself.
 	require.NoError(t, db.Create(&model.Bug{
 		Title: "预置", Status: model.BugStatusTriage, GameID: "demo", Env: "prod",
 		CrashFingerprint: fp,
@@ -404,7 +409,7 @@ func TestReportCrash_BumpNilExtra(t *testing.T) {
 
 	var stored model.Bug
 	require.NoError(t, db.Where("crash_fingerprint = ?", fp).First(&stored).Error)
-	// Extra 为 nil 时计数从 0 起步：首次 bump 得 1。
+	// With nil Extra the count starts from 0: the first bump yields 1.
 	countVal, err := toInt64(stored.Extra[crashCountKey])
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), countVal)
