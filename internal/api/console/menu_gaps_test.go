@@ -13,7 +13,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// generateMenuFromMenuItems 的错误分支：菜单树可读但页面表缺失 → 整体报错。
+// An error branch of generateMenuFromMenuItems: the menu tree is readable but the
+// page table is missing -> the whole call errors.
 func TestServiceMenuPageSpecTableMissing(t *testing.T) {
 	service, ctx := newConsoleTestService(t, "console:read")
 	_, err := seedConsoleMenu(service.svcCtx, ctx, "player", spec.LocalizedText{"zh-CN": "玩家"}, 1, "")
@@ -24,7 +25,8 @@ func TestServiceMenuPageSpecTableMissing(t *testing.T) {
 	require.Error(t, err)
 }
 
-// published 快照表缺失 → 整体报错（菜单树与 draft 表均可读）。
+// The published snapshot table is missing -> the whole call errors (both the menu
+// tree and the draft table remain readable).
 func TestServiceMenuPublishedTableMissing(t *testing.T) {
 	service, ctx := newConsoleTestService(t, "console:read")
 	_, err := seedConsoleMenu(service.svcCtx, ctx, "player", spec.LocalizedText{"zh-CN": "玩家"}, 1, "")
@@ -35,7 +37,7 @@ func TestServiceMenuPublishedTableMissing(t *testing.T) {
 	require.Error(t, err)
 }
 
-// DB 故障注入：菜单树读取失败 → Menu 报错（不 panic）。
+// DB fault injection: reading the menu tree fails -> Menu errors (no panic).
 func TestServiceMenuDBClosed(t *testing.T) {
 	service, ctx := newConsoleTestService(t, "console:read")
 	sqlDB, err := service.svcCtx.DB.DB()
@@ -46,7 +48,8 @@ func TestServiceMenuDBClosed(t *testing.T) {
 	require.Error(t, err)
 }
 
-// seedConsolePublishedIconPage 带图标的已发布页（icon 回落分支专用）。
+// seedConsolePublishedIconPage publishes a page with an icon (dedicated to the icon
+// fallback branch).
 func seedConsolePublishedIconPage(svcCtx *svc.ServiceContext, ctx context.Context, pageKey, icon string, order int) error {
 	scope := svc.GameScopeFromContext(ctx)
 	page := spec.PageSpec{
@@ -88,49 +91,54 @@ func seedConsolePublishedIconPage(svcCtx *svc.ServiceContext, ctx context.Contex
 	})
 }
 
-// 组装细节：同序菜单按本地化标题/key 排序、菜单无 icon 时回落组内页面
-// 图标、en-US 文案回落、挂载但未发布的页面不进树（menuID nil/未命中分支）。
+// Assembly details: equally-ordered menus sort by localized title/key, a menu
+// without an icon falls back to a page icon inside the group, en-US copy falls
+// back, and mounted-but-unpublished pages stay out of the tree (the menuID nil /
+// no-match branches).
 func TestServiceMenuAssemblyOrderingAndIconFallback(t *testing.T) {
 	service, ctx := newConsoleTestService(t, "console:read")
 
-	// 两个同序菜单：标题决定顺序
+	// Two menus with the same order: the title decides the order
 	_, err := seedConsoleMenu(service.svcCtx, ctx, "beta", spec.LocalizedText{"zh-CN": "乙组"}, 10, "")
 	require.NoError(t, err)
 	_, err = seedConsoleMenu(service.svcCtx, ctx, "alpha", spec.LocalizedText{"zh-CN": "甲组"}, 10, "")
 	require.NoError(t, err)
-	// 第三个同序同标题菜单：key 决定顺序（beta < gamma）
+	// A third menu with the same order and the same title: the key decides the order
+	// (beta < gamma)
 	_, err = seedConsoleMenu(service.svcCtx, ctx, "gamma", spec.LocalizedText{"zh-CN": "乙组", "en-US": "Beta"}, 10, "")
 	require.NoError(t, err)
 
-	// 图标回落：菜单不配 icon，挂载一个带 icon 的已发布页面
+	// Icon fallback: the menu has no icon, and a published page with an icon is
+	// mounted under it
 	require.NoError(t, seedConsolePublishedIconPage(service.svcCtx, ctx, "iconpage", "GiftOutlined", 1))
 	beta, err := seedConsoleMenuByKey(service.svcCtx, ctx, "beta")
 	require.NoError(t, err)
 	require.NoError(t, seedConsolePageSpecMount(service.svcCtx, ctx, "iconpage", &beta.ID))
 
-	// 挂载到菜单但未发布（draft-only）的页面不进树
+	// A page mounted to a menu but not published (draft-only) stays out of the tree
 	require.NoError(t, seedConsolePageSpecMount(service.svcCtx, ctx, "draftpage", &beta.ID))
 
-	// 未挂载的已发布页面（menuID nil）不进树
+	// A published page that is not mounted (menuID nil) stays out of the tree
 	require.NoError(t, seedConsolePublishedIconPage(service.svcCtx, ctx, "freepage", "GiftOutlined", 2))
 
 	resp, err := service.Menu(ctx, &ConsoleMenuRequest{Language: "zh-CN"})
 	require.NoError(t, err)
 	require.Len(t, resp.Items, 3)
 
-	// 同序按本地化标题：乙(U+4E59) 码点先于 甲(U+7532)，故 乙组(beta/gamma)
-	// 排在 甲组(alpha) 之前；标题同 → key beta < gamma
+	// Equally-ordered menus sort by localized title: the 乙(U+4E59) codepoint comes
+	// before 甲(U+7532), so 乙组 (beta/gamma) sorts before 甲组 (alpha); equal titles
+	// -> key beta < gamma
 	assert.Equal(t, "beta", resp.Items[0].Key)
 	assert.Equal(t, "gamma", resp.Items[1].Key)
 	assert.Equal(t, "alpha", resp.Items[2].Key)
 
-	// beta 组：挂载且已发布的 iconpage 进入；draftpage/freepage 不进
+	// beta group: the mounted and published iconpage gets in; draftpage/freepage do not
 	require.Len(t, resp.Items[0].Children, 1)
 	assert.Equal(t, "iconpage", resp.Items[0].Children[0].Key)
-	// 菜单未配 icon → 回落组内第一个非空页面图标
+	// The menu has no icon -> fall back to the first non-empty page icon in the group
 	assert.Equal(t, "GiftOutlined", resp.Items[0].Icon)
 
-	// en-US 请求：gamma 命中 en-US；无 en-US 的 alpha 回落 zh-CN
+	// en-US request: gamma hits en-US; alpha, which has no en-US, falls back to zh-CN
 	respEN, err := service.Menu(ctx, &ConsoleMenuRequest{Language: "en-US"})
 	require.NoError(t, err)
 	require.Len(t, respEN.Items, 3)

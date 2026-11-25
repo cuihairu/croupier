@@ -7,20 +7,22 @@ import (
 	"github.com/cuihairu/croupier/internal/svc"
 )
 
-// 绑定执行来源标记：pageSnapshotGovernance 决定 FunctionInvoke 是否跳过函数
-// 级 policy 审批闸（页面级门禁已在发布快照/草稿路径前置执行过）。
+// Binding execution origin marker: pageSnapshotGovernance decides whether
+// FunctionInvoke skips the function-level policy approval gate (the page-level gate
+// has already run up front in the published-snapshot / draft path).
 const (
-	governanceValidated = "validated" // 已发布快照：审批续跑按快照版本回读校验
-	governanceDraft     = "draft"     // 草稿预览：页面无快照，审批续跑按契约版本校验
+	governanceValidated = "validated" // published snapshot: approval resumption validates against the snapshot version
+	governanceDraft     = "draft"     // draft preview: the page has no snapshot, so approval resumption validates against the contract version
 )
 
-// 运行时入口标记（遥测/审计详情，不承载权限语义）。
+// Runtime entry-point markers (telemetry/audit details; they carry no permission semantics).
 const (
 	runtimeAPIPublishedExecute = "console.binding.execute"
 	runtimeAPIDraftExecute     = "versioning.composite.preview.execute"
 )
 
-// rendererSchemaVersion 与发布路径同源（api/page 同名常量）。
+// rendererSchemaVersion shares its source with the publish path (a same-named
+// constant in api/page).
 const rendererSchemaVersion = "page-spec:1"
 
 type Service struct {

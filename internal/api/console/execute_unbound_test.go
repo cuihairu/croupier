@@ -12,9 +12,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// flipContractExecutionState 直改契约行执行状态：模拟上传管线 unbound 产物
-// （CreateUnboundContract 只建新行，本测试在既有 bound 行上翻转，等价于
-// unbound 物料 + 同名快照的执行场景）与 T6 自动绑定后的正向翻转。
+// flipContractExecutionState flips the execution state of a contract row directly:
+// it stands in for the unbound artifact of the upload pipeline (CreateUnboundContract
+// only inserts a fresh row, so this test flips an existing bound row, which is
+// equivalent to executing unbound material with a same-named snapshot) and for the
+// forward flip caused by T6 automatic binding.
 func flipContractExecutionState(t *testing.T, service *Service, state spec.ExecutionState) {
 	t.Helper()
 	require.NoError(t, service.svcCtx.DB.Exec(
@@ -22,9 +24,11 @@ func flipContractExecutionState(t *testing.T, service *Service, state spec.Execu
 		string(state), "player.query").Error)
 }
 
-// T8/D2 执行边界：契约 executionState=unbound（上传物料未绑定运行时执行器）
-// 时以 409 executor_unbound 阻断（先于 freshness、晚于审计 defer——阻断也
-// 留审计）；翻转为 bound（T6 自动绑定的运行时效果）后执行照常放行。
+// T8/D2 execution boundary: when a contract's executionState=unbound (the uploaded
+// material is not yet bound to a runtime executor) the call is blocked with 409
+// executor_unbound (before freshness, after the audit defer -- a blocked call also
+// leaves an audit trail); after flipping to bound (the runtime effect of T6 automatic
+// binding) execution passes as usual.
 func TestExecuteBindingBlockedWhenExecutorUnbound(t *testing.T) {
 	service, ctx, auditStore := newConsoleTestServiceWithAudit(t, "function:invoke", "player:query")
 	require.NoError(t, seedConsolePublishedPageWithCurrentContracts(service.svcCtx, ctx))
@@ -51,7 +55,8 @@ func TestExecuteBindingBlockedWhenExecutorUnbound(t *testing.T) {
 	assert.Equal(t, "executor_unbound", bodyMap["error"])
 	assert.Empty(t, caller.lastRequest, "阻断先于 payload 组装，不得触达执行器")
 
-	// 阻断也写审计（检查位于 audit defer 之后）：failure 留痕可追溯
+	// A blocked call also writes an audit record (checked after the audit defer): the
+	// failure is traceable
 	records, total, listErr := auditStore.List(audit.AuditFilter{
 		EventType: []audit.AuditEventType{audit.EventPageExecute},
 	}, audit.AuditPage{PageSize: 10})
@@ -60,7 +65,8 @@ func TestExecuteBindingBlockedWhenExecutorUnbound(t *testing.T) {
 	assert.Equal(t, "failure", records[0].Outcome)
 	assert.Equal(t, "player.query", records[0].Details["function_id"])
 
-	// bound 翻转后不受影响：同名注册（或绑定）翻转 bound → 执行照常放行
+	// Flipping to bound leaves execution unaffected: a same-named registration (or
+	// binding) flips bound -> execution passes as usual
 	flipContractExecutionState(t, service, spec.ExecutionStateBound)
 	resp, err := service.ExecuteBinding(ctx, &ConsoleExecuteBindingRequest{
 		PageKey:   "player.manage",
@@ -75,8 +81,9 @@ func TestExecuteBindingBlockedWhenExecutorUnbound(t *testing.T) {
 	assert.JSONEq(t, `{"ok":true}`, string(resp.Result.Data))
 }
 
-// handler 层：unbound 阻断经统一错误映射落 409 + error=executor_unbound
-// （前端按 HTTP 409 分支、按 error 稳定码渲染「未绑定执行器」空态）。
+// Handler layer: the unbound block lands as 409 + error=executor_unbound via the
+// unified error mapping (the frontend branches on HTTP 409 and renders the
+// "executor not bound" empty state from the stable error code).
 func TestExecuteBindingHandlerSurfacesExecutorUnbound(t *testing.T) {
 	service, ctx := newConsoleTestService(t, "function:invoke", "player:query")
 	require.NoError(t, seedConsolePublishedPageWithCurrentContracts(service.svcCtx, ctx))

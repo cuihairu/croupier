@@ -1,17 +1,22 @@
 package console
 
-// 草稿预览执行补测：ExecuteDraftCompositeBinding 的 handler 层（绑定失败/
-// 成功透传）、无 scope 上下文拒绝臂、executeBindingFromSnapshot 幂等链的
-// Begin 失败/完成回写失败/已完成结果损坏三臂，以及 buildDraftBindingContracts
-// （幽灵函数、多绑定排序）与 specDiagnosticDetails（空机器码回退）纯函数臂。
+// Additional coverage for draft preview execution: the handler layer of
+// ExecuteDraftCompositeBinding (binding failure / success pass-through), the
+// rejected arm of a scope-less context, the three arms of the
+// executeBindingFromSnapshot idempotency chain (Begin failure / Complete
+// write-back failure / unreadable completed result), and the pure-function arms
+// of buildDraftBindingContracts (ghost function, multi-binding ordering) and
+// specDiagnosticDetails (empty machine code fallback).
 //
-// 诚实跳过：
-//   - ExecuteDraftCompositeBinding 的 buildDraftBindingContracts 错误透传臂
-//     （294-295）：草稿绑定由生成链从同一批契约分配，bindings ⊆ contracts
-//     恒成立，公开路径不可达幽灵函数；幽灵函数臂由本文件直接单测
-//     buildDraftBindingContracts 覆盖（529）。
-//   - completeExecuteIdempotency 的 marshal 失败臂（514-516）：入参是全类型化
-//     的 spec.PageExecutionResult，json.Marshal 恒成功。
+// Honest skips:
+//   - The buildDraftBindingContracts error pass-through arm of
+//     ExecuteDraftCompositeBinding (294-295): draft bindings are allocated from
+//     the same contract batch by the generation chain, so bindings ⊆ contracts
+//     always holds and no public path reaches a ghost function; the ghost function
+//     arm is covered here by unit-testing buildDraftBindingContracts directly
+//     (529).
+//   - The marshal failure arm of completeExecuteIdempotency (514-516): the input
+//     is a fully typed spec.PageExecutionResult, so json.Marshal always succeeds.
 
 import (
 	"context"
@@ -27,8 +32,9 @@ import (
 	"gorm.io/gorm"
 )
 
-// handler 层：绑定失败 400（80-83）；成功请求透传 Idempotency-Key 后 200
-// （85-91）。真实执行链由 service 层用例覆盖，这里验证端点接线。
+// Handler layer: binding failure returns 400 (80-83); a successful request
+// passes the Idempotency-Key through and returns 200 (85-91). The real execution
+// chain is covered by service-layer cases; this one verifies the endpoint wiring.
 func TestExecuteDraftCompositeBinding_HandlerArms(t *testing.T) {
 	service, ctx := newConsoleTestService(t, "function:invoke", "player:query")
 	require.NoError(t, upsertConsoleFunctionContract(service.svcCtx, ctx, draftInputSchema, draftOutputSchema, "safe", "player:query"))
@@ -37,13 +43,13 @@ func TestExecuteDraftCompositeBinding_HandlerArms(t *testing.T) {
 	})
 	handler := NewHandler(service)
 
-	// 缺 required 字段 → 绑定失败 400
+	// A missing required field -> binding failure 400
 	badCtx, badRec := newGinContext(t, newGinRequest(http.MethodPost,
 		"/api/v1/versioning/pages/composite/preview/execute", `{}`))
 	handler.ExecuteDraftCompositeBinding(badCtx)
 	assert.Equal(t, http.StatusBadRequest, badRec.Code)
 
-	// service 错误（缺 function:invoke 权限）→ 统一错误映射
+	// A service error (missing function:invoke permission) -> the unified error mapping
 	denied, dCtx := newConsoleTestService(t, "console:read")
 	require.NoError(t, upsertConsoleFunctionContract(denied.svcCtx, dCtx, draftInputSchema, draftOutputSchema, "safe", "player:query"))
 	denyCtx, denyRec := newGinContext(t, newGinRequest(http.MethodPost,
@@ -55,7 +61,7 @@ func TestExecuteDraftCompositeBinding_HandlerArms(t *testing.T) {
 	assert.Equal(t, http.StatusForbidden, denyRec.Code)
 	assert.Contains(t, denyRec.Body.String(), "无权执行运行控制台操作")
 
-	// 合法草稿请求 → 200 + 同步执行结果
+	// A well-formed draft request -> 200 plus the synchronous execution result
 	ginCtx, rec := newGinContext(t, newGinRequest(http.MethodPost,
 		"/api/v1/versioning/pages/composite/preview/execute",
 		`{"pageKey":"draft--handler","bindingId":"player.list",`+
@@ -67,7 +73,7 @@ func TestExecuteDraftCompositeBinding_HandlerArms(t *testing.T) {
 	assert.Contains(t, rec.Body.String(), `"kind":"sync"`)
 }
 
-// 无 scope 上下文（有权限、有用户名）→ requireScope 拒绝（268）。
+// A scope-less context (permission and username present) -> rejected by requireScope (268).
 func TestExecuteDraftCompositeBinding_ScopeMissing(t *testing.T) {
 	service, _ := newConsoleTestService(t, "function:invoke")
 	scopeless := context.WithValue(context.Background(), "username", "console_tester")
@@ -77,8 +83,8 @@ func TestExecuteDraftCompositeBinding_ScopeMissing(t *testing.T) {
 	assert.Contains(t, err.Error(), "X-Game-ID is required")
 }
 
-// buildDraftBindingContracts：绑定引用不存在函数 → 校验错误（529）；
-// 双绑定按 BindingID 排序（544 less 闭包）。
+// buildDraftBindingContracts: a binding referencing a non-existent function ->
+// validation error (529); two bindings sorted by BindingID (544 less closure).
 func TestBuildDraftBindingContracts_Arms(t *testing.T) {
 	functions := map[string]spec.FunctionSpec{
 		"player.query": {ID: "player.query", Version: "1.0.0"},
@@ -100,14 +106,15 @@ func TestBuildDraftBindingContracts_Arms(t *testing.T) {
 	assert.Less(t, snapshots[0].BindingID, snapshots[1].BindingID, "快照按 BindingID 排序")
 }
 
-// specDiagnosticDetails：空机器码回退为 "diagnostic"（565）。
+// specDiagnosticDetails: an empty machine code falls back to "diagnostic" (565).
 func TestSpecDiagnosticDetails_EmptyCode(t *testing.T) {
 	details := specDiagnosticDetails([]spec.Diagnostic{{Message: "boom"}})
 	require.Len(t, details, 1)
 	assert.Equal(t, "boom", details["diagnostic"], "空机器码回退为 diagnostic 键")
 }
 
-// consoleDBFailpoint 按表内第 n 次指定操作注入确定性错误（幂等链路专用）。
+// consoleDBFailpoint injects a deterministic error on the nth occurrence of a
+// given operation against a table (dedicated to the idempotency chain).
 type consoleDBFailpoint struct {
 	table string
 	op    string // query / update / create
@@ -132,7 +139,8 @@ func applyConsoleFailpoint(t *testing.T, db *gorm.DB, fp consoleDBFailpoint) {
 	case "query":
 		require.NoError(t, db.Callback().Query().After("gorm:query").Register(name, reg))
 	case "update":
-		// Before + AddError：核心 Update 回调见 Error 即短路，写入不落地。
+		// Before + AddError: the core Update callback short-circuits as soon as it sees
+		// an Error, so the write never lands.
 		require.NoError(t, db.Callback().Update().Before("gorm:update").Register(name, reg))
 	case "create":
 		require.NoError(t, db.Callback().Create().After("gorm:create").Register(name, reg))
@@ -143,7 +151,8 @@ func applyConsoleFailpoint(t *testing.T, db *gorm.DB, fp consoleDBFailpoint) {
 
 var errConsoleIdemFailpoint = errors.New("failpoint: idempotency store down")
 
-// seededDraftExecuteService 建立契约 + 假执行器的草稿执行 fixture。
+// seededDraftExecuteService builds a draft execution fixture with a contract and
+// a fake executor.
 func seededDraftExecuteService(t *testing.T) (*Service, context.Context) {
 	t.Helper()
 	service, ctx := newConsoleTestService(t, "function:invoke", "player:query")
@@ -154,7 +163,7 @@ func seededDraftExecuteService(t *testing.T) (*Service, context.Context) {
 	return service, ctx
 }
 
-// 幂等链：Begin 占位写入失败 → 执行拒绝（486）。
+// Idempotency chain: a failed Begin placeholder write -> execution rejected (486).
 func TestDraftExecuteIdempotency_BeginError(t *testing.T) {
 	service, ctx := seededDraftExecuteService(t)
 	req := draftTableRequest("draft--idem-begin", "player.list")
@@ -168,28 +177,30 @@ func TestDraftExecuteIdempotency_BeginError(t *testing.T) {
 	assert.Contains(t, err.Error(), "page execute idempotency claim")
 }
 
-// 幂等链：已完成行回写结果损坏 → 重放读取失败（499）。
+// Idempotency chain: a corrupted result written back to the completed row ->
+// replay read fails (499).
 func TestDraftExecuteIdempotency_StoredResultUnreadable(t *testing.T) {
 	service, ctx := seededDraftExecuteService(t)
 	req := draftTableRequest("draft--idem-replay", "player.list")
 	req.IdempotencyKey = "idem-replay-1"
 
-	// 首次执行成功并回写结果
+	// The first execution succeeds and writes back the result
 	_, err := service.ExecuteDraftCompositeBinding(ctx, req)
 	require.NoError(t, err)
 
-	// 损坏已存储结果
+	// Corrupt the stored result
 	require.NoError(t, service.svcCtx.DB.Model(&model.PageExecuteIdempotency{}).
 		Where("idempotency_key = ?", "idem-replay-1").
 		Update("result", "not-json").Error)
 
-	// 同 key 重放 → completed 行结果不可解析
+	// Replaying the same key -> the completed row's result is unreadable
 	_, err = service.ExecuteDraftCompositeBinding(ctx, req)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "page execute idempotency stored result unreadable")
 }
 
-// 幂等链：Complete 回写失败不阻断本次执行结果（518）。
+// Idempotency chain: a failed Complete write-back does not block the current
+// execution result (518).
 func TestDraftExecuteIdempotency_CompleteError(t *testing.T) {
 	service, ctx := seededDraftExecuteService(t)
 	req := draftTableRequest("draft--idem-complete", "player.list")
@@ -202,7 +213,7 @@ func TestDraftExecuteIdempotency_CompleteError(t *testing.T) {
 	require.NoError(t, err, "回写失败只影响后续重放，不得阻断本次执行")
 	require.NotNil(t, resp.Result)
 
-	// 占位行保持 running（未 completed）
+	// The placeholder row stays running (not completed)
 	var claim model.PageExecuteIdempotency
 	require.NoError(t, service.svcCtx.DB.Where("idempotency_key = ?", "idem-complete-1").
 		First(&claim).Error)

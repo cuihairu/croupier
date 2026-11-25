@@ -1,8 +1,10 @@
-// 覆盖目标：ExecuteDraftCompositeBinding（POST /api/v1/versioning/pages/composite/
-// preview/execute，草稿预览执行入口）——服务端按生成链重建草稿 spec 并跑发布级
-// 校验，再走与已发布页面共用的执行门禁；治理/运行时 API 以 draft 标记，产物
-// 不落库。以及 executeBindingFromSnapshot 的门禁（unknown binding、契约权限、
-// 审批闸）。
+// Coverage target: ExecuteDraftCompositeBinding (POST /api/v1/versioning/pages/composite/
+// preview/execute, the draft preview execution entry point) -- the server
+// reconstructs the draft spec via the generation chain and runs publish-grade
+// validation, then applies the execution gate shared with published pages; the
+// governance/runtime API is marked as draft, and the artifacts are not landed in
+// the database. Also the gates of executeBindingFromSnapshot (unknown binding,
+// contract permission, approval gate).
 package console
 
 import (
@@ -25,7 +27,8 @@ import (
 const draftInputSchema = `{"type":"object","properties":{"keyword":{"type":"string"}}}`
 const draftOutputSchema = `{"type":"object","properties":{"items":{"type":"array"},"total":{"type":"number"}}}`
 
-// draftTableRequest 单表格区块草稿请求（bindingId 由生成链按区块 key 分配）。
+// draftTableRequest builds a draft request for a single table section
+// (bindingID is allocated by the generation chain from the section key).
 func draftTableRequest(pageKey, bindingID string) *ConsoleDraftCompositeExecuteRequest {
 	return &ConsoleDraftCompositeExecuteRequest{
 		PageKey:   pageKey,
@@ -56,7 +59,8 @@ func TestDraftExecuteBinding_Success(t *testing.T) {
 	assert.JSONEq(t, `{"items":[],"total":0}`, string(resp.Result.Data))
 	require.NotEmpty(t, resp.Result.RequestID)
 
-	// 执行链标记草稿治理与草稿运行时 API，审计可区分发布页与预览执行。
+	// The execution chain marks draft governance and the draft runtime API, so the
+	// audit trail can tell published pages apart from preview executions.
 	req := caller.lastRequest
 	require.NotNil(t, req)
 	assert.JSONEq(t, `{}`, string(req.Payload), "表格区块无 inputAssignments 时 payload 为空对象")
@@ -77,7 +81,7 @@ func TestDraftExecuteBinding_Success(t *testing.T) {
 	assert.Equal(t, "versioning.composite.preview.execute", records[0].Details["page_runtime_api"])
 	assert.Equal(t, string(spec.PageExecutionKindSync), records[0].Details["result_kind"])
 
-	// 草稿执行是只读链路：不写提案、不写发布快照。
+	// Draft execution is a read-only path: no proposal writes, no published snapshot writes.
 	var proposals, published int64
 	require.NoError(t, service.svcCtx.DB.Model(&model.PageProposal{}).Count(&proposals).Error)
 	require.NoError(t, service.svcCtx.DB.Model(&model.PublishedPageSpec{}).Count(&published).Error)
@@ -95,7 +99,9 @@ func TestDraftExecuteBinding_RequiresFunctionInvokePermission(t *testing.T) {
 }
 
 func TestDraftExecuteBinding_RequiresBindingPermission(t *testing.T) {
-	// 仅持有运行控制台权限，缺契约声明的 player:query → 与发布页同规拒绝。
+	// Only the runtime console permission is held, and the player:query
+	// permission declared by the contract is missing -> rejected with the same rule
+	// as published pages.
 	service, ctx := newConsoleTestService(t, "function:invoke")
 	require.NoError(t, upsertConsoleFunctionContract(service.svcCtx, ctx, draftInputSchema, draftOutputSchema, "safe", "player:query"))
 
@@ -133,8 +139,9 @@ func TestDraftExecuteBinding_BlankKeysRejected(t *testing.T) {
 	assert.Contains(t, err.Error(), "bindingId is required")
 }
 
-// 发布级校验未通过（selector 指向契约不存在的字段）在执行前 422 拒绝，
-// 而不是让 payload 求值在下游失败成不可定位的错误。
+// Publish-grade validation failure (a selector pointing at a field that does not
+// exist in the contract) is rejected with 422 before execution, rather than
+// letting payload evaluation fail downstream into an unlocatable error.
 func TestDraftExecuteBinding_FailsPublishValidation(t *testing.T) {
 	service, ctx := newConsoleTestService(t, "function:invoke", "player:query")
 	require.NoError(t, upsertConsoleFunctionContract(service.svcCtx, ctx, draftInputSchema, draftOutputSchema, "safe", "player:query"))
@@ -153,7 +160,8 @@ func TestDraftExecuteBinding_FailsPublishValidation(t *testing.T) {
 	assert.NotEmpty(t, validation.Details, "诊断压平为稳定机器码 details")
 }
 
-// 契约声明审批 → 草稿执行同样走审批闸：不直接下发，落审批单且带草稿治理。
+// The contract declares approval -> draft execution goes through the approval gate
+// too: no direct dispatch, but an approval ticket is landed with draft governance.
 func TestDraftExecuteBinding_CreatesApprovalWhenRequired(t *testing.T) {
 	service, ctx := newConsoleTestService(t, "function:invoke", "player:query")
 	store := approvals.NewMemStore()
@@ -179,8 +187,8 @@ func TestDraftExecuteBinding_CreatesApprovalWhenRequired(t *testing.T) {
 	assert.Equal(t, "1.0.0", stored.Metadata["snapshot_function_ver"])
 }
 
-// seedDraftApprovingContract 写入声明审批的函数契约（草稿路径无发布快照，
-// 契约即唯一真相）。
+// seedDraftApprovingContract writes a contract that declares approval (the draft path
+// has no published snapshot, so the contract is the single source of truth).
 func seedDraftApprovingContract(svcCtx *svc.ServiceContext, ctx context.Context) error {
 	return contractsvc.NewContractService(svcCtx.DB).RebuildContractFromFunctionMeta(ctx, "demo-game", "development", "sdk", contractsvc.FunctionMetaInput{
 		ID:                "player.query",

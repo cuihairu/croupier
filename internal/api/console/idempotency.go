@@ -6,14 +6,18 @@ import (
 	"strings"
 )
 
-// 页面绑定执行的服务端幂等（D4 安全重试）辅助：请求头归一与请求内容指纹。
+// Helpers for server-side idempotency of page binding execution (D4 safe retry):
+// request header normalization and request content fingerprinting.
 
-// idempotencyKeyMaxLen 与审批/任务 IdempotencyKey 列宽一致（varchar(128)）。
+// idempotencyKeyMaxLen matches the approval/task IdempotencyKey column width
+// (varchar(128)).
 const idempotencyKeyMaxLen = 128
 
-// normalizeIdempotencyKey 归一 Idempotency-Key 请求头：非法形态（超长、含
-// 控制字符或非受限字符集）一律按未携带处理——键缺失时的行为与既有无幂等
-// 链路完全一致，坏头不应阻断执行。
+// normalizeIdempotencyKey canonicalizes the Idempotency-Key request header: any
+// invalid form (too long, containing control characters, or outside the restricted
+// character set) is treated as if the header were absent -- with no key the
+// behavior is exactly that of the existing non-idempotent path, and a bad header
+// must not block execution.
 func normalizeIdempotencyKey(raw string) string {
 	key := strings.TrimSpace(raw)
 	if key == "" || len(key) > idempotencyKeyMaxLen {
@@ -30,10 +34,12 @@ func normalizeIdempotencyKey(raw string) string {
 	return key
 }
 
-// pageExecuteIdempotencyHash 生成幂等请求内容指纹：同 key 但页面版本、绑定、
-// 函数或 payload 任一不同 = 客户端键误复用（409 idempotency_key_reused）。
-// payload 由绑定 selector 从渲染器上下文纯推导（json.Marshal 键序稳定），
-// 同一渲染上下文的重复提交字节一致，指纹可比。
+// pageExecuteIdempotencyHash builds the idempotent request content fingerprint:
+// the same key with a differing page version, binding, function, or payload = a
+// client key mis-reuse (409 idempotency_key_reused). The payload is derived purely
+// from the renderer context by the binding selectors (stable json.Marshal key
+// order), so repeated submissions with the same rendering context are
+// byte-identical and the fingerprints are comparable.
 func pageExecuteIdempotencyHash(parts ...string) string {
 	h := sha256.New()
 	for i, part := range parts {

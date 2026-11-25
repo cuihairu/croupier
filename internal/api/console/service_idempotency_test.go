@@ -1,8 +1,13 @@
-// 覆盖目标：页面绑定执行的服务端幂等（D4 安全重试）——Idempotency-Key 头
-// 使同一执行意图在占位窗口内只真实下发一次：已完成重放存储结果、进行中
-// 判结果未知 409、键误复用 409；无 key 时行为与既有无幂等链路完全一致。
-// 覆盖验收面：成功、待审批、失败（结果未知）、超时后成功（重试拿到落地
-// 结果）、重复提交；以及重放不重复写审计与执行留痕（一次动作一条执行记录）。
+// Coverage target: server-side idempotency for page binding execution (D4 safe
+// retry) -- the Idempotency-Key header makes the same execution intent dispatch
+// exactly once inside the placeholder window: a completed run replays the stored
+// result, an in-flight run yields a 409 with an unknown result, and a mis-reused
+// key yields a 409; with no key the behavior is exactly that of the existing
+// non-idempotent path.
+// Acceptance surface: success, pending approval, failure (unknown result), success
+// after a timeout (a retry picks up the landed result), repeated submission; and a
+// replay writes no duplicate audit or execution trail (one action, one execution
+// record).
 package console
 
 import (
@@ -26,7 +31,8 @@ import (
 const idemInputSchema = `{"type":"object","properties":{"keyword":{"type":"string"}}}`
 const idemOutputSchema = `{"type":"object","properties":{"items":{"type":"array"},"total":{"type":"number"}}}`
 
-// countingConsoleCaller 计数调用次数：断言「重放不重复下发副作用」。
+// countingConsoleCaller counts calls: asserts that "a replay does not dispatch side
+// effects again".
 type countingConsoleCaller struct {
 	payload []byte
 	err     error
@@ -39,7 +45,8 @@ func (c *countingConsoleCaller) Call(ctx context.Context, msgID uint32, reqBody 
 	return inner.Call(ctx, msgID, reqBody)
 }
 
-// idemContext 构造同一逻辑动作的渲染器上下文（同 key 下字节必须一致）。
+// idemContext builds a renderer context for the same logical action (under the same
+// key the bytes must match).
 func idemContext(keyword string) ConsoleBindingExecutionContext {
 	raw, _ := json.Marshal(map[string]string{"keyword": keyword})
 	return ConsoleBindingExecutionContext{Form: json.RawMessage(raw)}

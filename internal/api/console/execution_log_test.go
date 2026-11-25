@@ -15,7 +15,8 @@ import (
 	"github.com/cuihairu/croupier/internal/svc"
 )
 
-// R2：页面绑定执行写入 execution_logs（审批类执行除外）。
+// R2: page binding execution writes into execution_logs (approval-kind executions
+// excluded).
 func attachExecutionLogWriter(t *testing.T, svcCtx *svc.ServiceContext) *executionlog.Writer {
 	t.Helper()
 	w := executionlog.NewWriter(svcCtx.DB, executionlog.Config{

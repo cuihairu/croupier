@@ -72,9 +72,12 @@ func (h *Handler) Page(c *gin.Context) {
 
 // ExecuteDraftCompositeBinding handles POST /api/v1/versioning/pages/composite/preview/execute
 //
-// 草稿预览执行：与组合页预览端点同形请求体，服务端重建草稿 spec（发布级校验）
-// 后走与已发布页面相同的执行门禁（权限/审批/契约快照），让真实预览在发布前
-// 也能安全执行——产物不落库，执行审计以草稿来源标记。
+// Draft preview execution: the request body has the same shape as the composite
+// page preview endpoint; the server rebuilds the draft spec (publish-grade
+// validation) and then applies the same execution gates as published pages
+// (permission / approval / contract snapshot), so a real preview can run safely
+// before publishing -- artifacts are not landed in the database, and the
+// execution audit is marked with the draft origin.
 func (h *Handler) ExecuteDraftCompositeBinding(c *gin.Context) {
 	var req ConsoleDraftCompositeExecuteRequest
 	if err := c.ShouldBindJSON(&req); err != nil {

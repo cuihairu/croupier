@@ -1,10 +1,13 @@
-// 补齐 console 包剩余可覆盖分支（group C）：
-//  1. createPageApproval 的接收人去重循环（admin 角色用户非空时执行）。
-//  2. buildBindingPayloadFromSelectors 的 default transform 兜底值非法 JSON
-//     （原先延迟到最终 Marshal 报错，现已在 resolveSelectorValue 层拦截为 422）。
-//  3. applyRenameTransform 的防御分支：源缺失 / 非法 JSON / 超界数值 /
-//     params 目标名非字符串 / selection 数组含非对象元素。
-//  4. setJSONObjectPointer 的嵌套 child Marshal 失败。
+// Fill the remaining coverable branches of the console package (group C):
+//  1. The recipient de-duplication loop of createPageApproval (runs when the
+//     admin-role user set is non-empty).
+//  2. An invalid-JSON fallback value of the default transform in
+//     buildBindingPayloadFromSelectors (previously it deferred the failure to the
+//     final Marshal call; now resolveSelectorValue intercepts it as 422).
+//  3. Defensive branches of applyRenameTransform: missing source / invalid JSON
+//     / out-of-range number / non-string params target name / a selection array
+//     holding non-object elements.
+//  4. A nested child Marshal failure of setJSONObjectPointer.
 package console
 
 import (
@@ -20,8 +23,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// approvalRecipients 返回非空（console_tester 持有 admin 角色）时，actor
-// 去重循环体执行：接收人集合构建后 actor 已在集合中、不再重复追加。
+// When approvalRecipients is non-empty (console_tester holds the admin role),
+// the actor de-duplication loop body runs: after the recipient set is built the
+// actor is already in it and is not appended again.
 func TestCreatePageApprovalWithAdminRoleRecipients(t *testing.T) {
 	service, ctx := newConsoleTestService(t, "function:invoke")
 	service.svcCtx.ApprovalsStore = approvals.NewMemStore()
@@ -42,8 +46,9 @@ func TestCreatePageApprovalWithAdminRoleRecipients(t *testing.T) {
 	assert.NotEmpty(t, approvalID)
 }
 
-// default transform 的兜底值非法 JSON：原先绕过校验写入 payload、延迟到最终
-// json.Marshal 报 500；现在 resolveSelectorValue 层拦截为语义化 422。
+// Invalid JSON in the default transform fallback value: it used to bypass
+// validation and land in the payload, only surfacing as a 500 at the final
+// json.Marshal call; resolveSelectorValue now intercepts it as a semantic 422.
 func TestBuildBindingPayloadFromSelectorsMarshalFailure(t *testing.T) {
 	binding := spec.PageFunctionBinding{
 		ID: "b1",
@@ -70,39 +75,42 @@ func TestBuildBindingPayloadFromSelectorsMarshalFailure(t *testing.T) {
 	assert.Contains(t, err.Error(), "not valid JSON")
 }
 
-// applyRenameTransform 的防御分支逐一直测。
+// The defensive branches of applyRenameTransform are each tested directly.
 func TestApplyRenameTransformEdgeBranches(t *testing.T) {
 	renameWith := func(params map[string]json.RawMessage) *spec.TransformSpec {
 		return &spec.TransformSpec{Type: spec.TransformRename, Params: params}
 	}
 
-	// 源值缺失（found=false）→ 输出缺席而非报错。
+	// The source value is missing (found=false) -> the output is absent rather than
+	// an error.
 	_, found, err := applyRenameTransform(nil, false, renameWith(nil))
 	require.NoError(t, err)
 	assert.False(t, found)
 
-	// 源上下文为非法 JSON → validRawJSON 错误透传。
+	// The source context is invalid JSON -> the validRawJSON error propagates.
 	_, _, err = applyRenameTransform(json.RawMessage(`{bad`), true, renameWith(nil))
 	require.Error(t, err)
 
-	// 源是 json.Valid 但数值超界的 JSON（1e999）：Unmarshal 到 any 失败。
+	// The source is json.Valid but out-of-range numerically (1e999): Unmarshal into
+	// any fails.
 	_, _, err = applyRenameTransform(json.RawMessage(`1e999`), true, renameWith(nil))
 	require.Error(t, err)
 
-	// params 的目标名不是字符串（123）→ 该映射被跳过，输出空对象。
+	// The params target name is not a string (123) -> the mapping is skipped and the
+	// output is an empty object.
 	val, found, err := applyRenameTransform(json.RawMessage(`{"uid":"p1"}`), true,
 		renameWith(map[string]json.RawMessage{"uid": json.RawMessage(`123`)}))
 	require.NoError(t, err)
 	assert.True(t, found)
 	assert.JSONEq(t, `{}`, string(val))
 
-	// selection 数组含非对象元素 → 显式 422。
+	// A selection array holding non-object elements -> an explicit 422.
 	_, _, err = applyRenameTransform(json.RawMessage(`[1,"x"]`), true,
 		renameWith(map[string]json.RawMessage{"uid": json.RawMessage(`"player_id"`)}))
 	require.Error(t, err)
 }
 
-// 嵌套 target 的 child map 携带非法 RawMessage 时 Marshal 失败。
+// Marshaling fails when the child map of a nested target carries an invalid RawMessage.
 func TestSetJSONObjectPointerMarshalFailure(t *testing.T) {
 	err := setJSONObjectPointer(map[string]json.RawMessage{}, []string{"a", "b"}, json.RawMessage(`{invalid`))
 	require.Error(t, err)

@@ -41,7 +41,7 @@ func TestMenuHandlerBindError(t *testing.T) {
 	handler.Menu(ctx)
 
 	assert.Equal(t, http.StatusInternalServerError, rec.Code)
-	assert.Contains(t, rec.Body.String(), "internal_error") // AUD-047 opaque：原文只进日志
+	assert.Contains(t, rec.Body.String(), "internal_error") // AUD-047 opaque: raw text only goes to the log
 }
 
 // TestPagesHandlerBindError covers the query-binding failure branch of
@@ -55,7 +55,7 @@ func TestPagesHandlerBindError(t *testing.T) {
 	handler.Pages(ctx)
 
 	assert.Equal(t, http.StatusInternalServerError, rec.Code)
-	assert.Contains(t, rec.Body.String(), "internal_error") // AUD-047 opaque：原文只进日志
+	assert.Contains(t, rec.Body.String(), "internal_error") // AUD-047 opaque: raw text only goes to the log
 }
 
 // TestCreatePageApprovalWithNotifyService covers the recipient

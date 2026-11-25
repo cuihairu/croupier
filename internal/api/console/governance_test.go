@@ -13,16 +13,18 @@ import (
 	"github.com/cuihairu/croupier/internal/model"
 )
 
-// 发布绑定执行边界：unbound 契约 409、stale binding 409、空 permission 放行。
+// Published binding execution boundaries: an unbound contract yields 409, a stale
+// binding yields 409, and an empty permission is allowed through.
 
 func TestEnsureExecutorBound(t *testing.T) {
 	s := &Service{}
 	binding := spec.PageFunctionBinding{ID: "b1", FunctionID: "player.ban"}
 
-	// 函数不在 functions 表 → 不在此重复 missing（由 ensureBindingFresh 表达）。
+	// A function missing from the functions table -> the missing case is not reported
+	// here (ensureBindingFresh expresses it).
 	assert.NoError(t, s.ensureExecutorBound(binding, map[string]spec.FunctionSpec{}))
 
-	// bound / 空 executionState（Normalize 归一为 bound）→ 放行。
+	// bound / an empty executionState (Normalize canonicalizes it to bound) -> allowed.
 	assert.NoError(t, s.ensureExecutorBound(binding, map[string]spec.FunctionSpec{
 		"player.ban": {ID: "player.ban", ExecutionState: spec.ExecutionStateBound},
 	}))
@@ -30,7 +32,7 @@ func TestEnsureExecutorBound(t *testing.T) {
 		"player.ban": {ID: "player.ban"},
 	}))
 
-	// unbound → 409 executor_unbound。
+	// unbound -> 409 executor_unbound.
 	err := s.ensureExecutorBound(binding, map[string]spec.FunctionSpec{
 		"player.ban": {ID: "player.ban", ExecutionState: spec.ExecutionStateUnbound},
 	})
@@ -74,13 +76,14 @@ func TestEnsureBindingFresh_VersionStale(t *testing.T) {
 	require.ErrorAs(t, err, &codeErr)
 	assert.Equal(t, "binding_stale", codeErr.ErrorCode())
 
-	// 版本一致且其余治理字段均对齐 → 放行。
+	// Version matches and all remaining governance fields align -> allowed.
 	contract.FunctionVersion = "2.0.0"
 	assert.NoError(t, s.ensureBindingFresh(binding, contract, functions))
 }
 
 func TestEnforcePublishedBindingGovernance_EmptyPermissionAllows(t *testing.T) {
-	// permission 为空 → 直接放行，不触碰 svcCtx（nil 安全）。
+	// An empty permission -> allowed straight through without touching svcCtx
+	// (nil safe).
 	s := &Service{}
 	err := s.enforcePublishedBindingGovernance(context.Background(),
 		spec.BindingContractSnapshot{Permission: "  "})
@@ -92,7 +95,7 @@ func TestPublishedBindingExecutionMetadata_StripsEmptyAndAddsBaseVersion(t *test
 		PageSpec: spec.PageSpec{
 			PageKey:  "ops.ban",
 			Category: spec.PageCategorySpec{Key: "ops"},
-			// FunctionDigest 空 → 整 key 被剔除。
+			// FunctionDigest empty -> the whole key is stripped.
 		},
 		Version:               3,
 		RendererSchemaVersion: "v1",
@@ -120,7 +123,7 @@ func TestPublishedBindingExecutionMetadata_StripsEmptyAndAddsBaseVersion(t *test
 	assert.Equal(t, "v1", md["renderer_schema_version"])
 	assert.NotContains(t, md, "function_digest", "空值 key 必须剔除")
 
-	// BaseProposalVersion=0 → 不写 base_proposal_version。
+	// BaseProposalVersion=0 -> base_proposal_version is not written.
 	page.BaseProposalVersion = 0
 	md = bindingExecutionMetadata(page, binding, contract, "req-2", governanceValidated, runtimeAPIPublishedExecute)
 	assert.NotContains(t, md, "base_proposal_version")
@@ -137,9 +140,9 @@ func TestIsNullRawJSON(t *testing.T) {
 func TestParsePublishedPages_SkipsInvalidRows(t *testing.T) {
 	now := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
 	models := []model.PublishedPageSpec{
-		{}, // SpecJSON 空 → unmarshal 失败或 pageKey 空 → 跳过
+		{}, // SpecJSON empty -> unmarshal fails or pageKey empty -> skipped
 		{SpecJSON: `{broken`},
-		{SpecJSON: `{"type":"operation"}`}, // pageKey 空 → 跳过
+		{SpecJSON: `{"type":"operation"}`}, // empty pageKey -> skipped
 		{
 			GameID:                "g1",
 			Env:                   "prod",
