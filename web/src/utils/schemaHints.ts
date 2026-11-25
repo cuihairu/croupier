@@ -262,11 +262,44 @@ function deriveLeaf(key: string, schema: SchemaNode): FieldDerived {
   return { field, included, group };
 }
 
-/** 收集顶层叶子字段（嵌套容器保留为整体字段，点路径展开待渲染器支持后启用）。 */
-function collectFields(properties: Record<string, JSONValue>, out: FieldDerived[]): void {
+/** 嵌套呈现字段的递归深度上限（防御病态 schema）。 */
+const NESTED_FIELD_DEPTH = 8;
+
+/** JSON Pointer 段转义（`~` → `~0`、`/` → `~1`，与 fieldPath 解析同规）。 */
+function escapePointerToken(key: string): string {
+  return key.replace(/~/g, '~0').replace(/\//g, '~1');
+}
+
+/**
+ * 收集叶子字段（SUI-019）：
+ * - 顶层（`prefix` 为空）产出裸 key，与 Go 生成器 buildFormFields 的历史契约一致；
+ * - 嵌套对象子字段与数组项字段以 JSON Pointer 标识（`/address/city`、`/tags/-/label`），
+ *   只有携带 hints 的嵌套字段才进入 fields——无 hints 的嵌套结构仍由 rjsf 按
+ *   schema 整体渲染（容器保持为整体字段，不静默拆分）。
+ */
+function collectFields(
+  properties: Record<string, JSONValue>,
+  out: FieldDerived[],
+  prefix = '',
+  depth = 0,
+): void {
+  if (depth > NESTED_FIELD_DEPTH) return;
   for (const [key, child] of Object.entries(properties)) {
     if (!isPlainObject(child)) continue;
-    out.push(deriveLeaf(key, child));
+    // 顶层用裸 key；其下子层指针从 `/<escaped-key>` 起算
+    const identifier = prefix ? `${prefix}/${escapePointerToken(key)}` : key;
+    const childPrefix = prefix ? identifier : `/${escapePointerToken(key)}`;
+    const derived = deriveLeaf(identifier, child);
+    // 嵌套字段仅在携带 hints 时产出；顶层一律保留（保证 ui:order 完整）
+    if (!prefix || derived.included) out.push(derived);
+    const childProperties = isPlainObject(child['properties']) ? child['properties'] : null;
+    if (childProperties) collectFields(childProperties, out, childPrefix, depth + 1);
+    const items = child['items'];
+    if (isPlainObject(items)) {
+      // 数组项：`-` 段指向 items 的子属性（首项语义），渲染侧同解析
+      const itemProperties = isPlainObject(items['properties']) ? items['properties'] : null;
+      if (itemProperties) collectFields(itemProperties, out, `${childPrefix}/-`, depth + 1);
+    }
   }
 }
 

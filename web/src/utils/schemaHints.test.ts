@@ -116,7 +116,7 @@ describe('derivePresentationSpec', () => {
     expect(field.enumOptions).toEqual([{ value: 'vip', label: { 'zh-CN': 'VIP' } }]);
   });
 
-  it('嵌套 object 保留为整体字段，不做点路径展开（待渲染器支持后启用）', () => {
+  it('嵌套 object 容器保留为整体字段，子字段以指针标识追加（SUI-019）', () => {
     const spec = derivePresentationSpec(
       schema({
         type: 'object',
@@ -129,8 +129,10 @@ describe('derivePresentationSpec', () => {
         },
       }),
     );
-    expect(spec.fields!.map((f) => f.key)).toEqual(['address']);
+    expect(spec.fields!.map((f) => f.key)).toEqual(['address', '/address/city']);
     expect(spec.fields![0].label).toEqual({ 'zh-CN': '地址' });
+    // 容器仍是裸 key（不参与 ui:order），子字段以 JSON Pointer 追加
+    expect(spec.fields![1].label).toEqual({ 'zh-CN': '城市' });
   });
 
   it('分组：声明组收集成员，未声明 key 自动补组并人性化标题，空声明组被剪除', () => {
@@ -219,6 +221,71 @@ describe('derivePresentationSpec', () => {
       jsonSchema: { type: 'string' },
       layout: 'vertical',
     });
+  });
+
+  it('嵌套对象子字段产出 JSON Pointer 标识（SUI-019）', () => {
+    const spec = derivePresentationSpec(
+      schema({
+        type: 'object',
+        properties: {
+          address: {
+            type: 'object',
+            properties: {
+              street: { type: 'string', 'x-label': '街道' },
+              plain: { type: 'string' },
+            },
+          },
+          tags: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: { label: { type: 'string', 'x-widget': 'Select' } },
+            },
+          },
+          flat: { type: 'string' },
+        },
+      }),
+    );
+    const byKey = Object.fromEntries(spec.fields!.map((field) => [field.key, field]));
+    // 顶层保持裸 key（旧契约）
+    expect(byKey.address).toBeDefined();
+    expect(byKey.flat).toBeDefined();
+    // 对象子字段：仅携带 hints 的进入 fields，指针形态定位
+    expect(byKey['/address/street']!.label).toEqual({ 'zh-CN': '街道' });
+    expect(byKey['/address/plain']).toBeUndefined();
+    // 数组项字段：`-` 段指向 items 子属性
+    expect(byKey['/tags/-/label']!.widget).toBe('Select');
+  });
+
+  it('键名含点或斜杠时指针段正确转义', () => {
+    const spec = derivePresentationSpec(
+      schema({
+        type: 'object',
+        properties: {
+          'a/b': {
+            type: 'object',
+            properties: { 'c~d': { type: 'string', 'x-label': 'x' } },
+          },
+        },
+      }),
+    );
+    const keys = spec.fields!.map((field) => field.key);
+    expect(keys).toContain('/a~1b/c~0d');
+  });
+
+  it('无 hints 的嵌套结构不产出指针字段（保持整体字段）', () => {
+    const spec = derivePresentationSpec(
+      schema({
+        type: 'object',
+        properties: {
+          address: {
+            type: 'object',
+            properties: { street: { type: 'string' } },
+          },
+        },
+      }),
+    );
+    expect(spec.fields).toBeUndefined();
   });
 });
 

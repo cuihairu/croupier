@@ -32,6 +32,16 @@ import { localizedText } from '@/utils/localizedText';
 import { humanizeFieldKey } from '@/utils/humanize';
 import { primarySchemaType } from '@/utils/schemaDialect';
 import { matchesCondition } from '@/components/PageRenderer/sectionCondition';
+import {
+  deleteAtPath,
+  isPointerFieldKey,
+  resolveFieldSchema,
+  setAtPath,
+  toggleRequiredAt,
+  uiSchemaNodeAt,
+  unknownFieldPaths,
+  valueAtFieldPath,
+} from '@/utils/fieldPath';
 import { customWidgets } from './widgets';
 import { uploadFields, uploadWidgets } from './widgets-upload';
 import { customTemplates } from './templates';
@@ -95,11 +105,9 @@ function normalizeFormValues(value: unknown): FormValues {
   );
 }
 
+/** 按字段标识取字段 schema：裸顶层 key（旧契约）与 JSON Pointer 同归 resolveFieldSchema。 */
 function getFieldSchema(schema: JSONSchema, key: string): JSONSchema {
-  const properties = schema.properties;
-  if (!isObject(properties)) return {};
-  const child = properties[key];
-  return isObject(child) ? child : {};
+  return (resolveFieldSchema(schema, key).schema ?? {}) as JSONSchema;
 }
 
 function getEnumNames(field: FormFieldSpec | undefined): string[] | undefined {
@@ -283,43 +291,36 @@ function applyFieldPresentation(
   field: FormFieldSpec,
   rootSchema: JSONSchema,
 ): boolean {
+  const target = resolveFieldSchema(jsonSchema, field.key);
   const fieldSchema = getFieldSchema(rootSchema, field.key);
-  const nextUi = (uiSchema[field.key] || {}) as UiSchema;
+  // SUI-019：指针标识的 ui 元数据注入嵌套分支（数组项走 '-'），裸 key 行为不变
+  const nextUi = uiSchemaNodeAt(uiSchema as Record<string, unknown>, target.uiTokens);
   const widget = widgetToRjsf(field.widget, fieldSchema);
 
-  if (field.label) {
-    const properties = jsonSchema.properties as Record<string, RJSFSchema> | undefined;
-    if (properties?.[field.key]) {
-      properties[field.key] = {
-        ...properties[field.key],
-        title: localizedText(field.label, 'zh-CN', field.key),
-      };
-    }
+  if (field.label && target.container && target.property) {
+    target.container[target.property] = {
+      ...(target.container[target.property] as Record<string, unknown>),
+      title: localizedText(field.label, 'zh-CN', field.key),
+    };
   }
-  if (field.description) {
-    const properties = jsonSchema.properties as Record<string, RJSFSchema> | undefined;
-    if (properties?.[field.key]) {
-      properties[field.key] = {
-        ...properties[field.key],
-        description: localizedText(field.description, 'zh-CN', ''),
-      };
-    }
+  if (field.description && target.container && target.property) {
+    target.container[target.property] = {
+      ...(target.container[target.property] as Record<string, unknown>),
+      description: localizedText(field.description, 'zh-CN', ''),
+    };
   }
-  if (field.enumOptions?.length) {
-    const properties = jsonSchema.properties as Record<string, RJSFSchema> | undefined;
-    if (properties?.[field.key]) {
-      properties[field.key] = {
-        ...properties[field.key],
-        enumNames: getEnumNames(field),
-      };
-      // rjsf v5 的 optionsList 只从 ui:options.enumNames 取下拉标签；只写 schema 级
-      // enumNames 时下拉会露原始枚举值（GUX-017 实测发现）。schema 级保留给
-      // CompositeEditor 等自行消费 schema 的面板读取。
-      nextUi['ui:options'] = {
-        ...(nextUi['ui:options'] || {}),
-        enumNames: getEnumNames(field),
-      };
-    }
+  if (field.enumOptions?.length && target.container && target.property) {
+    target.container[target.property] = {
+      ...(target.container[target.property] as Record<string, unknown>),
+      enumNames: getEnumNames(field),
+    };
+    // rjsf v5 的 optionsList 只从 ui:options.enumNames 取下拉标签；只写 schema 级
+    // enumNames 时下拉会露原始枚举值（GUX-017 实测发现）。schema 级保留给
+    // CompositeEditor 等自行消费 schema 的面板读取。
+    nextUi['ui:options'] = {
+      ...(nextUi['ui:options'] || {}),
+      enumNames: getEnumNames(field),
+    };
   }
   if (field.disabled) nextUi['ui:disabled'] = true;
   if (field.placeholder) nextUi['ui:placeholder'] = localizedText(field.placeholder, 'zh-CN', '');
@@ -340,7 +341,6 @@ function applyFieldPresentation(
   }
   if (field.widgetProps)
     nextUi['ui:options'] = { ...(nextUi['ui:options'] || {}), ...field.widgetProps };
-  uiSchema[field.key] = nextUi;
   mergeFieldValidity(jsonSchema, field);
   return field.visible !== false;
 }
@@ -350,75 +350,92 @@ function applyFieldPresentation(
 // min/max 按字段类型映射到 ajv 关键字（array→Items、number/integer→imum、
 // 其余→Length）；pattern 直接进 schema.pattern；custom 无法表达为 JSON
 // Schema，显式告警而非静默吞掉。required:false 可撤销 schema 原有必填。
+// 指针标识（SUI-019）下 required/校验规则落在字段所属宿主 schema 上，
+// 与 resolveFieldSchema 同解析路径（裸 key 行为不变）。
 function mergeFieldValidity(schema: RJSFSchema, field: FormFieldSpec): void {
-  const properties = schema.properties as Record<string, RJSFSchema> | undefined;
-  const child = properties?.[field.key];
-  const required: string[] = Array.isArray(schema.required) ? [...schema.required] : [];
+  const target = resolveFieldSchema(schema, field.key);
+  const child = target.schema;
+  const required: string[] = Array.isArray(target.parent?.['required'])
+    ? [...(target.parent['required'] as string[])]
+    : [];
+  const requiredKey = target.property ?? field.key;
   let changed = false;
   const addRequired = () => {
-    if (!required.includes(field.key)) {
-      required.push(field.key);
+    if (!required.includes(requiredKey)) {
+      required.push(requiredKey);
       changed = true;
     }
   };
   if (field.required === true) addRequired();
   if (field.required === false) {
-    const index = required.indexOf(field.key);
+    const index = required.indexOf(requiredKey);
     if (index >= 0) {
       required.splice(index, 1);
       changed = true;
     }
   }
-  for (const rule of field.validationRules ?? []) {
-    switch (rule.type) {
-      case 'required':
-        addRequired();
-        break;
-      case 'min':
-      case 'max': {
-        if (!child || typeof rule.value !== 'number') break;
-        // SUI-009：type 数组（可空/联合）以主类型判定控件语义。
-        const childType = primarySchemaType(child);
-        const isArray = childType === 'array';
-        const isNumber = childType === 'number' || childType === 'integer';
-        if (rule.type === 'min') {
-          if (isArray) child.minItems = rule.value;
-          else if (isNumber) child.minimum = rule.value;
-          else child.minLength = rule.value;
-        } else {
-          if (isArray) child.maxItems = rule.value;
-          else if (isNumber) child.maximum = rule.value;
-          else child.maxLength = rule.value;
-        }
-        changed = true;
-        break;
-      }
-      case 'pattern':
-        if (child && typeof rule.value === 'string') {
-          child.pattern = rule.value;
+  if (child) {
+    for (const rule of field.validationRules ?? []) {
+      switch (rule.type) {
+        case 'required':
+          addRequired();
+          break;
+        case 'min':
+        case 'max': {
+          if (typeof rule.value !== 'number') break;
+          // SUI-009：type 数组（可空/联合）以主类型判定控件语义。
+          const childType = primarySchemaType(child);
+          const isArray = childType === 'array';
+          const isNumber = childType === 'number' || childType === 'integer';
+          if (rule.type === 'min') {
+            if (isArray) child['minItems'] = rule.value;
+            else if (isNumber) child['minimum'] = rule.value;
+            else child['minLength'] = rule.value;
+          } else {
+            if (isArray) child['maxItems'] = rule.value;
+            else if (isNumber) child['maximum'] = rule.value;
+            else child['maxLength'] = rule.value;
+          }
           changed = true;
+          break;
         }
-        break;
-      case 'custom':
-        // eslint-disable-next-line no-console
-        console.warn(
-          `[SchemaFormRenderer] field "${field.key}" validation rule "custom" is not supported and ignored`,
-        );
-        break;
+        case 'pattern':
+          if (typeof rule.value === 'string') {
+            child['pattern'] = rule.value;
+            changed = true;
+          }
+          break;
+        case 'custom':
+          // eslint-disable-next-line no-console
+          console.warn(
+            `[SchemaFormRenderer] field "${field.key}" validation rule "custom" is not supported and ignored`,
+          );
+          break;
+      }
     }
   }
-  if (changed) schema.required = required;
+  if (changed && target.parent) {
+    target.parent['required'] = required;
+  }
 }
 
 /** spec.fields[].defaultValue 种入表单初值（仅补未提供值的字段；
- *  显式传入的 initialValues 优先，空串/null 视为已提供的值不覆盖）。 */
+ *  显式传入的 initialValues 优先，空串/null 视为已提供的值不覆盖）。
+ *  指针标识（SUI-019）按路径定位/写入，穿过数组的路径不写（数组整体提交）。 */
 export function applySpecDefaults(spec: FormPresentationSpec, values: FormValues): FormValues {
   const fields = spec.fields ?? [];
   if (!fields.some((field) => field.defaultValue !== undefined)) return values;
-  const next = { ...values };
+  let next = values;
   for (const field of fields) {
-    if (field.defaultValue !== undefined && next[field.key] === undefined) {
-      next[field.key] = field.defaultValue;
+    if (field.defaultValue === undefined) continue;
+    if (isPointerFieldKey(field.key)) {
+      if (valueAtFieldPath(next, field.key) === undefined) {
+        next = setAtPath(next, field.key, field.defaultValue) as unknown as FormValues;
+      }
+      continue;
+    }
+    if (next[field.key] === undefined) {
+      next = { ...next, [field.key]: field.defaultValue };
     }
   }
   return next;
@@ -444,13 +461,80 @@ export function computeHiddenKeys(spec: FormPresentationSpec, values: FormValues
 
 /** SUI-014 唯一提交投影规则：按当前值计算隐藏键并从 payload 剔除，其余键
  *  原样保留（隐藏字段值继续留在表单态，可见性切回时恢复）。原生提交
- *  （onSubmit）与命令式 getSubmitValues() 共用，提交 payload 只经此生成。 */
+ *  （onSubmit）与命令式 getSubmitValues() 共用，提交 payload 只经此生成。
+ *  指针标识（SUI-019）按路径剔除（deleteAtPath），穿越数组的路径不裁——
+ *  数组按整体提交/裁剪。裸 key 行为不变。 */
 export function projectSubmitValues(values: FormValues, spec: FormPresentationSpec): FormValues {
   const hidden = new Set(computeHiddenKeys(spec, values));
   if (hidden.size === 0) return values;
-  return Object.fromEntries(
-    Object.entries(values).filter(([key]) => !hidden.has(key)),
-  ) as FormValues;
+  const pointerKeys = [...hidden].filter(isPointerFieldKey);
+  const bareKeys = [...hidden].filter((key) => !isPointerFieldKey(key));
+  if (pointerKeys.length === 0) {
+    return Object.fromEntries(
+      Object.entries(values).filter(([key]) => !hidden.has(key)),
+    ) as FormValues;
+  }
+  let next: FormValues = bareKeys.length
+    ? (Object.fromEntries(
+        Object.entries(values).filter(([key]) => !bareKeys.includes(key)),
+      ) as FormValues)
+    : values;
+  for (const key of pointerKeys) {
+    next = deleteAtPath(next, key) as unknown as FormValues;
+  }
+  return next;
+}
+
+/** 必填字符串补 minLength:1（递归：嵌套对象与数组 items 同样生效）。
+ *  SUI-009：可空字符串（type:["string","null"]）主类型仍是 string，
+ *  必填非空规则照常（null 是显式值，不豁免非空必填）。
+ *  只沿 schema 关键字下钻（properties/items/definitions 等），不误入
+ *  `default`/`examples` 里形似 schema 的数据对象。 */
+function enforceRequiredStringMinLength(node: Record<string, unknown>): void {
+  const properties = node['properties'];
+  const required = node['required'];
+  if (isObject(properties) && Array.isArray(required)) {
+    for (const key of required) {
+      if (typeof key !== 'string') continue;
+      const child = properties[key];
+      if (
+        isObject(child) &&
+        primarySchemaType(child as JSONSchema) === 'string' &&
+        child['minLength'] === undefined
+      ) {
+        child['minLength'] = 1;
+      }
+    }
+  }
+  if (isObject(properties)) {
+    for (const child of Object.values(properties)) {
+      if (isObject(child)) enforceRequiredStringMinLength(child as Record<string, unknown>);
+    }
+  }
+  for (const keyword of ['items', 'additionalProperties'] as const) {
+    const child = node[keyword];
+    if (isObject(child)) {
+      enforceRequiredStringMinLength(child as Record<string, unknown>);
+    } else if (Array.isArray(child)) {
+      for (const item of child) {
+        if (isObject(item)) enforceRequiredStringMinLength(item as Record<string, unknown>);
+      }
+    }
+  }
+  for (const keyword of ['definitions', '$defs'] as const) {
+    const defs = node[keyword];
+    if (!isObject(defs)) continue;
+    for (const child of Object.values(defs)) {
+      if (isObject(child)) enforceRequiredStringMinLength(child as Record<string, unknown>);
+    }
+  }
+  for (const keyword of ['allOf', 'anyOf', 'oneOf'] as const) {
+    const list = node[keyword];
+    if (!Array.isArray(list)) continue;
+    for (const item of list) {
+      if (isObject(item)) enforceRequiredStringMinLength(item as Record<string, unknown>);
+    }
+  }
 }
 
 export function deriveRuntimeSchema(
@@ -528,18 +612,27 @@ export function deriveRuntimeSchema(
   }
 
   // F8：条件隐藏改为 ui:widget hidden——不再从 schema.properties 删除，
-  // 切换联动时保留用户已填数据；仅从 required 摘除以豁免校验。
+  // 切换联动时保留用户已填数据；仅从 required 摘除以豁免校验。指针标识
+  // （SUI-019）ui 注入嵌套分支、required 摘除落在宿主 schema 上。
   if (hiddenFields.size > 0) {
-    const properties = schema.properties as Record<string, RJSFSchema> | undefined;
+    const unresolved: string[] = [];
     for (const key of hiddenFields) {
-      if (!properties?.[key]) continue;
+      const target = resolveFieldSchema(schema, key);
+      if (!target.container || !target.property) {
+        unresolved.push(key);
+        continue;
+      }
       // rjsf SchemaField 从 uiSchema 的 uiOptions 读 hidden，schema 保持纯净
-      const nextUi = (uiSchema[key] || {}) as UiSchema;
+      const nextUi = uiSchemaNodeAt(uiSchema as Record<string, unknown>, target.uiTokens);
       nextUi['ui:widget'] = 'hidden';
-      uiSchema[key] = nextUi;
+      toggleRequiredAt(target, target.property, false);
     }
-    if (Array.isArray(schema.required)) {
-      schema.required = schema.required.filter((key) => !hiddenFields.has(key));
+    // schema 里没有的隐藏键沿用旧行为：只从根 required 摘除（键名可能来自
+    // versioning 合并的历史配置），不注入 ui 分支。
+    if (unresolved.length && Array.isArray(schema.required)) {
+      const drop = new Set(unresolved);
+      const filtered = schema.required.filter((key) => !drop.has(key));
+      if (filtered.length !== schema.required.length) schema.required = filtered;
     }
   }
 
@@ -547,17 +640,8 @@ export function deriveRuntimeSchema(
   // 才报错（BUG-038 关联观察：demo inventory.grant 的 templateId 空串提交，
   // 修复前表现为 15s 超时）。required 且 type:string 且未显式声明 minLength
   // 的字段补 minLength:1；显式声明（含 validationRules 映射产物）不覆盖。
-  if (Array.isArray(schema.required)) {
-    const requiredProps = schema.properties as Record<string, RJSFSchema> | undefined;
-    for (const key of schema.required) {
-      const child = requiredProps?.[key];
-      // SUI-009：可空字符串（type:["string","null"]）主类型仍是 string，
-      // 必填非空规则照常（null 是显式值，不豁免非空必填）。
-      if (child && primarySchemaType(child) === 'string' && child.minLength === undefined) {
-        child.minLength = 1;
-      }
-    }
-  }
+  // SUI-019：递归覆盖嵌套对象（指针字段 required 并入宿主 required 后同样生效）。
+  enforceRequiredStringMinLength(schema as Record<string, unknown>);
 
   // label 兜底链（F5）：x-label hint（fields）> schema.title > key 人性化，
   // 覆盖 spec.fields 之外的字段，避免英文 key 裸奔。
@@ -596,12 +680,25 @@ export function deriveRuntimeSchema(
     }
   }
 
-  // ui:order 跳过隐藏字段，但隐藏字段仍保留在 schema 中（保值）
+  // ui:order 跳过隐藏字段，但隐藏字段仍保留在 schema 中（保值）。
+  // SUI-019 边界：ui:order 只接受根属性名（rjsf 契约），指针标识不参与排序。
   const order = spec.fields
     ?.map((field) => field.key)
-    .filter((key) => Boolean(key) && !hiddenFields.has(key));
+    .filter((key) => Boolean(key) && !hiddenFields.has(key) && !isPointerFieldKey(key));
   if (order?.length) {
     uiSchema['ui:order'] = [...order, '*'];
+  }
+
+  // 诊断（SUI-019）：呈现配置里定位不到的字段不静默丢弃，console.warn 报出原因；
+  // 升级为保存/发布期阻断校验见 SUI-021。
+  const unknown = unknownFieldPaths(
+    (spec.fields ?? []).map((field) => ({ key: field.key })),
+    spec.groups?.flatMap((group) => group.fields) ?? [],
+    spec.jsonSchema,
+  );
+  for (const reason of unknown) {
+    // eslint-disable-next-line no-console
+    console.warn(`[SchemaFormRenderer] presentation field path unknown: ${reason}`);
   }
 
   return { schema, uiSchema, formContext, hiddenKeys: [...hiddenFields] };

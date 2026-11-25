@@ -45,7 +45,9 @@ type FormGroupSpec struct {
 
 // FormFieldSpec defines presentation hints for a single field.
 type FormFieldSpec struct {
-	// Key is the field path in JSON Schema (e.g., "name", "address.city")
+	// Key identifies the field: a bare top-level property name (e.g. "name")
+	// or a JSON Pointer RFC 6901 into the schema (e.g. "/address/city",
+	// "/tags/-/label"). A dotted name is a literal property name, not a path.
 	Key string `json:"key"`
 
 	// Widget overrides the default widget
