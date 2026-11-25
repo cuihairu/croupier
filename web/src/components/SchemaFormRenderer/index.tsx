@@ -117,15 +117,28 @@ function getFieldSchema(schema: JSONSchema, key: string): JSONSchema {
   return (resolveFieldSchema(schema, key).schema ?? {}) as JSONSchema;
 }
 
-function getEnumNames(field: FormFieldSpec | undefined): string[] | undefined {
+/** SUI-023：按枚举值关联可见标签——enumOptions 声明顺序与 schema.enum 无关，
+ *  以 String(value) 归一做键匹配；匹配不上的枚举值回退原始值字符串（不伪造标签）。
+ *  无 schema.enum 时按声明顺序兜底（旧契约，等价旧行为）。 */
+function getEnumNames(
+  field: FormFieldSpec | undefined,
+  schemaEnum?: unknown[],
+): string[] | undefined {
   if (!field?.enumOptions?.length) return undefined;
-  return field.enumOptions.map((option) =>
-    localizedText(option.label, 'zh-CN', String(option.value)),
-  );
+  const labelByValue = new Map<string, string>();
+  for (const option of field.enumOptions) {
+    labelByValue.set(String(option.value), localizedText(option.label, 'zh-CN', String(option.value)));
+  }
+  if (!schemaEnum?.length) {
+    return field.enumOptions.map((option) => labelByValue.get(String(option.value)) ?? String(option.value));
+  }
+  return schemaEnum.map((value) => labelByValue.get(String(value)) ?? String(value));
 }
 
 /** schema 级 x-enum-options → 与 schema.enum 对齐的本地化标签数组（缺项回退原始值）。
- *  rjsf optionsList 按 enum 下标取 enumNames，标签表必须与值域同序同长。 */
+ *  SUI-023：按枚举值关联标签——数值/布尔（含 false）值与字符串同权，String 归一
+ *  做键；hints 排列顺序与 enum 无关。rjsf optionsList 按 enum 下标取 enumNames，
+ *  输出表必须与值域同序同长。 */
 function asEnumNamesFromSchemaHints(child: Record<string, unknown>): string[] | undefined {
   const values = Array.isArray(child.enum) ? child.enum : [];
   if (!values.length) return undefined;
@@ -135,13 +148,13 @@ function asEnumNamesFromSchemaHints(child: Record<string, unknown>): string[] | 
   for (const item of hints) {
     if (!item || typeof item !== 'object') continue;
     const entry = item as Record<string, unknown>;
-    if (typeof entry.value !== 'string') continue;
+    if (!['string', 'number', 'boolean'].includes(typeof entry.value)) continue;
     const label = localizedText(
       entry.label as string | Record<string, string>,
       'zh-CN',
-      entry.value,
+      String(entry.value),
     );
-    if (label) labelByValue.set(entry.value, label);
+    if (label) labelByValue.set(String(entry.value), label);
   }
   if (!labelByValue.size) return undefined;
   return values.map((value) => labelByValue.get(String(value)) ?? String(value));
@@ -317,16 +330,17 @@ function applyFieldPresentation(
     };
   }
   if (field.enumOptions?.length && target.container && target.property) {
+    const names = getEnumNames(field, Array.isArray(fieldSchema.enum) ? fieldSchema.enum : undefined);
     target.container[target.property] = {
       ...(target.container[target.property] as Record<string, unknown>),
-      enumNames: getEnumNames(field),
+      enumNames: names,
     };
     // rjsf v5 的 optionsList 只从 ui:options.enumNames 取下拉标签；只写 schema 级
     // enumNames 时下拉会露原始枚举值（GUX-017 实测发现）。schema 级保留给
     // CompositeEditor 等自行消费 schema 的面板读取。
     nextUi['ui:options'] = {
       ...(nextUi['ui:options'] || {}),
-      enumNames: getEnumNames(field),
+      enumNames: names,
     };
   }
   if (field.disabled) nextUi['ui:disabled'] = true;

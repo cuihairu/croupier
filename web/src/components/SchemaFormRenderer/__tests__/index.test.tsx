@@ -439,6 +439,70 @@ describe('deriveRuntimeSchema：字段呈现（applyFieldPresentation）', () =>
     expect(propsOf(schema, 'a')).not.toHaveProperty('enumNames');
   });
 
+  it('SUI-023：enumOptions 声明顺序与 schema.enum 无关，标签按值关联', () => {
+    const { schema, uiSchema } = build(
+      { mode: { type: 'string', enum: ['mail', 'compensation', 'broadcast'] } },
+      [
+        {
+          key: 'mode',
+          enumOptions: [
+            { value: 'broadcast', label: { 'zh-CN': '全服广播' } },
+            { value: 'mail', label: { 'zh-CN': '邮件' } },
+            { value: 'compensation', label: { 'zh-CN': '补偿' } },
+          ],
+        },
+      ],
+    );
+    const expected = ['邮件', '补偿', '全服广播'];
+    expect(propsOf(schema, 'mode').enumNames).toEqual(expected);
+    expect(uiOf(uiSchema as Record<string, unknown>, 'mode')).toMatchObject({
+      'ui:options': { enumNames: expected },
+    });
+  });
+
+  it('SUI-023：数值枚举用字符串选项值也能按值关联', () => {
+    const { schema } = build(
+      { level: { type: 'integer', enum: [0, 1, 2] } },
+      [
+        {
+          key: 'level',
+          enumOptions: [
+            { value: '2', label: { 'zh-CN': '高级' } },
+            { value: '0', label: { 'zh-CN': '普通' } },
+          ],
+        },
+      ],
+    );
+    // 1 无声明标签 → 回退原始值字符串，表长与值域同长
+    expect(propsOf(schema, 'level').enumNames).toEqual(['普通', '1', '高级']);
+  });
+
+  it('SUI-023：布尔枚举（含 false）按值关联，不被 falsy 判定吞掉', () => {
+    const { schema } = build({ enabled: { enum: [true, false] } }, [
+      {
+        key: 'enabled',
+        enumOptions: [
+          { value: 'false', label: { 'zh-CN': '停用' } },
+          { value: 'true', label: { 'zh-CN': '启用' } },
+        ],
+      },
+    ]);
+    expect(propsOf(schema, 'enabled').enumNames).toEqual(['启用', '停用']);
+  });
+
+  it('SUI-023：无 schema.enum 时按声明顺序兜底（旧契约）', () => {
+    const { schema } = build({ mode: { type: 'string' } }, [
+      {
+        key: 'mode',
+        enumOptions: [
+          { value: 'a', label: { 'zh-CN': '甲' } },
+          { value: 'b', label: { 'zh-CN': '乙' } },
+        ],
+      },
+    ]);
+    expect(propsOf(schema, 'mode').enumNames).toEqual(['甲', '乙']);
+  });
+
   it('无 fields 的 spec：schema 级 x-enum-options / enumNames 兜底进 ui:options（GUX-017）', () => {
     const { uiSchema } = deriveRuntimeSchema(
       {
@@ -470,6 +534,70 @@ describe('deriveRuntimeSchema：字段呈现（applyFieldPresentation）', () =>
     });
     // 无标签声明的枚举保持裸值（不伪造标签）
     expect(uiOf(uiSchema as Record<string, unknown>, 'plain')).toEqual({});
+  });
+
+  it('SUI-023：x-enum-options 数值/布尔值按值关联（旧实现只认字符串值）', () => {
+    const { uiSchema } = deriveRuntimeSchema(
+      {
+        jsonSchema: schemaOf({
+          type: 'object',
+          properties: {
+            level: {
+              type: 'integer',
+              enum: [0, 1, 2],
+              'x-enum-options': [
+                { value: 2, label: { 'zh-CN': '高级' } },
+                { value: 0, label: { 'zh-CN': '普通' } },
+              ],
+            },
+            enabled: {
+              enum: [true, false],
+              'x-enum-options': [
+                { value: false, label: { 'zh-CN': '停用' } },
+                { value: true, label: { 'zh-CN': '启用' } },
+              ],
+            },
+          },
+        }),
+      } as FormPresentationSpec,
+      {},
+    );
+    // 数值枚举：hints 重排也按值关联，1 缺标签回退原始值
+    expect(uiOf(uiSchema as Record<string, unknown>, 'level')).toMatchObject({
+      'ui:options': { enumNames: ['普通', '1', '高级'] },
+    });
+    // 布尔枚举：false 不被 falsy 判定或字符串过滤吞掉
+    expect(uiOf(uiSchema as Record<string, unknown>, 'enabled')).toMatchObject({
+      'ui:options': { enumNames: ['启用', '停用'] },
+    });
+  });
+
+  it('SUI-023：hints 缺翻译/值不在枚举内时表长对齐值域、缺项回退原始值', () => {
+    const { uiSchema } = deriveRuntimeSchema(
+      {
+        jsonSchema: schemaOf({
+          type: 'object',
+          properties: {
+            status: {
+              type: 'string',
+              enum: ['on', 'off', 'unknown'],
+              'x-enum-options': [
+                // 缺翻译：label 空 → 回退原始值
+                { value: 'on', label: {} },
+                // 值不在 enum 内：忽略，不影响对齐
+                { value: 'ghost', label: { 'zh-CN': '幽灵' } },
+                // 仅 zh-CN：localizedText zh 优先即命中
+                { value: 'off', label: { 'zh-CN': '关闭' } },
+              ],
+            },
+          },
+        }),
+      } as FormPresentationSpec,
+      {},
+    );
+    expect(uiOf(uiSchema as Record<string, unknown>, 'status')).toMatchObject({
+      'ui:options': { enumNames: ['on', '关闭', 'unknown'] },
+    });
   });
 
   it('jsonSchema 无 properties 时字段呈现安全兜底（fieldSchema 落空对象）', () => {
