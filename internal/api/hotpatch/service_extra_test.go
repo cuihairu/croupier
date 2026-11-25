@@ -16,8 +16,8 @@ import (
 	"gorm.io/gorm"
 )
 
-// newFixtureWithDB 与 newFixture 相同，但暴露原始 gorm.DB 以便破坏表结构
-// 触发模型层错误分支。
+// newFixtureWithDB is the same as newFixture but also exposes the raw gorm.DB so
+// tests can break the table schema and trigger the model-layer error branches.
 func newFixtureWithDB(t *testing.T) (*Service, *gorm.DB) {
 	t.Helper()
 	db, err := gorm.Open(gsqlite.Open(fmt.Sprintf("file:hp_extra_%d?mode=memory&cache=shared", hpSeq+1)), &gorm.Config{})
@@ -50,29 +50,29 @@ func TestService_ListFiltersAndPagination(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	// gameId + env 过滤。
+	// gameId + env filter.
 	list, err := svcSrv.List(ctx, &ListRequest{GameID: "demo", Env: "prod"})
 	require.NoError(t, err)
 	assert.EqualValues(t, 1, list.Total)
 	assert.Equal(t, "skynet", list.Items[0].Framework)
 
-	// framework 大小写归一。
+	// framework case normalization.
 	list, err = svcSrv.List(ctx, &ListRequest{Framework: " JVM "})
 	require.NoError(t, err)
 	assert.EqualValues(t, 1, list.Total)
 
-	// status 过滤。
+	// status filter.
 	list, err = svcSrv.List(ctx, &ListRequest{Status: "draft"})
 	require.NoError(t, err)
 	assert.EqualValues(t, 3, list.Total)
 
-	// 分页越界 → 空列表。
+	// Pagination past the last page -> empty list.
 	list, err = svcSrv.List(ctx, &ListRequest{Page: 5, PageSize: 2})
 	require.NoError(t, err)
 	assert.Empty(t, list.Items)
 	assert.EqualValues(t, 3, list.Total)
 
-	// 模型层错误（表被删）。
+	// Model-layer error (table dropped).
 	svcSrv2, db := newFixtureWithDB(t)
 	require.NoError(t, db.Migrator().DropTable("hotpatches"))
 	_, err = svcSrv2.List(ctx, &ListRequest{})
@@ -97,18 +97,18 @@ func TestService_CreateFieldsAndUsername(t *testing.T) {
 	assert.Equal(t, model.HotpatchStatusDraft, res.Status)
 	assert.NotEmpty(t, res.CreatedAt)
 
-	// 无 username 的 ctx → CreatedBy 回落 system。
+	// ctx without username -> CreatedBy falls back to system.
 	res, err = svcSrv.Create(context.Background(), &CreateRequest{
 		GameID: "demo", Framework: "skynet", BugID: 1, Title: "x",
 	})
 	require.NoError(t, err)
 	assert.Equal(t, "system", res.CreatedBy)
 
-	// 标题仅空白 → 400。
+	// Title of only whitespace -> 400.
 	_, err = svcSrv.Create(ctx, &CreateRequest{Framework: "skynet", BugID: 1, Title: "   "})
 	require.ErrorContains(t, err, "标题")
 
-	// 模型层错误（表被删）。
+	// Model-layer error (table dropped).
 	svcSrv2, db := newFixtureWithDB(t)
 	require.NoError(t, db.Migrator().DropTable("hotpatches"))
 	_, err = svcSrv2.Create(ctx, &CreateRequest{Framework: "skynet", BugID: 1, Title: "x"})
@@ -121,22 +121,22 @@ func TestService_UploadPackageErrorBranches(t *testing.T) {
 	hp := seedDraft(t, svcSrv)
 	id := fmt.Sprint(hp.Id)
 
-	// id 非法形态。
+	// Invalid id forms.
 	for _, bad := range []string{"", "abc", "0", "-1"} {
 		_, err := svcSrv.UploadPackage(ctx, &UploadRequest{ID: bad, Data: nil, Size: 1})
 		require.Error(t, err, bad)
 	}
 
-	// 不存在的 id → gorm ErrRecordNotFound。
+	// Non-existent id -> gorm ErrRecordNotFound.
 	_, err := svcSrv.UploadPackage(ctx, &UploadRequest{ID: "999999", Data: nil, Size: 1})
 	require.ErrorIs(t, err, gorm.ErrRecordNotFound)
 
-	// 对象存储未配置。
+	// Object store not configured.
 	noStore := NewService(&svc.ServiceContext{HotpatchModel: svcSrv.svcCtx.HotpatchModel})
 	_, err = noStore.UploadPackage(ctx, &UploadRequest{ID: id, Data: nil, Size: 1})
 	require.ErrorContains(t, err, "对象存储")
 
-	// Put 失败：在 base/hotpatches 放同名文件阻断 MkdirAll。
+	// Put failure: place a file with the same name at base/hotpatches to block MkdirAll.
 	blockingFixture, _ := newFixtureWithDB(t)
 	blocked := seedDraft(t, blockingFixture)
 	base := t.TempDir()

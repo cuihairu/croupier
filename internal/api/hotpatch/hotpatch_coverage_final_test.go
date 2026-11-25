@@ -1,8 +1,8 @@
-// 覆盖目标（coverage final）：
-//  1. handler.UploadPackage 的 ShouldBindUri 失败分支（Validator 注入）。
-//  2. service.UploadPackage 的 HotpatchModel.Update 失败（update callback 注错）。
-//  3. service.UploadPackage 的回读 FindOne 失败（query callback 按次注错）。
-//  4. service.Transition 的 rollback 分支。
+// Coverage targets (coverage final):
+//  1. The ShouldBindUri failure branch of handler.UploadPackage (injected Validator).
+//  2. HotpatchModel.Update failure in service.UploadPackage (update callback error injection).
+//  3. The read-back FindOne failure in service.UploadPackage (per-call query callback error injection).
+//  4. The rollback branch of service.Transition.
 package hotpatch
 
 import (
@@ -76,8 +76,9 @@ func TestHotpatchService_UploadPackage_ReloadFailure(t *testing.T) {
 	svcSrv, db := newFixtureWithDB(t)
 	hp := seedDraft(t, svcSrv)
 
-	// UploadPackage 内 SELECT 依次为：FindOne(draft 校验) → 回读 FindOne。
-	// 令第 2 次 SELECT 失败：Update 落库成功后回读报错。
+	// The SELECTs inside UploadPackage run in order: FindOne (draft validation)
+	// -> read-back FindOne. Make the 2nd SELECT fail: Update lands in the
+	// database successfully, then the read-back errors.
 	var selects int32
 	require.NoError(t, db.Callback().Query().Before("gorm.query").
 		Register("test:hp_fail_second_select", func(tx *gorm.DB) {
@@ -97,14 +98,15 @@ func TestHotpatchService_Transition_Rollback(t *testing.T) {
 	svcSrv, _ := newFixtureWithDB(t)
 	hp := seedDraft(t, svcSrv)
 
-	// 上传补丁包（状态机要求 approve 前完成上传）。
+	// Upload the patch package (the state machine requires the upload to complete
+	// before approve).
 	_, err := svcSrv.UploadPackage(ctx, &UploadRequest{
 		ID: fmt.Sprint(hp.Id), Data: strings.NewReader("payload"), Size: 7,
 		ContentType: "application/octet-stream",
 	})
 	require.NoError(t, err)
 
-	// draft → approve → roll → applied → rollback 状态机推进到 rolled_back。
+	// draft -> approve -> roll -> applied -> rollback advances the state machine to rolled_back.
 	_, err = svcSrv.Transition(ctx, &TransitionRequest{ID: fmt.Sprint(hp.Id), Action: "approve"})
 	require.NoError(t, err)
 	_, err = svcSrv.Transition(ctx, &TransitionRequest{ID: fmt.Sprint(hp.Id), Action: "roll"})

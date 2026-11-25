@@ -16,8 +16,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// newRouter 按生产路由（internal/handler/routes.go registerHotpatchRoutes）
-// 组装被测 handler。
+// newRouter builds the router per the production routes
+// (internal/handler/routes.go registerHotpatchRoutes) with the handler under
+// test mounted.
 func newRouter(t *testing.T) (*gin.Engine, *Service) {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
@@ -60,8 +61,9 @@ func createViaHTTP(t *testing.T, r *gin.Engine) int64 {
 	return int64(id)
 }
 
-// contentType 三种形态："text/plain"（显式）、"formfile"（CreateFormFile 默认
-// octet-stream）、"none"（分片无 Content-Type → handler 回退 octet-stream）。
+// The three forms of contentType: "text/plain" (explicit), "formfile"
+// (CreateFormFile's default octet-stream), "none" (a part with no Content-Type
+// -> the handler falls back to octet-stream).
 func multipartBody(t *testing.T, contentType string) (*bytes.Buffer, string) {
 	t.Helper()
 	var buf bytes.Buffer
@@ -103,7 +105,7 @@ func TestHandler_List(t *testing.T) {
 	assert.Equal(t, "draft", item["status"])
 	assert.Equal(t, "demo", item["gameId"])
 
-	// Bug4 修复后：page 非数字按契约返回 400
+	// After the Bug4 fix: a non-numeric page returns 400 per the contract
 	rec = doJSON(t, r, http.MethodGet, "/hotpatches?page=abc", "")
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }
@@ -114,11 +116,11 @@ func TestHandler_CreateValidation(t *testing.T) {
 	rec := doJSON(t, r, http.MethodPost, "/hotpatches", `{"framework":"skynet","bugId":1,"title":"x"}`)
 	assert.Equal(t, http.StatusOK, rec.Code)
 
-	// 非法 JSON → 400。
+	// Malformed JSON -> 400.
 	rec = doJSON(t, r, http.MethodPost, "/hotpatches", `{"framework":`)
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 
-	// 字段校验：缺标题 / 缺 bugId / 非法框架。
+	// Field validation: missing title / missing bugId / invalid framework.
 	for _, body := range []string{
 		`{"framework":"skynet","bugId":1}`,
 		`{"framework":"skynet","title":"x"}`,
@@ -149,18 +151,19 @@ func TestHandler_UploadPackage(t *testing.T) {
 	assert.NotEmpty(t, item["checksum"])
 	assert.EqualValues(t, len("patch-bytes"), item["size"])
 
-	// 分片无 Content-Type → handler 回退 application/octet-stream。
+	// Part with no Content-Type -> the handler falls back to application/octet-stream.
 	rec = upload("none")
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 
-	// 缺 file 字段 → 400。
+	// Missing file field -> 400.
 	req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/hotpatches/%d/package", id), strings.NewReader("junk"))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rec = httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 
-	// 非 uint id / 不存在的 id（需带 multipart body 才能进入 service 分支）。
+	// Non-uint id / non-existent id (a multipart body is required to reach the
+	// service branch).
 	uploadTo := func(id string) *httptest.ResponseRecorder {
 		buf, ct := multipartBody(t, "text/plain")
 		req := httptest.NewRequest(http.MethodPost, "/hotpatches/"+id+"/package", buf)
@@ -174,7 +177,7 @@ func TestHandler_UploadPackage(t *testing.T) {
 	rec = uploadTo("999999")
 	assert.Equal(t, http.StatusNotFound, rec.Code)
 
-	// 非草稿状态再上传 → 409。
+	// Re-upload in a non-draft state -> 409.
 	rec = doJSON(t, r, http.MethodPost, fmt.Sprintf("/hotpatches/%d/transition", id), `{"action":"approve"}`)
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 	rec = upload("text/plain")
@@ -186,21 +189,22 @@ func TestHandler_Transition(t *testing.T) {
 	r, _ := newRouter(t)
 	id := createViaHTTP(t, r)
 
-	// 空请求体（ContentLength=0）→ 跳过绑定，action 为空 → 400。
+	// Empty request body (ContentLength=0) -> binding is skipped and action is
+	// empty -> 400.
 	req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/hotpatches/%d/transition", id), nil)
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 
-	// 非法 action → 400。
+	// Invalid action -> 400.
 	rec = doJSON(t, r, http.MethodPost, fmt.Sprintf("/hotpatches/%d/transition", id), `{"action":"explode"}`)
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 
-	// 未传包 approve → 409（守卫分支）。
+	// Approve without an uploaded package -> 409 (guard branch).
 	rec = doJSON(t, r, http.MethodPost, fmt.Sprintf("/hotpatches/%d/transition", id), `{"action":"approve"}`)
 	assert.Equal(t, http.StatusConflict, rec.Code)
 
-	// 先上传补丁包再流转：approve → roll(30)。
+	// Upload the package first, then transition: approve -> roll(30).
 	ub, ct := multipartBody(t, "text/plain")
 	upReq := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/hotpatches/%d/package", id), ub)
 	upReq.Header.Set("Content-Type", ct)
@@ -215,7 +219,7 @@ func TestHandler_Transition(t *testing.T) {
 	assert.Equal(t, "rolling", decode(t, rec)["status"])
 	assert.EqualValues(t, 30, decode(t, rec)["rolloutPercent"])
 
-	// 非 uint id → 400。
+	// Non-uint id -> 400.
 	rec = doJSON(t, r, http.MethodPost, "/hotpatches/0/transition", `{"action":"approve"}`)
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }
@@ -229,7 +233,7 @@ func TestHandler_ReportResult(t *testing.T) {
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 	assert.Contains(t, rec.Body.String(), "已记录")
 
-	// 结果随列表回读。
+	// The result is read back via the list.
 	rec = doJSON(t, r, http.MethodGet, "/hotpatches", "")
 	require.Equal(t, http.StatusOK, rec.Code)
 	resp := decode(t, rec)
@@ -240,7 +244,7 @@ func TestHandler_ReportResult(t *testing.T) {
 	assert.Equal(t, "agent-1", res["agentId"])
 	assert.NotEmpty(t, res["at"])
 
-	// 缺 body → 400；非法 id → 400。
+	// Missing body -> 400; invalid id -> 400.
 	rec = doJSON(t, r, http.MethodPost, fmt.Sprintf("/hotpatches/%d/results", id), "")
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 	rec = doJSON(t, r, http.MethodPost, "/hotpatches/xyz/results", `{"agentId":"a","status":"ok"}`)
@@ -251,7 +255,7 @@ func TestHandler_TransitionBadJSONBody(t *testing.T) {
 	r, _ := newRouter(t)
 	id := createViaHTTP(t, r)
 
-	// 非法 JSON 且 ContentLength>0 → 400。
+	// Malformed JSON with ContentLength>0 -> 400.
 	rec := doJSON(t, r, http.MethodPost, fmt.Sprintf("/hotpatches/%d/transition", id), `{"action":`)
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }
@@ -265,7 +269,7 @@ func TestHandler_TransitionAppliedAndFailActions(t *testing.T) {
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 	assert.Equal(t, "failed", decode(t, rec)["status"])
 
-	// applied 动作：新草稿走完整链路后触发。
+	// The applied action: a new draft is triggered after the full chain.
 	id2 := createViaHTTP(t, r)
 	ub, ct := multipartBody(t, "text/plain")
 	upReq := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/hotpatches/%d/package", id2), ub)
@@ -289,7 +293,7 @@ func TestHandler_ListDBError(t *testing.T) {
 	r.POST("/hotpatches", h.Create)
 	createViaHTTP(t, r)
 
-	// 模型层错误 → 500。
+	// Model-layer error -> 500.
 	require.NoError(t, db.Migrator().DropTable("hotpatches"))
 	rec := doJSON(t, r, http.MethodGet, "/hotpatches", "")
 	assert.Equal(t, http.StatusInternalServerError, rec.Code)
