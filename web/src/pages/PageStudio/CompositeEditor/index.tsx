@@ -24,6 +24,7 @@ import PreviewPane from './PreviewPane';
 import { compileTree, decompileToTree, type SpecSectionLike } from './compiler';
 import { scanParamCandidates, type ParamCandidate } from './types';
 import { extractErrorMessage } from '@/utils/errors';
+import { collectFormValidationIssues } from '@/utils/formValidation';
 import {
   duplicateNode as duplicateTree,
   findInsertedSubtree,
@@ -414,6 +415,13 @@ export default function CompositeEditorPage() {
           { blockers: blockers.join('\n') },
         ),
       );
+      return;
+    }
+    // SUI-021：编译产物里携带的表单（当前编辑器只产出 form.jsonSchema，
+    // fields/groups 由服务端默认派生）同样过一遍保存前校验，配置扩展后无需再改调用点。
+    const formIssues = collectFormValidationIssues({ type: 'composite', composite: { sections } });
+    if (formIssues.length > 0) {
+      message.error(formIssues.map((issue) => `${issue.field}: ${issue.message}`).join('\n'));
       return;
     }
     setSaving(true);

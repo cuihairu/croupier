@@ -55,6 +55,7 @@ import type {
 } from '@/types/dashboard';
 import { requestConsoleMenuRefresh } from '@/utils/consoleMenu';
 import { extractErrorMessage } from '@/utils/errors';
+import { collectFormValidationIssues } from '@/utils/formValidation';
 import ErrorDetailList from '@/components/ErrorDetailList';
 
 /** 状态过滤选项（#30 服务端条件下拉）：文案渲染期经 intl 解析。 */
@@ -477,6 +478,13 @@ export default function PageStudio() {
   const handleSave = useCallback(
     async (options?: { publishAfterSave?: boolean; menuId?: number | null }) => {
       if (!selectedDraft) return;
+      // SUI-021：保存/发布前校验表单呈现配置；selectedDraft 本身即当前 PageSpec
+      // （PageSpecDraft = PageSpec & 草稿元信息），无需再解析 JSON。非法配置不发请求。
+      const issues = collectFormValidationIssues(selectedDraft);
+      if (issues.length > 0) {
+        message.error(issues.map((issue) => `${issue.field}: ${issue.message}`).join('\n'));
+        return;
+      }
       const publishAfterSave = options?.publishAfterSave ?? false;
       // 编辑器 footer 的挂载改动：undefined=未改动不提交；null=解除；数字=挂载
       const mountMenuId = options?.menuId;
