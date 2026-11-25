@@ -243,7 +243,8 @@ func humanizeResourceKey(key string) string {
 	parts := strings.FieldsFunc(key, func(r rune) bool {
 		return r == '.' || r == '_' || r == '-'
 	})
-	// strings.FieldsFunc 不产生空片段（连续分隔符被跳过），空片段分支为死代码，已删除。
+	// strings.FieldsFunc never yields empty fragments (consecutive separators are
+	// skipped), so the empty-fragment branch was dead code and has been removed.
 	for i := range parts {
 		parts[i] = strings.ToUpper(parts[i][:1]) + parts[i][1:]
 	}

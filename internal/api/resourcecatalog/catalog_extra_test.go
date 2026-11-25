@@ -1,5 +1,6 @@
-// 覆盖目标：resourcecatalog handler 的 service 错误路径（表删除）与
-// 无 scope 请求、版本/冲突列表的存储错误分支。
+// Coverage target: the resourcecatalog handler's service error paths (via
+// table drops) plus no-scope requests and the storage error branches of the
+// version/conflict listings.
 package resourcecatalog
 
 import (

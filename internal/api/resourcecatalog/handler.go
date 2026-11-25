@@ -20,7 +20,7 @@ func NewHandler(service *Service) *Handler {
 // List handles GET /api/resource-catalog
 func (h *Handler) List(c *gin.Context) {
 	var req ListRequest
-	_ = requestbind.BindQueryCompat(c, &req) // 字段均为无校验标签的 string：绑定恒成功，保留填充语义
+	_ = requestbind.BindQueryCompat(c, &req) // all fields are validation-free strings: binding always succeeds, keep the populate semantics
 
 	// Get scope from context
 	gameID, env := getScope(c)
@@ -36,8 +36,9 @@ func (h *Handler) List(c *gin.Context) {
 	response.Success(c, resp)
 }
 
-// Categories handles GET /api/resource-catalog/categories：distinct 分类聚合
-// （含资源数），供过滤下拉取全量选项——不能由前端从过滤后的列表推导（#14）。
+// Categories handles GET /api/resource-catalog/categories: distinct category
+// aggregation (with resource counts), feeding the filter dropdown the full option
+// set -- it must not be derived by the frontend from the filtered list (#14).
 func (h *Handler) Categories(c *gin.Context) {
 	gameID, env := getScope(c)
 
@@ -105,7 +106,7 @@ func (h *Handler) ListSemanticVersions(c *gin.Context) {
 		response.Error(c, err)
 		return
 	}
-	// limit/offset 走 query string，需要单独绑定
+	// limit/offset arrive via query string and need a separate binding
 	if err := c.ShouldBindQuery(&req); err != nil {
 		response.Error(c, err)
 		return

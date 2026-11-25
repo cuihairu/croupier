@@ -166,8 +166,8 @@ func (s *Service) ResolveConflict(ctx context.Context, req *ResolveConflictReque
 	actor := actorFromContext(ctx)
 	chosenSource := spec.SemanticSource(strings.TrimSpace(req.ChosenSource))
 	if !isValidSemanticSource(chosenSource) {
-		// AUD-047：chosenSource 是请求入参枚举，非法值属客户端输入错误，
-		// 按 400 呈现而非落 opaque 500。
+		// AUD-047: chosenSource is a request-input enum, so an invalid value is a
+		// client input error -- surface it as 400 instead of an opaque 500.
 		return nil, errorx.NewBadRequest(fmt.Sprintf("invalid chosenSource %s", req.ChosenSource))
 	}
 	semantics, err := s.semanticsModel.FindByScopeAndResourceKey(ctx, svc.ResolveGameID(ctx, req.GameID), svc.ResolveEnv(ctx, req.Env), req.ResourceKey)
@@ -243,7 +243,8 @@ func (s *Service) ResolveConflict(ctx context.Context, req *ResolveConflictReque
 	semantics.UpdatedBy = actor
 
 	// Update semantics
-	// 冲突决议：显式人工动作，零改动提交也要留版本历史，changed 无需判断。
+	// Conflict resolution is an explicit human action: keep version history even for
+	// a zero-change commit, so no "changed" check is required.
 	if _, err := s.semanticsModel.UpsertSemantics(ctx, semantics); err != nil {
 		return nil, fmt.Errorf("update semantics: %w", err)
 	}
@@ -265,7 +266,8 @@ func (s *Service) ResolveConflict(ctx context.Context, req *ResolveConflictReque
 				"reason":        req.Reason,
 			}),
 		); err != nil {
-			// 副作用（冲突已解决）已完成：呈现缺口而非静默，也不返回 5xx。
+			// The side effect (conflict resolved) already happened: report the write gap
+			// rather than staying silent, and do not return a 5xx.
 			s.auditService.ReportWriteGap(ctx, audit.EventSemanticConflictResolve, err)
 		}
 	}

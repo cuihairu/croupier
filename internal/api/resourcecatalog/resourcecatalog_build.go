@@ -285,9 +285,10 @@ func jsonPointerTokens(path string) []string {
 	return parts
 }
 
-// digestRawJSON 计算资源语义 functionRef 的 schema digest。与发布/评估链
-// 共用 freshness.CanonicalDigest，避免 raw 字节哈希因键序/空格形态不同而
-// 与其他 binding digest 比对恒不等（同 api/page digestRaw 2026-09-19 修复）。
+// digestRawJSON computes the schema digest of a resource semantics functionRef.
+// It shares freshness.CanonicalDigest with the publish/evaluation chain so that a
+// raw byte hash cannot compare unequal against other binding digests merely because
+// of key order or whitespace shape (same fix as api/page digestRaw on 2026-09-19).
 func digestRawJSON(raw []byte) string {
 	return freshness.CanonicalDigest(raw)
 }

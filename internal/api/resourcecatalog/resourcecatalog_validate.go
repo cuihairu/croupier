@@ -219,8 +219,9 @@ func (s *Service) validateReportSemantics(
 		}
 		report.Dimensions = dimensions
 		report.Metrics = metrics
-		// validateJSONPointerList 已保证每个指针非空且以 "/" 开头（见其内部校验），
-		// 下述 HasPrefix 前缀分支恒假，已删除；仅保留 schema 存在性检查。
+		// validateJSONPointerList already guarantees every pointer is non-empty and
+		// starts with "/" (see its internal validation), so the HasPrefix branch below
+		// was always false and has been removed; only the schema-existence check remains.
 		for _, pointer := range report.Dimensions {
 			if !schemaObjectHasPointer(datasetItemSchema, pointer) {
 				return nil, fmt.Errorf("invalid reports[%d].dimensions: pointer %s not found in dataset item schema", index, pointer)

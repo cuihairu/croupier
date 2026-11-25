@@ -9,8 +9,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Categories 聚合接口回归（OPEN-ISSUES #14）：过滤下拉必须拿到全量 distinct
-// 分类，不能由前端从（已按分类过滤的）列表推导——否则选一项后选项塌缩成一项。
+// Regression for the Categories aggregation endpoint (OPEN-ISSUES #14): the filter
+// dropdown must receive the full set of distinct categories; it must not be derived
+// by the frontend from the (already category-filtered) list, otherwise picking a
+// single item collapses the options down to one.
 func TestService_Categories(t *testing.T) {
 	db := setupTestDB(t)
 	ctx := context.Background()
@@ -18,13 +20,13 @@ func TestService_Categories(t *testing.T) {
 
 	capModel := model.NewResourceCapabilityModel(db)
 	seed := []model.ResourceCapability{
-		// 无审核分类：按 resource key 前缀推导 → player / mail
+		// No review category: derived from the resource key prefix -> player / mail
 		{GameID: "demo-game", Env: "development", ResourceKey: "player"},
 		{GameID: "demo-game", Env: "development", ResourceKey: "player.item"},
 		{GameID: "demo-game", Env: "development", ResourceKey: "mail.template"},
-		// 审核分类优先于前缀推导
+		// The review category takes precedence over prefix derivation
 		{GameID: "demo-game", Env: "development", ResourceKey: "legacy.thing", CategoryKey: "archived"},
-		// 其他 scope 不应计入
+		// Rows from other scopes must not be counted
 		{GameID: "other-game", Env: "development", ResourceKey: "order"},
 	}
 	for i := range seed {
@@ -41,16 +43,18 @@ func TestService_Categories(t *testing.T) {
 		{CategoryKey: "player", Count: 2},
 	}, resp.Items)
 
-	// scope 隔离：另一 scope 只有 order 一项
+	// Scope isolation: the other scope has only the single "order" item
 	other, err := service.Categories(ctx, "other-game", "development")
 	require.NoError(t, err)
 	require.Len(t, other.Items, 1)
 	assert.Equal(t, "order", other.Items[0].CategoryKey)
 }
 
-// 缓存行为：命中期内新增行不重查（返回旧集合），invalidate 后重查拿到新分类。
-// 这同时锁住「写路径主动失效」语义——UpdateSemantics 改分类后下拉不会展示
-// 30s 的陈旧选项。
+// Cache behavior: rows added while the entry is valid are not re-queried (the stale
+// set is returned), and a re-query after invalidate picks up the new categories.
+// This also pins down the "write path invalidates proactively" semantics -- after
+// UpdateSemantics changes a category, the dropdown no longer serves a 30s stale
+// option list.
 func TestService_Categories_CacheAndInvalidation(t *testing.T) {
 	db := setupTestDB(t)
 	ctx := context.Background()
@@ -65,7 +69,7 @@ func TestService_Categories_CacheAndInvalidation(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, first.Items, 1)
 
-	// 缓存命中期内的新增行不可见（TTL 未到）
+	// Rows added inside the cache validity window stay invisible (TTL not elapsed)
 	require.NoError(t, capModel.UpsertCapability(ctx, &model.ResourceCapability{
 		GameID: "demo-game", Env: "development", ResourceKey: "mail.template",
 	}))
@@ -73,7 +77,7 @@ func TestService_Categories_CacheAndInvalidation(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, cached.Items, 1, "cache hit should serve the stale set until invalidated")
 
-	// 失效后重查 → 全量
+	// Re-query after invalidation -> the full set
 	service.invalidateCategoryCache("demo-game", "development")
 	fresh, err := service.Categories(ctx, "demo-game", "development")
 	require.NoError(t, err)

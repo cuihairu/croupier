@@ -106,9 +106,9 @@ type CategoriesResponse struct {
 	Items []CategoryOption `json:"items"`
 }
 
-// form tag 必须显式小写：gin 对无 tag 字段按字段名精确匹配（大小写敏感），
-// 前端发的 category/query 从未绑定成功过（见 requestbind.BindQueryCompat
-// 与 OPEN-ISSUES #5）。
+// Form tags must be explicitly lowercase: gin matches untagged fields exactly by
+// field name (case-sensitive), so the frontend's category/query params never bound
+// (see requestbind.BindQueryCompat and OPEN-ISSUES #5).
 type ListRequest struct {
 	GameID   string `form:"gameId"`
 	Env      string `form:"env"`

@@ -39,8 +39,9 @@ func newResourceCatalogRouter(t *testing.T, db *gorm.DB) *gin.Engine {
 	})
 	api := router.Group("/api/resource-catalog")
 	api.GET("", handler.List)
-	// 静态段 /categories 优先于 /:resourceKey（复刻生产注册序
-	// registerResourceCatalogRoutes，routes.go 内该函数；不用行号锚定以免上游漂移）
+	// The static segment /categories is registered before /:resourceKey (mirroring
+	// the production registration order in registerResourceCatalogRoutes, defined in
+	// routes.go; no line-number anchor to avoid upstream drift)
 	api.GET("/categories", handler.Categories)
 	api.GET("/:resourceKey", handler.Detail)
 	api.PUT("/:resourceKey/semantics", handler.UpdateSemantics)
@@ -287,7 +288,7 @@ func TestHandler_ResolveConflict_InvalidSource(t *testing.T) {
 
 	rec := doCatalogRequest(router, http.MethodPost, "/api/resource-catalog/player/conflicts/identityField/resolve",
 		`{"chosenSource":"bogus"}`)
-	// AUD-047：非法 chosenSource 是客户端输入错误，按 400 呈现。
+	// AUD-047: an invalid chosenSource is a client input error, surfaced as 400.
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 	assert.Contains(t, rec.Body.String(), "invalid chosenSource")
 }

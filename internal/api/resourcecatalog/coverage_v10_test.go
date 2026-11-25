@@ -24,8 +24,8 @@ func brokenTableDBV10(t *testing.T, table string) *gorm.DB {
 	return db
 }
 
-// failingCreateAuditStore 包装内存实现并让 Create 恒失败，
-// 用于覆盖 audit.Log 写入失败时仅记录 slog 的分支。
+// failingCreateAuditStore wraps the in-memory implementation and makes Create
+// always fail, to cover the branch where a failed audit.Log write only logs to slog.
 type failingCreateAuditStore struct {
 	*audit.InMemoryAuditStore
 }
@@ -35,7 +35,7 @@ func (f *failingCreateAuditStore) Create(record *audit.AuditRecord) error {
 }
 
 // ---------------------------------------------------------------------------
-// UpdateSemantics：updateId / deleteId 绑定校验分支
+// UpdateSemantics: updateId / deleteId binding validation branches
 // ---------------------------------------------------------------------------
 
 func TestUpdateSemanticsInvalidUpdateIDV10(t *testing.T) {
@@ -67,7 +67,7 @@ func TestUpdateSemanticsDeleteIDBindsAndFailsV10(t *testing.T) {
 	contract, err := model.NewFunctionContractModel(db).FindByScopeAndFunctionID(ctx, "g1", "e1", "player.delete")
 	require.NoError(t, err)
 
-	// 合法 deleteId：绑定成功并写入语义。
+	// A valid deleteId: binding succeeds and semantics are written.
 	resp, err := svc.UpdateSemantics(ctx, &UpdateSemanticsRequest{
 		GameID: "g1", Env: "e1", ResourceKey: "player", DeleteID: contract.ID, ChangeReason: "bind delete",
 	})
@@ -78,7 +78,7 @@ func TestUpdateSemanticsDeleteIDBindsAndFailsV10(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, contract.ID, sem.DeleteID)
 
-	// 非法 deleteId：报错回滚。
+	// An invalid deleteId: errors and rolls back.
 	_, err = svc.UpdateSemantics(ctx, &UpdateSemanticsRequest{
 		GameID: "g1", Env: "e1", ResourceKey: "player", DeleteID: contract.ID + 100,
 	})
@@ -87,7 +87,7 @@ func TestUpdateSemanticsDeleteIDBindsAndFailsV10(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// validateSemanticFunctionRef：资源归属 / 能力不匹配分支
+// validateSemanticFunctionRef: resource ownership / capability mismatch branches
 // ---------------------------------------------------------------------------
 
 func TestValidateSemanticFunctionRefMismatchesV10(t *testing.T) {
@@ -99,13 +99,13 @@ func TestValidateSemanticFunctionRefMismatchesV10(t *testing.T) {
 		`{"type":"object","properties":{"rows":{"type":"array","items":{"type":"object","properties":{"date":{"type":"string"},"count":{"type":"integer"}}}}}}`)
 	svc := NewService(db, nil)
 
-	// 函数属于其他资源。
+	// The function belongs to another resource.
 	_, err := svc.validateSemanticFunctionRef(ctx, "g1", "e1", "guild",
 		spec.FunctionRef{FunctionID: "player.report"}, spec.CapabilityReport, "reports[0].query")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "does not belong to resource guild")
 
-	// 能力与要求不符。
+	// The capability does not match the requirement.
 	_, err = svc.validateSemanticFunctionRef(ctx, "g1", "e1", "player",
 		spec.FunctionRef{FunctionID: "player.report"}, spec.CapabilityTask, "tasks[0].start")
 	require.Error(t, err)
@@ -113,7 +113,7 @@ func TestValidateSemanticFunctionRefMismatchesV10(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// arrayItemSchemaAtPointer：中间节点无 properties
+// arrayItemSchemaAtPointer: intermediate node without properties
 // ---------------------------------------------------------------------------
 
 func TestArrayItemSchemaAtPointerIntermediateNoPropertiesV10(t *testing.T) {
@@ -123,14 +123,14 @@ func TestArrayItemSchemaAtPointerIntermediateNoPropertiesV10(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// buildAffectedPages：published/proposals 缺表回落 nil
+// buildAffectedPages: missing published/proposals tables fall back to nil
 // ---------------------------------------------------------------------------
 
 func TestBuildAffectedPagesPublishedMissingTableV10(t *testing.T) {
 	db := setupTestDB(t)
 	seedV9Capability(t, db, "player")
 	createV9PageDraftsStub(t, db)
-	// published_page_specs 整表缺失 → isMissingTableErr → (nil, nil)。
+	// The whole published_page_specs table is missing -> isMissingTableErr -> (nil, nil).
 	items, err := NewService(db, nil).buildAffectedPages(context.Background(), "g1", "e1", "player")
 	require.NoError(t, err)
 	assert.Nil(t, items)
@@ -149,7 +149,7 @@ func TestBuildAffectedPagesProposalMissingTableV10(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// ResolveConflict：rebuildProposals 失败 / audit 写入失败
+// ResolveConflict: rebuildProposals failure / audit write failure
 // ---------------------------------------------------------------------------
 
 func TestResolveConflictRebuildProposalsErrorV10(t *testing.T) {
@@ -172,7 +172,7 @@ func TestUpdateSemanticsAuditLogFailureV10(t *testing.T) {
 	auditSvc := audit.NewAuditService(&failingCreateAuditStore{InMemoryAuditStore: audit.NewInMemoryAuditStore()}, nil)
 	svc := NewService(db, auditSvc)
 
-	// audit 写失败只记 slog，不影响业务结果。
+	// A failed audit write only logs to slog; the business result is unaffected.
 	resp, err := svc.UpdateSemantics(context.Background(), &UpdateSemanticsRequest{
 		GameID: "g1", Env: "e1", ResourceKey: "player", IdentityField: "id",
 	})

@@ -11,9 +11,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// 回归（OPEN-ISSUES #5）：前端发的是小写 query key（category=/query=），
-// ListRequest 此前无 form tag，gin 按字段名精确匹配导致过滤参数从未绑定、
-// 列表恒返回全量。用两个不同分类的资源断言过滤真的收窄（旧实现下 total==2）。
+// Regression (OPEN-ISSUES #5): the frontend sends lowercase query keys
+// (category=/query=). ListRequest had no form tags before, so gin's exact field-name
+// match never bound the filter params and the list always returned everything. Two
+// resources in different categories prove the filter really narrows the result (the
+// old implementation had total==2).
 func TestHandler_List_CategoryAndQueryFiltersBindLowercaseParams(t *testing.T) {
 	db := setupTestDB(t)
 	router := newResourceCatalogRouter(t, db)
@@ -28,14 +30,14 @@ func TestHandler_List_CategoryAndQueryFiltersBindLowercaseParams(t *testing.T) {
 		Labels: map[string]interface{}{"zh-CN": "邮件模板"},
 	}))
 
-	// sanity: 无过滤时全量两条
+	// sanity: without a filter both rows come back
 	rec := doCatalogRequest(router, http.MethodGet, "/api/resource-catalog", "")
 	require.Equal(t, http.StatusOK, rec.Code)
 	var all ListResponse
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &all))
 	assert.Equal(t, 2, all.Total)
 
-	// category 过滤（旧实现：category 从不绑定，total 恒为 2）
+	// category filter (old implementation: category never bound, total always 2)
 	rec = doCatalogRequest(router, http.MethodGet, "/api/resource-catalog?category=mail", "")
 	require.Equal(t, http.StatusOK, rec.Code)
 	var byCategory ListResponse
@@ -44,7 +46,7 @@ func TestHandler_List_CategoryAndQueryFiltersBindLowercaseParams(t *testing.T) {
 	assert.Equal(t, 1, byCategory.Total)
 	assert.Equal(t, "mail.template", byCategory.Items[0].ResourceKey)
 
-	// query 过滤（同病类：旧实现恒全量）
+	// query filter (same disease: the old implementation always returned everything)
 	rec = doCatalogRequest(router, http.MethodGet, "/api/resource-catalog?query=player", "")
 	require.Equal(t, http.StatusOK, rec.Code)
 	var byQuery ListResponse

@@ -31,10 +31,13 @@ type Service struct {
 	publishedModel  *model.PublishedPageSpecModel
 	auditService    *audit.AuditService
 
-	// 分类聚合的进程内缓存（#14）：下拉选项要展示**全量** distinct 分类，
-	// 不能从（已按分类过滤的）列表数据推导。按 (game, env) 键缓存，短 TTL
-	// + 语义审核写路径主动失效。Service 在路由注册期构造一次，缓存生命周期
-	// 与进程一致；HA 多实例各自持有副本，下拉选项短时陈旧可接受。
+	// In-process cache for the category aggregation (#14): the dropdown options must
+	// show the full set of distinct categories and cannot be derived from the (already
+	// category-filtered) list data. Cached per (game, env) key with a short TTL plus
+	// proactive invalidation on the semantics review write path. The Service is built
+	// once at route registration, so the cache lives for the process lifetime; HA
+	// replicas each keep their own copy, and briefly stale dropdown options are
+	// acceptable.
 	categoryCacheMu sync.Mutex
 	categoryCache   map[string]cachedCategories
 }
@@ -252,8 +255,8 @@ func (s *Service) UpdateSemantics(ctx context.Context, req *UpdateSemanticsReque
 		provenance[field] = provenanceRecord(field, spec.SemanticSourcePlatformReview, sourceDigest, rawJSONString(value), "high", "effective", actor)
 	}
 	trackUint := func(field string, value uint) {
-		// 唯一调用方均在 req.XXX > 0 守卫内传入 req.XXX，value 恒非 0，
-		// 零值守卫分支为死代码，已删除。
+		// The only callers pass req.XXX guarded by req.XXX > 0, so value is never 0;
+		// the zero-value guard branch was dead code and has been removed.
 		changedFields = append(changedFields, field)
 		provenance[field] = provenanceRecord(field, spec.SemanticSourcePlatformReview, sourceDigest, rawJSONUint(value), "high", "effective", actor)
 	}
@@ -299,8 +302,8 @@ func (s *Service) UpdateSemantics(ctx context.Context, req *UpdateSemanticsReque
 		if err != nil {
 			return nil, err
 		}
-		// actions 为纯 string/结构体字段组成的 []spec.ActionSemantic，Marshal 恒成功，
-		// err 分支为死代码，已删除。
+		// actions is a []spec.ActionSemantic of pure string/struct fields, so Marshal
+		// always succeeds; the err branch was dead code and has been removed.
 		raw, _ := json.Marshal(actions)
 		semantics.Actions = model.JSON(raw)
 		changedFields = append(changedFields, "actions")
@@ -311,8 +314,8 @@ func (s *Service) UpdateSemantics(ctx context.Context, req *UpdateSemanticsReque
 		if err != nil {
 			return nil, err
 		}
-		// tasks 为纯 string/结构体字段组成的 []spec.TaskSemantic，Marshal 恒成功，
-		// err 分支为死代码，已删除。
+		// tasks is a []spec.TaskSemantic of pure string/struct fields, so Marshal always
+		// succeeds; the err branch was dead code and has been removed.
 		raw, _ := json.Marshal(tasks)
 		semantics.Tasks = model.JSON(raw)
 		changedFields = append(changedFields, "tasks")
@@ -323,8 +326,8 @@ func (s *Service) UpdateSemantics(ctx context.Context, req *UpdateSemanticsReque
 		if err != nil {
 			return nil, err
 		}
-		// reports 为纯 string 字段组成的 []spec.ReportSemantic，Marshal 恒成功，
-		// err 分支为死代码，已删除。
+		// reports is a []spec.ReportSemantic of pure string fields, so Marshal always
+		// succeeds; the err branch was dead code and has been removed.
 		raw, _ := json.Marshal(reports)
 		semantics.Reports = model.JSON(raw)
 		changedFields = append(changedFields, "reports")
@@ -376,15 +379,17 @@ func (s *Service) UpdateSemantics(ctx context.Context, req *UpdateSemanticsReque
 	semantics.Source = "platform_review"
 	semantics.UpdatedBy = actor
 	if len(provenance) > 0 {
-		// provenance 的 RawMessage 值要么来自 Unmarshal 产物（已验证合法 JSON），
-		// 要么由 rawJSONString/rawJSONUint（strconv.Quote/FormatUint）构造，
-		// 均为合法 JSON 片段，Marshal 恒成功，err 分支为死代码，已删除。
+		// The RawMessage values in provenance either come from Unmarshal output (already
+		// verified as valid JSON) or are built by rawJSONString/rawJSONUint
+		// (strconv.Quote/FormatUint); all are valid JSON fragments, so Marshal always
+		// succeeds and the err branch was dead code -- removed.
 		raw, _ := json.Marshal(provenance)
 		semantics.Provenance = raw
 	}
 
 	// Save semantics
-	// 人工编辑路径：显式保存总视为一次变更（零改动提交也要留版本历史）。
+	// Manual edit path: an explicit save always counts as a change (a zero-diff
+	// commit still leaves version history).
 	if _, err := s.semanticsModel.UpsertSemantics(ctx, semantics); err != nil {
 		return nil, fmt.Errorf("upsert semantics: %w", err)
 	}
@@ -395,8 +400,8 @@ func (s *Service) UpdateSemantics(ctx context.Context, req *UpdateSemanticsReque
 		return nil, err
 	}
 
-	// 审核可改写 categoryKey：失效该 scope 的分类聚合缓存，避免下拉 30s 内
-	// 仍展示旧分类。
+	// Review may rewrite categoryKey: invalidate this scope's category aggregation
+	// cache so the dropdown no longer shows the old category within the 30s window.
 	s.invalidateCategoryCache(svc.ResolveGameID(ctx, req.GameID), svc.ResolveEnv(ctx, req.Env))
 
 	// Audit log
@@ -410,7 +415,8 @@ func (s *Service) UpdateSemantics(ctx context.Context, req *UpdateSemanticsReque
 				"semantic_version": semantics.Version,
 			}),
 		); err != nil {
-			// 副作用（语义更新）已完成：呈现缺口而非静默，也不返回 5xx。
+			// The side effect (semantics updated) already happened: report the write gap
+			// rather than staying silent, and do not return a 5xx.
 			s.auditService.ReportWriteGap(ctx, audit.EventSemanticUpdate, err)
 		}
 	}

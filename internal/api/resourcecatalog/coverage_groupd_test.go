@@ -10,9 +10,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// semanticSourceDigest：契约 JSON 列字节损坏（绕过 dbtype.JSON.Value 直写）
-// → json.Marshal 经 dbtype.JSON.MarshalJSON（RawMessage compact 校验）失败
-// → 摘要回落空串（视为无源描述符）。
+// semanticSourceDigest: contract JSON column bytes corrupted (written directly,
+// bypassing dbtype.JSON.Value) -> json.Marshal goes through
+// dbtype.JSON.MarshalJSON (RawMessage compact validation) and fails -> the digest
+// falls back to an empty string (treated as no source descriptor).
 func TestSemanticSourceDigestInvalidContractJSONColumn(t *testing.T) {
 	db := setupTestDB(t)
 	ctx := context.Background()
@@ -22,19 +23,21 @@ func TestSemanticSourceDigestInvalidContractJSONColumn(t *testing.T) {
 
 	contractModel := model.NewFunctionContractModel(db)
 
-	// 正常数据：摘要为 64 位十六进制 SHA-256。
+	// Healthy data: the digest is a 64-character hex SHA-256.
 	digest := semanticSourceDigest(ctx, contractModel, "g1", "e1", "player")
 	require.NotEmpty(t, digest)
 	assert.Len(t, digest, 64)
 
-	// 破坏 input_schema 列字节：Scan 不校验原文，Marshal 时才报错。
+	// Corrupt the input_schema column bytes: Scan does not validate the raw text; the
+	// error only surfaces at Marshal time.
 	require.NoError(t, db.Exec(
 		"UPDATE function_contracts SET input_schema = ? WHERE game_id = ? AND env = ? AND resource_key = ?",
 		"{not-json", "g1", "e1", "player").Error)
 	assert.Empty(t, semanticSourceDigest(ctx, contractModel, "g1", "e1", "player"))
 }
 
-// capabilitySemanticsJSON：语义负载含无效 JSON 字节 → Marshal 失败返回 nil。
+// capabilitySemanticsJSON: invalid JSON bytes inside the semantics payload ->
+// Marshal fails and nil is returned.
 func TestCapabilitySemanticsJSONInvalidPayloadBytes(t *testing.T) {
 	valid := capabilitySemanticsJSON(&model.CapabilitySemantics{
 		GameID: "g1", Env: "e1", ResourceKey: "player",
