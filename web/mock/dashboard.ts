@@ -214,6 +214,29 @@ function buildOperationPage(functionId: string) {
               },
           required: dangerous ? ['reason'] : ['to', 'content'],
         },
+        // SUI-028：带宽度与分组的表单（12 栏协议宽度 + 分组容器），
+        // 供响应式布局浏览器用例断言。
+        ...(dangerous
+          ? {}
+          : {
+              fields: [
+                { key: 'to', width: 6 },
+                { key: 'subject', width: 6 },
+                { key: 'content' },
+              ],
+              groups: [
+                {
+                  key: 'basic',
+                  title: { 'zh-CN': '基本信息', 'en-US': 'Basics' },
+                  fields: ['to', 'subject'],
+                },
+                {
+                  key: 'body',
+                  title: { 'zh-CN': '正文', 'en-US': 'Body' },
+                  fields: ['content'],
+                },
+              ],
+            }),
       },
       confirm: {
         title: { 'zh-CN': dangerous ? '确认高风险操作' : '确认发送' },
