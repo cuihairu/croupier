@@ -15,7 +15,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// GetAuth serves GET /site/auth：登录方式生效配置（凭据脱敏）。
+// GetAuth serves GET /site/auth: the effective login provider configuration (credentials redacted).
 func (h *Handler) GetAuth(c *gin.Context) {
 	response.Success(c, h.layered.AuthSnapshot())
 }
@@ -24,9 +24,10 @@ type testAuthRequest struct {
 	Kind string `json:"kind"` // ldap | oidc
 }
 
-// TestAuthConnection serves POST /site/auth/test：填完先测再启用
-// （Harbor 模式 Test LDAP/OIDC Server——拿当前生效配置真实连通性验证，
-// 避免保存了才发现配错把自己锁在门外）。
+// TestAuthConnection serves POST /site/auth/test: test before you enable
+// (Harbor's Test LDAP/OIDC Server -- verify real connectivity with the currently
+// effective configuration, so a misconfiguration is caught before saving it and
+// locking yourself out).
 func (h *Handler) TestAuthConnection(c *gin.Context) {
 	var req testAuthRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -37,7 +38,8 @@ func (h *Handler) TestAuthConnection(c *gin.Context) {
 	switch strings.ToLower(strings.TrimSpace(req.Kind)) {
 	case "ldap":
 		if !cfg.LDAP.Enabled {
-			// AUD-047：未启用是请求前置条件不满足，按 400 呈现而非 opaque 500。
+			// AUD-047: "not enabled" is an unmet request precondition, so surface it as 400
+			// rather than an opaque 500.
 			response.BadRequest(c, "ldap 未启用（先保存 enabled=true 再测试）")
 			return
 		}
@@ -48,7 +50,7 @@ func (h *Handler) TestAuthConnection(c *gin.Context) {
 		response.Success(c, gin.H{"ok": true, "message": "LDAP 连接成功（bind 通过）"})
 	case "oidc":
 		if !cfg.OIDC.Enabled {
-			// AUD-047：同 ldap——未启用按 400 呈现。
+			// AUD-047: same as ldap -- "not enabled" is surfaced as 400.
 			response.BadRequest(c, "oidc 未启用（先保存 enabled=true 再测试）")
 			return
 		}
@@ -62,8 +64,9 @@ func (h *Handler) TestAuthConnection(c *gin.Context) {
 	}
 }
 
-// testLDAPConnect 拨号 + 匿名/bind 验证目录可达。ctx 取自请求
-// （客户端放弃等待即取消探测）。
+// testLDAPConnect dials and verifies directory reachability via an anonymous
+// bind. ctx comes from the request (if the client stops waiting, the probe is
+// cancelled).
 func testLDAPConnect(ctx context.Context, cfg config.LDAPProviderConfig) error {
 	addr := strings.TrimSpace(cfg.Addr)
 	if addr == "" {
@@ -75,21 +78,25 @@ func testLDAPConnect(ctx context.Context, cfg config.LDAPProviderConfig) error {
 		return fmt.Errorf("连接 %s 失败: %w", addr, err)
 	}
 	defer func() { _ = conn.Close() }()
-	// TCP 可达即视为目录服务在线（完整 bind 校验走 go-ldap，
-	// 这里轻量探测避免引入完整 LDAP 会话依赖；build 侧已有完整实现）
+	// TCP reachability is enough to consider the directory service online (full bind
+	// validation goes through go-ldap; this stays a lightweight probe to avoid
+	// pulling in a full LDAP session dependency -- the build side already has a
+	// complete implementation)
 	return nil
 }
 
-// testOIDCDiscovery 验证 issuer 的 .well-known 端点可达且返回 JSON。
+// testOIDCDiscovery verifies that the issuer's .well-known endpoint is reachable and returns JSON.
 func testOIDCDiscovery(cfg config.OIDCProviderConfig) error {
 	issuer := strings.TrimRight(strings.TrimSpace(cfg.Issuer), "/")
 	if issuer == "" {
 		return fmt.Errorf("issuer 未配置")
 	}
-	// 证书校验使用系统信任链（CodeQL go/disabled-certificate-check：
-	// 此前 InsecureSkipVerify=true 会把探测降级为可被 MITM 的假阳性
-	//「连接成功」）。自签 issuer 的正确路径是配置 CA 后再测——
-	// x509 错误时在返回信息里明确引导，而不是静默跳过校验。
+	// Certificate validation uses the system trust chain (CodeQL
+	// go/disabled-certificate-check: the previous InsecureSkipVerify=true downgraded
+	// the probe to an MITM-able false positive "connection successful"). The right
+	// path for a self-signed issuer is to configure the CA and only then test --
+	// on an x509 error the returned message states this explicitly instead of
+	// silently skipping validation.
 	client := &http.Client{Timeout: 5 * time.Second}
 	resp, err := client.Get(issuer + "/.well-known/openid-configuration")
 	if err != nil {

@@ -1,9 +1,11 @@
 package sitesettings
 
-// 残余覆盖缺口收口（覆盖率巡检）：GetSecurity / GetOutbound 两个读快照端点
-// 整段 0%（路由已挂载但无用例）、sec.allowIPs 与域名后缀清单里「空分段」
-// 的 continue 分支、SendTestEmail 的绑定失败与**真实发送路径**（此前全部
-// 走 sendTestEmailFn 注入缝隙，default 实现从未执行）。
+// Closes out the remaining coverage gaps (coverage sweep): the GetSecurity /
+// GetOutbound read-snapshot endpoints are entirely 0% (routes mounted but never
+// exercised), the "empty segment" continue branch in the sec.allowIPs and domain
+// suffix lists, and SendTestEmail's binding failure plus its **real send path**
+// (previously everything went through the sendTestEmailFn injection seam, so the
+// default implementation never ran).
 
 import (
 	"context"
@@ -17,9 +19,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestGetSecurityAndOutboundSnapshots 两个读端点的默认值形态与 L3 覆盖后
-// 形态：security.* 五键默认全关，sec.* 清单为空串（不限）、ssrfProtection
-// false（不拦截）、net.* 缺省 0。
+// TestGetSecurityAndOutboundSnapshots covers both read endpoints in their default
+// shape and their post-L3-override shape: the five security.* keys are all off by
+// default, the sec.* lists are empty strings (no limits), ssrfProtection is false
+// (no blocking), and net.* defaults to 0.
 func TestGetSecurityAndOutboundSnapshots(t *testing.T) {
 	r, _ := setupRouterWithDB(t)
 
@@ -44,7 +47,7 @@ func TestGetSecurityAndOutboundSnapshots(t *testing.T) {
 	assert.Equal(t, float64(0), out["retryBackoffMs"])
 	assert.Equal(t, "default", out["sources"].(map[string]any)["sec.allowPorts"])
 
-	// L3 写入后快照应回显真值且来源标记为 database
+	// After an L3 write the snapshot should echo the real value and mark the source as database
 	rec = doSiteReq(t, r, http.MethodPut, "/api/v1/site/sec.ssrfProtection", `{"value":true}`)
 	require.Equal(t, http.StatusOK, rec.Code)
 	rec = doSiteReq(t, r, http.MethodGet, "/api/v1/site/outbound", "")
@@ -61,12 +64,14 @@ func TestGetSecurityAndOutboundSnapshots(t *testing.T) {
 	assert.Equal(t, true, sec["mfaRequired"])
 }
 
-// TestValidateValueEmptySegments 清单类键里「空分段」的 continue 分支：
-// 连续逗号 / 首尾逗号 / 全空白项都应被跳过而非判非法。
+// TestValidateValueEmptySegments covers the "empty segment" continue branch of the
+// list-type keys: consecutive commas / leading or trailing commas / all-whitespace
+// items must be skipped, not rejected as invalid.
 func TestValidateValueEmptySegments(t *testing.T) {
 	r, _ := setupRouterWithDB(t)
 
-	// sec.allowIPs：空分段跳过（连续逗号、首逗号、尾逗号、纯空白项）
+	// sec.allowIPs: empty segments are skipped (consecutive commas, a leading comma, a
+	// trailing comma, whitespace-only items)
 	for _, ok := range []string{
 		"10.0.0.1,,10.0.0.2",
 		",10.0.0.1",
@@ -79,14 +84,14 @@ func TestValidateValueEmptySegments(t *testing.T) {
 		assert.Equal(t, http.StatusOK, rec.Code, "空分段应跳过: %q", ok)
 	}
 
-	// 空分段跳过不掩盖同段内的真错误
+	// Skipping empty segments must not mask a real error in the same segment
 	rec := doSiteReq(t, r, http.MethodPut, "/api/v1/site/sec.allowIPs", `{"value":"10.0.0.1,,bogus"}`)
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 	rec = doSiteReq(t, r, http.MethodPut, "/api/v1/site/sec.allowIPs", `{"value":"10.0.0.1,,10.0.0.0/999"}`)
 	assert.Equal(t, http.StatusBadRequest, rec.Code, "非法 CIDR 仍应被拒")
 
-	// 域名后缀清单：空分段同理（sec.domainFilter 与 auth.email.domainWhitelist
-	// 共用 validateDomainSuffixList，两键各验一遍）
+	// Domain suffix list: empty segments behave the same (sec.domainFilter and
+	// auth.email.domainWhitelist share validateDomainSuffixList; verify each key)
 	for _, key := range []string{"sec.domainFilter", "auth.email.domainWhitelist"} {
 		for _, ok := range []string{"a.com,,b.com", ",a.com", "a.com,", "a.com, ,b.com", ","} {
 			rec := doSiteReq(t, r, http.MethodPut, "/api/v1/site/"+key,
@@ -98,29 +103,33 @@ func TestValidateValueEmptySegments(t *testing.T) {
 	}
 }
 
-// TestSendTestEmailBindError 请求体不是合法 JSON → 绑定失败 400（此前只测了
-// 「字段缺失」与「注入缝隙」两路）。
+// TestSendTestEmailBindError: a body that is not valid JSON -> binding fails with
+// 400 (only the "missing field" and "injection seam" paths were tested before).
 func TestSendTestEmailBindError(t *testing.T) {
 	r, _ := setupRouterWithDB(t)
 	rec := doSiteReq(t, r, http.MethodPost, "/api/v1/site/notification/test-email", `{"to":`)
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }
 
-// TestSendTestEmailRealSendPath 走**未注入**的 sendTestEmailFn：SMTP 指向
-// 本地拒连端口，真实发信必然失败 → 端点把后端错误透出为 500。覆盖 default
-// 实现体（构造 EmailSender + WithTransport + Send）此前 0% 的部分。
+// TestSendTestEmailRealSendPath goes through the **uninjected** sendTestEmailFn:
+// SMTP points at a local connection-refused port, so the real send is guaranteed
+// to fail -> the endpoint surfaces the backend error as 500. Covers the default
+// implementation body (building EmailSender + WithTransport + Send), which was
+// previously 0%.
 func TestSendTestEmailRealSendPath(t *testing.T) {
 	r, db := setupRouterWithDB(t)
-	// 包级 default 实现就位即用（tracked 注入用例均经 t.Cleanup 复原，
-	// 且本文件按字母序先于 testemail_test.go 执行，起点必为 default；
-	// 原稿误将缝隙变量置 nil——default 只存在于声明初始化器，置 nil 即
-	// 调用 nil 函数 panic）。
+	// Use the package-level default implementation as-is (the tracked injection cases
+	// all restore themselves via t.Cleanup, and this file runs before
+	// testemail_test.go in alphabetical order, so the starting state must be the
+	// default; an earlier draft mistakenly set the seam variable to nil -- the
+	// default only exists in the declaration's initializer, and setting it to nil
+	// means calling a nil function and panicking).
 	require.NotNil(t, sendTestEmailFn, "起点须为 default 实现")
 
 	store := model.NewPlatformSettingModel(db)
 	for k, v := range map[string]string{
 		"notification.smtpHost": "127.0.0.1",
-		"notification.smtpPort": "1", // 保留端口：dial 立即 ECONNREFUSED
+		"notification.smtpPort": "1", // reserved port: dial gets ECONNREFUSED immediately
 		"notification.smtpFrom": "noreply@example.com",
 	} {
 		raw, err := json.Marshal(v)
@@ -134,7 +143,8 @@ func TestSendTestEmailRealSendPath(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, rec.Code, "真实发信失败应透出 500")
 	assert.NotContains(t, rec.Body.String(), `"sent":true`)
 
-	// 非法收件地址在拨号前即被拒（validateEmailAddress），不产生外部连接
+	// An invalid recipient address is rejected before dialing (validateEmailAddress),
+	// producing no external connection
 	rec = doSiteReq(t, r, http.MethodPost, "/api/v1/site/notification/test-email",
 		`{"to":"not-an-email"}`)
 	assert.Equal(t, http.StatusInternalServerError, rec.Code)

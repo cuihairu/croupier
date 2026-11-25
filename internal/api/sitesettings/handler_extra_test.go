@@ -32,7 +32,7 @@ func setupRouter(t *testing.T) *gin.Engine {
 func TestPutKey_BoolAndURLValidation(t *testing.T) {
 	r := setupRouter(t)
 
-	// features.* 只接受 JSON bool。
+	// features.* only accepts a JSON bool.
 	req := httptest.NewRequest(http.MethodPut, "/api/v1/site/features.ops", body(`{"value":"yes"}`))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
@@ -45,7 +45,7 @@ func TestPutKey_BoolAndURLValidation(t *testing.T) {
 	r.ServeHTTP(rec, req)
 	assert.Equal(t, http.StatusOK, rec.Code)
 
-	// obs.* 校验 URL 形态。
+	// obs.* validates the URL shape.
 	req = httptest.NewRequest(http.MethodPut, "/api/v1/site/obs.jaegerUrl", body(`{"value":"not-a-url"}`))
 	req.Header.Set("Content-Type", "application/json")
 	rec = httptest.NewRecorder()
@@ -58,7 +58,7 @@ func TestPutKey_BoolAndURLValidation(t *testing.T) {
 	r.ServeHTTP(rec, req)
 	assert.Equal(t, http.StatusOK, rec.Code)
 
-	// bootstrap 类 key 禁止写入。
+	// bootstrap-class keys are write-forbidden.
 	req = httptest.NewRequest(http.MethodPut, "/api/v1/site/database.dataSource", body(`{"value":"mysql://…"}`))
 	req.Header.Set("Content-Type", "application/json")
 	rec = httptest.NewRecorder()
@@ -69,7 +69,7 @@ func TestPutKey_BoolAndURLValidation(t *testing.T) {
 func TestRouteOrder_FeaturesReadEndpoint(t *testing.T) {
 	r := setupRouter(t)
 
-	// GET /site/features 命中读端点而非 :key（gin 静态路由优先）。
+	// GET /site/features hits the read endpoint instead of :key (gin prefers static routes).
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/v1/site/features", nil))
 	assert.Equal(t, http.StatusOK, rec.Code)
@@ -78,9 +78,10 @@ func TestRouteOrder_FeaturesReadEndpoint(t *testing.T) {
 	rec = httptest.NewRecorder()
 	r.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/v1/site/observability", nil))
 	assert.Equal(t, http.StatusOK, rec.Code)
-	// 契约键必须为 lowerCamelCase（前端 services/api/sites.ts 依赖）；
-	// 注意不能只断言 "alertmanagerUrl" 子串——sources 的 key 包含它，
-	// 会掩盖顶层字段缺 json tag 时输出 PascalCase 的回归。
+	// Contract keys must be lowerCamelCase (the frontend services/api/sites.ts
+	// depends on it); note that asserting only the "alertmanagerUrl" substring is
+	// not enough -- the sources keys contain it too, which would mask the regression
+	// where a top-level field without a json tag serializes as PascalCase.
 	body := rec.Body.String()
 	assert.Contains(t, body, `"alertmanagerUrl"`)
 	assert.Contains(t, body, `"grafanaExploreUrl"`)

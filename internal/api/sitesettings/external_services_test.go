@@ -39,8 +39,8 @@ func serveExternalServices(t *testing.T, cfg config.Config) ([]ExternalService, 
 	return body.Services, w.Code
 }
 
-// 零配置：三项全部 configured=false / active=false，缺项点名配置键；
-// 响应永不回显任何值。
+// Zero config: all three report configured=false / active=false, missing items
+// name their config keys; the response never echoes any value.
 func TestExternalServices_ZeroConfig(t *testing.T) {
 	t.Setenv("HERALD_TRIGGER_TOKEN", "")
 	services, code := serveExternalServices(t, config.Config{})
@@ -67,7 +67,7 @@ func TestExternalServices_ZeroConfig(t *testing.T) {
 	}
 }
 
-// 全齐：enabled + baseUrl + token 环境变量有值 → herald active=true。
+// Everything present: enabled + baseUrl + a valued token env var -> herald active=true.
 func TestExternalServices_HeraldActive(t *testing.T) {
 	t.Setenv("HERALD_TRIGGER_TOKEN", "tok")
 	cfg := config.Config{}
@@ -80,8 +80,8 @@ func TestExternalServices_HeraldActive(t *testing.T) {
 	}
 }
 
-// 配了 enabled 但缺 token 环境变量：active=false，缺项点名环境变量（与
-// svc 回落 noop 装配判定同口径）。
+// enabled is set but the token env var is missing: active=false, and the missing
+// item names the env var (same criteria as the svc noop-fallback assembly decision).
 func TestExternalServices_HeraldTokenMissing(t *testing.T) {
 	t.Setenv("MY_HERALD_TOKEN", "")
 	cfg := config.Config{}
@@ -95,7 +95,7 @@ func TestExternalServices_HeraldTokenMissing(t *testing.T) {
 	}
 }
 
-// alertInbound 来源已配置且 secretEnv 环境变量有值 → active。
+// alertInbound: the source is configured and the secretEnv env var has a value -> active.
 func TestExternalServices_AlertInboundActive(t *testing.T) {
 	t.Setenv("AM_SECRET", "s3cret")
 	cfg := config.Config{}
@@ -111,15 +111,15 @@ func TestExternalServices_AlertInboundActive(t *testing.T) {
 	if !am.Active || am.Detail != "labelMapping=1" {
 		t.Fatalf("alertmanager = %+v", am)
 	}
-	// 未配置的 generic 来源仍列出（呈现全闭集状态）
+	// The unconfigured generic source is still listed (the whole closed set is presented)
 	gen := findService(t, services, "alertInbound.generic")
 	if gen.Active || gen.Configured {
 		t.Fatalf("generic = %+v", gen)
 	}
 }
 
-// serverStatus：enabled + provider 已注册 + baseUrl 齐全 → active；
-// 未注册 provider 与缺 baseUrl 各自点名。
+// serverStatus: enabled + a registered provider + baseUrl all present -> active;
+// an unregistered provider and a missing baseUrl are each named.
 func TestExternalServices_ServerStatus(t *testing.T) {
 	cfg := config.Config{}
 	cfg.ServerStatus.Enabled = true
@@ -133,7 +133,8 @@ func TestExternalServices_ServerStatus(t *testing.T) {
 		t.Fatalf("atlas = %+v", st)
 	}
 
-	// 缺 baseUrl → active=false 且点名（fail-open 标注口径的可操作提示）
+	// Missing baseUrl -> active=false and named (an actionable hint under the
+	// fail-open annotation policy)
 	cfg.ServerStatus.Providers["atlas"] = config.ServerStatusSourceConfig{}
 	services, _ = serveExternalServices(t, cfg)
 	st = findService(t, services, "serverStatus.atlas")
@@ -141,7 +142,7 @@ func TestExternalServices_ServerStatus(t *testing.T) {
 		t.Fatalf("atlas no-baseURL = %+v", st)
 	}
 
-	// 未注册 provider → 点名
+	// Unregistered provider -> named
 	cfg.ServerStatus.Provider = "ghost"
 	services, _ = serveExternalServices(t, cfg)
 	st = findService(t, services, "serverStatus.ghost")
@@ -149,7 +150,7 @@ func TestExternalServices_ServerStatus(t *testing.T) {
 		t.Fatalf("ghost = %+v", st)
 	}
 
-	// noop：enabled 即 active（无 baseUrl/密钥要求）
+	// noop: enabled alone makes it active (no baseUrl/secret requirement)
 	cfg.ServerStatus.Provider = "noop"
 	services, _ = serveExternalServices(t, cfg)
 	st = findService(t, services, "serverStatus.noop")
@@ -157,15 +158,17 @@ func TestExternalServices_ServerStatus(t *testing.T) {
 		t.Fatalf("noop = %+v", st)
 	}
 
-	// provider 空=缺省 atlas（批 S4）：缺 baseUrl 点名，缺项与显式 atlas
-	// 同口径（装配层同样旁路不挂 gate）。
+	// An empty provider = the default atlas (batch S4): the missing baseUrl is named,
+	// with the missing items on the same criteria as an explicit atlas (the
+	// assembly layer likewise bypasses mounting the gate).
 	cfg.ServerStatus.Provider = ""
 	services, _ = serveExternalServices(t, cfg)
 	st = findService(t, services, "serverStatus.atlas")
 	if st.Active || st.Missing[0] != "serverStatus.providers.atlas.baseUrl" {
 		t.Fatalf("default atlas no-baseURL = %+v", st)
 	}
-	// providers 段整个不存在时同样点名（零配置启用≠active）
+	// The same naming applies when the whole providers section is absent
+	// (zero-config enabled != active)
 	cfg.ServerStatus.Providers = nil
 	services, _ = serveExternalServices(t, cfg)
 	st = findService(t, services, "serverStatus.atlas")

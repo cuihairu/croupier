@@ -1,5 +1,6 @@
-// 覆盖目标：PutKey 的绑定失败/空 value/secret 掩码未设置/store 写入错误、
-// ClearKey 的 store 删除错误、testOIDCDiscovery 的证书校验失败分支。
+// Coverage target: PutKey's binding failure / empty value / secret mask while not
+// set / store write error, ClearKey's store delete error, and testOIDCDiscovery's
+// certificate validation failure branch.
 package sitesettings
 
 import (
@@ -17,7 +18,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// setupRouterWithDB 同 setupRouter 但暴露 db 供回调注入。
+// setupRouterWithDB is like setupRouter but also exposes db for callback injection.
 func setupRouterWithDB(t *testing.T) (*gin.Engine, *gorm.DB) {
 	t.Helper()
 	settings.ResetForTest()
@@ -61,7 +62,8 @@ func TestPutKey_EmptyValue(t *testing.T) {
 
 func TestPutKey_SecretMaskButNotSet(t *testing.T) {
 	r, _ := setupRouterWithDB(t)
-	// 数据库层从未写入该 secret：掩码回存必须被拒绝而非落库掩码。
+	// The database layer never wrote this secret: saving the mask back must be
+	// rejected rather than landing the mask in the database.
 	rec := doSiteReq(t, r, http.MethodPut, "/api/v1/site/auth.oidc.clientSecret", `{"value":"****t123"}`)
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 	assert.Contains(t, rec.Body.String(), "secret 未设置")
@@ -102,7 +104,8 @@ func TestClearKey_StoreClearError(t *testing.T) {
 }
 
 func TestTestOIDCDiscovery_CertificateError(t *testing.T) {
-	// httptest TLS 证书自签且不被系统信任 → x509 校验失败分支。
+	// The httptest TLS certificate is self-signed and not trusted by the system -> the
+	// x509 validation failure branch.
 	srv := httptest.NewTLSServer(nil)
 	defer srv.Close()
 

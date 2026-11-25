@@ -13,7 +13,7 @@ import (
 	"github.com/cuihairu/croupier/internal/platform/settings"
 )
 
-// postTestAuth 调用 POST /site/auth/test 并返回解析后的响应体与状态码。
+// postTestAuth calls POST /site/auth/test and returns the parsed response body and status code.
 func postTestAuth(t *testing.T, h *Handler, bodyJSON string) (int, map[string]any) {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
@@ -141,7 +141,7 @@ func TestTestAuthConnectionLDAPReachable(t *testing.T) {
 	setAuthKey(t, h, "auth.ldap.enabled", `true`)
 	addrJSON, _ := json.Marshal(ln.Addr().String())
 	setAuthKey(t, h, "auth.ldap.addr", string(addrJSON))
-	_, body := postTestAuth(t, h, `{"kind":"LDAP"}`) // 大小写不敏感
+	_, body := postTestAuth(t, h, `{"kind":"LDAP"}`) // case-insensitive
 	if body["ok"] != true {
 		t.Fatalf("want ok=true, got %v", body)
 	}
@@ -174,7 +174,7 @@ func TestTestAuthConnectionOIDCDiscoveryOK(t *testing.T) {
 
 	h := newAuthTestHandler(t)
 	setAuthKey(t, h, "auth.oidc.enabled", `true`)
-	issuerJSON, _ := json.Marshal(srv.URL + "/") // 尾部斜杠应被 TrimRight 处理
+	issuerJSON, _ := json.Marshal(srv.URL + "/") // the trailing slash should be handled by TrimRight
 	setAuthKey(t, h, "auth.oidc.issuer", string(issuerJSON))
 	_, body := postTestAuth(t, h, `{"kind":"oidc"}`)
 	if body["ok"] != true {

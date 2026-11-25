@@ -7,7 +7,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// GET 快照端点的基本可达性（此前 GetNotification/GetPublic 0% 覆盖）。
+// Basic reachability of the GET snapshot endpoints (GetNotification/GetPublic
+// previously had 0% coverage).
 func TestGetNotificationAndPublicSnapshots(t *testing.T) {
 	h := newAuthTestHandler(t)
 	gin.SetMode(gin.TestMode)
@@ -87,7 +88,7 @@ func TestCurrentUsername(t *testing.T) {
 	if got := currentUsername(c); got != "system" {
 		t.Fatalf("no username = %q, want system fallback", got)
 	}
-	c.Set("username", 42) // 非字符串类型
+	c.Set("username", 42) // non-string type
 	if got := currentUsername(c); got != "system" {
 		t.Fatalf("non-string username = %q, want system fallback", got)
 	}

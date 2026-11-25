@@ -15,13 +15,15 @@ import (
 	"github.com/cuihairu/croupier/internal/platform/settings"
 )
 
-// newAuthTestHandler 用测试 store 初始化全局 Layered。每次调用都走
-// InitLayered 而非 once 守卫：包内其他测试文件（putkey/testemail/
-// handler_extra）会 ResetForTest 清掉全局单例，once 版本此后拿到 nil
-// Layered——put 落在 per-test store 而 Reload 被 nil 守卫静默吞掉，
-// auth.* 键全部退回默认值（shuffle 下按序随机红，OIDC Discovery 系列
-// 实证）。InitLayered 自身是 sync.Once 语义，未重置时重复调用 no-op，
-// 生产「只装配一次」的约束不变。
+// newAuthTestHandler initializes the global Layered with a test store. Every call
+// goes through InitLayered rather than a once-guard: other test files in this
+// package (putkey/testemail/handler_extra) call ResetForTest and clear the global
+// singleton, so a once-style helper would get a nil Layered from then on -- the
+// put lands in the per-test store while Reload is silently swallowed by the nil
+// guard, and every auth.* key falls back to defaults (under shuffle this goes red
+// depending on order; proven by the OIDC Discovery series). InitLayered itself has
+// sync.Once semantics, so repeated calls without a reset are no-ops and the
+// production "wire it up exactly once" constraint is unchanged.
 func newAuthTestHandler(t *testing.T) *Handler {
 	t.Helper()
 	db, err := gorm.Open(sqlite.Open(t.TempDir()+"/site.db"), &gorm.Config{})
@@ -47,7 +49,8 @@ func putSiteKey(t *testing.T, h *Handler, key, jsonValue string) *httptest.Respo
 	return w
 }
 
-// secret 掩码占位符回存沿用旧值（读→存回写不破坏真值）。
+// Re-saving the masked secret placeholder keeps the old value (a read->save
+// round-trip must not destroy the real value).
 func TestPutSecretPlaceholderPreserved(t *testing.T) {
 	h := newAuthTestHandler(t)
 	if w := putSiteKey(t, h, "auth.oidc.clientSecret", `"real-secret-123"`); w.Code != 200 {
@@ -60,28 +63,30 @@ func TestPutSecretPlaceholderPreserved(t *testing.T) {
 	if !snap.OIDC.SecretSet {
 		t.Fatal("secret should remain set after mask re-save")
 	}
-	// 真值未被掩码覆盖：掩码回显仍基于原值尾部
+	// The real value was not overwritten by the mask: the masked echo is still based
+	// on the original value's tail
 	if !strings.HasSuffix(snap.OIDC.SecretMasked, "-123") {
 		t.Fatalf("masked = %q, want suffix t123", snap.OIDC.SecretMasked)
 	}
 }
 
-// auth.* 保存触发热刷新；无效配置被拒并回滚（登录入口不因坏配置中断）。
+// Saving any auth.* key triggers a hot refresh; invalid config is rejected and
+// rolled back (the login entry point must not be broken by a bad config).
 func TestPutAuthKeyInvalidConfigRejectedAndRolledBack(t *testing.T) {
 	h := newAuthTestHandler(t)
 	h.SetAuthChangeCallback(func(cfg config.AuthProvidersConfig) error {
-		// 模拟 buildIdentityProviders 拒绝：enabled 但缺 addr
+		// Simulate buildIdentityProviders rejecting: enabled but no addr
 		if cfg.LDAP.Enabled && cfg.LDAP.Addr == "" {
 			return context.Canceled
 		}
 		return nil
 	})
-	// enabled=true 但 addr 空 → 回调报错 → 400 + 键回滚
+	// enabled=true with an empty addr -> the callback errors -> 400 + key rollback
 	w := putSiteKey(t, h, "auth.ldap.enabled", `true`)
 	if w.Code == 200 {
 		t.Fatalf("invalid config should be rejected, got 200: %s", w.Body.String())
 	}
-	// 键应被回滚（读取不到 database 层覆盖）
+	// The key should be rolled back (no database-layer override is readable)
 	if _, src, _ := settings.Current().GetString(context.Background(), settings.KeyAuthLdapEnabled); src == "database" {
 		t.Fatal("key should be rolled back")
 	}

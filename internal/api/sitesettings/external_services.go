@@ -1,12 +1,15 @@
 // External services inventory (read-only): L2 file-configured platform
 // interface external services — herald (alert outlet) / alertInbound
 // (alert inbound webhook) / serverStatus (maintenance status source).
-// server-status-provider design batch S3「设置页已启用外部服务」.
+// server-status-provider design batch S3 "external services enabled on the
+// settings page".
 //
-// 脱敏口径与 notification 快照一致：只报 set/not-set 与缺项名，永不回显
-// 任何值（凭据一律环境变量引用，值不落配置也不进响应）。页面侧配置编辑
-// 属「配置整理」单（docs/design/config-organization.md，待用户过目），
-// 本端点纯只读、不写 L3 分层设置。
+// The redaction policy matches the notification snapshot: report only
+// set/not-set plus missing-item names, never echo any value (credentials are
+// always environment-variable references; the values neither land in config nor
+// appear in responses). Page-side config editing belongs to the "config
+// organization" item (docs/design/config-organization.md, pending user review);
+// this endpoint is purely read-only and does not write the L3 layered settings.
 package sitesettings
 
 import (
@@ -21,11 +24,14 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// ExternalService 单条外部服务清单。Configured=配置文件有该段；
-// Active=启用态且必填项全齐（Missing 为空）；缺项后果与各服务 svc 装配
-// 判定一致：herald 缺 token 回落 noop 出口、alertInbound 缺密钥端点 403、
-// serverStatus 缺 baseUrl 恒 fail-open 标注（source_unknown 照报）。
-// Missing=缺项名（可操作提示，契约键或环境变量名，不回显任何值）。
+// ExternalService is one entry of the external services inventory.
+// Configured = the config file has the section; Active = enabled and all required
+// items are present (Missing empty); the consequences of missing items match each
+// service's svc assembly decision: herald without a token falls back to a noop
+// outlet, alertInbound without a secret answers 403, and serverStatus without a
+// baseUrl stays fail-open and annotated (source_unknown is still reported).
+// Missing = names of missing items (actionable hints -- contract keys or
+// environment variable names -- echoing no values).
 type ExternalService struct {
 	Name       string   `json:"name"`
 	Kind       string   `json:"kind"` // outbound | inbound
@@ -37,19 +43,19 @@ type ExternalService struct {
 	Detail     string   `json:"detail,omitempty"`
 }
 
-// ExternalServicesResponse 外部服务清单响应。
+// ExternalServicesResponse is the external services inventory response.
 type ExternalServicesResponse struct {
 	Services []ExternalService `json:"services"`
-	Source   string            `json:"source"` // 固定 "file"：L2 配置文件真值，L3 覆盖不适用
+	Source   string            `json:"source"` // always "file": the L2 config-file truth; L3 overrides do not apply
 }
 
-// ExternalServicesHandler 文件侧外部服务清单只读呈现。
+// ExternalServicesHandler presents the file-side external services inventory, read-only.
 type ExternalServicesHandler struct {
 	cfg config.Config
 }
 
-// NewExternalServicesHandler 构造（serverCtx.Config 快照；config 运行期
-// 不变更，装配结果即启动真值）。
+// NewExternalServicesHandler builds the handler (a snapshot of serverCtx.Config;
+// config does not change at runtime, so the assembly result is the startup truth).
 func NewExternalServicesHandler(cfg config.Config) *ExternalServicesHandler {
 	return &ExternalServicesHandler{cfg: cfg}
 }
@@ -72,8 +78,10 @@ func (h *ExternalServicesHandler) Get(c *gin.Context) {
 	})
 }
 
-// herald 告警出口：active = enabled && baseUrl 非空 && token 环境变量有值
-// （与 registerHeraldOutlet 装配判定同口径：任一缺=出口未注册，告警页仍真值）。
+// herald alert outlet: active = enabled && baseUrl non-empty && the token
+// environment variable has a value (same criteria as the registerHeraldOutlet
+// assembly decision: any missing item = the outlet is not registered; the alert
+// page still shows the truth).
 func (h *ExternalServicesHandler) herald() ExternalService {
 	cfg := h.cfg.Herald
 	envName := cfg.TokenEnv
@@ -95,8 +103,9 @@ func (h *ExternalServicesHandler) herald() ExternalService {
 	return e
 }
 
-// alertInbound 告警入站 webhook（来源闭集 alertmanager/generic）：active =
-// 来源已配置且 secretEnv 环境变量有值（与 inbound handler 门槛同口径）。
+// alertInbound alert inbound webhook (closed source set: alertmanager/generic):
+// active = the source is configured and the secretEnv environment variable has a
+// value (same threshold as the inbound handler).
 func (h *ExternalServicesHandler) alertInbound(source string) ExternalService {
 	src, ok := h.cfg.AlertInbound.Sources[source]
 	e := ExternalService{
@@ -118,9 +127,10 @@ func (h *ExternalServicesHandler) alertInbound(source string) ExternalService {
 	return e
 }
 
-// serverStatus 维护状态源：provider 空=缺省 atlas（批 S4，与
-// installServerStatusGate 装配判定同口径）、显式 noop 无需 baseUrl；真实源
-// active = enabled && provider 已注册 && baseUrl 非空。
+// serverStatus maintenance status source: an empty provider means the default
+// atlas (batch S4, same criteria as the installServerStatusGate assembly
+// decision); an explicit noop needs no baseUrl. For real sources,
+// active = enabled && the provider is registered && baseUrl is non-empty.
 func (h *ExternalServicesHandler) serverStatus() ExternalService {
 	cfg := h.cfg.ServerStatus
 	providerKey := strings.TrimSpace(cfg.Provider)
@@ -138,8 +148,9 @@ func (h *ExternalServicesHandler) serverStatus() ExternalService {
 		if serverstatus.Lookup(providerKey) == nil {
 			e.Missing = appendMissing(e.Missing, true, "serverStatus.provider:"+providerKey)
 		}
-		// baseUrl 缺失点名（providers 段不存在与存在但空都算缺——装配层
-		// 对非 noop 源缺 baseUrl 同样旁路不挂 gate）。
+		// Flag a missing baseUrl (both a nonexistent providers section and one that
+		// exists but is empty count as missing -- the assembly layer likewise bypasses
+		// mounting the gate when a non-noop source lacks a baseUrl).
 		if providerKey != serverstatus.ProviderNoop && strings.TrimSpace(cfg.Providers[providerKey].BaseURL) == "" {
 			e.Missing = appendMissing(e.Missing, true, "serverStatus.providers."+providerKey+".baseUrl")
 		}
@@ -153,7 +164,8 @@ func (h *ExternalServicesHandler) serverStatus() ExternalService {
 	return e
 }
 
-// appendMissing 缺项追加（空缺才记录，保持 Missing 只增不减的可操作口径）。
+// appendMissing appends a missing item (recorded only when actually missing,
+// keeping Missing append-only for actionable reading).
 func appendMissing(dst []string, cond bool, name string) []string {
 	if cond {
 		return append(dst, name)
@@ -161,7 +173,8 @@ func appendMissing(dst []string, cond bool, name string) []string {
 	return dst
 }
 
-// matchByOr 匹配键缺省口径（gate 装配同款：非 agentId 启动回落并告警）。
+// matchByOr applies the default match key (same as the gate assembly: a start
+// without agentId falls back and warns).
 func matchByOr(v string) string {
 	if strings.TrimSpace(v) == "" {
 		return "agentId"

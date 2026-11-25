@@ -21,8 +21,9 @@ import (
 type Handler struct {
 	layered *settings.Layered
 	store   *model.PlatformSettingModel
-	// onAuthChange 在 auth.* 键保存后调用（登录方式热刷新——Harbor 模式
-	// 保存即生效；nil = 未接线，配置仅在下次重启生效）。
+	// onAuthChange is invoked after an auth.* key is saved (hot refresh of login
+	// providers -- Harbor style, save takes effect immediately; nil = not wired up,
+	// config only takes effect on the next restart).
 	onAuthChange func(cfg config.AuthProvidersConfig) error
 }
 
@@ -31,7 +32,7 @@ func NewHandler(layered *settings.Layered, store *model.PlatformSettingModel) *H
 	return &Handler{layered: layered, store: store}
 }
 
-// SetAuthChangeCallback 注入登录方式热刷新回调（装配期）。
+// SetAuthChangeCallback injects the login-provider hot refresh callback (assembly time).
 func (h *Handler) SetAuthChangeCallback(fn func(cfg config.AuthProvidersConfig) error) {
 	h.onAuthChange = fn
 }
@@ -45,9 +46,10 @@ func RegisterPublic(g *gin.RouterGroup, h *Handler) {
 func (h *Handler) RegisterAdmin(g *gin.RouterGroup) {
 	g.PUT("/site/:key", h.PutKey)
 	g.DELETE("/site/:key", h.ClearKey)
-	// 注意：/site/features 读端点与 :key 路由同组，gin 会把 "features"
-	// 当作 :key 命中 PutKey/ClearKey 的参数校验（不在白名单 → 400），
-	// 因此读端点必须在参数路由之前注册。
+	// Note: the /site/features read endpoints share the group with the :key routes,
+	// and gin would otherwise match "features" as :key, running PutKey/ClearKey's
+	// parameter validation (not in the whitelist -> 400), so the read endpoints
+	// must be registered before the parameter routes.
 	g.GET("/site/features", h.GetFeatures)
 	g.GET("/site/observability", h.GetObservability)
 	g.GET("/site/notification", h.GetNotification)
@@ -62,14 +64,16 @@ func (h *Handler) GetNotification(c *gin.Context) {
 	response.Success(c, h.layered.NotificationSnapshot())
 }
 
-// GetSecurity serves GET /api/v1/site/security: 账号安全策略生效值
-// （security.* 六键，默认全关；唯一例外 approvalStepUpOtp 默认开，#61）。
+// GetSecurity serves GET /api/v1/site/security: the effective account security
+// policy values (the six security.* keys, all off by default; the only exception
+// is approvalStepUpOtp, on by default, #61).
 func (h *Handler) GetSecurity(c *gin.Context) {
 	response.Success(c, h.layered.SecurityPolicy())
 }
 
-// GetOutbound serves GET /api/v1/site/outbound: 出站安全与限制生效值
-// （sec.* 四键，默认全关 = 不限/不拦截）。
+// GetOutbound serves GET /api/v1/site/outbound: the effective outbound security
+// and restriction values (the four sec.* keys, all off by default = no limits,
+// no blocking).
 func (h *Handler) GetOutbound(c *gin.Context) {
 	response.Success(c, h.layered.OutboundSnapshot())
 }
@@ -117,8 +121,10 @@ func (h *Handler) PutKey(c *gin.Context) {
 		response.Error(c, errorx.NewBadRequest(err.Error()))
 		return
 	}
-	// secret 占位符保留：读取端回显的是掩码（****+尾4），前端原样回存
-	// 时不能把真值覆盖成掩码——检测掩码形态则沿用已存值。
+	// Secret placeholder preservation: the read endpoint echoes a mask (**** + last
+	// 4). If the frontend saves that echo back verbatim, it must not overwrite the
+	// real value with the mask -- when the mask shape is detected, reuse the stored
+	// value instead.
 	if settings.IsSecretKey(key) {
 		var v string
 		if err := json.Unmarshal(req.Value, &v); err == nil && strings.HasPrefix(v, "****") {
@@ -136,7 +142,8 @@ func (h *Handler) PutKey(c *gin.Context) {
 		return
 	}
 	h.layered.Reload(c.Request.Context(), h.store)
-	// 登录方式键：热刷新身份提供方（失败回滚该键，保持现状可用）
+	// Login provider key: hot refresh the identity providers (on failure, roll back
+	// the key so the current state stays usable)
 	if strings.HasPrefix(key, "auth.") && h.onAuthChange != nil {
 		if err := h.onAuthChange(h.layered.AuthProviderConfig()); err != nil {
 			_ = h.store.Clear(c.Request.Context(), key)
@@ -148,7 +155,7 @@ func (h *Handler) PutKey(c *gin.Context) {
 	response.Success(c, gin.H{"key": key, "source": "database"})
 }
 
-// validateValue 校验 L3 写入值的类型与格式。
+// validateValue validates the type and format of an L3 write value.
 func validateValue(key string, raw json.RawMessage) error {
 	if settings.IsBoolKey(key) {
 		var v bool
@@ -169,7 +176,7 @@ func validateValue(key string, raw json.RawMessage) error {
 	}
 	var v string
 	if err := json.Unmarshal(raw, &v); err != nil {
-		// footer.links 例外：JSON 数组。
+		// footer.links exception: a JSON array.
 		if key == settings.KeyFooterLinks {
 			var links []settings.FooterLink
 			if err2 := json.Unmarshal(raw, &links); err2 == nil {
@@ -194,7 +201,8 @@ func validateValue(key string, raw json.RawMessage) error {
 			return fmt.Errorf("%s 需要是 http(s) URL", key)
 		}
 	}
-	// #55 SMTP 传输细节：枚举值校验（空串 = 恢复自动/默认）
+	// #55 SMTP transport details: enum value validation (empty string = restore
+	// auto/default)
 	if key == settings.KeyNotifySMTPEncryption {
 		switch v {
 		case "", "none", "ssl", "starttls":
@@ -209,7 +217,7 @@ func validateValue(key string, raw json.RawMessage) error {
 			return fmt.Errorf("%s 仅支持 plain / login（留空 = plain）", key)
 		}
 	}
-	// #56 出站安全：清单格式校验（空串 = 不限）
+	// #56 outbound security: list format validation (empty string = no limits)
 	if key == settings.KeySecAllowPorts && v != "" {
 		for _, part := range strings.Split(strings.ReplaceAll(v, " ", ""), ",") {
 			n, err := strconv.Atoi(part)
@@ -240,7 +248,7 @@ func validateValue(key string, raw json.RawMessage) error {
 			return err
 		}
 	}
-	// #51c 注册邮箱域白名单：同域名后缀清单规则
+	// #51c registration email domain whitelist: the same domain suffix list rules
 	if key == settings.KeyAuthEmailDomainWhitelist && v != "" {
 		if err := validateDomainSuffixList(key, v); err != nil {
 			return err
@@ -249,7 +257,8 @@ func validateValue(key string, raw json.RawMessage) error {
 	return nil
 }
 
-// validateDomainSuffixList 逗号分隔域名后缀清单校验（禁协议/路径/空格）。
+// validateDomainSuffixList validates a comma-separated list of domain suffixes
+// (protocol, path, and spaces are forbidden).
 func validateDomainSuffixList(key, v string) error {
 	for _, part := range strings.Split(v, ",") {
 		part = strings.ToLower(strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(part), ".")))

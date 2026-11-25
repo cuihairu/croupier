@@ -1,7 +1,8 @@
-// 发送测试邮件（OPEN-ISSUES #55 边界补欠 / #51c）：运维 SMTP 卡的
-// 「发送测试邮件」入口。按 L3 当前 SMTP 配置即时构造 EmailSender 真实
-// 发信（不查 emailEnabled——测试邮件本身就是验证配置的手段），sendMail
-// 函数缝隙供测试注入。
+// Send test email (OPEN-ISSUES #55 boundary debt / #51c): the "send test email"
+// entry point on the ops SMTP card. Builds an EmailSender from the current L3 SMTP
+// config on the fly and really sends (it does not check emailEnabled -- a test
+// email is itself the way to validate the config); the sendMail function seam is
+// available for test injection.
 package sitesettings
 
 import (
@@ -15,7 +16,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// sendTestEmailFn 可注入缝隙（同 ops/systemUpdateFetchFn 口径）。
+// sendTestEmailFn is the injectable seam (same style as ops/systemUpdateFetchFn).
 var sendTestEmailFn = func(ctx context.Context, to string) error {
 	smtpCfg := settings.Current().NotifySMTP()
 	sender := approvals.NewEmailSender(smtpCfg.Host, smtpCfg.Port, smtpCfg.User, smtpCfg.Password, smtpCfg.From).
@@ -28,9 +29,9 @@ var sendTestEmailFn = func(ctx context.Context, to string) error {
 	})
 }
 
-// SendTestEmail serves POST /api/v1/site/notification/test-email (admin)。
-// SMTP host 未配置时 400（EmailSender.Send 对空 host 静默 no-op，前置拦截
-// 避免假成功）。
+// SendTestEmail serves POST /api/v1/site/notification/test-email (admin).
+// Returns 400 when the SMTP host is not configured (EmailSender.Send silently
+// no-ops on an empty host, so this up-front interception avoids a false success).
 func (h *Handler) SendTestEmail(c *gin.Context) {
 	var req struct {
 		To string `json:"to"`

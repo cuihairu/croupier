@@ -1,8 +1,9 @@
 package sitesettings
 
-// 出站安全与限制键（OPEN-ISSUES #56）：清单格式校验（端口 1-65535、
-// IP/CIDR、域名后缀禁协议/路径），空串 = 不限；ssrfProtection 走 bool
-// 校验（validateValue 通用路径）。
+// Outbound security and restriction keys (OPEN-ISSUES #56): list format validation
+// (ports 1-65535, IP/CIDR, domain suffixes forbidding protocol/path), empty string
+// = no limits; ssrfProtection goes through bool validation (the validateValue
+// general path).
 
 import (
 	"net/http"
@@ -15,20 +16,20 @@ import (
 func TestPutKey_SecOutboundKeys(t *testing.T) {
 	r, _ := setupRouterWithDB(t)
 
-	// allowPorts：非法片段拒绝（越界/非数字/空片段）
+	// allowPorts: reject invalid fragments (out of range / non-numeric / empty fragment)
 	for _, bad := range []string{"70000", "443,bad", "0", "443,,8080"} {
 		rec := doSiteReq(t, r, http.MethodPut, "/api/v1/site/sec.allowPorts", `{"value":"`+bad+`"}`)
 		require.Equal(t, http.StatusBadRequest, rec.Code, bad)
 		assert.Contains(t, rec.Body.String(), "1-65535")
 	}
 
-	// allowPorts：合法清单与空串（清空 = 不限）
+	// allowPorts: valid lists and the empty string (clearing = no limits)
 	for _, ok := range []string{"443", "443, 8080", ""} {
 		rec := doSiteReq(t, r, http.MethodPut, "/api/v1/site/sec.allowPorts", `{"value":"`+ok+`"}`)
 		assert.Equal(t, http.StatusOK, rec.Code, ok)
 	}
 
-	// allowIPs：非法 IP / 非法 CIDR 拒绝
+	// allowIPs: reject an invalid IP / invalid CIDR
 	rec := doSiteReq(t, r, http.MethodPut, "/api/v1/site/sec.allowIPs", `{"value":"10.0.0.0/8"}`)
 	assert.Equal(t, http.StatusOK, rec.Code)
 	rec = doSiteReq(t, r, http.MethodPut, "/api/v1/site/sec.allowIPs", `{"value":"notanip"}`)
@@ -37,7 +38,7 @@ func TestPutKey_SecOutboundKeys(t *testing.T) {
 	rec = doSiteReq(t, r, http.MethodPut, "/api/v1/site/sec.allowIPs", `{"value":"10.0.0.0/99"}`)
 	require.Equal(t, http.StatusBadRequest, rec.Code)
 
-	// domainFilter：协议/路径拒绝；域名后缀与空串通过
+	// domainFilter: reject protocol/path; a domain suffix and the empty string pass
 	rec = doSiteReq(t, r, http.MethodPut, "/api/v1/site/sec.domainFilter", `{"value":"http://example.com"}`)
 	require.Equal(t, http.StatusBadRequest, rec.Code)
 	assert.Contains(t, rec.Body.String(), "不带协议")
@@ -48,18 +49,18 @@ func TestPutKey_SecOutboundKeys(t *testing.T) {
 		assert.Equal(t, http.StatusOK, rec.Code, ok)
 	}
 
-	// ssrfProtection：bool 键（非法类型拒绝，合法布尔通过）
+	// ssrfProtection: a bool key (invalid types are rejected, a valid boolean passes)
 	rec = doSiteReq(t, r, http.MethodPut, "/api/v1/site/sec.ssrfProtection", `{"value":"on"}`)
 	require.Equal(t, http.StatusBadRequest, rec.Code)
 	rec = doSiteReq(t, r, http.MethodPut, "/api/v1/site/sec.ssrfProtection", `{"value":true}`)
 	assert.Equal(t, http.StatusOK, rec.Code)
 
-	// 未声明的 sec.* 键仍拒绝
+	// Undeclared sec.* keys are still rejected
 	rec = doSiteReq(t, r, http.MethodPut, "/api/v1/site/sec.unknown", `{"value":"x"}`)
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 
-	// net.* 出站调用策略（OPEN-ISSUES #57）：int 通用校验（负数/越界拒，
-	// 0 = 沿用调用方缺省）
+	// net.* outbound call policy (OPEN-ISSUES #57): general int validation
+	// (negatives/out-of-range are rejected, 0 = keep the caller's default)
 	for key := range map[string]struct{}{
 		"net.requestTimeoutMs": {},
 		"net.maxRetries":       {},
