@@ -12,8 +12,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// 查询类 handler 的 service 错误分支：底层查询链路（内存 store 读取）
-// 恒返回 nil error，通过包级函数缝隙注入错误触达。每个子测试自恢复缝隙。
+// Service error branches of query handlers: the underlying query path (in-memory
+// store reads) always returns a nil error, so errors are injected through the
+// package-level function seams. Each subtest restores its own seam.
 func TestHandlerQueryServiceErrorBranches(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	h := NewHandler(&Service{})
@@ -142,7 +143,8 @@ func TestHandlerQueryServiceErrorBranches(t *testing.T) {
 	})
 }
 
-// opsServicesLegacyCompatible 的错误透传分支（同样经缝隙注入）。
+// The error propagation branch of opsServicesLegacyCompatible (injected through
+// the same seam).
 func TestOpsServicesLegacyCompatibleErrorBranch(t *testing.T) {
 	orig := opsServicesFn
 	opsServicesFn = func(ctx context.Context, s *svc.ServiceContext, req *OpsServicesRequest) (*OpsServicesResponse, error) {

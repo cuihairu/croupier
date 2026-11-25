@@ -1,8 +1,10 @@
 package ops
 
-// GET /ops/nodes/:nodeId 单设备详情与 Node.version 出参（移动伴侣端设计
-// §2.3 后端最小补集转正）：详情与列表同源、scope 头可见性与列表一致、
-// 未命中按契约回 404、agent_sessions.Version 透出为 node.version。
+// GET /ops/nodes/:nodeId single-device detail and the Node.version output
+// field (promoted from the mobile companion design §2.3 minimal backend
+// supplement): the detail shares its source with the list, scope-header
+// visibility matches the list, a miss returns 404 per the contract, and
+// agent_sessions.Version is exposed as node.version.
 
 import (
 	"context"
@@ -88,27 +90,27 @@ func TestOpsNodeDetail_Errors(t *testing.T) {
 	svcCtx := &svc.ServiceContext{RegistryStore: store}
 	s := NewService(svcCtx)
 
-	// 空 nodeId → 400
+	// empty nodeId → 400
 	_, err := s.OpsNodeDetail(context.Background(), &OpsNodeDetailRequest{})
 	require.Error(t, err)
 	var bad *errorx.CodeError
 	require.ErrorAs(t, err, &bad)
 	assert.Equal(t, http.StatusBadRequest, bad.Code)
 
-	// 未知 id → 404
+	// unknown id → 404
 	_, err = s.OpsNodeDetail(context.Background(), &OpsNodeDetailRequest{NodeID: "nope"})
 	require.Error(t, err)
 	var notFound *errorx.CodeError
 	require.True(t, errors.As(err, &notFound))
 	assert.Equal(t, http.StatusNotFound, notFound.Code)
 
-	// scope 头（X-Game-ID 注入的 GameScope）决定可见性：g2 看不到 g1 的节点
+	// the scope header (the GameScope injected by X-Game-ID) determines visibility: g2 cannot see g1's node
 	ctx := svc.WithGameScope(context.Background(), svc.GameScope{GameID: "g2", Env: "prod"})
 	_, err = s.OpsNodeDetail(ctx, &OpsNodeDetailRequest{NodeID: "a1"})
 	require.Error(t, err)
 	require.ErrorAs(t, err, &notFound)
 
-	// 同 scope 命中
+	// hit within the same scope
 	ctx = svc.WithGameScope(context.Background(), svc.GameScope{GameID: "g1", Env: "prod"})
 	resp, err := s.OpsNodeDetail(ctx, &OpsNodeDetailRequest{NodeID: "a1"})
 	require.NoError(t, err)
@@ -122,14 +124,16 @@ func TestNodeDetailHandlerRoutes(t *testing.T) {
 	h := NewHandler(NewService(svcCtx))
 
 	gin.SetMode(gin.TestMode)
-	// 与生产路由表同构注册：静态段 /nodes/commands 与参数段 /nodes/:nodeId
-	// 共存（沿用既有 :nodeId/meta 注册形态），证明路由树不冲突。
+	// registered isomorphic to the production route table: the static segment
+	// /nodes/commands and the parameter segment /nodes/:nodeId coexist (following
+	// the existing :nodeId/meta registration shape), proving the route tree does
+	// not conflict.
 	r := gin.New()
 	r.GET("/nodes/commands", h.NodeCommands)
 	r.GET("/nodes/:nodeId", h.NodeDetail)
 	r.GET("/nodes/:nodeId/meta", h.NodeMeta)
 
-	// 命中 → 200 + node.version 出参
+	// hit → 200 + node.version output field
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/nodes/a1", nil))
 	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
@@ -145,7 +149,7 @@ func TestNodeDetailHandlerRoutes(t *testing.T) {
 	assert.Equal(t, "1.4.2", out.Node.Version)
 	assert.Equal(t, "active", out.Node.Status)
 
-	// 未命中 → 404 统一错误对象
+	// miss → unified 404 error object
 	w = httptest.NewRecorder()
 	r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/nodes/nope", nil))
 	assert.Equal(t, http.StatusNotFound, w.Code)

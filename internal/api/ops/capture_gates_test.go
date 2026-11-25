@@ -13,8 +13,8 @@ import (
 	"gorm.io/gorm/logger"
 )
 
-// newCaptureGatesService：:memory: sqlite + config_versions 表（单连接防
-// :memory: 多实例库漂移）。
+// newCaptureGatesService: :memory: sqlite + config_versions table (single
+// connection guards against :memory: multi-instance database drift).
 func newCaptureGatesService(t *testing.T) (*Service, context.Context) {
 	t.Helper()
 	db, err := gorm.Open(gosqlite.Open("file:"+t.Name()+"?mode=memory&cache=private"), &gorm.Config{
@@ -121,15 +121,17 @@ func TestCaptureGatesPutValidation(t *testing.T) {
 			t.Fatalf("%s: error code = %d, want 422", name, code)
 		}
 	}
-	// lint 失败不得落版本。
+	// A lint failure must not land a version.
 	if got, err := s.CaptureGatesGet(ctx); err != nil || got.Version != 0 {
 		t.Fatalf("post-lint-failure get = %+v, %v; want unpublished", got, err)
 	}
-	// 未知键放行（agent 侧前向扩展不需要改面板）。
+	// Unknown keys are allowed (forward extension on the agent side should not
+	// require panel changes).
 	if _, err := s.CaptureGatesPut(ctx, &CaptureGatesPutRequest{Content: `{"future":{"x":1}}`}); err != nil {
 		t.Fatalf("unknown section must pass lint: %v", err)
 	}
-	// event 段合法形状放行（操作白名单，阶段二 EventFilterPolicy）。
+	// A well-shaped event section is allowed (operation allowlist,
+	// EventFilterPolicy in phase two).
 	if _, err := s.CaptureGatesPut(ctx, &CaptureGatesPutRequest{Content: `{"event":{"ops":["insert","delete"]}}`}); err != nil {
 		t.Fatalf("event section must pass lint: %v", err)
 	}
@@ -144,7 +146,8 @@ func TestCaptureGatesRollbackRepublishesHistoricalContent(t *testing.T) {
 		t.Fatalf("put v2: %v", err)
 	}
 
-	// 回滚到 v1：新版本号 3，内容=v1，版本日志不可变（v1/v2 仍在）。
+	// Rollback to v1: new version number 3 with v1 content; the version log is
+	// immutable (v1/v2 remain).
 	resp, err := s.CaptureGatesRollback(ctx, &CaptureGatesRollbackRequest{Version: 1, Message: "undo burst change"})
 	if err != nil {
 		t.Fatalf("rollback: %v", err)
@@ -171,7 +174,8 @@ func TestCaptureGatesRollbackRepublishesHistoricalContent(t *testing.T) {
 		t.Fatalf("history v2 = %+v, %v; want intact", hist, err)
 	}
 
-	// 回滚当前版本合法（重发同内容=显式重新生效），版本继续递增。
+	// Rolling back the current version is legal (republishing the same content =
+	// explicitly re-activating it); the version keeps incrementing.
 	if resp, err := s.CaptureGatesRollback(ctx, &CaptureGatesRollbackRequest{Version: 3}); err != nil {
 		t.Fatalf("rollback current: %v", err)
 	} else if resp.Version != 4 {
@@ -185,26 +189,27 @@ func TestCaptureGatesRollbackValidation(t *testing.T) {
 		t.Fatalf("put: %v", err)
 	}
 
-	// 版本号非法 → 422。
+	// Invalid version number -> 422.
 	if _, err := s.CaptureGatesRollback(ctx, &CaptureGatesRollbackRequest{Version: 0}); err == nil {
 		t.Fatal("version 0 must be rejected")
 	} else if code := httpCode(err); code != 422 {
 		t.Fatalf("version 0: code = %d, want 422", code)
 	}
-	// 不存在的版本 → 404。
+	// Non-existent version -> 404.
 	if _, err := s.CaptureGatesRollback(ctx, &CaptureGatesRollbackRequest{Version: 9}); err == nil {
 		t.Fatal("unknown version must be rejected")
 	} else if code := httpCode(err); code != 404 {
 		t.Fatalf("unknown version: code = %d, want 404", code)
 	}
-	// scope 隔离：其他 env 拿不到 demo/prod 的版本（404 而非泄漏内容）。
+	// Scope isolation: other envs cannot fetch demo/prod versions (404 instead
+	// of leaking content).
 	other := svc.WithGameScope(context.Background(), svc.GameScope{GameID: "demo", Env: "dev"})
 	if _, err := s.CaptureGatesRollback(other, &CaptureGatesRollbackRequest{Version: 1}); err == nil {
 		t.Fatal("cross-scope rollback must be rejected")
 	} else if code := httpCode(err); code != 404 {
 		t.Fatalf("cross-scope rollback: code = %d, want 404", code)
 	}
-	// 缺 env scope → 422。
+	// Missing env scope -> 422.
 	noScope := svc.WithGameScope(context.Background(), svc.GameScope{GameID: "demo"})
 	if _, err := s.CaptureGatesRollback(noScope, &CaptureGatesRollbackRequest{Version: 1}); err == nil {
 		t.Fatal("missing env scope must be rejected")
@@ -213,7 +218,8 @@ func TestCaptureGatesRollbackValidation(t *testing.T) {
 
 func TestCaptureGatesRollbackRejectsContentFailingCurrentLint(t *testing.T) {
 	s, ctx := newCaptureGatesService(t)
-	// 模拟 lint 规则演进后的存量坏行：直插 model 绕过服务层 lint。
+	// Simulates a pre-existing bad row left behind after lint rules evolved:
+	// insert directly through the model to bypass service-layer lint.
 	if _, err := s.svcCtx.ConfigVersionModel.CreateWithMeta(ctx, model.ConfigVersionPayload{
 		Key: "capture.gates", Content: `{"reconcile":`, Format: "json",
 		GameID: "demo", Env: "prod", Namespace: model.ConfigNamespaceOps,
@@ -224,7 +230,8 @@ func TestCaptureGatesRollbackRejectsContentFailingCurrentLint(t *testing.T) {
 		t.Fatalf("put v2: %v", err)
 	}
 
-	// 回滚到坏内容 → 422，且不落新版本（latest 停在 v2）。
+	// Rollback to bad content -> 422, and no new version lands (latest stays at
+	// v2).
 	if _, err := s.CaptureGatesRollback(ctx, &CaptureGatesRollbackRequest{Version: 1}); err == nil {
 		t.Fatal("rollback to content failing current lint must be rejected")
 	} else if code := httpCode(err); code != 422 {
@@ -244,13 +251,13 @@ func TestCaptureGatesPutOptimisticLock(t *testing.T) {
 		t.Fatalf("put v2 with base 1: %v", err)
 	}
 
-	// 基线过期（编辑面还停在 v1）→ 409。
+	// Stale base (editor still on v1) -> 409.
 	if _, err := s.CaptureGatesPut(ctx, &CaptureGatesPutRequest{Content: validGatesContent(), BaseVersion: 1}); err == nil {
 		t.Fatal("stale base version must conflict")
 	} else if code := httpCode(err); code != 409 {
 		t.Fatalf("stale base: code = %d, want 409", code)
 	}
-	// 正确基线 → 递增成功。
+	// Correct base -> increment succeeds.
 	resp, err := s.CaptureGatesPut(ctx, &CaptureGatesPutRequest{Content: `{"event":{"ops":["insert"]}}`, BaseVersion: 2})
 	if err != nil {
 		t.Fatalf("put v3 with base 2: %v", err)
@@ -258,13 +265,15 @@ func TestCaptureGatesPutOptimisticLock(t *testing.T) {
 	if resp.Version != 3 {
 		t.Fatalf("version = %d, want 3", resp.Version)
 	}
-	// 缺省基线（0）=不启用锁，向后兼容既有调用方。
+	// Default base (0) = lock disabled, backward compatible with existing
+	// callers.
 	if resp, err := s.CaptureGatesPut(ctx, &CaptureGatesPutRequest{Content: `{}`}); err != nil {
 		t.Fatalf("put without base: %v", err)
 	} else if resp.Version != 4 {
 		t.Fatalf("version = %d, want 4", resp.Version)
 	}
-	// 对不存在的版本链指定基线（首次发布带 baseVersion）→ 409。
+	// Base specified against a non-existent version chain (first publish with
+	// baseVersion) -> 409.
 	fresh := svc.WithGameScope(context.Background(), svc.GameScope{GameID: "demo", Env: "dev"})
 	if _, err := s.CaptureGatesPut(fresh, &CaptureGatesPutRequest{Content: `{}`, BaseVersion: 1}); err == nil {
 		t.Fatal("base on empty chain must conflict")
@@ -272,7 +281,7 @@ func TestCaptureGatesPutOptimisticLock(t *testing.T) {
 		t.Fatalf("base on empty chain: code = %d, want 409", code)
 	}
 
-	// 冲突不落版本：latest 仍是 v4。
+	// Conflicts land no version: latest remains v4.
 	if got, err := s.CaptureGatesGet(ctx); err != nil || got.Version != 4 {
 		t.Fatalf("get after conflicts = %+v, %v; want v4", got, err)
 	}
@@ -281,7 +290,7 @@ func TestCaptureGatesPutOptimisticLock(t *testing.T) {
 func TestCaptureGatesVersionsList(t *testing.T) {
 	s, ctx := newCaptureGatesService(t)
 
-	// 未发布 → 空数组（常态而非 404）。
+	// Unpublished -> empty array (normal state, not 404).
 	items, err := s.CaptureGatesVersionsGet(ctx)
 	if err != nil {
 		t.Fatalf("versions before publish: %v", err)
@@ -290,7 +299,8 @@ func TestCaptureGatesVersionsList(t *testing.T) {
 		t.Fatalf("versions = %+v, want empty", items)
 	}
 
-	// 三条版本（v1 发布 / v2 发布 / v3=回滚 v1）→ 倒序 + 元信息。
+	// Three versions (v1 published / v2 published / v3 = rollback of v1) ->
+	// descending order + metadata.
 	if _, err := s.CaptureGatesPut(ctx, &CaptureGatesPutRequest{Content: validGatesContent(), Message: "first"}); err != nil {
 		t.Fatalf("put v1: %v", err)
 	}
@@ -314,12 +324,12 @@ func TestCaptureGatesVersionsList(t *testing.T) {
 		t.Fatalf("v1 item = %+v, want message/author/time", items[2])
 	}
 
-	// scope 隔离：其他 env 无历史。
+	// Scope isolation: the other env has no history.
 	other := svc.WithGameScope(context.Background(), svc.GameScope{GameID: "demo", Env: "dev"})
 	if items, err := s.CaptureGatesVersionsGet(other); err != nil || len(items) != 0 {
 		t.Fatalf("other env versions = %+v, %v; want empty", items, err)
 	}
-	// 缺 env scope → 422。
+	// Missing env scope -> 422.
 	noScope := svc.WithGameScope(context.Background(), svc.GameScope{GameID: "demo"})
 	if _, err := s.CaptureGatesVersionsGet(noScope); err == nil {
 		t.Fatal("missing env scope must be rejected")
@@ -328,7 +338,8 @@ func TestCaptureGatesVersionsList(t *testing.T) {
 	}
 }
 
-// httpCode 取 errorx 错误的 HTTP 语义码（CodeError.Data 首元）。
+// httpCode extracts the HTTP semantic code of an errorx error (first element
+// of CodeError.Data).
 func httpCode(err error) int {
 	var codeErr *errorx.CodeError
 	if errors.As(err, &codeErr) {
@@ -348,14 +359,14 @@ func httpCode(err error) int {
 func TestCaptureGatesValidate(t *testing.T) {
 	s, _ := newCaptureGatesService(t)
 
-	// 空内容 → 422。
+	// Empty content -> 422.
 	if _, err := s.CaptureGatesValidate(nil); err == nil {
 		t.Fatal("nil request must be rejected")
 	} else if code := httpCode(err); code != 422 {
 		t.Fatalf("nil request: code = %d, want 422", code)
 	}
 
-	// 合法内容 → valid + 各闸规则数预览。
+	// Valid content -> valid + per-gate rule count preview.
 	resp, err := s.CaptureGatesValidate(&CaptureGatesValidateRequest{Content: validGatesContent()})
 	if err != nil {
 		t.Fatalf("validate: %v", err)
@@ -364,14 +375,14 @@ func TestCaptureGatesValidate(t *testing.T) {
 		t.Fatalf("unexpected summary: %+v", resp)
 	}
 
-	// 浅 lint 失败（非对象）→ 422。
+	// Shallow lint failure (non-object) -> 422.
 	if _, err := s.CaptureGatesValidate(&CaptureGatesValidateRequest{Content: `[1,2]`}); err == nil {
 		t.Fatal("non-object content must be rejected")
 	} else if code := httpCode(err); code != 422 {
 		t.Fatalf("lint failure: code = %d, want 422", code)
 	}
 
-	// 深度校验失败（lint 放行、agent apply 必拒）→ 422。
+	// Deep validation failure (lint passes, agent apply must reject) -> 422.
 	badTable := `{"reconcile":{"rules":[{"name":"x","itemTable":"bad","ledgerTable":"game.ledger","itemKey":"1","ledgerKey":"0"}]}}`
 	if _, err := s.CaptureGatesValidate(&CaptureGatesValidateRequest{Content: badTable}); err == nil {
 		t.Fatal("bad itemTable must be rejected")
@@ -379,7 +390,8 @@ func TestCaptureGatesValidate(t *testing.T) {
 		t.Fatalf("deep failure: code = %d, want 422", code)
 	}
 
-	// 构造期检查失败（静态校验放行、表路由唯一性拦截）→ 422。
+	// Construction-time check failure (static validation passes, table routing
+	// uniqueness blocks) -> 422.
 	dup := `{"reconcile":{"rules":[
 		{"name":"a","itemTable":"game.item","ledgerTable":"game.ledger","itemKey":"1","ledgerKey":"0"},
 		{"name":"b","itemTable":"game.item","ledgerTable":"game.ledger2","itemKey":"1","ledgerKey":"0"}]}}`
@@ -389,7 +401,8 @@ func TestCaptureGatesValidate(t *testing.T) {
 		t.Fatalf("duplicate routing: code = %d, want 422", code)
 	}
 
-	// 校验合法但未落库（版本数不变——dry-run 无副作用）。
+	// Validation passes but nothing lands in the database (version count
+	// unchanged — dry-run has no side effects).
 	if _, err := s.CaptureGatesValidate(&CaptureGatesValidateRequest{Content: validGatesContent()}); err != nil {
 		t.Fatalf("re-validate: %v", err)
 	}

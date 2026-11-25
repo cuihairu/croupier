@@ -19,8 +19,8 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// devopsBusyCaller input 恒回 busy 的假 agent（复用包内 fakeResolver 的
-// conns 形状装配）。
+// devopsBusyCaller is a fake agent whose input always returns busy (assembled with
+// the same conns shape as the in-package fakeResolver).
 type devopsBusyCaller struct {
 	calls []uint32
 }
@@ -43,7 +43,7 @@ func (f *devopsBusyCaller) Call(_ context.Context, msgID uint32, reqBody []byte)
 	return protocol.GetResponseMsgID(msgID), []byte{}, nil
 }
 
-// newDevopsScopeStore scope 化 registry store（agent-a ∈ demo/prod）。
+// newDevopsScopeStore is a scoped registry store (agent-a belongs to demo/prod).
 func newDevopsScopeStore(t *testing.T) *registry.Store {
 	t.Helper()
 	store := registry.NewStore()
@@ -51,8 +51,8 @@ func newDevopsScopeStore(t *testing.T) *registry.Store {
 	return store
 }
 
-// newDevopsRESTEnv 面板面测试装配：hub + 假 resolver + scope store，返回
-// service 与已开会话 id。
+// newDevopsRESTEnv assembles a panel-surface test rig: hub + fake resolver + scope
+// store, returning the service and an already-open session id.
 func newDevopsRESTEnv(t *testing.T, caller transport.SessionCaller) (*Service, *devopssessions.Hub, string) {
 	t.Helper()
 	hub := devopssessions.NewHub(nil)
@@ -83,12 +83,12 @@ func TestDevopsSessionOpenValidations(t *testing.T) {
 	_, err = s.DevopsSessionOpen(ctx, &DevopsSessionOpenRequest{AgentID: "agent-a", Host: "h", Protocol: "ssh", Port: 0})
 	require.ErrorContains(t, err, "port must be positive")
 
-	// 跨 scope 打开（AGENT-001 fail-closed 同口径）。
+	// cross-scope open (same fail-closed behavior as AGENT-001).
 	otherCtx := svc.WithGameScope(context.Background(), svc.GameScope{GameID: "other", Env: "prod"})
 	_, err = s.DevopsSessionOpen(otherCtx, &DevopsSessionOpenRequest{AgentID: "agent-a", Protocol: "ssh", Host: "h", Port: 22})
 	require.ErrorContains(t, err, "does not belong")
 
-	// relay 未装配 → 503 devops_relay_not_configured。
+	// relay not wired → 503 devops_relay_not_configured.
 	s2 := NewService(&svc.ServiceContext{RegistryStore: newDevopsScopeStore(t)})
 	_, err = s2.DevopsSessionOpen(ctx, &DevopsSessionOpenRequest{AgentID: "agent-a", Protocol: "ssh", Host: "h", Port: 22})
 	codeErr, ok := err.(*errorx.CodeError)
@@ -101,7 +101,7 @@ func TestDevopsSessionOpenHappyPathAndList(t *testing.T) {
 	s, hub, sessionID := newDevopsRESTEnv(t, &devopsBusyCaller{})
 	require.NotEmpty(t, sessionID)
 
-	// 列表含该会话（scope 内）；跨 scope 上下文看不到。
+	// the list contains the session (within scope); a cross-scope context cannot see it.
 	ctx := svc.WithGameScope(context.Background(), svc.GameScope{GameID: "demo", Env: "prod"})
 	list, err := s.DevopsSessionsList(ctx)
 	require.NoError(t, err)
@@ -123,28 +123,28 @@ func TestDevopsSessionInputMapping(t *testing.T) {
 	s, _, sessionID := newDevopsRESTEnv(t, &devopsBusyCaller{})
 	ctx := svc.WithGameScope(context.Background(), svc.GameScope{GameID: "demo", Env: "prod"})
 
-	// 背压 → 429 session_busy（稳定码）。
+	// backpressure → 429 session_busy (stable code).
 	err := s.DevopsSessionInput(ctx, sessionID, "ls\n")
 	codeErr, ok := err.(*errorx.CodeError)
 	require.True(t, ok, "expected *errorx.CodeError, got %T", err)
 	require.Equal(t, http.StatusTooManyRequests, codeErr.Code)
 	require.Equal(t, "session_busy", codeErr.StableCode)
 
-	// 未知会话 → 404。
+	// unknown session → 404.
 	err = s.DevopsSessionInput(ctx, "nope", "x")
 	codeErr, ok = err.(*errorx.CodeError)
 	require.True(t, ok)
 	require.Equal(t, http.StatusNotFound, codeErr.Code)
 
-	// 跨 scope（会话属主 agent-a ∈ demo/prod）→ 拒绝。
+	// cross-scope (the session's owner agent-a belongs to demo/prod) → rejected.
 	otherCtx := svc.WithGameScope(context.Background(), svc.GameScope{GameID: "other", Env: "prod"})
 	err = s.DevopsSessionInput(otherCtx, sessionID, "x")
 	require.ErrorContains(t, err, "does not belong")
 
-	// resize 与 close 正常路径（wire 调用 + close 收束）。
+	// resize and close happy paths (wire call + close finalization).
 	require.NoError(t, s.DevopsSessionResize(ctx, sessionID, 120, 40))
 	require.NoError(t, s.DevopsSessionClose(ctx, sessionID, "panel close"))
-	// close 幂等语义：会话已收束，再关 → 404。
+	// close idempotency semantics: the session is already closed, closing again → 404.
 	err = s.DevopsSessionClose(ctx, sessionID, "again")
 	require.ErrorContains(t, err, "not found")
 }
@@ -167,8 +167,9 @@ func TestDevopsSessionStreamSSE(t *testing.T) {
 	router := gin.New()
 	router.GET("/stream/:sessionId", handler.DevopsSessionStream)
 
-	// 请求前路由的输出事件落入回放环（AttachConsumer 快照先行），SSE 首屏
-	// 必含——回放语义的直接验证。
+	// the output event routed before the request lands in the replay ring
+	// (AttachConsumer takes the snapshot first), so it must appear in the SSE
+	// first screen — a direct verification of the replay semantics.
 	hub.RouteEvent("agent-a", &opsv1.DevopsSessionEvent{SessionId: sessionID, Kind: "output", Data: []byte("hi")})
 
 	rec := httptest.NewRecorder()
@@ -178,7 +179,7 @@ func TestDevopsSessionStreamSSE(t *testing.T) {
 		router.ServeHTTP(rec, httptest.NewRequest("GET", "/stream/"+sessionID, nil))
 	}()
 
-	// Attach 是 handler 第一步；短暂等待后以 end 帧收束流。
+	// Attach is the handler's first step; after a brief wait, close the stream with an end frame.
 	time.Sleep(100 * time.Millisecond)
 	hub.RouteEvent("agent-a", &opsv1.DevopsSessionEvent{SessionId: sessionID, Kind: "end", Outcome: "closed"})
 	select {
@@ -191,7 +192,7 @@ func TestDevopsSessionStreamSSE(t *testing.T) {
 	require.Contains(t, rec.Header().Get("Content-Type"), "text/event-stream")
 	body := rec.Body.String()
 	require.Contains(t, body, "event: output")
-	// 输出 base64（"hi" → aGk=）。
+	// output base64 ("hi" → aGk=).
 	require.Contains(t, body, "aGk=")
 	require.Contains(t, body, "event: end")
 	require.Contains(t, body, `"outcome":"closed"`)

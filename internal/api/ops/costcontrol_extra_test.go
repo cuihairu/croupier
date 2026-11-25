@@ -1,9 +1,10 @@
 package ops
 
-// costcontrol.go 补测：costOrchestrator 指标闭包低载样本分支、CostSummary
-// 空 agents 直通与 ListAdoptedScope 错误透传、预算 upsert/get 守卫与落库
-// 错误、CostIdle 委托、normalizeLimit 边界，及五个 cost handler 的往返与
-// 坏载荷面。
+// Extra tests for costcontrol.go: the costOrchestrator metrics closure
+// low-load sample branch, CostSummary empty-agents passthrough and
+// ListAdoptedScope error propagation, budget upsert/get guards and database
+// write errors, CostIdle delegation, normalizeLimit boundaries, plus the
+// round trip and bad-payload surfaces of the five cost handlers.
 
 import (
 	"context"
@@ -32,14 +33,15 @@ func TestCostSummary_IdleFromLowCpuSamples(t *testing.T) {
 		State: "adopted", Count: 1, CreatedAt: time.Now().Add(-time.Hour),
 		SpecJSON: model.JSON(`{"instanceType":"cx21"}`), AgentIDsJSON: model.JSON(`["a1"]`),
 	}))
-	// 空 agents 名单 → 直通分支
+	// Empty agents list -> passthrough branch
 	require.NoError(t, runModel.Create(ctx, &model.ProvisionRun{
 		RunID: "prov-e", Provider: "hetzner", Region: "eu", GameID: "g", Env: "e",
 		State: "adopted", Count: 1, CreatedAt: time.Now().Add(-time.Hour),
 		SpecJSON: model.JSON(`{"instanceType":"cx21"}`), AgentIDsJSON: model.JSON(`[]`),
 	}))
 
-	// 窗口内低载样本 → 判闲置（窗口内任一超阈样本即取消）
+	// Low-load samples inside the window -> flagged idle (any over-threshold
+	// sample within the window cancels it)
 	s.svcCtx.MetricsStore.Add("a1", &opsv1.MetricsReport{
 		AgentId: "a1", Cpu: &opsv1.CpuMetrics{UsagePercent: 1.5},
 	})
@@ -60,12 +62,12 @@ func TestCostSummary_ListAdoptedErrorPropagates(t *testing.T) {
 func TestCostBudgetUpsertGuardsAndDBError(t *testing.T) {
 	ctx := context.Background()
 
-	// 未配置 DB → 503 形态
+	// DB not configured -> 503 shape
 	s := &Service{svcCtx: &svc.ServiceContext{}}
 	_, err := s.CostBudgetUpsert(ctx, "g", "e", &CostBudgetUpsertRequest{MonthlyUSD: 10}, "ops")
 	require.ErrorContains(t, err, "成本控制未配置")
 
-	// scope 缺失 / 负预算 / nil 请求
+	// Missing scope / negative budget / nil request
 	s2 := &Service{svcCtx: costTestSvcCtx(t)}
 	_, err = s2.CostBudgetUpsert(ctx, "", "e", &CostBudgetUpsertRequest{MonthlyUSD: 10}, "ops")
 	require.ErrorContains(t, err, "scope required")
@@ -76,7 +78,7 @@ func TestCostBudgetUpsertGuardsAndDBError(t *testing.T) {
 	_, err = s2.CostBudgetUpsert(ctx, "g", "e", &CostBudgetUpsertRequest{MonthlyUSD: -1}, "ops")
 	require.ErrorContains(t, err, "monthlyUsd must be >= 0")
 
-	// 落库错误（表被摘除）上抛
+	// Database write error (table dropped) propagates
 	require.NoError(t, s2.svcCtx.DB.Migrator().DropTable("cost_budgets"))
 	_, err = s2.CostBudgetUpsert(ctx, "g", "e", &CostBudgetUpsertRequest{MonthlyUSD: 10}, "ops")
 	require.Error(t, err)
@@ -130,12 +132,12 @@ func TestCostHandlersRoundTrip(t *testing.T) {
 		return c, w
 	}
 
-	// estimate 坏载荷 → 错误响应
+	// estimate with bad payload -> error response
 	c, w := mkCtx(t, http.MethodPost, "/ops/cost/estimate", "{bad")
 	h.CostEstimateHandler(c)
 	require.NotEqual(t, http.StatusOK, w.Code)
 
-	// estimate 合法 → 200
+	// valid estimate -> 200
 	c, w = mkCtx(t, http.MethodPost, "/ops/cost/estimate",
 		`{"provider":"hetzner","instanceType":"cx21","count":2,"hours":10}`)
 	h.CostEstimateHandler(c)
@@ -144,12 +146,12 @@ func TestCostHandlersRoundTrip(t *testing.T) {
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &est))
 	require.InDelta(t, 0.12, est.TotalUSD, 1e-9)
 
-	// summary（query 绑定 limit）→ 200
+	// summary (query-bound limit) -> 200
 	c, w = mkCtx(t, http.MethodGet, "/ops/cost/summary?limit=50", "")
 	h.CostSummaryHandler(c)
 	require.Equal(t, http.StatusOK, w.Code)
 
-	// budget upsert → 200；get → 200
+	// budget upsert -> 200; get -> 200
 	c, w = mkCtx(t, http.MethodPut, "/ops/cost/budget", `{"monthlyUsd":99,"notifyChannels":["webhook"]}`)
 	h.CostBudgetPutHandler(c)
 	require.Equal(t, http.StatusOK, w.Code)
@@ -161,7 +163,7 @@ func TestCostHandlersRoundTrip(t *testing.T) {
 	h.CostBudgetGetHandler(c)
 	require.Equal(t, http.StatusOK, w.Code)
 
-	// idle → 200
+	// idle -> 200
 	c, w = mkCtx(t, http.MethodGet, "/ops/cost/idle?limit=0", "")
 	h.CostIdleHandler(c)
 	require.Equal(t, http.StatusOK, w.Code)

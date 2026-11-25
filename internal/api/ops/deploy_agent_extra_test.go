@@ -1,12 +1,15 @@
 package ops
 
-// deploy_agent.go 补测：NewDeployAgent 默认下载命令与 DownloadCmd 切换、
-// StagePackage 全部分支（对象存储未装配 / 签名 URL 失败 / 下载执行失败 /
-// 非零退出码 / wget 与 curl 两条命令形态与成功路径）、ApplyUpdate 三分支
-// （错误透传 / 失败消息 / 成功返回指纹）、Healthy 无最近指标分支。
+// Extra coverage for deploy_agent.go: NewDeployAgent's default download command and
+// DownloadCmd switching, all StagePackage branches (object store not wired / signed
+// URL failure / download execution failure / non-zero exit code / the wget and curl
+// command shapes and success paths), ApplyUpdate's three branches (error passthrough /
+// failure message / success returning the fingerprint), and Healthy's no-recent-metrics
+// branch.
 //
-// 复用 coverage_v3_test.go 的 fakeResolver/fakeCaller（respFor 按 msgID 回
-// 罐头响应、lastBody 捕获请求体）；对象存储用本地 stubObjectStore。
+// Reuses coverage_v3_test.go's fakeResolver/fakeCaller (respFor returns canned
+// responses per msgID, lastBody captures the request body); object storage uses the
+// local stubObjectStore.
 
 import (
 	"context"
@@ -27,7 +30,8 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// stubObjectStore 签名 URL 可注入失败的 objstore.Store 替身（其余方法 unused）。
+// stubObjectStore is an objstore.Store stand-in whose signed URL can be made to fail
+// (the remaining methods are unused).
 type stubObjectStore struct {
 	url string
 	err error
@@ -55,7 +59,7 @@ func (s *stubObjectStore) RenamePrefix(context.Context, string, string) error {
 	return errors.New("unused")
 }
 
-// deployAgentFixture 装配一个 scope 就绪、会话可解析的 DeployAgent。
+// deployAgentFixture wires up a DeployAgent with scope ready and resolvable sessions.
 func deployAgentFixture(t *testing.T) (*DeployAgent, *fakeCaller) {
 	t.Helper()
 	store := registry.NewStore()
@@ -67,7 +71,7 @@ func deployAgentFixture(t *testing.T) (*DeployAgent, *fakeCaller) {
 	return a, caller
 }
 
-// setupOpsResolver 装配全局 ops client 的会话解析器并注册清理。
+// setupOpsResolver wires the global ops client's session resolver and registers cleanup.
 func setupOpsResolver(t *testing.T, caller *fakeCaller) {
 	t.Helper()
 	client := agentops.GetAgentOpsClient()
@@ -75,7 +79,7 @@ func setupOpsResolver(t *testing.T, caller *fakeCaller) {
 	t.Cleanup(func() { client.SetSessionResolver(nil) })
 }
 
-// opsGetClient 返回全局 ops client（测试内直接改会话解析器用）。
+// opsGetClient returns the global ops client (tests mutate its session resolver directly).
 func opsGetClient() *agentops.AgentOpsClient { return agentops.GetAgentOpsClient() }
 
 func TestNewDeployAgentDefaults(t *testing.T) {
@@ -100,7 +104,7 @@ func TestStagePackageSignedURLError(t *testing.T) {
 
 func TestStagePackageDownloadError(t *testing.T) {
 	a, _ := deployAgentFixture(t)
-	// resolver 未装配 → GetClient 失败 → "download: ops client unavailable"
+	// resolver not wired → GetClient fails → "download: ops client unavailable"
 	client := opsGetClient()
 	client.SetSessionResolver(nil)
 	_, err := a.StagePackage(context.Background(), "a1", &model.DeployPackage{PackageID: "p1", Version: "v1", ObjectKey: "k"})
@@ -131,7 +135,7 @@ func TestStagePackageSuccessCurlAndWget(t *testing.T) {
 		staged, err := a.StagePackage(context.Background(), "a1", &model.DeployPackage{PackageID: "p1", Version: "v1", ObjectKey: "k"})
 		require.NoError(t, err)
 		require.Equal(t, "/tmp/croupier-deploy-p1-v1", staged)
-		// 断言实际下发给 agent 的命令形态
+		// assert the shape of the command actually dispatched to the agent
 		var req opsv1.ExecuteCommandRequest
 		require.NoError(t, proto.Unmarshal(caller.lastBody[uint32(protocol.MsgExecuteCommandRequest)], &req))
 		require.Equal(t, tc.wantCmd, req.Command)
@@ -141,19 +145,19 @@ func TestStagePackageSuccessCurlAndWget(t *testing.T) {
 }
 
 func TestApplyUpdateBranches(t *testing.T) {
-	// 错误透传（resolver 未装配）
+	// error passthrough (resolver not wired)
 	a, _ := deployAgentFixture(t)
 	opsGetClient().SetSessionResolver(nil)
 	_, err := a.ApplyUpdate(context.Background(), "a1", "game", "/tmp/x", "sha")
 	require.ErrorContains(t, err, "ops client unavailable")
 
-	// 失败消息
+	// failure message
 	a2, caller2 := deployAgentFixture(t)
 	caller2.respFor[uint32(protocol.MsgUpdateProcessRequest)] = &opsv1.UpdateProcessResponse{Success: false, Message: "checksum mismatch"}
 	_, err = a2.ApplyUpdate(context.Background(), "a1", "game", "/tmp/x", "sha")
 	require.ErrorContains(t, err, "checksum mismatch")
 
-	// 成功返回指纹
+	// success returns the fingerprint
 	a3, caller3 := deployAgentFixture(t)
 	caller3.respFor[uint32(protocol.MsgUpdateProcessRequest)] = &opsv1.UpdateProcessResponse{Success: true, NewFingerprint: "fp-42"}
 	fp, err := a3.ApplyUpdate(context.Background(), "a1", "game", "/tmp/x", "sha")
@@ -162,14 +166,14 @@ func TestApplyUpdateBranches(t *testing.T) {
 }
 
 func TestHealthyNoRecentMetrics(t *testing.T) {
-	// MetricsStore 空 → GetLatest 未命中 → "no recent metrics"
+	// empty MetricsStore → GetLatest misses → "no recent metrics"
 	metrics := registry.NewMetricsStore()
 	a := &DeployAgent{ctx: &svc.ServiceContext{MetricsStore: metrics}}
 	ok, msg := a.Healthy(context.Background(), "a1")
 	require.False(t, ok)
 	require.Equal(t, "no recent metrics", msg)
 
-	// 未装配 store → 视作健康
+	// no store wired → treated as healthy
 	a2 := &DeployAgent{ctx: &svc.ServiceContext{}}
 	ok2, msg2 := a2.Healthy(context.Background(), "a1")
 	require.True(t, ok2)

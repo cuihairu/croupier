@@ -1,8 +1,10 @@
 package ops
 
-// 手动诊断探针（agent-health-recovery-review §4.2/§4.3，R3 server 侧内核
-// 装配）：对 server 本机探针面已配置的目标即时探一次，同步返回结果。与
-// 周期探测共用同一探针实例与状态机——手动诊断不是旁路第二套事实。
+// Manual diagnostic probe (agent-health-recovery-review §4.2/§4.3, the R3
+// server-side kernel wiring): probe a target already configured on the server's
+// local probe surface once, synchronously, and return the result. Shares the
+// same probe instance and state machine as periodic probing — manual diagnosis
+// is not a bypass second source of truth.
 
 import (
 	"context"
@@ -14,13 +16,13 @@ import (
 	"github.com/cuihairu/croupier/internal/common/response"
 )
 
-// ProbeDiagnoseRequest 手动诊断请求。
+// ProbeDiagnoseRequest is a manual diagnosis request.
 type ProbeDiagnoseRequest struct {
-	// Target server 探针面已配置的目标名。
+	// Target is a target name configured on the server's probe surface.
 	Target string `json:"target"`
 }
 
-// ProbeDiagnoseResponse 单次探测结果（内核 Result 的 API 投影）。
+// ProbeDiagnoseResponse is a single probe result (the API projection of the kernel Result).
 type ProbeDiagnoseResponse struct {
 	Target    string            `json:"target"`
 	Available bool              `json:"available"`
@@ -28,12 +30,15 @@ type ProbeDiagnoseResponse struct {
 	LatencyMs int64             `json:"latencyMs"`
 	Reason    string            `json:"reason,omitempty"`
 	Details   map[string]string `json:"details,omitempty"`
-	// WindowOpen 探测后窗口是否开着（达阈值才算——单次失败只计数不开窗）。
+	// WindowOpen reports whether the window is open after the probe (reaching the
+	// threshold is what counts — a single failure only increments the count, it
+	// does not open the window).
 	WindowOpen bool `json:"windowOpen"`
 }
 
-// ProbeDiagnose 手动诊断：目标未配置 404；探测面未装配 404（不同 message
-// 区分）；空目标 422。
+// ProbeDiagnose is the manual diagnosis: target not configured → 404; probe
+// surface not wired → 404 (distinguished by different messages); empty target
+// → 422.
 func (s *Service) ProbeDiagnose(ctx context.Context, req *ProbeDiagnoseRequest) (*ProbeDiagnoseResponse, error) {
 	if req == nil || strings.TrimSpace(req.Target) == "" {
 		return nil, errorx.NewValidationError("target 不能为空")

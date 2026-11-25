@@ -14,7 +14,8 @@ import (
 	"gorm.io/gorm/logger"
 )
 
-// newAlertHandleService：:memory: sqlite + alerts 表（单连接防多实例漂移）。
+// newAlertHandleService: :memory: sqlite plus the alerts table (single
+// connection to prevent multi-instance drift).
 func newAlertHandleService(t *testing.T) (*Service, *gorm.DB) {
 	t.Helper()
 	db, err := gorm.Open(gosqlite.Open("file:"+t.Name()+"?mode=memory&cache=private"), &gorm.Config{
@@ -73,7 +74,8 @@ func TestOpsAlertHandleTransitions(t *testing.T) {
 	seedHandleAlert(t, db, "h-1")
 	ctx := withUsername(context.Background(), "alice")
 
-	// acknowledge：审计三件套一次落库（处理人取认证上下文）。
+	// acknowledge: the audit trio lands in one write (handler taken from the
+	// authentication context).
 	resp, err := s.OpsAlertHandle(ctx, "1", &OpsAlertHandleRequest{Action: "acknowledge", Remark: "checked ledger"})
 	require.NoError(t, err)
 	assert.Equal(t, "acknowledged", resp.HandleStatus)
@@ -87,7 +89,8 @@ func TestOpsAlertHandleTransitions(t *testing.T) {
 	assert.Equal(t, "checked ledger", row.HandledRemark)
 	require.NotNil(t, row.HandledAt)
 
-	// escalate：再流转到不同目标态合法（审计字段覆盖）。
+	// escalate: transitioning again to a different target state is legal
+	// (audit fields are overwritten).
 	resp2, err := s.OpsAlertHandle(ctx, "1", &OpsAlertHandleRequest{Action: "escalate", Remark: "needs security review"})
 	require.NoError(t, err)
 	assert.Equal(t, "escalated", resp2.HandleStatus)
@@ -100,22 +103,22 @@ func TestOpsAlertHandleValidation(t *testing.T) {
 	seedHandleAlert(t, db, "h-1")
 	ctx := context.Background()
 
-	// 非法动作 → 422。
+	// Invalid action -> 422.
 	_, err := s.OpsAlertHandle(ctx, "1", &OpsAlertHandleRequest{Action: "delete"})
 	require.Error(t, err)
 	assert.Equal(t, 422, httpCode(err))
 
-	// 空请求 → 422。
+	// Empty request -> 422.
 	_, err = s.OpsAlertHandle(ctx, "1", &OpsAlertHandleRequest{})
 	require.Error(t, err)
 	assert.Equal(t, 422, httpCode(err))
 
-	// 不存在的告警 → 404（流转不隐式创建）。
+	// Nonexistent alert -> 404 (a transition never implicitly creates).
 	_, err = s.OpsAlertHandle(ctx, "99", &OpsAlertHandleRequest{Action: "acknowledge"})
 	require.Error(t, err)
 	assert.Equal(t, 404, httpCode(err))
 
-	// 非法 id → 400。
+	// Invalid id -> 400.
 	_, err = s.OpsAlertHandle(ctx, "abc", &OpsAlertHandleRequest{Action: "acknowledge"})
 	require.Error(t, err)
 	assert.Equal(t, 400, httpCode(err))
@@ -133,7 +136,8 @@ func TestOpsAlertsHandleStatusFilter(t *testing.T) {
 	_, err := s.OpsAlertHandle(ctx, "2", &OpsAlertHandleRequest{Action: "ignore", Remark: "dup noise"})
 	require.NoError(t, err)
 
-	// 全量：工作流字段随行返回（未流转行 = pending）。
+	// Full listing: workflow fields return with each row (untouched rows =
+	// pending).
 	all, err := s.OpsAlerts(ctx, &OpsAlertsRequest{})
 	require.NoError(t, err)
 	require.Len(t, all.Alerts, 2)
@@ -145,7 +149,7 @@ func TestOpsAlertsHandleStatusFilter(t *testing.T) {
 	}
 	assert.Equal(t, "alice", bySeverity["ignored"].HandledBy)
 
-	// 过滤：acknowledged 只剩 0 行，ignored 只剩 1 行。
+	// Filter: acknowledged leaves 0 rows, ignored leaves 1 row.
 	filtered, err := s.OpsAlerts(ctx, &OpsAlertsRequest{HandleStatus: "ignored"})
 	require.NoError(t, err)
 	require.Len(t, filtered.Alerts, 1)

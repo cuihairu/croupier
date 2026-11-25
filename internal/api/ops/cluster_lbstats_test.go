@@ -12,12 +12,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// 覆盖 GetClusterInfo（单实例/集群 nil 分支）与 LBStatsQuery（未配置/正常路径）。
+// Covers GetClusterInfo (standalone / cluster nil branch) and LBStatsQuery
+// (unconfigured / normal path).
 
 func TestGetClusterInfo_StandaloneAndNil(t *testing.T) {
 	s := NewService(&svc.ServiceContext{})
 
-	// 单实例（Cluster=nil）：standalone 条目
+	// Single instance (Cluster=nil): standalone entry
 	resp, err := s.GetClusterInfo(context.Background())
 	require.NoError(t, err)
 	assert.False(t, resp.Enabled)
@@ -27,7 +28,7 @@ func TestGetClusterInfo_StandaloneAndNil(t *testing.T) {
 	assert.Equal(t, 1, resp.Total)
 	assert.Equal(t, 1, resp.AliveCount)
 
-	// nil service 保险分支
+	// nil service fallback branch
 	var nilSvc *Service
 	_, err = nilSvc.GetClusterInfo(context.Background())
 	assert.Error(t, err)
@@ -50,12 +51,12 @@ func TestGetClusterInfo_ClusterEnabled(t *testing.T) {
 }
 
 func TestLBStatsQuery_Paths(t *testing.T) {
-	// 未配置：报错
+	// Unconfigured: error
 	s := NewService(&svc.ServiceContext{})
 	_, err := s.LBStatsQuery(context.Background(), "haproxy_up")
 	assert.Error(t, err)
 
-	// 已配置 mock Prometheus：正常返回 + 白名单拒绝
+	// Configured mock Prometheus: normal return + allowlist rejection
 	prom := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{"status":"success","data":{"resultType":"vector","result":[]}}`))
 	}))

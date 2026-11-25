@@ -1,9 +1,11 @@
 package ops
 
-// 系统维护板块（#52）单测：运行快照（ldflags 字段透传/零值兜底/启动时间
-// 与在线时长计算）+ 检查更新（未配置源/远端新版本/已是最新/tag_name 兼容/
-// 拉取失败/非 JSON 清单）+ 版本比较纯函数 + handler 路由层冒烟。
-// 更新源读取与远端拉取经包级函数变量注入（同 Service 顶部可注入缝隙口径）。
+// Unit tests for the system maintenance section (#52): runtime snapshot (ldflags field
+// passthrough / zero-value fallback / start time and uptime calculation) + check update
+// (source not configured / newer remote version / already up to date / tag_name shape /
+// fetch failure / non-JSON manifest) + the version comparison pure function + handler route
+// smoke tests. The update-source reader and remote fetch are injected through package-level
+// function variables (same injectable-seam style as the Service header).
 
 import (
 	"context"
@@ -45,8 +47,8 @@ func TestSystemRuntime_SnapshotPassthrough(t *testing.T) {
 	assert.LessOrEqual(t, resp.UptimeSeconds, int64(92))
 }
 
-// 零值 svcCtx（测试/未接线场景）：版本回退 ldflags 包级默认，启动时间未知
-// 时 startedAt 空、在线时长 0。
+// Zero svcCtx (test / unwired scenarios): versions fall back to the ldflags package defaults,
+// and when the start time is unknown startedAt is empty and uptime is 0.
 func TestSystemRuntime_ZeroContextFallsBackToLdflags(t *testing.T) {
 	resp := systemRuntime(&svc.ServiceContext{})
 
@@ -85,7 +87,7 @@ func TestSystemCheckUpdate_NewVersionAvailable(t *testing.T) {
 	assert.Contains(t, resp.Note, "发现新版本 9.9.9")
 }
 
-// 已是最新（含 v 前缀与 latestVersion 键形态）。
+// Already up to date (both the v-prefix and latestVersion key shapes).
 func TestSystemCheckUpdate_UpToDate(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{"latestVersion":"v1.0.0"}`))
@@ -99,7 +101,7 @@ func TestSystemCheckUpdate_UpToDate(t *testing.T) {
 	assert.Contains(t, resp.Note, "已是最新版本")
 }
 
-// tag_name 键形态（GitHub releases/latest）。
+// tag_name key shape (GitHub releases/latest).
 func TestSystemCheckUpdate_GitHubTagNameShape(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{"tag_name":"v2.0.0","name":"release"}`))
@@ -138,7 +140,7 @@ func TestSystemCheckUpdate_InvalidManifest(t *testing.T) {
 	assert.Contains(t, resp.Note, "不是 JSON 版本清单")
 }
 
-// 版本段非数字：不猜大小，诚实返回「无法比较」。
+// Non-numeric version segments: do not guess an ordering, honestly report "incomparable".
 func TestSystemCheckUpdate_IncomparableVersions(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{"version":"2026.09-beta"}`))
@@ -154,16 +156,16 @@ func TestSystemCheckUpdate_IncomparableVersions(t *testing.T) {
 func TestCompareVersions_Table(t *testing.T) {
 	cases := []struct {
 		a, b string
-		want int // -1/0/1；-2=解析失败
+		want int // -1/0/1; -2 = parse failure
 	}{
 		{"1.2.3", "1.2.3", 0},
-		{"1.2.3", "1.10.0", -1}, // 数值比较非字典序
+		{"1.2.3", "1.10.0", -1}, // numeric comparison, not lexicographic
 		{"2.0.0", "1.99.99", 1},
-		{"v1.2.3", "1.2.3", 0}, // v 前缀归一
-		{"1.2", "1.2.0", 0},    // 缺段补 0
+		{"v1.2.3", "1.2.3", 0}, // v prefix normalized
+		{"1.2", "1.2.0", 0},    // missing segment padded with 0
 		{"1.2", "1.2.1", -1},
-		{"dev", "1.0.0", -2}, // 非数字段 → 无法比较
-		{"", "1.0.0", -2},    // 空版本号
+		{"dev", "1.0.0", -2}, // non-numeric segment → incomparable
+		{"", "1.0.0", -2},    // empty version string
 	}
 	for _, tc := range cases {
 		va, errA := parseVersionParts(tc.a)
@@ -184,7 +186,7 @@ func TestCompareVersions_Table(t *testing.T) {
 	}
 }
 
-// ---- handler 层冒烟（真 handler 方法 → response.Success 直返契约）----
+// ---- handler-layer smoke tests (real handler methods → response.Success direct-return contract) ----
 
 func setupSystemRouter() (*gin.Engine, *Handler) {
 	gin.SetMode(gin.TestMode)

@@ -1,8 +1,10 @@
 package ops
 
-// probe_diagnose.go 补测：Service.ProbeDiagnose 的 422/404/未配置面与真实
-// ServerProbeManager 的一次即时探测投影，以及 handler 的坏载荷 400 与往返。
-// 探针目标用 127.0.0.1:1（拒绝连接，即时失败，FailThreshold=1 即开窗）。
+// Extra coverage for probe_diagnose.go: the 422/404/not-configured surface of
+// Service.ProbeDiagnose with a real ServerProbeManager's single instant-probe
+// projection, plus the handler's bad-payload 400 and round trip. The probe
+// target is 127.0.0.1:1 (connection refused, instant failure, FailThreshold=1
+// opens the window immediately).
 
 import (
 	"context"
@@ -34,23 +36,23 @@ func diagnoseService(t *testing.T) *Service {
 func TestProbeDiagnoseServiceBranches(t *testing.T) {
 	s := diagnoseService(t)
 
-	// nil / 空目标 → 422
+	// nil / empty target → 422
 	_, err := s.ProbeDiagnose(context.Background(), nil)
 	require.ErrorContains(t, err, "target 不能为空")
 	_, err = s.ProbeDiagnose(context.Background(), &ProbeDiagnoseRequest{Target: "  "})
 	require.ErrorContains(t, err, "target 不能为空")
 
-	// 未知目标 → 404
+	// unknown target → 404
 	_, err = s.ProbeDiagnose(context.Background(), &ProbeDiagnoseRequest{Target: "nope"})
 	require.Error(t, err)
 	require.Equal(t, http.StatusNotFound, httpCode(err))
 
-	// 未配置探测面 → 404（不同 message）
+	// probe surface not configured → 404 (different message)
 	bare := &Service{svcCtx: &svc.ServiceContext{}}
 	_, err = bare.ProbeDiagnose(context.Background(), &ProbeDiagnoseRequest{Target: "dead-tcp"})
 	require.ErrorContains(t, err, "server 探测面未配置")
 
-	// 真实即时探测 → 投影（失败目标）
+	// real instant probe → projection (failing target)
 	resp, err := s.ProbeDiagnose(context.Background(), &ProbeDiagnoseRequest{Target: "dead-tcp"})
 	require.NoError(t, err)
 	require.Equal(t, "dead-tcp", resp.Target)
@@ -74,22 +76,22 @@ func TestProbeDiagnoseHandlerRoundTrip(t *testing.T) {
 		return c, w
 	}
 
-	// 坏 JSON → 400
+	// bad JSON → 400
 	c, w := mkCtx(http.MethodPost, "/ops/probe/diagnose", "{bad")
 	h.ProbeDiagnoseHandler(c)
 	require.Equal(t, http.StatusBadRequest, w.Code)
 
-	// 空目标 → 422
+	// empty target → 422
 	c, w = mkCtx(http.MethodPost, "/ops/probe/diagnose", `{"target":""}`)
 	h.ProbeDiagnoseHandler(c)
 	require.Equal(t, http.StatusUnprocessableEntity, w.Code)
 
-	// 未知目标 → 404
+	// unknown target → 404
 	c, w = mkCtx(http.MethodPost, "/ops/probe/diagnose", `{"target":"nope"}`)
 	h.ProbeDiagnoseHandler(c)
 	require.Equal(t, http.StatusNotFound, w.Code)
 
-	// 合法目标 → 200 + 投影
+	// valid target → 200 + projection
 	c, w = mkCtx(http.MethodPost, "/ops/probe/diagnose", `{"target":"dead-tcp"}`)
 	h.ProbeDiagnoseHandler(c)
 	require.Equal(t, http.StatusOK, w.Code)

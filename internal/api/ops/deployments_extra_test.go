@@ -1,14 +1,18 @@
 package ops
 
-// deployments.go 补测：上传 handler 的 multipart 成功面（打开/读取/超限分支
-// 见文末诚实跳过）、包列表/发版单 CRUD handler 往返、service 层校验分支
-// （name/version/role 净化、空载荷、对象存储/登记失败）、列表与查询错误、
-// Start 全链（stage/apply/健康门禁三败点 + 成功完成）与 Rollback（缺包/
-// 缺单/回滚包缺失/空转/成功/失败）、currentUsername 实名与兜底。
+// Extra coverage for deployments.go: the multipart success surface of the upload
+// handler (the open/read/oversize branches are honestly skipped at the end of this
+// file), package list / deployment CRUD handler round trips, service-layer
+// validation branches (name/version/role sanitization, empty payload, object
+// store / registration failures), list and query errors, the full Start chain
+// (stage/apply/health-gate failure points + success completion) and Rollback
+// (missing package / missing order / rollback package missing / no-op / success /
+// failure), plus currentUsername real-name and fallback.
 //
-// 诚实跳过（不可达/超重）：DeployPackageUpload handler 的 133（fileHeader.Open
-// 失败需伪造 multipart 内部结构）、141（内存 multipart 读取不失败）、
-// 145（超 500 MiB 载荷需真实分配半 GB 内存，非单测可承受）。
+// Honestly skipped (unreachable / oversized): DeployPackageUpload handler's 133
+// (a fileHeader.Open failure requires faking multipart internals), 141 (in-memory
+// multipart reads never fail), 145 (a payload over 500 MiB would need a real half-GB
+// allocation, not something a unit test can bear).
 
 import (
 	"bytes"
@@ -32,7 +36,8 @@ import (
 	"gorm.io/gorm"
 )
 
-// fakeDeployAgent 可注入 stage/apply/健康门禁成败的 deploy.Agent 替身。
+// fakeDeployAgent is a deploy.Agent stand-in whose stage/apply/health-gate
+// outcomes can be injected.
 type fakeDeployAgent struct {
 	stageErr error
 	applyErr error
@@ -56,8 +61,9 @@ func (a *fakeDeployAgent) ApplyUpdate(context.Context, string, string, string, s
 
 func (a *fakeDeployAgent) Healthy(context.Context, string) (bool, string) { return a.healthy, a.reason }
 
-// deployFixture 组装 DB 面齐备的部署 service：编排器直接以 DeploymentModel
-// 充当 deploy.Store（生产同构），agent 用可注入替身。
+// deployFixture assembles a deployment service with a complete DB surface: the
+// orchestrator uses the DeploymentModel directly as the deploy.Store (isomorphic
+// to production), with an injectable stand-in agent.
 func deployFixture(t *testing.T, agent *fakeDeployAgent) *Service {
 	t.Helper()
 	ctx := context.Background()
@@ -79,8 +85,8 @@ func deployFixture(t *testing.T, agent *fakeDeployAgent) *Service {
 	return NewService(svcCtx)
 }
 
-// seedDeployment 直接落一条带目标的 draft 发版单（绕过编排校验，专供
-// Start/Rollback 的查找路径）。
+// seedDeployment directly creates a target-carrying draft deployment (bypassing
+// orchestrator validation, solely for the Start/Rollback lookup paths).
 func seedDeployment(t *testing.T, s *Service, id, packageID string, targets ...model.DeploymentTarget) {
 	t.Helper()
 	targetsJSON := []byte("[]")
@@ -107,11 +113,11 @@ func TestDeployServiceValidationBranches(t *testing.T) {
 	ctx := context.Background()
 	s := deployFixture(t, &fakeDeployAgent{})
 
-	// name/version 缺失
+	// name/version missing
 	_, err := s.DeployPackageUpload(ctx, &DeployPackageCreateRequest{Name: "game"}, []byte("x"))
 	require.ErrorContains(t, err, "name 与 version 必填")
 
-	// name/version/role 净化失败三类
+	// the three name/version/role sanitization failure cases
 	_, err = s.DeployPackageUpload(ctx, &DeployPackageCreateRequest{Name: "a/b", Version: "v1"}, []byte("x"))
 	require.ErrorContains(t, err, "name:")
 	_, err = s.DeployPackageUpload(ctx, &DeployPackageCreateRequest{Name: "game", Version: ".."}, []byte("x"))
@@ -119,17 +125,18 @@ func TestDeployServiceValidationBranches(t *testing.T) {
 	_, err = s.DeployPackageUpload(ctx, &DeployPackageCreateRequest{Name: "game", Version: "v1", Role: "x\\y"}, []byte("x"))
 	require.ErrorContains(t, err, "role:")
 
-	// 载荷为空
+	// empty payload
 	_, err = s.DeployPackageUpload(ctx, &DeployPackageCreateRequest{Name: "game", Version: "v1"}, nil)
 	require.ErrorContains(t, err, "file 内容为空")
 
-	// 对象存储 Put 失败
+	// object store Put failure
 	s.svcCtx.ObjectStore = &stubObjectStore{err: errors.New("obj down")}
 	_, err = s.DeployPackageUpload(ctx, &DeployPackageCreateRequest{Name: "game", Version: "v1"}, []byte("x"))
 	require.ErrorContains(t, err, "上传对象存储失败")
 	s.svcCtx.ObjectStore = nil
 
-	// 登记包失败（deploy_packages 表缺失，对象存储走真实文件驱动）
+	// package registration failure (the deploy_packages table is missing, object
+	// storage uses the real file driver)
 	objStore, err := objstore.OpenFile(ctx, objstore.Config{BaseDir: t.TempDir()})
 	require.NoError(t, err)
 	db, err := gorm.Open(gsqlite.Open(t.TempDir()+"/dep_bad.db"), &gorm.Config{})
@@ -143,7 +150,7 @@ func TestDeployServiceValidationBranches(t *testing.T) {
 	_, err = bad.DeployPackageUpload(ctx, &DeployPackageCreateRequest{Name: "game", Version: "v1"}, []byte("x"))
 	require.ErrorContains(t, err, "登记包失败")
 
-	// DeployPackageList：未装配 503 / 成功 / 查询失败
+	// DeployPackageList: not wired → 503 / success / query failure
 	_, err = NewService(&svc.ServiceContext{}).DeployPackageList(ctx)
 	require.Error(t, err, errDeployNotConfigured.Message)
 	lists, err := s.DeployPackageList(ctx)
@@ -158,16 +165,16 @@ func TestDeployServiceCreateGetListBranches(t *testing.T) {
 	ctx := context.Background()
 	s := deployFixture(t, &fakeDeployAgent{})
 
-	// DeploymentCreate：非法批次 / 默认批次 / 成功（ctx 带用户名）
+	// DeploymentCreate: invalid batch / default batch / success (ctx carries a username)
 	_, err := s.DeploymentCreate(ctx, &DeploymentCreateRequest{PackageID: "p", ProcessName: "game", BatchPercent: 33, Targets: []string{"a1"}})
 	require.ErrorContains(t, err, "invalid batch percent")
-	userCtx := context.WithValue(ctx, "username", "alice") //nolint:staticcheck // 与 utils.CurrentUsername 键契约一致
+	userCtx := context.WithValue(ctx, "username", "alice") //nolint:staticcheck // matches the key contract of utils.CurrentUsername
 	created, err := s.DeploymentCreate(userCtx, &DeploymentCreateRequest{PackageID: "p", ProcessName: "game", Targets: []string{"a1"}})
 	require.NoError(t, err)
 	require.Equal(t, 100, created.Deployment.BatchPercent, "batch 0 must default to 100")
 	require.Equal(t, "alice", created.Deployment.CreatedBy)
 
-	// DeploymentGet：未命中 404 / 命中
+	// DeploymentGet: miss → 404 / hit
 	_, err = s.DeploymentGet(ctx, "ghost")
 	require.ErrorContains(t, err, "发版单不存在")
 	got, err := s.DeploymentGet(ctx, created.Deployment.DeploymentID)
@@ -175,12 +182,12 @@ func TestDeployServiceCreateGetListBranches(t *testing.T) {
 	require.Equal(t, created.Deployment.DeploymentID, got.Deployment.DeploymentID)
 	require.NotNil(t, got.Deployment.Targets, "empty TargetsJSON must render as empty slice")
 
-	// DeploymentList：成功
+	// DeploymentList: success
 	lists, err := s.DeploymentList(ctx)
 	require.NoError(t, err)
 	require.Equal(t, 1, lists.Total)
 
-	// List/Find 错误面（drop deployments 表）
+	// List/Find error surfaces (drop the deployments table)
 	require.NoError(t, s.svcCtx.DB.Migrator().DropTable("deployments"))
 	_, err = s.DeploymentList(ctx)
 	require.ErrorContains(t, err, "查询发版单失败")
@@ -191,12 +198,12 @@ func TestDeployServiceCreateGetListBranches(t *testing.T) {
 func TestDeployServiceStartBranches(t *testing.T) {
 	ctx := context.Background()
 
-	// 发版单缺失
+	// deployment order missing
 	s0 := deployFixture(t, &fakeDeployAgent{})
 	_, err := s0.DeploymentStart(ctx, "ghost")
 	require.ErrorContains(t, err, "发版单不存在")
 
-	// 包缺失
+	// package missing
 	agent := &fakeDeployAgent{}
 	s := deployFixture(t, agent)
 	seedDeployment(t, s, "d1", "pkg-missing",
@@ -206,7 +213,7 @@ func TestDeployServiceStartBranches(t *testing.T) {
 
 	seedPackage(t, s, "p1", "deploy/game.bin")
 
-	// stage 失败 → 发版单 failed + 错误透传
+	// stage failure → deployment failed + error passthrough
 	agent.stageErr = errors.New("dial refused")
 	seedDeployment(t, s, "d2", "p1",
 		model.DeploymentTarget{AgentID: "a1", Batch: 1, State: model.DeploymentTargetPending})
@@ -214,7 +221,7 @@ func TestDeployServiceStartBranches(t *testing.T) {
 	require.ErrorContains(t, err, "stage a1")
 	require.Equal(t, model.DeploymentStateFailed, staged.Deployment.State)
 
-	// 健康门禁失败 → paused + 错误透传
+	// health gate failure → paused + error passthrough
 	agent.stageErr = nil
 	agent.healthy = false
 	seedDeployment(t, s, "d3", "p1",
@@ -223,7 +230,7 @@ func TestDeployServiceStartBranches(t *testing.T) {
 	require.ErrorContains(t, err, "health gate failed")
 	require.Equal(t, model.DeploymentStatePaused, paused.Deployment.State)
 
-	// apply 失败 → failed
+	// apply failure → failed
 	agent.healthy = true
 	agent.applyErr = errors.New("checksum mismatch")
 	seedDeployment(t, s, "d4", "p1",
@@ -232,7 +239,7 @@ func TestDeployServiceStartBranches(t *testing.T) {
 	require.ErrorContains(t, err, "apply a1")
 	require.Equal(t, model.DeploymentStateFailed, failed.Deployment.State)
 
-	// 全链成功 → complete
+	// full chain success → complete
 	agent.applyErr = nil
 	seedDeployment(t, s, "d5", "p1",
 		model.DeploymentTarget{AgentID: "a1", Batch: 1, State: model.DeploymentTargetPending})
@@ -247,32 +254,34 @@ func TestDeployServiceRollbackBranches(t *testing.T) {
 	s := deployFixture(t, agent)
 	seedPackage(t, s, "p1", "deploy/game.bin")
 
-	// 发版单缺失
+	// deployment order missing
 	_, err := s.DeploymentRollback(ctx, "ghost", &DeploymentRollbackRequest{RollbackPackageID: "p1"})
 	require.ErrorContains(t, err, "发版单不存在")
 
-	// rollbackPackageId 缺失
+	// rollbackPackageId missing
 	seedDeployment(t, s, "r1", "p1")
 	_, err = s.DeploymentRollback(ctx, "r1", &DeploymentRollbackRequest{})
 	require.ErrorContains(t, err, "rollbackPackageId 必填")
 
-	// 回滚包缺失
+	// rollback package missing
 	_, err = s.DeploymentRollback(ctx, "r1", &DeploymentRollbackRequest{RollbackPackageID: "pkg-missing"})
 	require.ErrorContains(t, err, "回滚包不存在")
 
-	// 无待回滚目标（空/全 pending）→ 不得虚报 rolled_back（AUD-023：零目标
-	// 操作显式报错；此前的「空转成功」断言即缺陷钉，修复后改为断言拒绝）。
+	// no rollback targets (empty / all pending) → must not falsely report
+	// rolled_back (AUD-023: a zero-target operation must fail explicitly; the
+	// previous "no-op success" assertion was itself the defect, now replaced
+	// with an assertion that it is rejected).
 	_, err = s.DeploymentRollback(ctx, "r1", &DeploymentRollbackRequest{RollbackPackageID: "p1"})
 	require.ErrorContains(t, err, "nothing to rollback")
 
-	// 目标 healthy + apply 成功 → rolled back
+	// target healthy + apply success → rolled back
 	seedDeployment(t, s, "r2", "p1",
 		model.DeploymentTarget{AgentID: "a1", Batch: 1, State: model.DeploymentTargetHealthy})
 	rolled, err := s.DeploymentRollback(ctx, "r2", &DeploymentRollbackRequest{RollbackPackageID: "p1"})
 	require.NoError(t, err)
 	require.Equal(t, model.DeploymentStateRolledBack, rolled.Deployment.State)
 
-	// 目标 failed + apply 失败 → rollback failed + 错误透传
+	// target failed + apply failure → rollback failed + error passthrough
 	agent.applyErr = errors.New("apply boom")
 	seedDeployment(t, s, "r3", "p1",
 		model.DeploymentTarget{AgentID: "a1", Batch: 1, State: model.DeploymentTargetFailed})
@@ -280,9 +289,10 @@ func TestDeployServiceRollbackBranches(t *testing.T) {
 	require.ErrorContains(t, err, "rollback apply agent a1")
 }
 
-// ---- handler 往返 ----
+// ---- handler round trips ----
 
-// multipartUpload 构造带文件与表单字段的 multipart 请求并投递 handler。
+// multipartUpload builds a multipart request carrying a file plus form fields and
+// dispatches it to the handler.
 func multipartUpload(t *testing.T, h *Handler, fields map[string]string, payload []byte) *httptest.ResponseRecorder {
 	t.Helper()
 	body := &bytes.Buffer{}
@@ -305,7 +315,7 @@ func multipartUpload(t *testing.T, h *Handler, fields map[string]string, payload
 	return rec
 }
 
-// deployCtx 构造带路由参数的测试 gin 上下文（跑 handler 前置）。
+// deployCtx builds a test gin context carrying route parameters (run before the handler).
 func deployCtx(method, target, body string, params ...gin.Param) (*gin.Context, *httptest.ResponseRecorder) {
 	req := httptest.NewRequest(method, target, nil)
 	if body != "" {
@@ -325,7 +335,7 @@ func TestDeployHandlersRoundTrip(t *testing.T) {
 	seedPackage(t, s, "p1", "deploy/game.bin")
 	h := NewHandler(s)
 
-	// 上传：无文件 → 400；成功 → 200
+	// upload: no file → 400; success → 200
 	rec := multipartUpload(t, h, map[string]string{"name": "game"}, []byte("x"))
 	require.Equal(t, http.StatusBadRequest, rec.Code)
 	rec = multipartUpload(t, h, map[string]string{
@@ -334,12 +344,12 @@ func TestDeployHandlersRoundTrip(t *testing.T) {
 	}, []byte("payload-bytes"))
 	require.Equal(t, http.StatusOK, rec.Code)
 
-	// 包列表 → 200
+	// package list → 200
 	c, rec := deployCtx(http.MethodGet, "/api/v1/ops/deploy/packages", "")
 	h.DeployPackageList(c)
 	require.Equal(t, http.StatusOK, rec.Code)
 
-	// 发版单创建：坏 JSON 400 / 成功 200
+	// deployment creation: bad JSON 400 / success 200
 	c, rec = deployCtx(http.MethodPost, "/api/v1/ops/deployments", "{bad")
 	h.DeploymentCreate(c)
 	require.Equal(t, http.StatusBadRequest, rec.Code)
@@ -352,7 +362,7 @@ func TestDeployHandlersRoundTrip(t *testing.T) {
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &created))
 	depID := created.Deployment.DeploymentID
 
-	// 列表 / 详情 → 200
+	// list / details → 200
 	c, rec = deployCtx(http.MethodGet, "/api/v1/ops/deployments", "")
 	h.DeploymentList(c)
 	require.Equal(t, http.StatusOK, rec.Code)
@@ -362,14 +372,14 @@ func TestDeployHandlersRoundTrip(t *testing.T) {
 	h.DeploymentGet(c)
 	require.Equal(t, http.StatusOK, rec.Code)
 
-	// 启动（fake agent 全绿）→ 200 complete
+	// start (fake agent all green) → 200 complete
 	c, rec = deployCtx(http.MethodPost, "/api/v1/ops/deployments/"+depID+"/start", "",
 		gin.Param{Key: "id", Value: depID})
 	h.DeploymentStart(c)
 	require.Equal(t, http.StatusOK, rec.Code)
 	require.Contains(t, rec.Body.String(), model.DeploymentStateComplete)
 
-	// 回滚：坏 JSON 400 / 成功 200
+	// rollback: bad JSON 400 / success 200
 	c, rec = deployCtx(http.MethodPost, "/api/v1/ops/deployments/"+depID+"/rollback", "{bad",
 		gin.Param{Key: "id", Value: depID})
 	h.DeploymentRollback(c)
@@ -382,7 +392,7 @@ func TestDeployHandlersRoundTrip(t *testing.T) {
 }
 
 func TestDeployServiceNotConfiguredBranches(t *testing.T) {
-	// svcCtx/模型未装配 → errDeployNotConfigured（233/340/355）
+	// svcCtx/model not wired → errDeployNotConfigured (233/340/355)
 	s := NewService(&svc.ServiceContext{})
 	_, err := s.DeployPackageUpload(context.Background(), &DeployPackageCreateRequest{Name: "game", Version: "v1"}, []byte("x"))
 	require.ErrorIs(t, err, errDeployNotConfigured)
@@ -394,7 +404,7 @@ func TestDeployServiceNotConfiguredBranches(t *testing.T) {
 
 func TestDeployHandlerErrorBranches(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	// 表结构在册但物理表缺失 → handler service 错误分支（163/186/195/218）
+	// schema registered but physical tables missing → handler service error branches (163/186/195/218)
 	db, err := gorm.Open(gsqlite.Open(t.TempDir()+"/dep_hb.db"), &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, db.AutoMigrate(&model.Deployment{}, &model.DeployPackage{}))
@@ -423,7 +433,7 @@ func TestDeployHandlerErrorBranches(t *testing.T) {
 	h.DeploymentStart(c)
 	require.NotEqual(t, http.StatusOK, w.Code)
 
-	// 回滚 service 错误分支（218）
+	// rollback service error branches (218)
 	c, w = deployCtx(http.MethodPost, "/api/v1/ops/deployments/ghost/rollback",
 		`{"rollbackPackageId":"p1"}`, gin.Param{Key: "id", Value: "ghost"})
 	h.DeploymentRollback(c)
@@ -436,19 +446,19 @@ func TestDeployCreateStoreErrorAndViewDefaults(t *testing.T) {
 	s := deployFixture(t, agent)
 	seedPackage(t, s, "p1", "deploy/game.bin")
 
-	// deployments 表缺失 → 创建落库失败（333）
+	// deployments table missing → create fails to land (333)
 	require.NoError(t, s.svcCtx.DB.Migrator().DropTable("deployments"))
 	_, err := s.DeploymentCreate(ctx, &DeploymentCreateRequest{PackageID: "p1", ProcessName: "game", Targets: []string{"a1"}})
 	require.ErrorContains(t, err, "创建发版单失败")
 
-	// TargetsJSON 非法（null）→ 视图兜底空切片（435）
+	// TargetsJSON invalid (null) → the view falls back to an empty slice (435)
 	view := buildDeploymentView(&model.Deployment{DeploymentID: "d9", TargetsJSON: model.JSON([]byte("null"))})
 	require.NotNil(t, view.Targets)
 	require.Empty(t, view.Targets)
 }
 
 func TestBytesReaderRoundTrip(t *testing.T) {
-	// mu 保护的 ReadSeeker 包装（476/481）：Read/Seek 行为与底层 reader 一致
+	// mutex-protected ReadSeeker wrapper (476/481): Read/Seek behave like the underlying reader
 	br := newBytesReader([]byte("hello"))
 	buf := make([]byte, 3)
 	n, err := br.Read(buf)

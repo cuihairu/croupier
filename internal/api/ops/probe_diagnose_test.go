@@ -1,7 +1,8 @@
 package ops
 
-// 手动诊断探针端点测试：探测面未配置 404、空目标 422、未知目标 404、
-// 命中目标返回单次结果投影。
+// Manual diagnostic probe endpoint tests: probe surface not configured → 404,
+// empty target → 422, unknown target → 404, and a hit returns the single-result
+// projection.
 
 import (
 	"context"
@@ -68,6 +69,7 @@ func TestProbeDiagnose_ReturnsResult(t *testing.T) {
 	assert.False(t, resp.OK)
 	assert.False(t, resp.Available)
 	assert.NotEmpty(t, resp.Reason)
-	// failThreshold=1：单次失败即开窗（手动诊断与周期探测共用状态机）。
+	// failThreshold=1: a single failure opens the window (manual diagnosis and
+	// periodic probing share the state machine).
 	assert.True(t, resp.WindowOpen)
 }

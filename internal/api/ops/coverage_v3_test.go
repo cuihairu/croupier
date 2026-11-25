@@ -23,13 +23,13 @@ import (
 
 // ---- fakes ----
 
-// fakeCaller 模拟 agent TCP 会话：按消息类型返回预置 protobuf 响应。
+// fakeCaller simulates an agent TCP session: returns preset protobuf responses by message type.
 type fakeCaller struct {
-	errOn     map[uint32]error         // 指定 msgID 返回错误
-	calls     []uint32                 // 记录调用过的 msgID
-	respFor   map[uint32]proto.Message // msgID → 响应消息
-	lastBody  map[uint32][]byte        // msgID → 最近一次请求体（惰性初始化）
-	callCount int                      // 总调用次数
+	errOn     map[uint32]error         // return error for the given msgID
+	calls     []uint32                 // msgIDs called so far
+	respFor   map[uint32]proto.Message // msgID → response message
+	lastBody  map[uint32][]byte        // msgID → most recent request body (lazily initialized)
+	callCount int                      // total call count
 }
 
 func (f *fakeCaller) Call(ctx context.Context, msgID uint32, reqBody []byte) (uint32, []byte, error) {
@@ -61,7 +61,7 @@ func (r *fakeResolver) ResolveAgentConn(agentID string) (transport.SessionCaller
 	return c, ok
 }
 
-// ---- opsNodeDrain / opsNodeRestart / opsNodeUndrain 成功与错误路径 ----
+// ---- opsNodeDrain / opsNodeRestart / opsNodeUndrain success and error paths ----
 
 func TestOpsNodeDrainRestartUndrainPaths(t *testing.T) {
 	ctx := context.Background()
@@ -74,7 +74,7 @@ func TestOpsNodeDrainRestartUndrainPaths(t *testing.T) {
 	resolver := &fakeResolver{conns: map[string]transport.SessionCaller{"node-1": caller}}
 	svcCtx.AgentSessionResolver = resolver
 
-	// 空 nodeId → 400
+	// empty nodeId → 400
 	_, err := opsNodeDrain(ctx, svcCtx, &OpsNodeCommandsRequest{})
 	require.Error(t, err)
 	_, err = opsNodeRestart(ctx, svcCtx, &OpsNodeCommandsRequest{})
@@ -82,7 +82,7 @@ func TestOpsNodeDrainRestartUndrainPaths(t *testing.T) {
 	_, err = opsNodeUndrain(ctx, svcCtx, &OpsNodeCommandsRequest{})
 	require.Error(t, err)
 
-	// 未知节点 → 404
+	// unknown node → 404
 	_, err = opsNodeDrain(ctx, svcCtx, &OpsNodeCommandsRequest{NodeId: "ghost"})
 	require.Error(t, err)
 	_, err = opsNodeRestart(ctx, svcCtx, &OpsNodeCommandsRequest{NodeId: "ghost"})
@@ -90,30 +90,30 @@ func TestOpsNodeDrainRestartUndrainPaths(t *testing.T) {
 	_, err = opsNodeUndrain(ctx, svcCtx, &OpsNodeCommandsRequest{NodeId: "ghost"})
 	require.Error(t, err)
 
-	// drain 成功（Call 成功）
+	// drain succeeds (Call ok)
 	resp, err := opsNodeDrain(ctx, svcCtx, &OpsNodeCommandsRequest{NodeId: "node-1"})
 	require.NoError(t, err)
 	assert.Equal(t, "draining", resp.Status)
 
-	// drain 状态已记录
+	// drain state recorded
 	snap := store.Snapshot()
 	_, drained := snap.Nodes.Drained["node-1"]
 	assert.True(t, drained)
 
-	// Call 失败也继续（记录状态不中断）
+	// Call failure still proceeds (state recording is not interrupted)
 	errCaller := &fakeCaller{errOn: map[uint32]error{protocol.MsgProviderDrainRequest: assert.AnError}}
 	svcCtx.AgentSessionResolver = &fakeResolver{conns: map[string]transport.SessionCaller{"node-2": errCaller}}
 	resp, err = opsNodeDrain(ctx, svcCtx, &OpsNodeCommandsRequest{NodeId: "node-2"})
 	require.NoError(t, err)
 	assert.Equal(t, "node-2", resp.NodeId)
 
-	// restart 成功
+	// restart succeeds
 	svcCtx.AgentSessionResolver = resolver
 	resp2, err := opsNodeRestart(ctx, svcCtx, &OpsNodeCommandsRequest{NodeId: "node-1"})
 	require.NoError(t, err)
 	assert.Equal(t, "restarting", resp2.Status)
 
-	// undrain 清除 drain 状态
+	// undrain clears drain state
 	resp3, err := opsNodeUndrain(ctx, svcCtx, &OpsNodeCommandsRequest{NodeId: "node-1"})
 	require.NoError(t, err)
 	assert.Equal(t, "active", resp3.Status)
@@ -122,8 +122,9 @@ func TestOpsNodeDrainRestartUndrainPaths(t *testing.T) {
 	assert.False(t, drained)
 }
 
-// ARCH-016：drain/undrain 同步驱动 registry 路由门（agentCanInvoke 拦截源），
-// undrain 下行携带 reason 哨兵（protocol.ProviderDrainReasonUndrain）。
+// ARCH-016: drain/undrain also drives the registry routing gate (the agentCanInvoke
+// interception source); the undrain downlink carries the reason sentinel
+// (protocol.ProviderDrainReasonUndrain).
 func TestOpsNodeDrainRegistryGate(t *testing.T) {
 	ctx := context.Background()
 	store := svc.NewOpsStateStore(t.TempDir())
@@ -139,13 +140,13 @@ func TestOpsNodeDrainRegistryGate(t *testing.T) {
 	caller := &fakeCaller{}
 	svcCtx.AgentSessionResolver = &fakeResolver{conns: map[string]transport.SessionCaller{"node-1": caller}}
 
-	// drain → registry Draining 置位
+	// drain → registry Draining set
 	_, err := opsNodeDrain(ctx, svcCtx, &OpsNodeCommandsRequest{NodeId: "node-1"})
 	require.NoError(t, err)
 	regStore.Mu().RLock()
 	assert.True(t, regStore.AgentsUnsafe()["node-1"].Draining)
 	regStore.Mu().RUnlock()
-	// drain 下行体为空 session_id（节点级 drain-all，agent 侧对全部会话生效）
+	// drain downlink body has empty session_id (node-level drain-all, effective for all sessions on the agent side)
 	require.Equal(t, 1, caller.callCount)
 	{
 		req := &sdkv1.ProviderDrainRequest{}
@@ -154,7 +155,7 @@ func TestOpsNodeDrainRegistryGate(t *testing.T) {
 		assert.Empty(t, req.Reason)
 	}
 
-	// undrain → registry Draining 清除，且下行携带 reason 哨兵
+	// undrain → registry Draining cleared, and the downlink carries the reason sentinel
 	_, err = opsNodeUndrain(ctx, svcCtx, &OpsNodeCommandsRequest{NodeId: "node-1"})
 	require.NoError(t, err)
 	regStore.Mu().RLock()
@@ -167,10 +168,10 @@ func TestOpsNodeDrainRegistryGate(t *testing.T) {
 	}
 }
 
-// ---- AgentService 进程命令（AgentOpsClient 真实编解码 + fake 会话） ----
+// ---- AgentService process commands (AgentOpsClient real codec + fake session) ----
 
 func TestAgentServiceProcessCommandsViaOpsClient(t *testing.T) {
-	// 构造 ops client 全局 resolver：agent-1 有会话，其他无
+	// set up the ops client global resolver: agent-1 has a session, others do not
 	caller := &fakeCaller{respFor: map[uint32]proto.Message{
 		protocol.MsgExecuteCommandRequest: &opsv1.ExecuteCommandResponse{ExitCode: 0, StdOut: "ok-out", StdErr: "err-out"},
 		protocol.MsgStartProcessRequest:   &opsv1.StartProcessResponse{Pid: 4242},
@@ -179,7 +180,7 @@ func TestAgentServiceProcessCommandsViaOpsClient(t *testing.T) {
 	}}
 	client := agentops.GetAgentOpsClient()
 	client.SetSessionResolver(&fakeResolver{conns: map[string]transport.SessionCaller{"agent-1": caller}})
-	t.Cleanup(func() { client.SetSessionResolver(nil) }) // 全局单例：用后复位，不污染其他用例
+	t.Cleanup(func() { client.SetSessionResolver(nil) }) // global singleton: reset after use, no pollution of other cases
 	store := registry.NewStore()
 	require.NoError(t, store.UpsertAgent(&registry.AgentSession{AgentID: "agent-1"}))
 	s := NewAgentService(&svc.ServiceContext{RegistryStore: store})
@@ -198,7 +199,7 @@ func TestAgentServiceProcessCommandsViaOpsClient(t *testing.T) {
 	require.NoError(t, s.StopProcess(ctx, "agent-1", "game-server"))
 	require.NoError(t, s.RestartProcess(ctx, "agent-1", "game-server"))
 
-	// 无会话的 agent → scope gate 先拒绝。
+	// agent without a session → rejected by the scope gate first.
 	_, err = s.ExecCommand(ctx, "ghost", "ls", nil, 5)
 	require.ErrorContains(t, err, "not found")
 	_, err = s.StartProcess(ctx, "ghost", "x", nil, nil, "")
@@ -209,7 +210,7 @@ func TestAgentServiceProcessCommandsViaOpsClient(t *testing.T) {
 	require.ErrorContains(t, err, "not found")
 }
 
-// ---- AgentService.List：集群归属表视图 + 本地回退 + 过滤 ----
+// ---- AgentService.List: cluster ownership-table view + local fallback + filtering ----
 
 func TestAgentServiceListClusterAndLocalViews(t *testing.T) {
 	store := registry.NewStore()
@@ -219,13 +220,13 @@ func TestAgentServiceListClusterAndLocalViews(t *testing.T) {
 		Functions: map[string]registry.FunctionMeta{"f1": {}, "f2": {}},
 	}))
 
-	// 无 store → 空列表
+	// no store → empty list
 	empty := NewAgentService(&svc.ServiceContext{RegistryStore: registry.NewStore()})
 	list, err := empty.List(context.Background(), "", "", "")
 	require.NoError(t, err)
 	assert.Empty(t, list)
 
-	// 集群模式：归属表含本地 agent + 远端 agent
+	// cluster mode: ownership table contains local agent + remote agent
 	svcCtx := &svc.ServiceContext{
 		RegistryStore: store,
 		Cluster: &svc.ClusterRuntime{
@@ -241,7 +242,7 @@ func TestAgentServiceListClusterAndLocalViews(t *testing.T) {
 	list, err = s.List(context.Background(), "", "", "")
 	require.NoError(t, err)
 	require.Len(t, list, 2)
-	// 本地条目：补全详情 + Connected
+	// local entry: full details + Connected
 	var localItem, remoteItem *OpsAgentInfo
 	for i := range list {
 		if list[i].AgentID == "agent-local" {
@@ -258,13 +259,13 @@ func TestAgentServiceListClusterAndLocalViews(t *testing.T) {
 	assert.False(t, remoteItem.Connected)
 	assert.Equal(t, "inst-peer", remoteItem.OwnerInstance)
 
-	// game/env 过滤
+	// game/env filtering
 	list, err = s.List(context.Background(), "demo", "prod", "")
 	require.NoError(t, err)
 	require.Len(t, list, 1)
 	assert.Equal(t, "agent-local", list[0].AgentID)
 
-	// 归属表读取失败 → 回退本地视图
+	// ownership-table read failure → fall back to local view
 	svcCtx.Cluster.ListAgentOwners = func(ctx context.Context) ([]cluster.AgentOwnerRecord, error) {
 		return nil, assert.AnError
 	}
@@ -278,7 +279,7 @@ func TestAgentServiceListClusterAndLocalViews(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, list)
 
-	// 非集群：本地视图 + 过滤（env 不匹配）
+	// non-cluster: local view + filtering (env mismatch)
 	plain := NewAgentService(&svc.ServiceContext{RegistryStore: store})
 	list, err = plain.List(context.Background(), "demo", "dev", "")
 	require.NoError(t, err)
@@ -308,7 +309,7 @@ func TestAgentServiceActionsRequireRequestedScope(t *testing.T) {
 	require.ErrorContains(t, clusterService.requireAgentScope(clusterDBCtx, "agent-local"), "not found")
 }
 
-// ---- runtimeNodeListItem：providers/metrics/过期时间分支 ----
+// ---- runtimeNodeListItem: providers/metrics/expiry branches ----
 
 func TestRuntimeNodeListItemBranches(t *testing.T) {
 	sess := &registry.AgentSession{
@@ -316,7 +317,7 @@ func TestRuntimeNodeListItemBranches(t *testing.T) {
 		Labels:    map[string]string{"hostname": "host-1"},
 		Functions: map[string]registry.FunctionMeta{"f": {}},
 		Providers: []registry.ProviderSession{{SDKLanguage: "go", SDKVersion: "1.1", SDKName: "croupier-go-sdk"}},
-		ExpireAt:  time.Now().Add(-time.Hour), // 已过期 → 0
+		ExpireAt:  time.Now().Add(-time.Hour), // already expired → 0
 		LastSeen:  time.Now(),
 	}
 
@@ -327,7 +328,7 @@ func TestRuntimeNodeListItemBranches(t *testing.T) {
 	assert.Equal(t, int64(0), node.ExpiresInSec)
 	assert.Nil(t, node.CPU) // metricsStore nil
 
-	// 有 metrics：CPU/Memory 填充
+	// with metrics: CPU/Memory populated
 	ms := registry.NewMetricsStore()
 	report := &opsv1.MetricsReport{
 		Cpu:    &opsv1.CpuMetrics{UsagePercent: 55.5, Cores: 8, PerCore: []float64{1, 2}, Load_1M: 0.5, Load_5M: 0.4, Load_15M: 0.3},
@@ -342,7 +343,7 @@ func TestRuntimeNodeListItemBranches(t *testing.T) {
 	assert.EqualValues(t, 100, node.Memory.TotalBytes)
 }
 
-// ---- opsBackupDelete / opsBackupDownload：真实模型 ----
+// ---- opsBackupDelete / opsBackupDownload: real model ----
 
 func newBackupTestCtx(t *testing.T) *svc.ServiceContext {
 	t.Helper()
@@ -359,27 +360,27 @@ func TestOpsBackupDeleteAndDownloadWithModel(t *testing.T) {
 	created, err := opsBackupCreate(ctx, svcCtx, &OpsBackupCreateRequest{Name: "b1"})
 	require.NoError(t, err)
 
-	// 删除存在 → true
+	// delete existing → true
 	resp, err := opsBackupDelete(ctx, svcCtx, &OpsBackupDeleteRequest{ID: created.BackupID})
 	require.NoError(t, err)
 	assert.True(t, resp.Deleted)
 
-	// 再删 → 错误（找不到）
+	// delete again → error (not found)
 	_, err = opsBackupDelete(ctx, svcCtx, &OpsBackupDeleteRequest{ID: created.BackupID})
 	require.Error(t, err)
 
-	// 下载：Location 为空 → 回退占位路由
+	// download: empty Location → falls back to placeholder route
 	created2, err := opsBackupCreate(ctx, svcCtx, &OpsBackupCreateRequest{Name: "b2"})
 	require.NoError(t, err)
 	dl, err := opsBackupDownload(ctx, svcCtx, &OpsBackupDownloadRequest{ID: created2.BackupID})
 	require.NoError(t, err)
 	assert.Equal(t, "/backups/"+created2.BackupID+"/download", dl.Url)
 
-	// 下载不存在 → 错误
+	// download nonexistent → error
 	_, err = opsBackupDownload(ctx, svcCtx, &OpsBackupDownloadRequest{ID: "nope"})
 	require.Error(t, err)
 
-	// 无模型 → 静默成功/占位 URL
+	// no model → silent success / placeholder URL
 	empty := &svc.ServiceContext{}
 	resp, err = opsBackupDelete(ctx, empty, &OpsBackupDeleteRequest{ID: "x"})
 	require.NoError(t, err)
@@ -389,14 +390,14 @@ func TestOpsBackupDeleteAndDownloadWithModel(t *testing.T) {
 	assert.Equal(t, "/backups/x/download", dl.Url)
 }
 
-// ---- opsHealthRun：全链路 ----
+// ---- opsHealthRun: full path ----
 
 func TestOpsHealthRunFullPaths(t *testing.T) {
 	ctx := context.Background()
 	store := svc.NewOpsStateStore(t.TempDir())
 	svcCtx := &svc.ServiceContext{OpsStateStore: store}
 
-	// 先注册检查项
+	// register the check first
 	_, err := opsHealthUpdate(ctx, svcCtx, &OpsHealthUpdateRequest{Checks: []OpsHealthCheck{{
 		ID: "hc-tcp", Kind: "tcp", Target: "127.0.0.1:80", IntervalSec: 30, TimeoutMs: 1000,
 	}}})
@@ -407,24 +408,24 @@ func TestOpsHealthRunFullPaths(t *testing.T) {
 	assert.Equal(t, "hc-tcp", resp.Id)
 	assert.True(t, resp.Ok)
 
-	// 重复执行：旧状态被替换（不是追加）
+	// repeated run: old state is replaced (not appended)
 	_, err = opsHealthRun(ctx, svcCtx, &OpsHealthRunRequest{ID: "hc-tcp"})
 	require.NoError(t, err)
 	snap := store.Snapshot()
 	assert.Len(t, snap.Health.Status, 1)
 
-	// 未知检查项 → 404
+	// unknown check → 404
 	_, err = opsHealthRun(ctx, svcCtx, &OpsHealthRunRequest{ID: "ghost"})
 	require.Error(t, err)
 
-	// 无 state store → 错误
+	// no state store → error
 	_, err = opsHealthRun(ctx, &svc.ServiceContext{}, &OpsHealthRunRequest{ID: "x"})
 	require.Error(t, err)
 	_, err = opsHealthRun(ctx, nil, &OpsHealthRunRequest{ID: "x"})
 	require.Error(t, err)
 }
 
-// ---- opsMQ：Redis/Kafka/Lengths/Groups 渲染 ----
+// ---- opsMQ: Redis/Kafka/Lengths/Groups rendering ----
 
 func TestOpsMQRendersState(t *testing.T) {
 	ctx := context.Background()
@@ -450,18 +451,18 @@ func TestOpsMQRendersState(t *testing.T) {
 	require.Len(t, groups, 1)
 	assert.Equal(t, "g1", groups[0]["name"])
 
-	// 空 ctx → 空 result
+	// empty ctx → empty result
 	empty, err := opsMQ(ctx, &svc.ServiceContext{}, &OpsMQRequest{})
 	require.NoError(t, err)
 	assert.Empty(t, empty.Result)
 }
 
-// ---- opsConfig：state store 回退 + env 回退 ----
+// ---- opsConfig: state store fallback + env fallback ----
 
 func TestOpsConfigFallbacks(t *testing.T) {
 	ctx := context.Background()
 
-	// state store 值兜底
+	// state store values as fallback
 	store := svc.NewOpsStateStore(t.TempDir())
 	_, err := store.Update(func(state *svc.OpsState) {
 		state.Config.AlertmanagerURL = "http://am.internal"
@@ -471,12 +472,12 @@ func TestOpsConfigFallbacks(t *testing.T) {
 	require.NoError(t, err)
 	resp, err := opsConfig(ctx, &svc.ServiceContext{OpsStateStore: store}, &OpsConfigRequest{})
 	require.NoError(t, err)
-	// settings 层可能已初始化并返回非空——只断言最终三个字段非空（来自 state 或更上层）
+	// the settings layer may already be initialized and return non-empty — only assert the final three fields are non-empty (from state or a higher layer)
 	if resp.AlertmanagerURL == "" || resp.GrafanaExploreURL == "" || resp.JaegerURL == "" {
 		t.Fatalf("config should fall back to state store: %+v", resp)
 	}
 
-	// 完全空 → env 变量
+	// fully empty → env variables
 	t.Setenv("CROUPIER_ALERTMANAGER_URL", "http://am-env")
 	t.Setenv("CROUPIER_GRAFANA_EXPLORE_URL", "http://g-env")
 	t.Setenv("CROUPIER_JAEGER_URL", "http://j-env")
@@ -487,7 +488,7 @@ func TestOpsConfigFallbacks(t *testing.T) {
 	assert.Equal(t, "http://j-env", resp.JaegerURL)
 }
 
-// ---- agentMetricsHistory：since 解析/limit 默认/cpu-mem-disk 渲染 ----
+// ---- agentMetricsHistory: since parsing / limit defaults / cpu-mem-disk rendering ----
 
 func TestAgentMetricsHistoryBranches(t *testing.T) {
 	ctx := context.Background()
@@ -503,7 +504,7 @@ func TestAgentMetricsHistoryBranches(t *testing.T) {
 	svcCtx := &svc.ServiceContext{MetricsStore: ms, RegistryStore: registryStore}
 	resp, err := agentMetricsHistory(ctx, svcCtx, &AgentMetricsHistoryRequest{AgentID: "a1"})
 
-	// since/limit 默认
+	// since/limit defaults
 	resp, err = agentMetricsHistory(ctx, svcCtx, &AgentMetricsHistoryRequest{AgentID: "a1"})
 	require.NoError(t, err)
 	require.Len(t, resp.Entries, 1)
@@ -511,19 +512,19 @@ func TestAgentMetricsHistoryBranches(t *testing.T) {
 	require.NotNil(t, resp.Entries[0].Memory)
 	require.Len(t, resp.Entries[0].Disks, 1)
 
-	// since 在未来 → 无条目
+	// since in the future → no entries
 	future := time.Now().Add(time.Hour).Format(time.RFC3339)
 	resp, err = agentMetricsHistory(ctx, svcCtx, &AgentMetricsHistoryRequest{AgentID: "a1", Since: future})
 	require.NoError(t, err)
 	assert.Empty(t, resp.Entries)
 
-	// 非法 since → 忽略回退默认
+	// invalid since → ignored, falls back to default
 	resp, err = agentMetricsHistory(ctx, svcCtx, &AgentMetricsHistoryRequest{AgentID: "a1", Since: "not-a-time"})
 	require.NoError(t, err)
 	assert.Len(t, resp.Entries, 1)
 }
 
-// ---- GetClusterInfo：成员表 + mesh 离线 + OwnerStats ----
+// ---- GetClusterInfo: member table + mesh offline + OwnerStats ----
 
 type fakeMembership struct {
 	peers []cluster.PeerInfo
@@ -561,7 +562,7 @@ func TestGetClusterInfoMembersMeshOwnerStats(t *testing.T) {
 	assert.True(t, resp.Items[0].Self)
 	assert.False(t, resp.Items[1].Self)
 
-	// Membership 报错 → 不中断（空成员表）
+	// Membership error → no interruption (empty member table)
 	svcCtx.Cluster.Membership = &fakeMembership{err: assert.AnError}
 	resp, err = s.GetClusterInfo(context.Background())
 	require.NoError(t, err)

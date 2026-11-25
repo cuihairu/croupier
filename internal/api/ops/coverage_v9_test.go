@@ -1,6 +1,7 @@
-// coverage_v9_test.go 补充 internal/api/ops 未覆盖分支：
-// 错误路径（closed DB / 保存失败 / 扩展事件失败）、集群视图、
-// 备份/告警/指标/维护/通知等 handler 的成功与服务错误分支。
+// coverage_v9_test.go adds coverage for branches not covered in internal/api/ops:
+// error paths (closed DB / save failure / extension event failure), cluster views,
+// and success and service-error branches of the backup/alert/metrics/maintenance/notification
+// handlers.
 package ops
 
 import (
@@ -34,7 +35,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// ---- helpers（V9 后缀，避免与现有 helper 冲突） ----
+// ---- helpers (V9 suffix avoids conflicts with existing helpers) ----
 
 func closeV9DB(t *testing.T, db *gorm.DB) {
 	t.Helper()
@@ -43,7 +44,8 @@ func closeV9DB(t *testing.T, db *gorm.DB) {
 	require.NoError(t, sqlDB.Close())
 }
 
-// newV9BackupSvcCtx 返回带 BackupModel 的 ctx 与底层 db（用于关闭连接制造错误）。
+// newV9BackupSvcCtx returns a ctx carrying BackupModel plus the underlying db (to close
+// the connection and force errors).
 func newV9BackupSvcCtx(t *testing.T) (*svc.ServiceContext, *gorm.DB) {
 	t.Helper()
 	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
@@ -87,7 +89,7 @@ func installV9Notification(t *testing.T, installationSvc *extensioninstallation.
 	return installed
 }
 
-// ---- Agent 进程命令 helper：成功 + nil svcCtx + wrapper 错误 ----
+// ---- Agent process command helpers: success + nil svcCtx + wrapper errors ----
 
 func TestOpsAgentProcessHelpersV9(t *testing.T) {
 	caller := &fakeCaller{respFor: map[uint32]proto.Message{
@@ -105,13 +107,13 @@ func TestOpsAgentProcessHelpersV9(t *testing.T) {
 	svcCtx := &svc.ServiceContext{RegistryStore: store}
 	ctx := context.Background()
 
-	// ExecCommand 成功 → 响应转换
+	// ExecCommand success → response conversion
 	execResp, err := opsAgentExecCommand(ctx, svcCtx, &OpsExecCommandRequest{AgentID: "agent-1", Command: "ls", Timeout: 3})
 	require.NoError(t, err)
 	assert.EqualValues(t, 0, execResp.Result.ExitCode)
 	assert.Equal(t, "v9-out", execResp.Result.Stdout)
 
-	// Start/Stop/Restart 成功
+	// Start/Stop/Restart success
 	startResp, err := opsAgentProcessStart(ctx, svcCtx, &OpsProcessStartRequest{AgentID: "agent-1", Name: "proc-1"})
 	require.NoError(t, err)
 	assert.EqualValues(t, 777, startResp.Pid)
@@ -128,7 +130,7 @@ func TestOpsAgentProcessHelpersV9(t *testing.T) {
 	_, err = opsAgentProcessRestart(ctx, nil, &OpsProcessActionRequest{})
 	require.Error(t, err)
 
-	// ExecuteCommand / StartProcess wrapper 调用失败
+	// ExecuteCommand / StartProcess wrapper call failure
 	errCaller := &fakeCaller{errOn: map[uint32]error{
 		protocol.MsgExecuteCommandRequest: assert.AnError,
 		protocol.MsgStartProcessRequest:   assert.AnError,
@@ -146,7 +148,7 @@ func TestOpsAgentProcessHelpersV9(t *testing.T) {
 	require.Error(t, err)
 }
 
-// ---- 备份/告警：closed DB 错误路径 ----
+// ---- backup/alert: closed DB error paths ----
 
 func TestBackupAlertModelErrorPathsV9(t *testing.T) {
 	ctx := context.Background()
@@ -163,7 +165,7 @@ func TestBackupAlertModelErrorPathsV9(t *testing.T) {
 	_, err = bs.Create(ctx, "g", "e", "manual", 30)
 	require.Error(t, err)
 
-	// 备份不存在 → FindByBackupID 错误
+	// backup does not exist → FindByBackupID error
 	okBackupCtx, _ := newV9BackupSvcCtx(t)
 	_, err = opsBackupDelete(ctx, okBackupCtx, &OpsBackupDeleteRequest{ID: "missing"})
 	require.Error(t, err)
@@ -174,10 +176,10 @@ func TestBackupAlertModelErrorPathsV9(t *testing.T) {
 	closeV9DB(t, alertDB)
 	_, err = opsAlerts(ctx, alertCtx, &OpsAlertsRequest{})
 	require.Error(t, err)
-	// 非法 alertID → Sscanf 错误
+	// invalid alertID → Sscanf error
 	_, err = opsAlertSilence(ctx, alertCtx, &OpsAlertSilenceRequest{AlertID: "not-a-number"})
 	require.Error(t, err)
-	// 合法 alertID 但 CreateSilence 失败
+	// valid alertID but CreateSilence fails
 	_, err = opsAlertSilence(ctx, alertCtx, &OpsAlertSilenceRequest{AlertID: "9", Duration: 5})
 	require.Error(t, err)
 	_, err = opsSilenceDelete(ctx, alertCtx, &OpsAlertSilenceRequest{AlertID: "9"})
@@ -194,7 +196,7 @@ func TestBackupAlertModelErrorPathsV9(t *testing.T) {
 	require.Error(t, err)
 }
 
-// ---- GetClusterInfo：单实例带 registry 计数 + handler 错误 ----
+// ---- GetClusterInfo: single instance with registry counts + handler error ----
 
 func TestOpsClusterInfoStandaloneAndHandlerErrorV9(t *testing.T) {
 	store := registry.NewStore()
@@ -212,7 +214,7 @@ func TestOpsClusterInfoStandaloneAndHandlerErrorV9(t *testing.T) {
 	assert.Equal(t, int64(1), resp.Items[0].AgentCount)
 	assert.Equal(t, 1, resp.AliveCount)
 
-	// handler：nil svcCtx → 服务错误分支
+	// handler: nil svcCtx → service error branch
 	gin.SetMode(gin.TestMode)
 	h := NewHandler(NewService(nil))
 	ctx, rec := newOpsTestContext(http.MethodGet, "/api/v1/ops/cluster", "")
@@ -220,7 +222,7 @@ func TestOpsClusterInfoStandaloneAndHandlerErrorV9(t *testing.T) {
 	assert.GreaterOrEqual(t, rec.Code, 400)
 }
 
-// ---- GetClusterInfo：mesh 离线对端 + LBStats + LBStatsQuery handler 成功 ----
+// ---- GetClusterInfo: mesh offline peer + LBStats + LBStatsQuery handler success ----
 
 func TestGetClusterInfoMeshOfflineLBStatsV9(t *testing.T) {
 	prom := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -243,7 +245,7 @@ func TestGetClusterInfoMeshOfflineLBStatsV9(t *testing.T) {
 
 	svcCtx := &svc.ServiceContext{Cluster: &svc.ClusterRuntime{
 		InstanceID: "inst-1",
-		// 在线成员：inst-1（self）+ inst-2；inst-3 仅存在于 mesh last-known → 离线
+		// alive members: inst-1 (self) + inst-2; inst-3 exists only in mesh last-known → offline
 		Membership: &fakeMembership{peers: []cluster.PeerInfo{
 			{InstanceID: "inst-1", AdvertiseAddr: "10.0.0.1:1", Epoch: 1, StartedAt: time.Now()},
 			{InstanceID: "inst-2", AdvertiseAddr: "10.0.0.2:1", Epoch: 2, StartedAt: time.Now()},
@@ -259,7 +261,7 @@ func TestGetClusterInfoMeshOfflineLBStatsV9(t *testing.T) {
 	assert.Equal(t, "inst-1", resp.Self)
 	require.NotNil(t, resp.LbStats)
 	assert.True(t, resp.LbStats.Enabled)
-	// inst-2 在线；inst-3 仅 mesh last-known → 展示为离线
+	// inst-2 is alive; inst-3 exists only in mesh last-known → shown as offline
 	require.Len(t, resp.Items, 3)
 	byInst := map[string]ClusterInstance{}
 	for _, it := range resp.Items {
@@ -271,12 +273,12 @@ func TestGetClusterInfoMeshOfflineLBStatsV9(t *testing.T) {
 	assert.Equal(t, 3, resp.Total)
 	assert.Equal(t, 2, resp.AliveCount)
 
-	// Service.LBStatsQuery 成功
+	// Service.LBStatsQuery success
 	result, err := s.LBStatsQuery(context.Background(), "haproxy_up")
 	require.NoError(t, err)
 	assert.NotNil(t, result)
 
-	// handler 成功
+	// handler success
 	gin.SetMode(gin.TestMode)
 	h := NewHandler(s)
 	r := gin.New()
@@ -288,7 +290,7 @@ func TestGetClusterInfoMeshOfflineLBStatsV9(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
-// ---- recordOpsAudit：AuditService 非空时记录审计 ----
+// ---- recordOpsAudit: audit recorded when AuditService is non-nil ----
 
 func TestRecordOpsAuditViaNodeDrainV9(t *testing.T) {
 	store := svc.NewOpsStateStore(t.TempDir())
@@ -304,18 +306,18 @@ func TestRecordOpsAuditViaNodeDrainV9(t *testing.T) {
 	caller := &fakeCaller{}
 	svcCtx.AgentSessionResolver = &fakeResolver{conns: map[string]transport.SessionCaller{"node-1": caller}}
 
-	// 无 username → actor=system
+	// no username → actor=system
 	resp, err := opsNodeDrain(context.Background(), svcCtx, &OpsNodeCommandsRequest{NodeId: "node-1"})
 	require.NoError(t, err)
 	assert.Equal(t, "draining", resp.Status)
 
-	// 有 username → actor=username
+	// with username → actor=username
 	ctx := context.WithValue(context.Background(), "username", "v9-admin")
 	resp2, err := opsNodeDrain(ctx, svcCtx, &OpsNodeCommandsRequest{NodeId: "node-1"})
 	require.NoError(t, err)
 	assert.Equal(t, "node-1", resp2.NodeId)
 
-	// restart / undrain / maintenance 也走 recordOpsAudit
+	// restart / undrain / maintenance also go through recordOpsAudit
 	_, err = opsNodeRestart(ctx, svcCtx, &OpsNodeCommandsRequest{NodeId: "node-1"})
 	require.NoError(t, err)
 	_, err = opsNodeUndrain(ctx, svcCtx, &OpsNodeCommandsRequest{NodeId: "node-1"})
@@ -325,7 +327,7 @@ func TestRecordOpsAuditViaNodeDrainV9(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// Call 失败仍继续：restart / undrain 仅记录告警不中断
+	// Call failure still proceeds: restart / undrain only log a warning, no interruption
 	svcCtx.AgentSessionResolver = &fakeResolver{conns: map[string]transport.SessionCaller{
 		"node-err-restart": &fakeCaller{errOn: map[uint32]error{protocol.MsgRestartProcessRequest: assert.AnError}},
 		"node-err-undrain": &fakeCaller{errOn: map[uint32]error{protocol.MsgProviderDrainRequest: assert.AnError}},
@@ -338,7 +340,7 @@ func TestRecordOpsAuditViaNodeDrainV9(t *testing.T) {
 	assert.Equal(t, "active", undrainResp.Status)
 }
 
-// ---- opsHealthGet / opsHealthRun：填充状态与 http 分支 ----
+// ---- opsHealthGet / opsHealthRun: populated state and http branches ----
 
 func TestOpsHealthGetPopulatedStateV9(t *testing.T) {
 	ctx := context.Background()
@@ -352,7 +354,8 @@ func TestOpsHealthGetPopulatedStateV9(t *testing.T) {
 	}})
 	require.NoError(t, err)
 
-	// 两个检查各跑一次，再重复跑 http → 验证旧状态被替换而非追加；custom 走 default 分支
+	// run each of the two checks once, then run http again → verify old state is replaced
+	// rather than appended; custom takes the default branch
 	_, err = opsHealthRun(ctx, svcCtx, &OpsHealthRunRequest{ID: "hc-tcp"})
 	require.NoError(t, err)
 	_, err = opsHealthRun(ctx, svcCtx, &OpsHealthRunRequest{ID: "hc-http"})
@@ -372,23 +375,23 @@ func TestOpsHealthGetPopulatedStateV9(t *testing.T) {
 	assert.Len(t, snap.Health.Status, 3)
 }
 
-// ---- OpsStateStore 持久化失败 → health/maintenance Update 错误 ----
+// ---- OpsStateStore persistence failure → health/maintenance Update error ----
 
 func TestOpsStateStoreSaveFailureV9(t *testing.T) {
 	ctx := context.Background()
 	base := t.TempDir()
-	// 把状态文件路径占位成目录 → WriteFile 失败
+	// occupy the state-file path with a directory → WriteFile fails
 	require.NoError(t, os.Mkdir(filepath.Join(base, "ops_state.json"), 0o755))
 	store := svc.NewOpsStateStore(base)
 	svcCtx := &svc.ServiceContext{OpsStateStore: store}
 
-	// Update 失败（fn 已应用到内存）
+	// Update fails (fn has already been applied in memory)
 	_, err := opsHealthUpdate(ctx, svcCtx, &OpsHealthUpdateRequest{Checks: []OpsHealthCheck{
 		{ID: "hc-1", Kind: "tcp", Target: "127.0.0.1:1"},
 	}})
 	require.Error(t, err)
 
-	// 内存中 check 仍存在 → opsHealthRun 找到目标后 Update 失败
+	// the check is still in memory → opsHealthRun finds the target and then Update fails
 	_, err = opsHealthRun(ctx, svcCtx, &OpsHealthRunRequest{ID: "hc-1"})
 	require.Error(t, err)
 
@@ -396,7 +399,7 @@ func TestOpsStateStoreSaveFailureV9(t *testing.T) {
 	require.Error(t, err)
 }
 
-// ---- opsMaintenanceGet：非空 windows 渲染 ----
+// ---- opsMaintenanceGet: non-empty windows rendering ----
 
 func TestOpsMaintenanceGetPopulatedV9(t *testing.T) {
 	ctx := context.Background()
@@ -416,7 +419,7 @@ func TestOpsMaintenanceGetPopulatedV9(t *testing.T) {
 	assert.NotEmpty(t, resp.UpdatedAt)
 }
 
-// ---- opsMetrics：gameId 过滤不匹配 ----
+// ---- opsMetrics: gameId filter mismatch ----
 
 func TestOpsMetricsGameFilterV9(t *testing.T) {
 	now := time.Now()
@@ -441,12 +444,12 @@ func TestOpsServicesBranchesV9(t *testing.T) {
 	require.NoError(t, store.UpsertAgent(&registry.AgentSession{
 		AgentID: "exp-1", GameID: "g", Env: "prod", Addr: "h:1",
 		Labels: map[string]string{}, Functions: map[string]registry.FunctionMeta{},
-		LastSeen: now, ExpireAt: now.Add(-time.Hour), // 过期 → expired
+		LastSeen: now, ExpireAt: now.Add(-time.Hour), // expired → expired status
 	}))
 	require.NoError(t, store.UpsertAgent(&registry.AgentSession{
 		AgentID: "bare-1", GameID: "g", Env: "prod", Addr: "h:2",
 		Functions: map[string]registry.FunctionMeta{},
-		// Labels nil、LastSeen 零值
+		// Labels nil, LastSeen zero value
 	}))
 
 	svcCtx := &svc.ServiceContext{RegistryStore: store, StartTime: now}
@@ -468,17 +471,17 @@ func TestOpsServicesBranchesV9(t *testing.T) {
 	assert.Empty(t, bare.LastSeen)
 }
 
-// ---- opsConfig：settings 初始化后的主分支 + state/env 回落 ----
+// ---- opsConfig: main branch after settings init + state/env fallback ----
 
 func TestOpsConfigSettingsLayerV9(t *testing.T) {
 	ctx := context.Background()
 
-	// 初始化全局分层设置（L2 为空）；不并行，避免全局单例竞争
+	// initialize global layered settings (L2 empty); not parallel, to avoid global singleton races
 	l := settings.InitLayered(ctx, nil, nil)
 	require.NotNil(t, l)
 	require.NotNil(t, settings.Current())
 
-	// snap 为空 → state store 回落
+	// snap empty → fall back to state store
 	store := svc.NewOpsStateStore(t.TempDir())
 	_, err := store.Update(func(state *svc.OpsState) {
 		state.Config.AlertmanagerURL = "http://am.v9"
@@ -492,7 +495,7 @@ func TestOpsConfigSettingsLayerV9(t *testing.T) {
 	assert.Equal(t, "http://grafana.v9", resp.GrafanaExploreURL)
 	assert.Equal(t, "http://jaeger.v9", resp.JaegerURL)
 
-	// snap + state 均空 → env 回落
+	// both snap and state empty → fall back to env
 	t.Setenv("CROUPIER_ALERTMANAGER_URL", "http://am.env9")
 	t.Setenv("CROUPIER_GRAFANA_EXPLORE_URL", "http://grafana.env9")
 	t.Setenv("CROUPIER_JAEGER_URL", "http://jaeger.env9")
@@ -503,12 +506,12 @@ func TestOpsConfigSettingsLayerV9(t *testing.T) {
 	assert.Equal(t, "http://jaeger.env9", resp.JaegerURL)
 }
 
-// ---- 通知扩展：配置边界与错误路径 ----
+// ---- notification extension: config boundaries and error paths ----
 
 func TestOpsNotificationsEdgeCasesV9(t *testing.T) {
 	ctx := context.Background()
 
-	// 空配置 → 未提取 → 返回空默认（ok=true 分支）
+	// empty config → nothing extracted → empty defaults returned (ok=true branch)
 	svcCtx1, installSvc1, _ := newV9InstallationSvcCtx(t)
 	installV9Notification(t, installSvc1, map[string]any{})
 	resp, err := opsNotificationsGet(ctx, svcCtx1, &OpsNotificationsGetRequest{})
@@ -517,21 +520,21 @@ func TestOpsNotificationsEdgeCasesV9(t *testing.T) {
 	assert.Empty(t, resp.Channels)
 	assert.Empty(t, resp.Rules)
 
-	// 非法 ConfigJSON → unmarshal 错误
+	// invalid ConfigJSON → unmarshal error
 	svcCtx2, installSvc2, db2 := newV9InstallationSvcCtx(t)
 	inst2 := installV9Notification(t, installSvc2, map[string]any{})
 	require.NoError(t, db2.Model(&model.ExtensionInstallation{}).Where("id = ?", inst2.ID).Update("config_json", "not-json").Error)
 	_, err = opsNotificationsGet(ctx, svcCtx2, &OpsNotificationsGetRequest{})
 	require.Error(t, err)
 
-	// channels 类型错误 → extract 错误
+	// channels wrong type → extract error
 	svcCtx3, installSvc3, db3 := newV9InstallationSvcCtx(t)
 	inst3 := installV9Notification(t, installSvc3, map[string]any{})
 	require.NoError(t, db3.Model(&model.ExtensionInstallation{}).Where("id = ?", inst3.ID).Update("config_json", `{"channels":"oops"}`).Error)
 	_, err = opsNotificationsGet(ctx, svcCtx3, &OpsNotificationsGetRequest{})
 	require.Error(t, err)
 
-	// uninstalled 跳过 → 无激活安装
+	// uninstalled skipped → no active installation
 	svcCtx4, installSvc4, _ := newV9InstallationSvcCtx(t)
 	inst4 := installV9Notification(t, installSvc4, map[string]any{})
 	require.NoError(t, installSvc4.Uninstall(ctx, inst4.ID, "tester"))
@@ -543,7 +546,7 @@ func TestOpsNotificationsEdgeCasesV9(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, resp4.Enabled)
 
-	// List 错误 → Get/Update 均报错
+	// List error → Get/Update both fail
 	svcCtx5, installSvc5, db5 := newV9InstallationSvcCtx(t)
 	installV9Notification(t, installSvc5, map[string]any{})
 	closeV9DB(t, db5)
@@ -552,18 +555,18 @@ func TestOpsNotificationsEdgeCasesV9(t *testing.T) {
 	_, err = opsNotificationsUpdate(ctx, svcCtx5, &OpsNotificationsUpdateRequest{})
 	require.Error(t, err)
 
-	// nil req + 无扩展 → 成功（find 返回 false）
+	// nil req + no extension → success (find returns false)
 	_, err = opsNotificationsUpdate(ctx, &svc.ServiceContext{}, nil)
 	require.NoError(t, err)
 }
 
-// ---- 通知更新：保存成功但审计事件失败 ----
+// ---- notification update: save succeeds but audit event fails ----
 
 func TestOpsNotificationsRecordEventErrorV9(t *testing.T) {
 	ctx := context.Background()
 	svcCtx, installSvc, db := newV9InstallationSvcCtx(t)
 	installV9Notification(t, installSvc, map[string]any{})
-	// 仅阻断 notifications_update 事件：update_config 正常落库，审计事件失败
+	// block only the notifications_update event: update_config lands normally, the audit event fails
 	require.NoError(t, db.Exec(`CREATE TRIGGER v9_block_notif BEFORE INSERT ON extension_events
 WHEN NEW.event_type = 'notifications_update'
 BEGIN
@@ -573,14 +576,14 @@ END;`).Error)
 	_, err := opsNotificationsUpdate(ctx, svcCtx, &OpsNotificationsUpdateRequest{Enabled: true})
 	require.Error(t, err)
 
-	// 配置已保存成功
+	// config was saved successfully
 	item, ok, err := findActiveExtensionInstallationByID(ctx, svcCtx, officialNotificationID)
 	require.NoError(t, err)
 	require.True(t, ok)
 	assert.Contains(t, string(item.ConfigJSON), `"enabled"`)
 }
 
-// ---- extractNotificationConfig：marshal/unmarshal 错误 ----
+// ---- extractNotificationConfig: marshal/unmarshal errors ----
 
 func TestExtractNotificationConfigErrorsV9(t *testing.T) {
 	t.Run("enabled marshal error", func(t *testing.T) {
@@ -605,7 +608,7 @@ func TestExtractNotificationConfigErrorsV9(t *testing.T) {
 	})
 }
 
-// ---- handler 成功路径：exec/start/stop/restart/drain/restart/undrain/health/maintenance ----
+// ---- handler success paths: exec/start/stop/restart/drain/restart/undrain/health/maintenance ----
 
 func TestHandlerSuccessPathsV9(t *testing.T) {
 	gin.SetMode(gin.TestMode)
@@ -634,29 +637,30 @@ func TestHandlerSuccessPathsV9(t *testing.T) {
 		return rec.Code
 	}
 
-	// agent 进程命令成功
+	// agent process command success
 	agentStore := registry.NewStore()
 	require.NoError(t, agentStore.UpsertAgent(&registry.AgentSession{AgentID: "agent-1"}))
 	agentH := NewHandler(NewService(&svc.ServiceContext{RegistryStore: agentStore}))
 	assert.Equal(t, http.StatusOK, runHandlerV9(agentH.OpsAgentExecCommand, http.MethodPost, `{"AgentID":"agent-1","command":"ls","args":[],"timeout":1}`))
 
-	// node 命令成功
+	// node command success
 	nodeH := NewHandler(NewService(nodeCtx))
 	assert.Equal(t, http.StatusOK, runHandlerV9(nodeH.OpsNodeDrain, http.MethodPost, `{"nodeId":"node-1"}`))
 	assert.Equal(t, http.StatusOK, runHandlerV9(nodeH.OpsNodeRestart, http.MethodPost, `{"nodeId":"node-1"}`))
 	assert.Equal(t, http.StatusOK, runHandlerV9(nodeH.OpsNodeUndrain, http.MethodPost, `{"nodeId":"node-1"}`))
 
-	// health / maintenance 成功
+	// health / maintenance success
 	stateH := NewHandler(NewService(&svc.ServiceContext{OpsStateStore: svc.NewOpsStateStore(t.TempDir())}))
 	assert.Equal(t, http.StatusOK, runHandlerV9(stateH.OpsHealthUpdate, http.MethodPost, `{"checks":[{"id":"hc-1","kind":"tcp","target":"127.0.0.1:80"}]}`))
 	assert.Equal(t, http.StatusOK, runHandlerV9(stateH.OpsHealthRun, http.MethodPost, `{"id":"hc-1"}`))
 	assert.Equal(t, http.StatusOK, runHandlerV9(stateH.OpsMaintenanceUpdate, http.MethodPost, `{"windows":[{"gameId":"g","env":"prod"}]}`))
 }
 
-// TestHandlerProcessActionSuccessPathV9 用真实路由驱动进程动作面（路径入参）：
-// 面板发的是无 body POST，agentId/name 只来自路径参数（#59 同款绑定缺口：
-// ShouldBindJSON 对空 body 报 EOF，uri tag 不被 JSON 绑定读取）。证明入参从
-// 路径贯通到 agent ops 隧道调用。
+// TestHandlerProcessActionSuccessPathV9 drives the process action surface via a real router
+// (path parameters): the panel sends a bodyless POST, so agentId/name come only from path
+// parameters (the same binding gap as #59: ShouldBindJSON reports EOF on an empty body, and
+// uri tags are not read by JSON binding). This proves the inputs flow from the path through
+// to the agent ops tunnel call.
 func TestHandlerProcessActionSuccessPathV9(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
@@ -692,12 +696,12 @@ func TestHandlerProcessActionSuccessPathV9(t *testing.T) {
 	}
 }
 
-// ---- handler 服务错误路径 ----
+// ---- handler service error paths ----
 
 func TestHandlerServiceErrorPathsV9(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	// 备份：closed DB / 不存在
+	// backup: closed DB / nonexistent
 	backupCtx, backupDB := newV9BackupSvcCtx(t)
 	h := NewHandler(NewService(backupCtx))
 	closeV9DB(t, backupDB)
@@ -714,7 +718,7 @@ func TestHandlerServiceErrorPathsV9(t *testing.T) {
 	h.OpsBackupDownload(gctx)
 	assert.GreaterOrEqual(t, rec.Code, 400)
 
-	// 告警：closed DB / 非法 ID
+	// alert: closed DB / invalid ID
 	alertCtx, alertDB := newV9AlertSvcCtx(t)
 	closeV9DB(t, alertDB)
 	ha := NewHandler(NewService(alertCtx))
@@ -728,7 +732,7 @@ func TestHandlerServiceErrorPathsV9(t *testing.T) {
 	ha.OpsSilences(gctx)
 	assert.GreaterOrEqual(t, rec.Code, 400)
 
-	// 通知：扩展 List 错误
+	// notification: extension List error
 	extCtx, _, db := newV9InstallationSvcCtx(t)
 	hn := NewHandler(NewService(extCtx))
 	closeV9DB(t, db)
@@ -740,18 +744,19 @@ func TestHandlerServiceErrorPathsV9(t *testing.T) {
 	assert.GreaterOrEqual(t, rec.Code, 400)
 }
 
-// ---- listNodes：集群归属表 + 过滤 + 排序 ----
+// ---- listNodes: cluster ownership table + filtering + sorting ----
 
 func TestListNodesClusterAndDBBranchesV9(t *testing.T) {
 	now := time.Now()
 	store := registry.NewStore()
-	// 远端持有：本地冻结快照（在线判定走归属表）；非空 labels 覆盖拷贝循环
+	// held remotely: local frozen snapshot (liveness decided via the ownership table);
+	// non-empty labels exercise the copy-over loop
 	require.NoError(t, store.UpsertAgent(&registry.AgentSession{
 		AgentID: "agent-remote", GameID: "g1", Env: "prod", Addr: "h:2",
 		Labels: map[string]string{"zone": "z1"}, Functions: map[string]registry.FunctionMeta{},
 		LastSeen: now.Add(-time.Hour), ExpireAt: now.Add(-time.Minute),
 	}))
-	// 远端持有 + 已 drained
+	// held remotely + already drained
 	require.NoError(t, store.UpsertAgent(&registry.AgentSession{
 		AgentID: "agent-drained", GameID: "g1", Env: "prod", Addr: "h:3",
 		Labels: map[string]string{}, Functions: map[string]registry.FunctionMeta{},
@@ -782,7 +787,7 @@ func TestListNodesClusterAndDBBranchesV9(t *testing.T) {
 		},
 	}
 
-	// nil ctx + game/env 过滤
+	// nil ctx + game/env filtering
 	nodes := listNodes(context.TODO(), svcCtx, "g1", "prod", "")
 	byID := map[string]Node{}
 	for _, n := range nodes {
@@ -795,13 +800,14 @@ func TestListNodesClusterAndDBBranchesV9(t *testing.T) {
 	drained, ok := byID["agent-drained"]
 	require.True(t, ok)
 	assert.Equal(t, "drained", drained.Status)
-	// 仅归属表（不在本地 registry）→ online + owner 标注
+	// ownership table only (not in local registry) → online + owner annotation
 	onlyOwner, ok := byID["agent-only-owner"]
 	require.True(t, ok)
 	assert.Equal(t, "online", onlyOwner.Status)
 	assert.Equal(t, "peer", onlyOwner.Labels["ownerInstance"])
 
-	// 四类页按 role 过滤：仅归属表可见的远端 Agent 仍保留 type。
+	// the four page types filter by role: remote agents visible only in the ownership
+	// table still keep their type.
 	captureNodes := listNodes(context.Background(), svcCtx, "g1", "prod", "capture")
 	captureByID := map[string]Node{}
 	for _, n := range captureNodes {
@@ -811,18 +817,19 @@ func TestListNodesClusterAndDBBranchesV9(t *testing.T) {
 	assert.Equal(t, "capture", captureByID["agent-owner-capture"].Labels["role"])
 	assert.NotContains(t, captureByID, "agent-other-game")
 	assert.NotContains(t, captureByID, "agent-other-env")
-	// 过滤掉其他 game/env
+	// other game/env filtered out
 	assert.NotContains(t, byID, "agent-other-game")
 	assert.NotContains(t, byID, "agent-other-env")
 
-	// 状态过滤不匹配 → 非 active 节点被跳过
+	// status filter mismatch → non-active nodes skipped
 	nodes = listNodes(context.Background(), svcCtx, "", "", "active")
 	for _, n := range nodes {
 		assert.Equal(t, "active", n.Status)
 	}
 
-	// 排序：同 rank 不同 lastSeen → 最近优先（agent-only-owner 的归属表
-	// lastSeen=now-1min，比 agent-remote 的冻结快照 lastSeen=now-1h 更新）
+	// sorting: same rank, different lastSeen → most recent first (agent-only-owner's
+	// ownership-table lastSeen=now-1min is newer than agent-remote's frozen snapshot
+	// lastSeen=now-1h)
 	all := listNodes(context.Background(), svcCtx, "", "", "")
 	var order []string
 	for _, n := range all {
@@ -834,7 +841,7 @@ func TestListNodesClusterAndDBBranchesV9(t *testing.T) {
 	assert.Equal(t, "agent-only-owner", order[0])
 }
 
-// ---- runtimeNodeListItem：disks 分支 ----
+// ---- runtimeNodeListItem: disks branch ----
 
 func TestRuntimeNodeListItemDiskMetricsV9(t *testing.T) {
 	ms := registry.NewMetricsStore()
@@ -855,7 +862,7 @@ func TestRuntimeNodeListItemDiskMetricsV9(t *testing.T) {
 	assert.EqualValues(t, 9, item.node.Disks[0].InodeTotal)
 }
 
-// ---- offlineDatabaseNodeItems：过滤与错误分支 ----
+// ---- offlineDatabaseNodeItems: filtering and error branches ----
 
 func TestOfflineDatabaseNodeItemsBranchesV9(t *testing.T) {
 	ctx := context.Background()
@@ -867,10 +874,10 @@ func TestOfflineDatabaseNodeItemsBranchesV9(t *testing.T) {
 	seed := []model.Node{
 		{NodeID: "db-off", Name: "off1", Type: "agent", IP: "10.0.0.1", Port: 1000,
 			Meta: map[string]any{"gameId": "g1", "env": "prod"}},
-		{NodeID: "", Name: "empty-id", Type: "agent"},                                            // 空 NodeID 跳过
-		{NodeID: "db-game", Name: "game-node", Type: "game"},                                     // 非 agent 类型跳过
-		{NodeID: "db-other-game", Type: "agent", Meta: map[string]any{"gameId": "gX"}},           // game 过滤
-		{NodeID: "db-other-env", Type: "agent", Meta: map[string]any{"gameId": "g1", "env": 42}}, // env 过滤 + 非字符串 meta
+		{NodeID: "", Name: "empty-id", Type: "agent"},                                            // empty NodeID skipped
+		{NodeID: "db-game", Name: "game-node", Type: "game"},                                     // non-agent type skipped
+		{NodeID: "db-other-game", Type: "agent", Meta: map[string]any{"gameId": "gX"}},           // game filter
+		{NodeID: "db-other-env", Type: "agent", Meta: map[string]any{"gameId": "g1", "env": 42}}, // env filter + non-string meta
 	}
 	for i := range seed {
 		require.NoError(t, db.Create(&seed[i]).Error)
@@ -882,7 +889,7 @@ func TestOfflineDatabaseNodeItemsBranchesV9(t *testing.T) {
 		Labels: map[string]string{}, Functions: map[string]registry.FunctionMeta{},
 		LastSeen: now, ExpireAt: now.Add(time.Hour),
 	}))
-	// registry 中已注册的 DB 节点 → 跳过
+	// DB node already registered in registry → skipped
 	require.NoError(t, db.Create(&model.Node{NodeID: "db-reg", Type: "agent",
 		Meta: map[string]any{"gameId": "g1", "env": "prod"}}).Error)
 
@@ -895,18 +902,18 @@ func TestOfflineDatabaseNodeItemsBranchesV9(t *testing.T) {
 	assert.Equal(t, "offline", items[0].node.Status)
 	assert.Equal(t, "10.0.0.1:1000", items[0].node.Addr)
 
-	// 状态过滤不匹配 → 空
+	// status filter mismatch → empty
 	items = offlineDatabaseNodeItems(ctx, svcCtx, registered, "g1", "prod", "active")
 	assert.Empty(t, items)
 
-	// List 错误 → 空
+	// List error → empty
 	badCtx := &svc.ServiceContext{NodeModel: model.NewNodeModel(db)}
 	closeV9DB(t, db)
 	items = offlineDatabaseNodeItems(ctx, badCtx, nil, "", "", "")
 	assert.Empty(t, items)
 }
 
-// ---- opsAgentsList：集群分支 env scope 过滤 ----
+// ---- opsAgentsList: cluster branch env scope filtering ----
 
 func TestOpsAgentsListEnvScopeFilterV9(t *testing.T) {
 	now := time.Now()
@@ -936,7 +943,7 @@ func TestOpsAgentsListEnvScopeFilterV9(t *testing.T) {
 	assert.Equal(t, "a1", resp.Agents[0].AgentID)
 }
 
-// ---- AgentService.List：集群分支 env 过滤 ----
+// ---- AgentService.List: cluster branch env filtering ----
 
 func TestAgentServiceListClusterEnvFilterV9(t *testing.T) {
 	store := registry.NewStore()

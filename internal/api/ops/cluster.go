@@ -5,18 +5,19 @@ import (
 	"errors"
 )
 
-// ---------- 集群实例视图（运维菜单拓扑展示） ----------
+// ---------- Cluster instance views (ops menu topology) ----------
 
 type ClusterInstance struct {
 	InstanceID    string `json:"instanceId"`
 	AdvertiseAddr string `json:"advertiseAddr"`
 	Epoch         uint64 `json:"epoch"`
 	StartedAt     string `json:"startedAt,omitempty"`
-	// Self 标记当前处理请求的实例。
+	// Self marks the instance handling the current request.
 	Self bool `json:"self"`
-	// Alive 来自成员表租约判定（未过期 = 在线）。
+	// Alive derives from the member table lease check (not expired = online).
 	Alive bool `json:"alive"`
-	// AgentCount 该实例当前持有的 Agent 连接数（共享归属表统计）。
+	// AgentCount is the number of Agent connections this instance currently
+	// holds (shared ownership table statistics).
 	AgentCount int64 `json:"agentCount"`
 }
 
@@ -26,25 +27,28 @@ type ClusterInfoResponse struct {
 	Items      []ClusterInstance `json:"items"`
 	Total      int               `json:"total"`
 	AliveCount int               `json:"aliveCount"`
-	// LbStats LB 监控可用性提示（nil = 未配置 Prometheus，前端隐藏对账列）。
+	// LbStats LB monitoring availability hint (nil = Prometheus not
+	// configured, frontend hides the reconciliation column).
 	LbStats *LBStatsInfo `json:"lbStats,omitempty"`
 }
 
-// LBStatsInfo 告知前端 LB 监控代理可用性与查询入口。
+// LBStatsInfo tells the frontend the LB monitoring proxy availability and
+// query entry point.
 type LBStatsInfo struct {
 	Enabled bool `json:"enabled"`
-	// QueryURL 是受限 PromQL 查询的代理端点（POST {query}）。
+	// QueryURL is the proxy endpoint for restricted PromQL queries (POST
+	// {query}).
 	QueryURL string `json:"queryUrl"`
 }
 
-// GetClusterInfo serves GET /api/v1/ops/cluster：集群成员拓扑。
+// GetClusterInfo serves GET /api/v1/ops/cluster: cluster member topology.
 func (s *Service) GetClusterInfo(ctx context.Context) (*ClusterInfoResponse, error) {
 	if s == nil || s.svcCtx == nil {
 		return nil, errors.New("服务上下文不可用")
 	}
 	resp := &ClusterInfoResponse{Items: []ClusterInstance{}}
 
-	// 单实例：registry 本地 agent 数即全部。
+	// Single instance: the registry local agent count is everything.
 	if s.svcCtx.Cluster == nil {
 		resp.Enabled = false
 		count := int64(0)
@@ -66,7 +70,7 @@ func (s *Service) GetClusterInfo(ctx context.Context) (*ClusterInfoResponse, err
 		resp.LbStats = &LBStatsInfo{Enabled: true, QueryURL: "/api/v1/ops/cluster/lb-stats"}
 	}
 
-	// 在线成员（成员表租约判定）。
+	// Online members (member table lease determination).
 	if m := s.svcCtx.Cluster.Membership; m != nil {
 		if peers, err := m.ListAlive(ctx); err == nil {
 			for _, p := range peers {
@@ -81,7 +85,8 @@ func (s *Service) GetClusterInfo(ctx context.Context) (*ClusterInfoResponse, err
 			}
 		}
 	}
-	// last-known 中已失联的对端（租约过期）：展示为离线。
+	// Peers from last-known that have lost contact (lease expired): shown as
+	// offline.
 	if s.svcCtx.Cluster.Mesh != nil {
 		aliveMap := map[string]bool{}
 		for _, it := range resp.Items {
@@ -102,7 +107,7 @@ func (s *Service) GetClusterInfo(ctx context.Context) (*ClusterInfoResponse, err
 		}
 	}
 
-	// Agent 归属统计（共享表）。
+	// Agent ownership statistics (shared table).
 	if r := s.svcCtx.Cluster.OwnerStats; r != nil {
 		counts := r(ctx)
 		for i := range resp.Items {

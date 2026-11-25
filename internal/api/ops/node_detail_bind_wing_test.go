@@ -1,10 +1,12 @@
-// 覆盖率巡检第二十一轮（wt-api）：handler.go OpsNodeDetail 的
-// bindOpsRequest 错误翼（352-354）登记防御性不可达——
-// OpsNodeDetailRequest 仅一个可选 string 字段（form+uri tag、无
-// binding 校验约束），GET 走 BindQueryCompat 的 query 兼容绑定无失败
-// 路径（第四轮 provider SdkStats 同构证明）。本文件以证明性用例锁定
-// 「任意 query 绑定永不失败」前提：若未来字段引入 required/强类型，
-// 分支转可达，届时补真实错误路径用例。
+// Coverage sweep round 21 (wt-api): the bindOpsRequest error wing of
+// handler.go OpsNodeDetail (352-354) is registered as defensive unreachable —
+// OpsNodeDetailRequest has only a single optional string field (form + uri
+// tag, no binding validation constraint), and on the GET side
+// BindQueryCompat's query-compatibility binding has no failure path (proven
+// isomorphic in round 4 by the provider SdkStats). This file locks the
+// "binding any query never fails" premise with a proving test: if a future
+// field introduces required/strong typing, the branch becomes reachable and
+// real error-path cases must be added then.
 package ops
 
 import (

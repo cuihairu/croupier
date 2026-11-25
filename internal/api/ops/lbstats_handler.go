@@ -5,13 +5,13 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// LBStatsQueryRequest 是受限 PromQL 即时查询请求。
+// LBStatsQueryRequest is a restricted PromQL instant-query request.
 type LBStatsQueryRequest struct {
 	Query string `json:"query"`
 }
 
-// LBStatsQuery handles POST /ops/cluster/lb-stats：代理白名单内的
-// PromQL 查询到配置的 Prometheus（未配置时明确报错）。
+// LBStatsQuery handles POST /ops/cluster/lb-stats: proxy an allowlisted PromQL
+// query to the configured Prometheus (an explicit error when it is not configured).
 func (h *Handler) LBStatsQuery(c *gin.Context) {
 	var req LBStatsQueryRequest
 	if err := c.ShouldBindJSON(&req); err != nil {

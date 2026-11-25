@@ -1,9 +1,10 @@
 package ops
 
-// devops_allowlist.go 补测：service 面与 capture gates 同款通道语义逐分支
-// （发布递增、未发布空形态、scope 隔离、校验拦截、乐观锁冲突、回滚重发布
-// 与 lint 演进拦截、版本历史、dry-run 预检），外加五个 gin handler 的往返
-// 与坏载荷 400 面。
+// Extra coverage for devops_allowlist.go: every service-side branch with the same
+// channel semantics as capture gates (publish increment, unpublished empty shape,
+// scope isolation, validation interception, optimistic-lock conflict, rollback
+// republish and lint-evolution interception, version history, dry-run precheck),
+// plus the five gin handlers' round trips and the bad-payload 400 surface.
 
 import (
 	"context"
@@ -67,7 +68,7 @@ func TestDevopsAllowlistGetIsScopeIsolated(t *testing.T) {
 func TestDevopsAllowlistPutValidation(t *testing.T) {
 	s, ctx := newCaptureGatesService(t)
 
-	// 空内容 / 坏 JSON / 缺 host
+	// empty content / bad JSON / missing host
 	_, err := s.DevopsAllowlistPut(ctx, &DevopsAllowlistPutRequest{Content: "  "})
 	require.ErrorContains(t, err, "content is required")
 	_, err = s.DevopsAllowlistPut(ctx, &DevopsAllowlistPutRequest{Content: "{bad"})
@@ -75,11 +76,11 @@ func TestDevopsAllowlistPutValidation(t *testing.T) {
 	_, err = s.DevopsAllowlistPut(ctx, &DevopsAllowlistPutRequest{Content: `[{"ports":[22]}]`})
 	require.ErrorContains(t, err, "host is required")
 
-	// 无 scope → 拒绝发布
+	// no scope → publish refused
 	_, err = s.DevopsAllowlistPut(context.Background(), &DevopsAllowlistPutRequest{Content: validAllowlistContent()})
 	require.ErrorContains(t, err, "require game and env scope")
 
-	// 乐观锁：发布 v2 后再带过期基线 baseVersion=1 → 409
+	// optimistic lock: after publishing v2, a stale baseline baseVersion=1 → 409
 	_, err = s.DevopsAllowlistPut(ctx, &DevopsAllowlistPutRequest{Content: validAllowlistContent()})
 	require.NoError(t, err)
 	_, err = s.DevopsAllowlistPut(ctx, &DevopsAllowlistPutRequest{Content: validAllowlistContent(), BaseVersion: 1})
@@ -114,18 +115,19 @@ func TestDevopsAllowlistRollbackRepublishesHistoricalContent(t *testing.T) {
 func TestDevopsAllowlistRollbackValidation(t *testing.T) {
 	s, ctx := newCaptureGatesService(t)
 
-	// 版本号缺失 / 无 scope
+	// missing version number / no scope
 	_, err := s.DevopsAllowlistRollback(ctx, &DevopsAllowlistRollbackRequest{})
 	require.ErrorContains(t, err, "rollback version is required")
 	_, err = s.DevopsAllowlistRollback(context.Background(), &DevopsAllowlistRollbackRequest{Version: 1})
 	require.ErrorContains(t, err, "require game and env scope")
 
-	// 未知版本 → 404
+	// unknown version → 404
 	_, err = s.DevopsAllowlistRollback(ctx, &DevopsAllowlistRollbackRequest{Version: 9})
 	require.Error(t, err)
 	require.Equal(t, 404, httpCode(err))
 
-	// lint 规则演进后的存量坏行：直插 model 绕过服务层 lint → 回滚被当前校验拦下
+	// legacy bad row after lint rules evolved: insert via the model to bypass the
+	// service-layer lint → rollback is intercepted by the current validation
 	_, err = s.svcCtx.ConfigVersionModel.CreateWithMeta(ctx, model.ConfigVersionPayload{
 		Key: "devops.allowlist", Content: `{"reconcile":`, Format: "json",
 		GameID: "demo", Env: "prod", Namespace: model.ConfigNamespaceOps,
@@ -139,12 +141,12 @@ func TestDevopsAllowlistRollbackValidation(t *testing.T) {
 func TestDevopsAllowlistVersionsList(t *testing.T) {
 	s, ctx := newCaptureGatesService(t)
 
-	// 未发布 → 空数组而非 404
+	// unpublished → empty array rather than 404
 	items, err := s.DevopsAllowlistVersionsGet(ctx)
 	require.NoError(t, err)
 	require.Len(t, items, 0)
 
-	// 无 scope → 校验错误
+	// no scope → validation error
 	_, err = s.DevopsAllowlistVersionsGet(context.Background())
 	require.ErrorContains(t, err, "require game and env scope")
 
@@ -169,7 +171,7 @@ func TestDevopsAllowlistValidateDryRun(t *testing.T) {
 	require.Equal(t, 1, resp.Entries)
 	require.Equal(t, 1, resp.Ports)
 
-	// 多主机多端口汇总
+	// multiple hosts and ports aggregated
 	resp, err = s.DevopsAllowlistValidate(&DevopsAllowlistValidateRequest{
 		Content: `[{"host":"a","ports":[22,2222],"protocols":["ssh"]},{"host":"b","ports":[80],"protocols":["vnc"]}]`,
 	})
@@ -177,7 +179,7 @@ func TestDevopsAllowlistValidateDryRun(t *testing.T) {
 	require.Equal(t, 2, resp.Entries)
 	require.Equal(t, 3, resp.Ports)
 
-	// nil / 空 / 坏 JSON / 缺 host
+	// nil / empty / bad JSON / missing host
 	_, err = s.DevopsAllowlistValidate(nil)
 	require.ErrorContains(t, err, "content is required")
 	_, err = s.DevopsAllowlistValidate(&DevopsAllowlistValidateRequest{Content: " \t"})
@@ -188,7 +190,7 @@ func TestDevopsAllowlistValidateDryRun(t *testing.T) {
 	require.ErrorContains(t, err, "host is required")
 }
 
-// withScopeRequest 挂 game/env scope 到测试请求上下文。
+// withScopeRequest attaches a game/env scope to the test request context.
 func withScopeRequest(t *testing.T, method, target string, body string) (*gin.Context, *httptest.ResponseRecorder) {
 	t.Helper()
 	req := httptest.NewRequest(method, target, nil)
@@ -207,7 +209,7 @@ func TestDevopsAllowlistHandlers(t *testing.T) {
 	dbSvc, _ := newCaptureGatesService(t)
 	h := NewHandler(dbSvc)
 
-	// GET 未发布 → 空形态
+	// GET unpublished → empty shape
 	c, w := withScopeRequest(t, http.MethodGet, "/ops/devops/allowlist", "")
 	h.DevopsAllowlistGet(c)
 	require.Equal(t, http.StatusOK, w.Code)
@@ -215,12 +217,12 @@ func TestDevopsAllowlistHandlers(t *testing.T) {
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &got))
 	require.Equal(t, "devops.allowlist", got.Key)
 
-	// PUT 坏 JSON → 400
+	// PUT bad JSON → 400
 	c, w = withScopeRequest(t, http.MethodPut, "/ops/devops/allowlist", "{bad")
 	h.DevopsAllowlistPut(c)
 	require.Equal(t, http.StatusBadRequest, w.Code)
 
-	// PUT 发布 → 200 + 版本号
+	// PUT publish → 200 + version number
 	c, w = withScopeRequest(t, http.MethodPut, "/ops/devops/allowlist",
 		`{"content":"[{\"host\":\"h1\",\"ports\":[22],\"protocols\":[\"ssh\"]}]"}`)
 	h.DevopsAllowlistPut(c)
@@ -229,7 +231,7 @@ func TestDevopsAllowlistHandlers(t *testing.T) {
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &put))
 	require.Equal(t, 1, put.Version)
 
-	// Validate 坏 JSON → 400；合法 → 200
+	// Validate bad JSON → 400; valid → 200
 	c, w = withScopeRequest(t, http.MethodPost, "/ops/devops/allowlist/validate", "{bad")
 	h.DevopsAllowlistValidate(c)
 	require.Equal(t, http.StatusBadRequest, w.Code)
@@ -238,7 +240,7 @@ func TestDevopsAllowlistHandlers(t *testing.T) {
 	h.DevopsAllowlistValidate(c)
 	require.Equal(t, http.StatusOK, w.Code)
 
-	// Rollback 坏 JSON → 400；合法 → 200
+	// Rollback bad JSON → 400; valid → 200
 	c, w = withScopeRequest(t, http.MethodPost, "/ops/devops/allowlist/rollback", "{bad")
 	h.DevopsAllowlistRollback(c)
 	require.Equal(t, http.StatusBadRequest, w.Code)

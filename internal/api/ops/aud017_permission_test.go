@@ -1,10 +1,14 @@
-// AUD-017 回归：电源域操作入口补齐平台权限检查。
+// AUD-017 regression: fill in the platform permission checks on the power
+// domain operation entries.
 //
-// 根因：powerops 六个入口（提交/续行/拒绝/查询/列表/机器电源信息写入）只凭
-// 认证与合法的游戏/环境作用域即可操作，零角色或仅持游戏侧权限的账号可提交
-// 电源动作并修改全局节点 BMC 配置。权限目录（configs/permissions.json）无
-// 电源/硬件管理键，故门禁只认超管域 admin:all：零角色账号与仅持游戏侧权限
-// 的账号在六个入口上一律 403 permission_denied；超管对照保持可用。
+// Root cause: the six powerops entries (submit/resume/reject/get/list/machine
+// power info write) were operable with nothing more than authentication and a
+// valid game/env scope — zero-role or game-side-only accounts could submit power
+// actions and modify global node BMC configuration. The permission catalog
+// (configs/permissions.json) has no power/hardware management keys, so the gate
+// only accepts the super-admin domain admin:all: zero-role accounts and
+// game-side-only accounts get 403 permission_denied on all six entries; the
+// super-admin control case stays functional.
 package ops
 
 import (
@@ -20,12 +24,14 @@ import (
 	"gorm.io/gorm"
 )
 
-// powerViewerUsername 零角色账号：管理员存在、登录上下文正常，但无任何角色/
-// 权限，权限集合为空，RequireAnyPermission 必须拒绝。
+// powerViewerUsername is a zero-role account: the admin exists, the login
+// context is normal, but it holds no roles/permissions at all — the permission
+// set is empty, so RequireAnyPermission must reject it.
 const powerViewerUsername = "power_norole_viewer"
 
-// powerScopedOperatorUsername 仅持游戏侧权限（function:invoke）的角色账号，
-// 代表「合法单游戏 scope 账号」——游戏作用域不等同硬件管理权限。
+// powerScopedOperatorUsername is a role account holding only game-side
+// permissions (function:invoke), standing in for a "legitimate single-game
+// scope account" — a game scope does not imply hardware management permission.
 const powerScopedOperatorUsername = "power_game_scoped_operator"
 
 func seedPowerViewer(t *testing.T, db *gorm.DB) {
@@ -65,7 +71,8 @@ func seedPowerScopedOperator(t *testing.T, db *gorm.DB) {
 		require.NoError(t, roleModel.Create(ctx, role))
 		require.NoError(t, adminModel.AssignRole(ctx, admin.ID, role.ID))
 	}
-	// 游戏侧权限（不在超管域内）：合法但不足以操作电源域。
+	// Game-side permission (outside the super-admin domain): legitimate, but not
+	// enough to operate the power domain.
 	roles, err = adminModel.GetAdminRoles(ctx, admin.ID)
 	require.NoError(t, err)
 	for _, r := range roles {
@@ -76,12 +83,12 @@ func seedPowerScopedOperator(t *testing.T, db *gorm.DB) {
 	}
 }
 
-// powerCtx 返回携带指定用户名身份的请求上下文。
+// powerCtx returns a request context carrying the given username identity.
 func powerCtx(username string) context.Context {
 	return context.WithValue(context.Background(), "username", username)
 }
 
-// assertPowerForbidden 断言为 403 / permission_denied 的稳定拒绝。
+// assertPowerForbidden asserts a stable 403 / permission_denied rejection.
 func assertPowerForbidden(t *testing.T, err error) {
 	t.Helper()
 	require.Error(t, err, "低权限请求必须被拒绝")
@@ -91,9 +98,10 @@ func assertPowerForbidden(t *testing.T, err error) {
 	assert.Equal(t, "permission_denied", codeErr.ErrorCode())
 }
 
-// TestPowerOps_Aud017_LowPrivilegeDeniedOnAllEntries 验证六个电源入口对零角色
-// 与仅持游戏侧权限的账号一律 403，且提交/写入无副作用（不落请求行、不改机器
-// 电源信息）。
+// TestPowerOps_Aud017_LowPrivilegeDeniedOnAllEntries verifies that all six power
+// entries return 403 for zero-role and game-side-only accounts, and that
+// submit/write attempts have no side effects (no request rows written, machine
+// power info unchanged).
 func TestPowerOps_Aud017_LowPrivilegeDeniedOnAllEntries(t *testing.T) {
 	h := newPowerHarness(t, true, []string{"on"})
 	seedPowerViewer(t, h.db)
@@ -104,19 +112,21 @@ func TestPowerOps_Aud017_LowPrivilegeDeniedOnAllEntries(t *testing.T) {
 			ctx := powerCtx(username)
 			svc := h.service
 
-			// 提交（变更动作）：403，且不落任何请求行。
+			// Submit (a mutating action): 403, and no request row is written.
 			_, _, err := svc.OpsPowerSubmit(ctx, &OpsPowerSubmitRequest{
 				NodeIDs: []string{"node-1"}, Action: "power_on", Reason: "maintenance",
 			}, username)
 			assertPowerForbidden(t, err)
 
-			// 提交（status 只读查询）同样在授权面内：403。
+			// Submit (read-only status query) is inside the authorization surface
+			// too: 403.
 			_, _, err = svc.OpsPowerSubmit(ctx, &OpsPowerSubmitRequest{
 				NodeIDs: []string{"node-1"}, Action: "status", Reason: "health check",
 			}, username)
 			assertPowerForbidden(t, err)
 
-			// 列表 / 查询 / 续行 / 拒绝：403（授权先于资源存在性）。
+			// List / get / resume / reject: 403 (authorization precedes resource
+			// existence).
 			_, err = svc.OpsPowerList(ctx, 10)
 			assertPowerForbidden(t, err)
 
@@ -129,13 +139,15 @@ func TestPowerOps_Aud017_LowPrivilegeDeniedOnAllEntries(t *testing.T) {
 			_, err = svc.OpsPowerReject(ctx, "pw-x")
 			assertPowerForbidden(t, err)
 
-			// 机器电源信息写入（全局节点 BMC 配置）：403 且配置不变。
+			// Machine power info write (global node BMC configuration): 403 and
+			// the config is unchanged.
 			err = svc.OpsPowerConfigPut(ctx, "node-1", &OpsPowerConfigRequest{
 				Provider: "ipmi", BmcAddr: "10.9.9.9", BmcPort: 623,
 			})
 			assertPowerForbidden(t, err)
 
-			// 无副作用：机器电源信息仍为 seed 值（写入未发生）。
+			// No side effects: machine power info still holds the seed values
+			// (no write happened).
 			var node model.Node
 			require.NoError(t, h.db.Where("node_id = ?", "node-1").First(&node).Error)
 			powerMeta, ok := node.Meta["power"].(map[string]interface{})
@@ -143,7 +155,8 @@ func TestPowerOps_Aud017_LowPrivilegeDeniedOnAllEntries(t *testing.T) {
 			assert.Equal(t, "ipmi", powerMeta["provider"])
 			assert.Equal(t, "10.0.0.7", powerMeta["bmcAddr"], "低权限写入不得改写 BMC 地址")
 
-			// 无副作用：提交被拒，未落任何电源请求行。
+			// No side effects: the submit was rejected and no power request row
+			// was written.
 			requests, err := h.store.List(10)
 			require.NoError(t, err)
 			assert.Empty(t, requests, "被拒的提交不得落请求行")
@@ -151,19 +164,22 @@ func TestPowerOps_Aud017_LowPrivilegeDeniedOnAllEntries(t *testing.T) {
 	}
 }
 
-// TestPowerOps_Aud017_SuperAdminControl 验证超管经 HasAdminRole 直通：六个
-// 入口数据面可用（续行未批准报 409 状态冲突，证明已越过授权门）。
+// TestPowerOps_Aud017_SuperAdminControl verifies the super-admin passthrough via
+// HasAdminRole: all six entries work on the data plane (resume of an unapproved
+// request reports a 409 state conflict, proving the authorization gate was
+// passed).
 func TestPowerOps_Aud017_SuperAdminControl(t *testing.T) {
 	h := newPowerHarness(t, true, []string{"on"})
 	ctx := powerCtx(powerSuperAdminUsername)
 	svc := h.service
 
-	// 机器电源信息写入（此前审计实证的越权路径）：超管放行。
+	// Machine power info write (the privilege escalation path proven by the
+	// earlier audit): allowed for the super admin.
 	require.NoError(t, svc.OpsPowerConfigPut(ctx, "node-1", &OpsPowerConfigRequest{
 		Provider: "ipmi", BmcAddr: "10.0.0.7", BmcPort: 623,
 	}))
 
-	// 提交：pending + 审批单。
+	// Submit: pending + approval record.
 	req, _, err := svc.OpsPowerSubmit(ctx, &OpsPowerSubmitRequest{
 		NodeIDs: []string{"node-1"}, Action: "power_on", Reason: "maintenance",
 	}, powerSuperAdminUsername)
@@ -171,7 +187,7 @@ func TestPowerOps_Aud017_SuperAdminControl(t *testing.T) {
 	assert.Equal(t, powerops.StatePending, req.State)
 	assert.NotEmpty(t, req.ApprovalID)
 
-	// 列表 / 查询：数据面可读。
+	// List / get: readable on the data plane.
 	requests, err := svc.OpsPowerList(ctx, 10)
 	require.NoError(t, err)
 	require.Len(t, requests, 1)
@@ -180,14 +196,15 @@ func TestPowerOps_Aud017_SuperAdminControl(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, req.RequestID, got.RequestID)
 
-	// 续行：已过授权门，落到业务状态冲突（未批准）。
+	// Resume: past the authorization gate, lands in a business state conflict
+	// (not approved).
 	_, err = svc.OpsPowerResume(ctx, req.RequestID)
 	require.Error(t, err)
 	var codeErr *errorx.CodeError
 	require.ErrorAs(t, err, &codeErr)
 	assert.Equal(t, http.StatusConflict, codeErr.Code)
 
-	// 拒绝：放行。
+	// Reject: allowed.
 	rejected, err := svc.OpsPowerReject(ctx, req.RequestID)
 	require.NoError(t, err)
 	assert.Equal(t, powerops.StateRejected, rejected.State)

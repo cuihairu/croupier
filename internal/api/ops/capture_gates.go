@@ -1,10 +1,15 @@
-// capture 闸规则面板下发（capture-agent 简档 §6/§8.5）：读写 game 库
-// config_versions 键 capture.gates（namespace=ops）。gates_json 对 server
-// 半透明——本层只做结构 lint（顶层对象 + 三段形状），语义校验复用
-// config.ValidateGates（与 agent apply 同一校验真值，validate 端点在
-// 发布前拦下「agent 必拒」的坏版本）；发布成功 ≠ agent 已生效，生效
-// 真值是 agent 侧 "capture gates version applied" 日志与拉取行为。
-// 回滚不写历史：取目标版本内容再发一版，版本日志保持不可变追加。
+// Capture gate rule panel distribution (capture-agent profile §6/§8.5): reads
+// and writes the capture.gates key of config_versions in the game database
+// (namespace=ops). gates_json is semi-transparent to the server — this layer
+// only performs a structural lint (top-level object plus the three-section
+// shape); semantic validation reuses config.ValidateGates (the same source of
+// truth an agent apply validates against, so the validate endpoint stops
+// versions the agent would surely reject before publishing). Publish success !=
+// agent-applied: the truth of application is the agent-side
+// "capture gates version applied" log and its pull behavior.
+// Rollback writes no history: it takes the target version's content and
+// publishes it again as a new version, keeping the version log an immutable
+// append-only trail.
 package ops
 
 import (
@@ -25,12 +30,14 @@ import (
 	"gorm.io/gorm"
 )
 
-// captureGatesConfigKey 闸规则在 config_versions 里的固定键（agent 拉取
-// 侧同名常量在 agents/capture/runner，两侧键一致是 wire 契约）。
+// captureGatesConfigKey is the fixed key for gate rules in config_versions (the
+// matching pull-side constant in the agent lives in agents/capture/runner; key
+// equality on both sides is a wire contract).
 const captureGatesConfigKey = "capture.gates"
 
-// CaptureGatesGetResponse 闸规则当前发布态。Version=0 表示该 scope 尚未
-// 发布过（content 为空串）——agent 语义为保持文件规则。
+// CaptureGatesGetResponse is the currently published state of the gate rules.
+// Version=0 means this scope has never published (content is an empty string)
+// — agent semantics are then to keep using file-based rules.
 type CaptureGatesGetResponse struct {
 	Key       string `json:"key"`
 	Version   int    `json:"version"`
@@ -40,29 +47,33 @@ type CaptureGatesGetResponse struct {
 	CreatedBy string `json:"createdBy,omitempty"`
 }
 
-// CaptureGatesPutRequest 发布闸规则新版本（整份内容，非增量补丁）。
-// BaseVersion 乐观锁基线（编辑面加载时看到的最新版本）：发布期间被他人
-// 抢先发布则 409 拒绝，防静默丢更新；0=不启用（回滚接口不适用锁——内容
-// 取自服务端而非过期编辑态）。
+// CaptureGatesPutRequest publishes a new version of the gate rules (full
+// content, not an incremental patch). BaseVersion is the optimistic-lock
+// baseline (the latest version the editing surface loaded): if someone else
+// publishes first, the publish is rejected with 409 to prevent silent lost
+// updates; 0 disables it (the rollback endpoint does not use the lock — its
+// content comes from the server, not from a stale editing state).
 type CaptureGatesPutRequest struct {
 	Content     string `json:"content"`
 	Message     string `json:"message,omitempty"`
 	BaseVersion int    `json:"baseVersion,omitempty"`
 }
 
-// CaptureGatesPutResponse 发布结果（新版本号）。
+// CaptureGatesPutResponse is the publish result (new version number).
 type CaptureGatesPutResponse struct {
 	Version int `json:"version"`
 }
 
-// CaptureGatesValidateRequest dry-run 校验（发布预检，不落库）：浅 lint +
-// config.ValidateGates（与 agent apply 同一校验真值）。
+// CaptureGatesValidateRequest is a dry-run validation (publish precheck,
+// nothing lands in the database): shallow lint + config.ValidateGates (the same
+// validation truth an agent apply uses).
 type CaptureGatesValidateRequest struct {
 	Content string `json:"content"`
 }
 
-// CaptureGatesValidateResponse 校验通过时回各闸规则数（编辑面预览口径；
-// 失败走 422，错误文本即 agent apply 会报的同一句）。
+// CaptureGatesValidateResponse reports the per-gate rule counts when validation
+// passes (the editing surface's preview numbers); failures return 422 with
+// exactly the same error text an agent apply would report.
 type CaptureGatesValidateResponse struct {
 	Valid       bool `json:"valid"`
 	Reconcile   int  `json:"reconcile"`
@@ -73,8 +84,9 @@ type CaptureGatesValidateResponse struct {
 	EventOps    int  `json:"eventOps"`
 }
 
-// CaptureGatesRollbackRequest 以历史版本内容再发一版（版本日志不可变，
-// 回滚本身也是一次新发布，不改写历史）。
+// CaptureGatesRollbackRequest republishes the content of a historical version
+// (the version log is immutable; rollback is itself a new publish and does not
+// rewrite history).
 type CaptureGatesRollbackRequest struct {
 	Version int    `json:"version"`
 	Message string `json:"message,omitempty"`
@@ -106,8 +118,9 @@ func (h *Handler) CaptureGatesPut(c *gin.Context) {
 }
 
 // CaptureGatesValidate handles POST /api/v1/ops/capture/gates/validate.
-// 无 scope 依赖（纯内容校验）；失败语义与发布一致（422 + 同一错误文本，
-// 编辑面可把 validate 与 publish 的报错当同一种东西渲染）。
+// No scope dependency (pure content validation); failure semantics match
+// publishing (422 + the same error text, so the editing surface can render
+// validate and publish errors as one and the same thing).
 func (h *Handler) CaptureGatesValidate(c *gin.Context) {
 	var req CaptureGatesValidateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -137,8 +150,10 @@ func (h *Handler) CaptureGatesRollback(c *gin.Context) {
 	response.Success(c, resp)
 }
 
-// CaptureGatesVersionItem 版本历史条目（不含内容：内容只在 latest GET 回显，
-// 回滚走 POST rollback 由服务端取历史，前端不搬运整份 gates JSON）。
+// CaptureGatesVersionItem is a version-history entry (content excluded:
+// content is only echoed by the latest GET; rollback goes through POST rollback
+// and the server fetches the history, so the frontend never hauls around the
+// full gates JSON).
 type CaptureGatesVersionItem struct {
 	Version   int    `json:"version"`
 	Message   string `json:"message,omitempty"`
@@ -156,7 +171,8 @@ func (h *Handler) CaptureGatesVersionsGet(c *gin.Context) {
 	response.Success(c, resp)
 }
 
-// CaptureGatesGet 返回当前 scope（顶栏 game/env）已发布的闸规则最新版本。
+// CaptureGatesGet returns the latest published version of the gate rules for
+// the current scope (game/env from the top bar).
 func (s *Service) CaptureGatesGet(ctx context.Context) (*CaptureGatesGetResponse, error) {
 	scope := svc.GameScopeFromContext(ctx)
 	empty := &CaptureGatesGetResponse{Key: captureGatesConfigKey}
@@ -177,8 +193,9 @@ func (s *Service) CaptureGatesGet(ctx context.Context) (*CaptureGatesGetResponse
 	}, nil
 }
 
-// CaptureGatesPut 结构 lint 后发布新版本（namespace=ops，version 递增；
-// baseVersion>0 时乐观锁防并发丢更新）。
+// CaptureGatesPut runs the structural lint and publishes a new version
+// (namespace=ops, version increments; with baseVersion>0 an optimistic lock
+// guards against concurrent lost updates).
 func (s *Service) CaptureGatesPut(ctx context.Context, req *CaptureGatesPutRequest) (*CaptureGatesPutResponse, error) {
 	if req == nil || strings.TrimSpace(req.Content) == "" {
 		return nil, errorx.NewValidationError("capture gates content is required")
@@ -186,11 +203,14 @@ func (s *Service) CaptureGatesPut(ctx context.Context, req *CaptureGatesPutReque
 	return s.publishCaptureGates(ctx, strings.TrimSpace(req.Content), strings.TrimSpace(req.Message), req.BaseVersion)
 }
 
-// CaptureGatesValidate 发布预检 dry-run：浅 lint（gates_json 形状）+
-// config.ValidateGates（agent apply 同一校验真值，含构造期检查与事件
-// 粗过滤合法性）。不落库、不依赖 scope。没有这一步时，坏语义版本会
-// 「发布成功、全员 agent apply 拒绝滞留 last-good」，运维上表现为全员
-// 待生效的噪声——预检把拦截点提前到发布前。
+// CaptureGatesValidate is the publish precheck dry-run: shallow lint
+// (gates_json shape) + config.ValidateGates (the same validation truth an agent
+// apply uses, including construction-time checks and coarse event-filter
+// legality). Nothing lands in the database and there is no scope dependency.
+// Without this step a semantically bad version would "publish successfully
+// while every agent's apply rejects it and the fleet stays pinned to last-good",
+// which operationally shows up as fleet-wide pending noise — the precheck moves
+// the interception point ahead of publishing.
 func (s *Service) CaptureGatesValidate(req *CaptureGatesValidateRequest) (*CaptureGatesValidateResponse, error) {
 	content := ""
 	if req != nil {
@@ -220,9 +240,11 @@ func (s *Service) CaptureGatesValidate(req *CaptureGatesValidateRequest) (*Captu
 	}, nil
 }
 
-// publishCaptureGates lint 后落库递增版本（发布与回滚共用路径）。
-// game/env scope 必须非空：capture-agent 注册即携带 scope（Agent 清单 §7），
-// 空 env 的发布永远拉不到，宁可发布时拒绝。
+// publishCaptureGates lints, then lands the record with an incremented version
+// (shared path for publish and rollback). The game/env scope must be non-empty:
+// capture agents carry their scope at registration (Agent manifest §7), and a
+// publish against an empty env can never be pulled — better to reject at
+// publish time.
 func (s *Service) publishCaptureGates(ctx context.Context, content, message string, baseVersion int) (*CaptureGatesPutResponse, error) {
 	scope := svc.GameScopeFromContext(ctx)
 	if scope.GameID == "" || scope.Env == "" {
@@ -231,9 +253,11 @@ func (s *Service) publishCaptureGates(ctx context.Context, content, message stri
 	if err := lintCaptureGatesJSON(content); err != nil {
 		return nil, errorx.NewValidationError(err.Error())
 	}
-	// 语义校验（validate 端点同真值）+ 依赖/能力感知 lint（服务端化：
-	// 拦截点从 agent apply 提前到发布——坏版本不再「发布成功、全员滞留
-	// last-good」）。agent 事实不可知时后者跳过（滞后容忍）。
+	// Semantic validation (same truth as the validate endpoint) plus
+	// dependency/capability-aware lint (server-side: the interception point
+	// moves from agent apply up to publish — a bad version no longer "publishes
+	// successfully with the whole fleet stuck on last-good"). When agent facts
+	// are unknowable the latter is skipped (lag-tolerant).
 	var g config.Gates
 	if err := json.Unmarshal([]byte(content), &g); err != nil {
 		return nil, errorx.NewValidationError(fmt.Sprintf("parse gates json: %v", err))
@@ -263,10 +287,13 @@ func (s *Service) publishCaptureGates(ctx context.Context, content, message stri
 	return &CaptureGatesPutResponse{Version: rec.Version}, nil
 }
 
-// CaptureGatesRollback 以历史版本内容再发一版：版本日志不可变，回滚本身也
-// 是一次新发布（新版本号，agent 侧照常版本轮询热生效——不引入第三种下行
-// 形态）。历史内容重新过当前 lint：lint 规则可能随服务端版本演进，回退到
-// 会被当前规则拒绝的内容必须显式失败，而不是静默发布坏版本。
+// CaptureGatesRollback republishes a historical version's content: the version
+// log is immutable and rollback is itself a new publish (a new version number,
+// applied hot by agents through their regular version polling — no third
+// downstream shape is introduced). Historical content is re-run through the
+// current lint: lint rules may evolve with server versions, so rolling back to
+// content the current rules would reject must fail explicitly rather than
+// silently publishing a bad version.
 func (s *Service) CaptureGatesRollback(ctx context.Context, req *CaptureGatesRollbackRequest) (*CaptureGatesPutResponse, error) {
 	if req == nil || req.Version <= 0 {
 		return nil, errorx.NewValidationError("capture gates rollback version is required")
@@ -290,13 +317,16 @@ func (s *Service) CaptureGatesRollback(ctx context.Context, req *CaptureGatesRol
 	if extra := strings.TrimSpace(req.Message); extra != "" {
 		message = fmt.Sprintf("%s: %s", message, extra)
 	}
-	// baseVersion=0：回滚目标是显式版本号，内容取自服务端历史而非过期编辑
-	// 态，乐观锁不适用；并发回滚按版本链顺序生效，无需拒绝。
+	// baseVersion=0: the rollback target is an explicit version number and the
+	// content comes from server history rather than a stale editing state, so
+	// the optimistic lock does not apply; concurrent rollbacks land in
+	// version-chain order and need no rejection.
 	return s.publishCaptureGates(ctx, content, message, 0)
 }
 
-// CaptureGatesVersionsGet 返回当前 scope 的版本历史（新→旧）。未发布回空
-// 数组而非 404——空历史是常态而非错误。
+// CaptureGatesVersionsGet returns the version history for the current scope
+// (newest first). Unpublished returns an empty array instead of 404 — an empty
+// history is the normal state, not an error.
 func (s *Service) CaptureGatesVersionsGet(ctx context.Context) ([]CaptureGatesVersionItem, error) {
 	scope := svc.GameScopeFromContext(ctx)
 	if scope.GameID == "" || scope.Env == "" {
@@ -318,10 +348,12 @@ func (s *Service) CaptureGatesVersionsGet(ctx context.Context) ([]CaptureGatesVe
 	return items, nil
 }
 
-// lintCaptureGatesJSON 结构 lint：合法 JSON + 顶层对象 + 已知段形状
-// （reconcile/lineage 的 rules、cep 的 offHours/burst/probing、event 的 ops
-// 必须是数组）。未知键放行（agent 侧规则集前向扩展不需要改面板）；数组
-// 元素内容不查——那是 agent 的语义校验职责。
+// lintCaptureGatesJSON performs the structural lint: valid JSON + top-level
+// object + known-section shapes (the rules arrays of reconcile/lineage, the
+// offHours/burst/probing arrays of cep, and the ops array of event must all be
+// arrays). Unknown keys pass (forward-extending the agent's rule set must not
+// require a panel change); array element contents are not checked — that is the
+// agent's semantic validation responsibility.
 func lintCaptureGatesJSON(content string) error {
 	var top map[string]json.RawMessage
 	if err := json.Unmarshal([]byte(content), &top); err != nil {
@@ -350,7 +382,8 @@ func lintCaptureGatesJSON(content string) error {
 	return nil
 }
 
-// captureGatesAuthor 发布人（与 api/config 同口径：ctx username，缺省 system）。
+// captureGatesAuthor returns the publisher (same convention as api/config:
+// ctx username, defaulting to system).
 func captureGatesAuthor(ctx context.Context) string {
 	if ctx == nil {
 		return "system"
@@ -363,12 +396,14 @@ func captureGatesAuthor(ctx context.Context) string {
 	return "system"
 }
 
-// 发布校验服务端化（todo 4288，过滤策略简档 §3）：依赖+能力感知 lint。
-// 能力集与采集范围来源拍板（2026-10-13）：**注册 labels 捎带**
-// （captureTables / captureConnectorCapabilities），与 appliedRevision 的
-// captureGatesRevision 同通道——零 proto、零 wire 改动、滞后容忍；注册
-// 响应扩展需要对 proto 增字段，换来的只是强一致，而发布校验对滞后本来
-// 就要 fail-soft，不值得。
+// Server-side publish validation (todo 4288, filter policy profile §3):
+// dependency+capability-aware lint. Decision on the capability set and
+// collection scope source (2026-10-13): **piggyback on registration labels**
+// (captureTables / captureConnectorCapabilities), through the same channel as
+// appliedRevision's captureGatesRevision — zero proto changes, zero wire
+// changes, lag-tolerant. Extending the registration response would require
+// adding proto fields, and all it buys is strong consistency, while publish
+// validation already has to be fail-soft about lag — not worth it.
 const (
 	labelRole                         = "role"
 	labelRoleCapture                  = "capture"
@@ -376,18 +411,22 @@ const (
 	labelCaptureConnectorCapabilities = "captureConnectorCapabilities"
 )
 
-// captureAgentFacts 同 scope 已连接 capture agent 的采集事实：tables 并集
-// （任一 agent 覆盖即可发布）、capabilities 交集（从严——最弱连接器决定
-// 可发布面）。contributors=具备自报 labels 的已连 agent 数；0=事实不可知，
-// lint 跳过（结构+语义校验仍全量执行）。
+// captureAgentFacts holds the collection facts of connected capture agents in
+// the same scope: tables as a union (coverage by any one agent is enough to
+// publish) and capabilities as an intersection (strict — the weakest connector
+// determines the publishable surface). contributors = the number of connected
+// agents that self-report labels; 0 = facts unknowable, the lint is skipped
+// (structural + semantic validation still runs in full).
 type captureAgentFacts struct {
 	tables       map[string]bool
 	capabilities connector.Capabilities
 	contributors int
 }
 
-// captureAgentFacts 从注册面读 facts（RegistryStore nil=裁剪部署跳过）。
-// 中途升级未带 labels 的 agent 不计入 contributors（不惩罚滞后部署）。
+// The captureAgentFacts method reads facts from the registration surface
+// (RegistryStore nil = trimmed deployment, skipped). Agents upgraded mid-flight
+// that do not carry labels are not counted in contributors (lagging deployments
+// are not penalized).
 func (s *Service) captureAgentFacts(scope svc.GameScope) captureAgentFacts {
 	facts := captureAgentFacts{tables: map[string]bool{}}
 	if s.svcCtx == nil || s.svcCtx.RegistryStore == nil {
@@ -411,7 +450,9 @@ func (s *Service) captureAgentFacts(scope svc.GameScope) captureAgentFacts {
 		}
 		caps, err := parseCapabilityLabel(capsLabel)
 		if err != nil {
-			continue // 未知能力键=扩展能力不可解，从严跳过该 agent 的事实
+			// unknown capability key = extended capability unresolvable; strictly
+			// skip this agent's facts
+			continue
 		}
 		for _, tbl := range strings.Split(tablesLabel, ",") {
 			if tbl = strings.TrimSpace(tbl); tbl != "" {
@@ -428,8 +469,10 @@ func (s *Service) captureAgentFacts(scope svc.GameScope) captureAgentFacts {
 	return facts
 }
 
-// parseCapabilityLabel 解析能力 label（逗号分隔能力键；未知键拒绝——
-// ParseCapabilities 同款从严口径，静默丢键会让发布校验误判兼容）。
+// parseCapabilityLabel parses a capability label (comma-separated capability
+// keys; unknown keys are rejected — the same strict convention as
+// ParseCapabilities, since silently dropping keys would let publish validation
+// misjudge compatibility).
 func parseCapabilityLabel(label string) (connector.Capabilities, error) {
 	var caps connector.Capabilities
 	known := map[string]bool{}
@@ -464,7 +507,8 @@ func parseCapabilityLabel(label string) (connector.Capabilities, error) {
 	return caps, nil
 }
 
-// intersectCapabilities 能力交集（多 agent 从严合并）。
+// intersectCapabilities computes the capability intersection (strict merge
+// across multiple agents).
 func intersectCapabilities(a, b connector.Capabilities) connector.Capabilities {
 	a.BeforeImage = a.BeforeImage && b.BeforeImage
 	a.AfterImage = a.AfterImage && b.AfterImage
@@ -475,12 +519,16 @@ func intersectCapabilities(a, b connector.Capabilities) connector.Capabilities {
 	return a
 }
 
-// lintCaptureGatesAgainstAgent 依赖+能力感知 lint（结构+语义校验之上）：
-// ①对账双表与 CEP 突变表必须都在采集范围内——规则依赖的表不在白名单=
-// 静默漏检（过滤策略简档 §1.1「不为省事件量漏掉业务流水表」的反面：范围
-// 之外 publishing 一条永远不触发的规则，运维误以为有防护）；②对账/CEP
-// 读行像取键与数值增量，要求 afterImage 能力（connector.Requires 点名
-// 缺失项）。facts 不可知（contributors==0）=跳过，不拦发布。
+// lintCaptureGatesAgainstAgent is the dependency+capability-aware lint (on top
+// of structural + semantic validation): (1) the reconcile table pair and CEP
+// mutation tables must all be inside the collection scope — a rule depending on
+// a table outside the whitelist = silent missed detection (the opposite of
+// filter policy profile §1.1's "never drop business transaction tables to save
+// event volume": publishing a rule outside the scope yields one that never
+// fires while operators believe they have protection); (2) reconcile/CEP row
+// reads compare keys and numeric deltas, which requires the afterImage
+// capability (connector.Requires names the missing item). Unknowable facts
+// (contributors==0) = skip, never blocking publish.
 func lintCaptureGatesAgainstAgent(g config.Gates, facts captureAgentFacts) error {
 	if facts.contributors == 0 {
 		return nil

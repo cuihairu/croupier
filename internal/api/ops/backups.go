@@ -104,8 +104,9 @@ func (s *BackupService) GetDownloadURL(ctx context.Context, backupId string) (st
 	return url, utils.FormatTimestamp(time.Now().Add(24 * time.Hour)), nil
 }
 
-// Verify 重算备份对象 sha256 并与记录校验值比对（OPS-008 校验读路径）。
-// 返回 matched 表示校验一致；读取/哈希失败返回错误。
+// Verify recomputes the sha256 of the backup object and compares it with the
+// recorded checksum (OPS-008 verification read path). A true return means the
+// checksums match; read/hash failures return an error.
 func (s *BackupService) Verify(ctx context.Context, backupId string) (bool, error) {
 	if s.svcCtx == nil || s.svcCtx.BackupModel == nil {
 		return false, errors.New("backup model unavailable")
@@ -120,14 +121,18 @@ func (s *BackupService) Verify(ctx context.Context, backupId string) (bool, erro
 	return backupexec.VerifyChecksum(ctx, s.svcCtx.ObjectStore, backup)
 }
 
-// createBackupForScope 创建一条备份记录并按需真实执行（OPS-008 数据面备份）。
+// createBackupForScope creates one backup record and actually runs it when
+// possible (OPS-008 data-plane backups).
 //
-//   - scope 非空（游戏域控制台）：必须解析到该游戏环境注册的启用数据源
-//     （DBSourceModel.FindByScope），无则 404；解析成功后执行真实
-//     dump→sha256→上传对象存储→更新记录（需 ObjectStore，缺则 500 不落记录，
-//     避免悬挂 pending）。
-//   - scope 为空（平台级调用）：退化为记录模式（与旧行为兼容，由平台备份页
-//     管理 meta 库备份；此时若有 ObjectStore 则按 meta 库驱动/DSN 真实执行）。
+//   - scope non-empty (game-domain console): it must resolve to an enabled data
+//     source registered for that game env (DBSourceModel.FindByScope), otherwise
+//     404; after a successful resolution a real dump→sha256→object-store
+//     upload→record update runs (requires ObjectStore; without one it 500s and
+//     writes no record, avoiding a dangling pending).
+//   - scope empty (platform-level call): degrades to record-only mode
+//     (compatible with the old behavior; the platform backup page manages meta
+//     database backups, and with an ObjectStore present it really executes using
+//     the meta database driver/DSN).
 func createBackupForScope(ctx context.Context, svcCtx *svc.ServiceContext, scope svc.GameScope, name, backupType string, timeoutSec int) (*model.Backup, error) {
 	if svcCtx == nil {
 		return nil, errorx.NewBadRequest("service context is required")
@@ -161,8 +166,9 @@ func createBackupForScope(ctx context.Context, svcCtx *svc.ServiceContext, scope
 
 	exec := backupExecutorFor(svcCtx, src, scope)
 
-	// 游戏域备份必须真实可执行：无执行器（ObjectStore 未配置 / 驱动不支持）
-	// 时拒绝创建，不落悬挂 pending。
+	// Game-domain backups must be really executable: reject creation when no
+	// executor is available (ObjectStore not configured / driver unsupported)
+	// so no dangling pending lands.
 	if strings.TrimSpace(scope.GameID) != "" && exec == nil {
 		return nil, errorx.NewInternalError("backup storage not configured")
 	}
@@ -186,8 +192,9 @@ func createBackupForScope(ctx context.Context, svcCtx *svc.ServiceContext, scope
 	if exec != nil {
 		backupID, bname, btype := backup.BackupID, backup.Name, backup.Type
 		go func() {
-			// WithoutCancel 从入参派生：断开不取消备份执行，保留 ctx 值
-			//（game DB 路由等）（CR-FIX-22）。
+			// WithoutCancel derives from the input: a disconnect does not cancel
+			// the backup run, and ctx values (game DB routing etc.) are kept
+			// (CR-FIX-22).
 			bg, cancel := context.WithTimeout(context.WithoutCancel(ctx), backupTimeout(timeoutSec))
 			defer cancel()
 			if err := exec.RunBackup(bg, backupID, bname, btype); err != nil {
@@ -198,9 +205,10 @@ func createBackupForScope(ctx context.Context, svcCtx *svc.ServiceContext, scope
 	return backup, nil
 }
 
-// backupExecutorFor 构造真实备份执行器。src 非空 → 按注册数据源驱动/DSN 与
-// scope 前缀；src 空（平台级）→ 回退 meta 库驱动/DSN。存储未就绪、Config 未
-// 装配或驱动不支持 → nil。
+// backupExecutorFor builds a real backup executor. src non-nil -> use the
+// registered data source's driver/DSN with a scope prefix; src nil
+// (platform-level) -> fall back to the meta database driver/DSN. Storage not
+// ready, Config not assembled, or an unsupported driver -> nil.
 func backupExecutorFor(svcCtx *svc.ServiceContext, src *model.DBSource, scope svc.GameScope) *backupexec.Executor {
 	if svcCtx == nil || svcCtx.BackupModel == nil || svcCtx.ObjectStore == nil {
 		return nil
@@ -220,7 +228,8 @@ func backupExecutorFor(svcCtx *svc.ServiceContext, src *model.DBSource, scope sv
 	}
 }
 
-// buildOpsBackupItems 映射模型行到 ops 清单 DTO（含 OPS-008 归属/校验列）。
+// buildOpsBackupItems maps model rows to the ops list DTO (including the
+// OPS-008 ownership/verification columns).
 func buildOpsBackupItems(backups []model.Backup) []Backup {
 	items := make([]Backup, 0, len(backups))
 	for _, b := range backups {

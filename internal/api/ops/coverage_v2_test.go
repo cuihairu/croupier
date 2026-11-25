@@ -1268,18 +1268,21 @@ func TestHandler_AgentMetricsHistory_Success_V2(t *testing.T) {
 	assert.True(t, rec.Code >= 200 && rec.Code < 600)
 }
 
-// TestListNodes_RemoteOwnedSnapshotNotStale 回归（HA 多实例）：本地
-// registry 里的远端 agent 快照（启动 LoadFromDB 载入、心跳只续对端侧、
-// 本地 ExpireAt 冻结过期）在共享归属表判定活跃且 owner 为对端实例时，
-// 必须报 online + ownerInstance 标签——修复前被 resolveNodeStatus 按本地
-// 过期 ExpireAt 误判 stale，且因 registered 提前短路轮不到 owner 聚合，
-// 页面表现为「一个在线一个离线」。
+// Regression test for TestListNodes_RemoteOwnedSnapshotNotStale (HA multi-
+// instance): a remote agent snapshot in the local registry (loaded by
+// LoadFromDB at startup, heartbeats renewing only on the peer side, local
+// ExpireAt frozen and expired) must report online plus the ownerInstance
+// label when the shared ownership table judges it active with the peer
+// instance as owner — before the fix, resolveNodeStatus misjudged it as
+// stale based on the locally expired ExpireAt, and the early registered
+// short-circuit prevented the owner aggregation from running at all, so the
+// page showed "one online, one offline".
 func TestListNodes_RemoteOwnedSnapshotNotStale(t *testing.T) {
 	t.Parallel()
 
 	store := registry.NewStore()
 	now := time.Now()
-	// 本实例直连的 agent：正常 active。
+	// Agent connected directly to this instance: normally active.
 	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "agent-local",
 		GameID:    "g1",
@@ -1290,7 +1293,8 @@ func TestListNodes_RemoteOwnedSnapshotNotStale(t *testing.T) {
 		LastSeen:  now,
 		ExpireAt:  now.Add(time.Hour),
 	})
-	// 远端 agent 的冻结快照：ExpireAt 已过（心跳只在对端实例续期）。
+	// Frozen snapshot of a remote agent: ExpireAt already passed (heartbeats
+	// are renewed only on the peer instance).
 	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "agent-remote",
 		GameID:    "g1",
@@ -1342,7 +1346,7 @@ func TestListNodes_RemoteOwnedSnapshotNotStale(t *testing.T) {
 	}
 }
 
-// ---- listNodes nil ctx 兜底 ----
+// ---- listNodes fallback for nil ctx ----
 
 func TestListNodes_NilContext(t *testing.T) {
 	t.Parallel()
@@ -1360,7 +1364,8 @@ func TestListNodes_NilContext(t *testing.T) {
 		ExpireAt:  now.Add(time.Hour),
 	})
 
-	// 生产中间件保证 ctx 非空；nil 时 listNodes 有显式 Background 兜底。
+	// Production middleware guarantees a non-nil ctx; listNodes has an
+	// explicit Background fallback for nil.
 	svcCtx := &svc.ServiceContext{RegistryStore: store}
 	nodes := listNodes(nil, svcCtx, "", "", "")
 	assert.NotEmpty(t, nodes)

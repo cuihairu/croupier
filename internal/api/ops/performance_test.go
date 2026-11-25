@@ -35,7 +35,8 @@ func setupPerformanceRouter(t *testing.T) (*gin.Engine, *svc.ServiceContext) {
 	return r, svcCtx
 }
 
-// newPerfStore 内存库 settings model（同 sitesettings 测试口径：sqlite 建表）。
+// newPerfStore is an in-memory settings model (same approach as the
+// sitesettings tests: create sqlite tables).
 func newPerfStore(t *testing.T) *model.PlatformSettingModel {
 	t.Helper()
 	store := model.NewPlatformSettingModel(newPerfDB(t))
@@ -50,7 +51,8 @@ func newPerfDB(t *testing.T) *gorm.DB {
 	return db
 }
 
-// initPerfSettings 重置全局 layered 并指向独立内存库（避免串包状态泄漏）。
+// initPerfSettings resets the global layered settings and points it at an
+// isolated in-memory database (avoiding cross-package state leakage).
 func initPerfSettings(t *testing.T) {
 	t.Helper()
 	settings.ResetForTest()
@@ -67,10 +69,10 @@ func TestPerformanceGet_SnapshotShape(t *testing.T) {
 
 	var body PerformanceSnapshotResponse
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
-	// 默认全 0 = 不启用
+	// Defaults are all 0 = disabled
 	assert.Equal(t, 0, body.Settings.MaxCpuPct)
 	assert.False(t, body.Overload.CPU)
-	// 运行时统计恒有值
+	// Runtime stats always have values
 	assert.Greater(t, body.Runtime.GoMaxProcs, 0)
 	assert.GreaterOrEqual(t, body.Runtime.Goroutines, 1)
 	assert.GreaterOrEqual(t, body.Runtime.UptimeSeconds, int64(0))
@@ -139,7 +141,7 @@ func TestBuildPerformanceSnapshot_OverloadThresholds(t *testing.T) {
 	snap := buildPerformanceSnapshot(nil)
 	assert.False(t, snap.Overload.CPU, "阈值 0 = 不启用")
 
-	// 阈值 101% 永不触发（占用不可能 >= 101）
+	// A 101% threshold never triggers (usage can never be >= 101)
 	snap.Settings.MaxCpuPct = 101
 	snap.Overload = PerformanceOverload{
 		CPU: snap.Settings.MaxCpuPct > 0 && snap.Host.CPUPercent >= float64(snap.Settings.MaxCpuPct),

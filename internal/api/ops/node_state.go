@@ -25,8 +25,9 @@ func listNodes(ctx context.Context, svcCtx *svc.ServiceContext, gameID, env, sta
 		return []Node{}
 	}
 	if ctx == nil {
-		// bare-background-ok: 入参 ctx 的防御性 nil 兜底（主路径恒由调用方
-		// 传入请求 ctx），非裸起新 context（CR-FIX-22 豁免清单）。
+		// bare-background-ok: a defensive nil fallback for the inbound ctx (the
+		// main path always passes the request ctx from the caller), not a fresh
+		// bare context (on the CR-FIX-22 exemption list).
 		ctx = context.Background()
 	}
 
@@ -47,9 +48,12 @@ func listNodes(ctx context.Context, svcCtx *svc.ServiceContext, gameID, env, sta
 	items := make([]nodeListItem, 0)
 	registered := make(map[string]bool)
 
-	// 集群模式：以共享归属表为在线全集（本地 registry 只含连到本实例的
-	// agent，只读本地会导致入口分流到不同实例时在线/离线判定随机翻转）。
-	// 本地持有的补全详情（metrics/函数数/SDK 信息），非本地的标注 owner。
+	// Cluster mode: the shared ownership table is the online universe (the
+	// local registry only holds agents connected to this instance; reading
+	// locally alone would make the online/offline verdict flip randomly when
+	// the entry point load-balances across instances). Locally held agents get
+	// full details (metrics/function counts/SDK info); non-local ones get the
+	// owner annotation.
 	aliveOwners := make(map[string]cluster.AgentOwnerRecord)
 	if svcCtx.Cluster != nil && svcCtx.Cluster.ListAgentOwners != nil {
 		if owners, err := svcCtx.Cluster.ListAgentOwners(ctx); err == nil {
@@ -59,10 +63,12 @@ func listNodes(ctx context.Context, svcCtx *svc.ServiceContext, gameID, env, sta
 		}
 	}
 
-	// selfInstanceID 用于区分「owner 是对端」：本地 registry 的快照可能
-	// 来自启动时 LoadFromDB（agent 实际连在对端实例），此后心跳只续
-	// 对端侧，本地 ExpireAt 冻结过期会把活跃 agent 误判成 stale——
-	// 此类节点必须以共享归属表为准判 online。
+	// selfInstanceID distinguishes "owner is a peer": a snapshot in the local
+	// registry may come from the startup LoadFromDB (the agent is actually
+	// connected to a peer instance), after which only the peer side keeps
+	// renewing heartbeats, so a frozen-expiry local ExpireAt would misjudge an
+	// active agent as stale -- such nodes must be judged online from the
+	// shared ownership table.
 	selfInstanceID := ""
 	if svcCtx.Cluster != nil {
 		selfInstanceID = svcCtx.Cluster.InstanceID
@@ -86,8 +92,9 @@ func listNodes(ctx context.Context, svcCtx *svc.ServiceContext, gameID, env, sta
 			var nodeStatus, remoteOwner string
 			if owner, ok := aliveOwners[sess.AgentID]; ok && selfInstanceID != "" &&
 				owner.InstanceID != selfInstanceID {
-				// 远端持有的活跃 agent：本地快照仅提供详情（函数数/标签），
-				// 在线状态以归属表为准，并标注持有实例。
+				// Active agent held remotely: the local snapshot only supplies
+				// details (function counts/labels), the online state follows the
+				// ownership table, and the owning instance is annotated.
 				nodeStatus = "online"
 				if drainedNodes[sess.AgentID] {
 					nodeStatus = "drained"
@@ -116,8 +123,9 @@ func listNodes(ctx context.Context, svcCtx *svc.ServiceContext, gameID, env, sta
 		}
 		store.Mu().RUnlock()
 
-		// 归属表里活跃、但连接不在本实例的节点（由对端持有）：
-		// 在线判定不能因分流实例不同而翻转。
+		// Nodes active in the ownership table but whose connection is not on
+		// this instance (held by a peer): the online verdict must not flip
+		// because of which instance the entry point routes to.
 		for _, rec := range aliveOwners {
 			if registered[rec.AgentID] {
 				continue

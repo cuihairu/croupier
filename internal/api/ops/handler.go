@@ -20,10 +20,12 @@ func bindOpsRequest(c *gin.Context, req interface{}) error {
 	return c.ShouldBindJSON(req)
 }
 
-// processActionParams 取进程动作的路径参数（agentId / name）。进程动作面
-// 的入参唯一来源是路径——面板发的是无 body POST，bindOpsRequest 的
-// ShouldBindJSON 对空 body 报 EOF（400），而 `uri` tag 不被 JSON 绑定，
-// 两条路都取不到 agentId/name（#59 同款绑定缺口，POST 侧）。
+// processActionParams reads the path parameters (agentId / name) of the
+// process-action surface. The path is the only source of that surface's input
+// parameters — the panel sends a bodyless POST, so bindOpsRequest's
+// ShouldBindJSON reports EOF (400) on the empty body, and the `uri` tag is
+// not honored by JSON binding: neither path yields agentId/name (#59, the same
+// binding gap on the POST side).
 func processActionParams(c *gin.Context) (agentId, name string) {
 	return strings.TrimSpace(c.Param("agentId")), strings.TrimSpace(c.Param("name"))
 }
@@ -110,7 +112,7 @@ func (h *Handler) OpsAgentSupervisor(c *gin.Context) {
 		response.Error(c, err)
 		return
 	}
-	// 路径参数兜底：BindQueryCompat 只绑 query，不绑 uri tag。
+	// path-parameter fallback: BindQueryCompat only binds query, not the uri tag.
 	if req.AgentID == "" {
 		req.AgentID = c.Param("agentId")
 	}
@@ -129,7 +131,7 @@ func (h *Handler) OpsAgentSupervisorEvents(c *gin.Context) {
 		response.Error(c, err)
 		return
 	}
-	// 路径参数兜底：BindQueryCompat 只绑 query，不绑 uri tag（#59 同款）。
+	// path-parameter fallback: BindQueryCompat only binds query, not the uri tag (#59, same class).
 	if req.AgentID == "" {
 		req.AgentID = c.Param("agentId")
 	}
@@ -142,8 +144,9 @@ func (h *Handler) OpsAgentSupervisorEvents(c *gin.Context) {
 	response.Success(c, resp)
 }
 
-// OpsAgentSupervisorLog 代理下载 agent 本地 supervisor 事件日志。文件下载
-// 按 CLAUDE.md API 契约豁免 JSON envelope，直传字节流 + Content-Disposition。
+// OpsAgentSupervisorLog proxies the download of the agent's local supervisor
+// event log. File downloads are exempt from the JSON envelope per the CLAUDE.md
+// API contract: raw byte stream + Content-Disposition.
 func (h *Handler) OpsAgentSupervisorLog(c *gin.Context) {
 	var req OpsAgentSupervisorLogRequest
 	if err := bindOpsRequest(c, &req); err != nil {
@@ -245,8 +248,9 @@ func (h *Handler) OpsAgentProcessUpdate(c *gin.Context) {
 		response.Error(c, err)
 		return
 	}
-	// stagedPath/expectedSha256 走 body，但 agentId/name 只在路径上——JSON
-	// 绑定不认 uri tag，空 body 时 ShouldBindJSON 直接 EOF（#59 同款缺口）。
+	// stagedPath/expectedSha256 come from the body, but agentId/name exist only
+	// in the path — JSON binding ignores the uri tag, and ShouldBindJSON goes
+	// straight to EOF on an empty body (#59, the same binding gap).
 	req.AgentID, req.Name = processActionParams(c)
 
 	resp, err := h.service.OpsAgentProcessUpdate(c.Request.Context(), &req)
@@ -257,9 +261,11 @@ func (h *Handler) OpsAgentProcessUpdate(c *gin.Context) {
 	response.Success(c, resp)
 }
 
-// opsAgentProcessSchedulePause 暂停/恢复受管进程的 cron 调度触发（§10.2
-// 暂停与恢复，暂停对象=调度）。两个路由复用同处理器，suspend 由路由固定，
-// 不走请求体（语义在路径上，防路径与 body 语义分叉）。
+// opsAgentProcessSchedulePause suspends / resumes the cron schedule trigger of
+// a supervised process (§10.2 suspend and resume, the suspended object is the
+// schedule). The two routes reuse one handler; suspend is fixed by the route and
+// never comes from the request body (the semantics live in the path, so the path
+// and body semantics cannot diverge).
 func (h *Handler) opsAgentProcessSchedulePause(c *gin.Context, suspend bool) {
 	agentId, name := processActionParams(c)
 	req := OpsProcessSchedulePauseRequest{AgentID: agentId, Name: name, Suspend: suspend}
@@ -272,7 +278,7 @@ func (h *Handler) opsAgentProcessSchedulePause(c *gin.Context, suspend bool) {
 	response.Success(c, resp)
 }
 
-// OpsAgentProcessSchedulePause 是公共暂停入口（路由与代理别名共用）。
+// OpsAgentProcessSchedulePause is the public suspend entry (shared by the route and the alias).
 func (h *Handler) OpsAgentProcessSchedulePause(c *gin.Context) {
 	h.opsAgentProcessSchedulePause(c, true)
 }
@@ -372,8 +378,9 @@ func (h *Handler) OpsAlertSilence(c *gin.Context) {
 }
 
 // OpsAlertHandle handles POST /api/v1/ops/alerts/:id/handle.
-// 路径参数 :id 在 handler 直取 c.Param（BindQueryCompat 只绑 query，
-// uri tag 不可依赖——/nodes/:id/meta 同教训）；body 只装 action/remark。
+// The path parameter :id is read straight from c.Param in the handler
+// (BindQueryCompat only binds query, and the uri tag cannot be relied on — the
+// same lesson as /nodes/:id/meta); the body carries only action/remark.
 func (h *Handler) OpsAlertHandle(c *gin.Context) {
 	var req OpsAlertHandleRequest
 	if err := bindOpsRequest(c, &req); err != nil {
@@ -472,7 +479,7 @@ func (h *Handler) OpsNodeMeta(c *gin.Context) {
 		response.Error(c, err)
 		return
 	}
-	// 路径参数兜底：BindQueryCompat 只绑 query，不绑 uri tag。
+	// path-parameter fallback: BindQueryCompat only binds query, not the uri tag.
 	if req.NodeID == "" {
 		req.NodeID = c.Param("nodeId")
 	}
@@ -485,15 +492,16 @@ func (h *Handler) OpsNodeMeta(c *gin.Context) {
 	response.Success(c, resp)
 }
 
-// OpsNodeDetail handles GET /ops/nodes/:nodeId —— 单设备详情（NodeDetail 别名
-// 挂 /nodes/:nodeId 路由，语义同 meta 族）。
+// OpsNodeDetail handles GET /ops/nodes/:nodeId — the single-device detail (the
+// NodeDetail alias mounts the /nodes/:nodeId route with the same semantics as the
+// meta family).
 func (h *Handler) OpsNodeDetail(c *gin.Context) {
 	var req OpsNodeDetailRequest
 	if err := bindOpsRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
-	// 路径参数兜底：BindQueryCompat 只绑 query，不绑 uri tag。
+	// path-parameter fallback: BindQueryCompat only binds query, not the uri tag.
 	if req.NodeID == "" {
 		req.NodeID = c.Param("nodeId")
 	}
@@ -865,7 +873,7 @@ func (h *Handler) NodeMeta(c *gin.Context) {
 	h.OpsNodeMeta(c)
 }
 
-// NodeDetail handles GET /nodes/:nodeId（单设备详情，与列表同源）。
+// NodeDetail handles GET /nodes/:nodeId (single-device detail, same source as the list).
 func (h *Handler) NodeDetail(c *gin.Context) {
 	h.OpsNodeDetail(c)
 }
@@ -898,13 +906,13 @@ func (h *Handler) MaintenanceUpdate(c *gin.Context) {
 	h.OpsMaintenanceUpdate(c)
 }
 
-// SystemRuntime serves GET /api/v1/ops/system/runtime（系统维护 #52）。
+// SystemRuntime serves GET /api/v1/ops/system/runtime (system maintenance #52).
 func (h *Handler) SystemRuntime(c *gin.Context) {
 	response.Success(c, h.service.SystemRuntime(c.Request.Context()))
 }
 
-// SystemCheckUpdate serves POST /api/v1/ops/system/check-update（只检查
-// 不升级，结果带版本注记）。
+// SystemCheckUpdate serves POST /api/v1/ops/system/check-update (check only,
+// no upgrade; the result carries version notes).
 func (h *Handler) SystemCheckUpdate(c *gin.Context) {
 	response.Success(c, h.service.SystemCheckUpdate(c.Request.Context()))
 }
@@ -937,7 +945,8 @@ func (h *Handler) Config(c *gin.Context) {
 	h.OpsConfig(c)
 }
 
-// ClusterInfo handles GET /ops/cluster: server 实例拓扑（在线/离线/agent 分布）。
+// ClusterInfo handles GET /ops/cluster: the server instance topology (online /
+// offline / agent distribution).
 func (h *Handler) ClusterInfo(c *gin.Context) {
 	resp, err := h.service.GetClusterInfo(c.Request.Context())
 	if err != nil {
@@ -961,8 +970,9 @@ func (h *Handler) BatchOpCreateHandler(c *gin.Context) {
 	if req.Env == "" {
 		req.Env = scope.Env
 	}
-	// body 携带非空 gameId/env 时必须与认证 scope 一致，防止作用域受限
-	// 用户向未授权游戏/环境创建/派发批次（fail-closed）。
+	// a non-empty gameId/env in the body must match the authenticated scope, so
+	// a scope-restricted user cannot create / dispatch batches to an
+	// unauthorized game / environment (fail-closed).
 	if err := enforceRequestScope(c.Request.Context(), req.GameID, req.Env); err != nil {
 		response.Error(c, err)
 		return
@@ -1035,7 +1045,7 @@ func (h *Handler) RunbookCreateHandler(c *gin.Context) {
 	if req.Env == "" {
 		req.Env = scope.Env
 	}
-	// body 携带非空 gameId/env 时必须与认证 scope 一致（fail-closed）。
+	// a non-empty gameId/env in the body must match the authenticated scope (fail-closed).
 	if err := enforceRequestScope(c.Request.Context(), req.GameID, req.Env); err != nil {
 		response.Error(c, err)
 		return

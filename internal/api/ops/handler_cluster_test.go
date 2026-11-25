@@ -11,7 +11,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// HTTP handler 层测试：ClusterInfo + LBStatsQuery 的参数绑定/错误/成功分支。
+// HTTP handler layer tests: ClusterInfo + LBStatsQuery parameter binding / error /
+// success branches.
 
 func TestHandler_ClusterInfo(t *testing.T) {
 	gin.SetMode(gin.TestMode)
@@ -38,7 +39,7 @@ func TestHandler_LBStatsQuery(t *testing.T) {
 	r.ServeHTTP(w, req)
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 
-	// 正常 body 但未配置 → 500
+	// valid body but not wired → 500
 	w3 := httptest.NewRecorder()
 	req3 := httptest.NewRequest(http.MethodPost, "/lb-stats", strings.NewReader(`{"query":"haproxy_up"}`))
 	req3.Header.Set("Content-Type", "application/json")

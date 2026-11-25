@@ -17,7 +17,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// CostEstimateRequest POST /ops/cost/estimate 入参。
+// CostEstimateRequest is the input for POST /ops/cost/estimate.
 type CostEstimateRequest struct {
 	Provider     string  `json:"provider"`
 	InstanceType string  `json:"instanceType"`
@@ -26,26 +26,28 @@ type CostEstimateRequest struct {
 	DiskSizeGB   int     `json:"diskSizeGB"`
 }
 
-// CostSummaryRequest GET /ops/cost/summary 入参（可选）。
+// CostSummaryRequest is the (optional) input for GET /ops/cost/summary.
 type CostSummaryRequest struct {
 	Limit int `form:"limit"`
 }
 
-// CostBudgetUpsertRequest PUT /ops/cost/budget 入参。
+// CostBudgetUpsertRequest is the input for PUT /ops/cost/budget.
 type CostBudgetUpsertRequest struct {
 	MonthlyUSD     float64  `json:"monthlyUsd"`
 	NotifyChannels []string `json:"notifyChannels"`
 }
 
-// CostBudgetGetRequest GET /ops/cost/budget 入参（scope 从 ctx）。
+// CostBudgetGetRequest is the input for GET /ops/cost/budget (scope comes from
+// ctx).
 type CostBudgetGetRequest struct{}
 
-// CostIdleRequest GET /ops/cost/idle 入参。
+// CostIdleRequest is the input for GET /ops/cost/idle.
 type CostIdleRequest struct {
 	Limit int `form:"limit"`
 }
 
-// costOrchestrator 返回成本控制编排器（依赖 DB 与指标库）。
+// costOrchestrator returns the cost control orchestrator (depends on the DB and
+// the metrics store).
 func (s *Service) costOrchestrator() (*costcontrol.IdleEvaluator, *model.CostBudgetModel, error) {
 	if s.svcCtx == nil || s.svcCtx.DB == nil {
 		return nil, nil, &errorx.CodeError{Code: http.StatusServiceUnavailable, Message: "成本控制未配置", StableCode: "cost_not_configured"}
@@ -67,7 +69,7 @@ func (s *Service) costOrchestrator() (*costcontrol.IdleEvaluator, *model.CostBud
 	return eval, model.NewCostBudgetModel(s.svcCtx.DB), nil
 }
 
-// CostEstimate 创建前成本估算。
+// CostEstimate performs pre-creation cost estimation.
 func (s *Service) CostEstimate(ctx context.Context, req *CostEstimateRequest) (*costcontrol.Estimate, error) {
 	if req == nil {
 		return nil, errorx.NewValidationError("estimate request required")
@@ -85,7 +87,7 @@ func (s *Service) CostEstimate(ctx context.Context, req *CostEstimateRequest) (*
 	return est, nil
 }
 
-// CostSummary 成本总览（含闲置标记）。
+// CostSummary is the cost overview (including idle markers).
 func (s *Service) CostSummary(ctx context.Context, gameID, env string, limit int) (*costcontrol.Summary, error) {
 	_, budgetModel, err := s.costOrchestrator()
 	if err != nil {
@@ -97,8 +99,9 @@ func (s *Service) CostSummary(ctx context.Context, gameID, env string, limit int
 	}
 	runModel := model.NewProvisionRunModel(s.svcCtx.DB)
 	limit = normalizeLimit(limit, 200)
-	// scope/state 过滤必须下推 SQL：若先按全局 limit 截断再内存过滤，
-	// 目标 scope 的较早 adopted 运行落在最新 200 条之外会被静默漏计。
+	// scope/state filtering must be pushed down into SQL: if we first truncate
+	// by a global limit and then filter in memory, older adopted runs in the
+	// target scope that fall outside the latest 200 rows get silently missed.
 	runs, err := runModel.ListAdoptedScope(ctx, gameID, env, limit)
 	if err != nil {
 		return nil, err
@@ -128,7 +131,7 @@ func (s *Service) CostSummary(ctx context.Context, gameID, env string, limit int
 	return costcontrol.BuildSummary(scoped, idle, idleHours, now), nil
 }
 
-// CostBudgetUpsert 设置月度预算。
+// CostBudgetUpsert sets the monthly budget.
 func (s *Service) CostBudgetUpsert(ctx context.Context, gameID, env string, req *CostBudgetUpsertRequest, by string) (*costcontrol.Budget, error) {
 	_, budgetModel, err := s.costOrchestrator()
 	if err != nil {
@@ -154,7 +157,7 @@ func (s *Service) CostBudgetUpsert(ctx context.Context, gameID, env string, req 
 	}, nil
 }
 
-// CostBudgetGet 读取预算。
+// CostBudgetGet reads the budget.
 func (s *Service) CostBudgetGet(ctx context.Context, gameID, env string) (*costcontrol.Budget, error) {
 	_, budgetModel, err := s.costOrchestrator()
 	if err != nil {
@@ -165,8 +168,9 @@ func (s *Service) CostBudgetGet(ctx context.Context, gameID, env string) (*costc
 	}
 	b, err := budgetModel.Get(ctx, gameID, env)
 	if err != nil {
-		// 仅「未配置」返回 nil；任何其它 DB 错误（含文案含 "not found" 的
-		// 真实故障）必须上抛，不得误判为无预算而掩盖故障。
+		// Only "not configured" returns nil; any other DB error (including real
+		// failures whose message contains "not found") must be propagated, never
+		// mistaken for the absence of a budget and thereby masking the failure.
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
 		}
@@ -180,7 +184,7 @@ func (s *Service) CostBudgetGet(ctx context.Context, gameID, env string) (*costc
 	}, nil
 }
 
-// CostIdle 闲置节点列表（提醒/可自动回收）。
+// CostIdle lists idle nodes (for reminders / automatic reclamation).
 func (s *Service) CostIdle(ctx context.Context, gameID, env string, limit int) (*costcontrol.Summary, error) {
 	return s.CostSummary(ctx, gameID, env, limit)
 }

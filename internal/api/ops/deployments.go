@@ -31,7 +31,7 @@ type DeployPackageCreateRequest struct {
 	Env         string `json:"env"`
 	Role        string `json:"role"`
 	ContentType string `json:"contentType"`
-	// File 是 multipart 表单字段名（multipart/form-data 上传）。
+	// File is the multipart form field name (multipart/form-data upload).
 	File string `json:"file" form:"file"`
 }
 
@@ -109,14 +109,14 @@ type DeploymentActionResponse struct {
 	Deployment DeploymentView `json:"deployment"`
 }
 
-// errDeployNotConfigured 部署编排未装配（DB/对象存储缺）：如实报 503，
-// 不假装已开启。
+// errDeployNotConfigured is returned when deployment orchestration is not wired
+// (DB / object store missing): reports 503 honestly instead of pretending it is enabled.
 var errDeployNotConfigured = &errorx.CodeError{Code: http.StatusServiceUnavailable, Message: "部署编排未配置", StableCode: "deploy_not_configured"}
 
 // ---- handler ----
 
 func (h *Handler) DeployPackageUpload(c *gin.Context) {
-	// multipart：name/version/role 走表单字段，file 走文件字段。
+	// multipart: name/version/role come from form fields, file from the file field.
 	name := strings.TrimSpace(c.PostForm("name"))
 	version := strings.TrimSpace(c.PostForm("version"))
 	gameID := strings.TrimSpace(c.PostForm("gameId"))
@@ -134,7 +134,7 @@ func (h *Handler) DeployPackageUpload(c *gin.Context) {
 		return
 	}
 	defer f.Close()
-	// 上传包大小上限（500 MiB）：io.ReadAll 无上限可无界读入内存耗尽。
+	// Upload size cap (500 MiB): an uncapped io.ReadAll could read unboundedly into memory.
 	const maxUploadSize = 500 << 20
 	payload, err := io.ReadAll(io.LimitReader(f, maxUploadSize+1))
 	if err != nil {
@@ -221,7 +221,8 @@ func (h *Handler) DeploymentRollback(c *gin.Context) {
 	response.Success(c, resp)
 }
 
-// DeploymentRollbackRequest 回滚：指回上一版本包（上一版本需已登记）。
+// DeploymentRollbackRequest rolls back: points back to the previous-version package
+// (the previous version must already be registered).
 type DeploymentRollbackRequest struct {
 	RollbackPackageID string `json:"rollbackPackageId"`
 }
@@ -241,8 +242,9 @@ func (s *Service) DeployPackageUpload(ctx context.Context, req *DeployPackageCre
 	if role == "" {
 		role = "agent"
 	}
-	// role/name/version 拼接对象键与 agent 暂存路径，须拒绝路径分隔符与
-	// 遍历序列（防任意对象键写 / 任意路径写）。
+	// role/name/version are concatenated into the object key and the agent staging
+	// path, so path separators and traversal sequences must be rejected (prevents
+	// arbitrary object-key writes / arbitrary path writes).
 	if n, err := safeObjectPathPart(name); err != nil {
 		return nil, errorx.NewBadRequest("name: " + err.Error())
 	} else {
@@ -266,9 +268,11 @@ func (s *Service) DeployPackageUpload(ctx context.Context, req *DeployPackageCre
 		return nil, errorx.NewBadRequest("file 内容为空")
 	}
 	pid := newPackageID()
-	// 审核发现 726：对象键包含唯一 packageID，同 (role,name,version) 重复
-	// 上传不再覆盖旧对象。历史 DeployPackage 记录的 Checksum 与 ObjectKey
-	// 指向的对象内容保持一致，供应链完整性不被后续上传破坏。
+	// Review finding 726: the object key embeds a unique packageID, so repeated
+	// uploads with the same (role,name,version) no longer overwrite the old object.
+	// Historical DeployPackage records keep their Checksum consistent with the object
+	// content the ObjectKey points at; supply-chain integrity is not broken by later
+	// uploads.
 	key := fmt.Sprintf("deploy/%s/%s-%s-%s.bin", role, name, version, pid)
 	hasher := sha256.New()
 	hasher.Write(payload)
@@ -376,9 +380,11 @@ func (s *Service) DeploymentStart(ctx context.Context, id string) (*DeploymentAc
 	if err != nil {
 		return nil, errorx.NewNotFound("包不存在")
 	}
-	// 发版全链（分批推进 + 健康门禁）可持续数分钟，挂在 HTTP 请求 ctx 上会
-	// 在客户端断开时取消整个发版（#666）；WithoutCancel 从入参派生后台
-	// ctx（保留 game DB 路由等值，断开不取消）完成发版并落终态（CR-FIX-22）。
+	// The full deployment chain (batch progression + health gates) can run for minutes;
+	// hanging it off the HTTP request ctx would cancel the whole rollout when the client
+	// disconnects (#666). WithoutCancel derives a background ctx from the input
+	// (preserving game DB routing values, not canceled on disconnect) so the rollout
+	// completes and lands in a terminal state (CR-FIX-22).
 	bg, cancel := context.WithCancel(context.WithoutCancel(ctx))
 	defer cancel()
 	started, err := s.svcCtx.Deployments.Start(bg, d, pkg)
@@ -403,7 +409,8 @@ func (s *Service) DeploymentRollback(ctx context.Context, id string, req *Deploy
 	if err != nil {
 		return nil, errorx.NewNotFound("回滚包不存在")
 	}
-	// 回滚同发版语义：WithoutCancel 派生，断开不取消（CR-FIX-22）。
+	// Rollback follows the same semantics as rollout: derived with WithoutCancel,
+	// disconnect does not cancel (CR-FIX-22).
 	bg, cancel := context.WithCancel(context.WithoutCancel(ctx))
 	defer cancel()
 	rolled, err := s.svcCtx.Deployments.Rollback(bg, d, rbPkg)
@@ -455,10 +462,11 @@ func buildDeploymentView(d *model.Deployment) DeploymentView {
 	}
 }
 
-// bytesReader 是 io.ReadSeeker 的 bytes.Reader 持久游标封装。
-// 旧实现每次 Read/Seek 都新建 bytes.Reader（不保持游标），Read 永不返回
-// EOF——objstore 各驱动 Put（io.Copy 直到 EOF）会死循环写无限增长。改为
-// 持有单一 reader，Read/Seek 推进同一游标。
+// bytesReader wraps a bytes.Reader as an io.ReadSeeker with a persistent cursor.
+// The old implementation created a new bytes.Reader on every Read/Seek (no cursor
+// retention), so Read never returned EOF — objstore drivers' Put (io.Copy until EOF)
+// would loop forever writing unbounded data. Now a single reader is held and
+// Read/Seek advance the same cursor.
 type bytesReader struct {
 	mu     sync.Mutex
 	reader *bytes.Reader
@@ -480,7 +488,8 @@ func (b *bytesReader) Seek(off int64, whence int) (int64, error) {
 	return b.reader.Seek(off, whence)
 }
 
-// currentUsername 取认证上下文用户名（与既有 helpers 一致；此处独立兜底）。
+// currentUsername reads the authenticated username from context (consistent with the
+// existing helpers; this local fallback stands in when that fails).
 func currentUsername(ctx context.Context) string {
 	if name, err := utils.CurrentUsername(ctx); err == nil {
 		return name
@@ -488,7 +497,7 @@ func currentUsername(ctx context.Context) string {
 	return "unknown"
 }
 
-// newPackageID 生成包 id。
+// newPackageID generates a package id.
 func newPackageID() string {
 	return deploy.NewPackageID()
 }

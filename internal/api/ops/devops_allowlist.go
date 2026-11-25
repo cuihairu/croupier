@@ -1,11 +1,14 @@
-// devops 会话白名单面板下发（agent-core 简档 §7.6；capture gates 同款通道
-// 语义）：读写 game 库 config_versions 键 devops.allowlist（namespace=ops）。
-// allowlist_json 对 server 半透明——本层只做解析 lint，语义校验复用
-// agents/devops/config 的 ParseAllowlistJSON + ValidateAllowlist（与 agent
-// apply 同一校验真值，发布预检在发布前拦下「agent 必拒」的坏版本）。发布
-// 成功 ≠ agent 已生效，生效真值是 agent 侧拉取行为（configsync 30s 轮询
-// + "devops allowlist version applied" 日志）。回滚不写历史：取目标版本
-// 内容再发一版。
+// The devops session allowlist panel is served here (agent-core spec §7.6; the
+// same channel semantics as capture gates): it reads/writes the config_versions
+// key devops.allowlist (namespace=ops) in the game database. allowlist_json is
+// opaque to the server — this layer only parses/lints; the semantic validation
+// reuses ParseAllowlistJSON + ValidateAllowlist from agents/devops/config (the
+// same validation truth as agent apply, so a release precheck rejects bad
+// versions that the agent would refuse before they ship). A successful publish
+// does not mean the agent has applied it — the source of truth for being in
+// effect is the agent's pull behavior (configsync 30s polling plus the
+// "devops allowlist version applied" log line). Rollback writes no history: it
+// fetches the target version's content and publishes it as a new version.
 package ops
 
 import (
@@ -23,12 +26,14 @@ import (
 	"gorm.io/gorm"
 )
 
-// devopsAllowlistConfigKey 白名单在 config_versions 里的固定键（wire 拉取
-// 侧 internal/server 同名常量，两侧键一致是 wire 契约）。
+// devopsAllowlistConfigKey is the fixed key the allowlist uses in config_versions
+// (the wire-pull side has an identically named constant in internal/server;
+// matching keys on both sides are the wire contract).
 const devopsAllowlistConfigKey = "devops.allowlist"
 
-// DevopsAllowlistGetResponse 白名单当前发布态。Version=0 表示该 scope 尚未
-// 发布过（content 为空串）——agent 语义为保持文件配置兜底。
+// DevopsAllowlistGetResponse is the currently published state of the allowlist.
+// Version=0 means the scope has never published (content is the empty string) —
+// the agent semantics are to keep the file config as a fallback.
 type DevopsAllowlistGetResponse struct {
 	Key       string `json:"key"`
 	Version   int    `json:"version"`
@@ -38,40 +43,46 @@ type DevopsAllowlistGetResponse struct {
 	CreatedBy string `json:"createdBy,omitempty"`
 }
 
-// DevopsAllowlistPutRequest 发布白名单新版本（整份内容，非增量补丁）。
-// BaseVersion 乐观锁基线：发布期间被他人抢先发布则 409 拒绝；0=不启用。
+// DevopsAllowlistPutRequest publishes a new allowlist version (the whole content,
+// not an incremental patch). BaseVersion is the optimistic-lock baseline: if
+// someone else publishes first, the publish is rejected with 409; 0 = disabled.
 type DevopsAllowlistPutRequest struct {
 	Content     string `json:"content"`
 	Message     string `json:"message,omitempty"`
 	BaseVersion int    `json:"baseVersion,omitempty"`
 }
 
-// DevopsAllowlistPutResponse 发布结果（新版本号）。
+// DevopsAllowlistPutResponse is the publish result (new version number).
 type DevopsAllowlistPutResponse struct {
 	Version int `json:"version"`
 }
 
-// DevopsAllowlistRollbackRequest 以历史版本内容再发一版（版本日志不可变）。
+// DevopsAllowlistRollbackRequest re-publishes an older version's content as a new
+// version (the version log is immutable).
 type DevopsAllowlistRollbackRequest struct {
 	Version int    `json:"version"`
 	Message string `json:"message,omitempty"`
 }
 
-// DevopsAllowlistValidateRequest dry-run 校验（发布预检，不落库）。
+// DevopsAllowlistValidateRequest is a dry-run validation (release precheck, no
+// database write).
 type DevopsAllowlistValidateRequest struct {
 	Content string `json:"content"`
 }
 
-// DevopsAllowlistValidateResponse 校验通过时回生效预览（编辑面口径；失败走
-// 422，错误文本即 agent apply 会报的同一句）。
+// DevopsAllowlistValidateResponse returns an effective preview when validation
+// passes (editor-view semantics; on failure it goes 422 with the same error text
+// agent apply would report).
 type DevopsAllowlistValidateResponse struct {
 	Valid   bool `json:"valid"`
 	Entries int  `json:"entries"`
 	Ports   int  `json:"ports"`
 }
 
-// DevopsAllowlistVersionItem 版本历史条目（不含内容：内容只在 latest GET 回
-// 显；回滚走 POST rollback 由服务端取历史，前端不搬运整份白名单 JSON）。
+// DevopsAllowlistVersionItem is a version-history entry (no content: the content
+// is returned only by the latest GET; rollback uses POST rollback where the
+// server fetches the history, so the front end never carries the whole
+// allowlist JSON).
 type DevopsAllowlistVersionItem struct {
 	Version   int    `json:"version"`
 	Message   string `json:"message,omitempty"`
@@ -105,7 +116,8 @@ func (h *Handler) DevopsAllowlistPut(c *gin.Context) {
 }
 
 // DevopsAllowlistValidate handles POST /api/v1/ops/devops/allowlist/validate.
-// 无 scope 依赖（纯内容校验）；失败语义与发布一致（422 + 同一错误文本）。
+// No scope dependency (pure content validation); failure semantics match a
+// publish (422 + the same error text).
 func (h *Handler) DevopsAllowlistValidate(c *gin.Context) {
 	var req DevopsAllowlistValidateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -145,7 +157,8 @@ func (h *Handler) DevopsAllowlistVersionsGet(c *gin.Context) {
 	response.Success(c, resp)
 }
 
-// DevopsAllowlistGet 返回当前 scope（顶栏 game/env）已发布白名单最新版本。
+// DevopsAllowlistGet returns the latest published allowlist version for the
+// current scope (top-bar game/env).
 func (s *Service) DevopsAllowlistGet(ctx context.Context) (*DevopsAllowlistGetResponse, error) {
 	scope := svc.GameScopeFromContext(ctx)
 	empty := &DevopsAllowlistGetResponse{Key: devopsAllowlistConfigKey}
@@ -166,8 +179,9 @@ func (s *Service) DevopsAllowlistGet(ctx context.Context) (*DevopsAllowlistGetRe
 	}, nil
 }
 
-// DevopsAllowlistPut 校验后发布新版本（namespace=ops，version 递增；
-// baseVersion>0 时乐观锁防并发丢更新）。
+// DevopsAllowlistPut publishes a new version after validation (namespace=ops,
+// version increments; optimistic lock guards against lost concurrent updates
+// when baseVersion>0).
 func (s *Service) DevopsAllowlistPut(ctx context.Context, req *DevopsAllowlistPutRequest) (*DevopsAllowlistPutResponse, error) {
 	if req == nil || strings.TrimSpace(req.Content) == "" {
 		return nil, errorx.NewValidationError("devops allowlist content is required")
@@ -175,8 +189,8 @@ func (s *Service) DevopsAllowlistPut(ctx context.Context, req *DevopsAllowlistPu
 	return s.publishDevopsAllowlist(ctx, strings.TrimSpace(req.Content), strings.TrimSpace(req.Message), req.BaseVersion)
 }
 
-// DevopsAllowlistValidate 发布预检 dry-run：解析 + ValidateAllowlist（agent
-// apply 同一校验真值）。不落库、不依赖 scope。
+// DevopsAllowlistValidate is the release-precheck dry-run: parse + ValidateAllowlist
+// (the same validation truth as agent apply). No database write, no scope dependency.
 func (s *Service) DevopsAllowlistValidate(req *DevopsAllowlistValidateRequest) (*DevopsAllowlistValidateResponse, error) {
 	content := ""
 	if req != nil {
@@ -196,10 +210,12 @@ func (s *Service) DevopsAllowlistValidate(req *DevopsAllowlistValidateRequest) (
 	return &DevopsAllowlistValidateResponse{Valid: true, Entries: len(entries), Ports: ports}, nil
 }
 
-// DevopsAllowlistRollback 以历史版本内容再发一版：版本日志不可变，回滚本身
-// 也是一次新发布（新版本号，agent 侧照常版本轮询热生效）。历史内容重新过
-// 当前校验：校验规则可能随服务端版本演进，回退到会被当前规则拒绝的内容必须
-// 显式失败，而不是静默发布坏版本。
+// DevopsAllowlistRollback re-publishes an older version's content as a new version:
+// the version log is immutable, so a rollback is itself a publish (new version
+// number; the agent's usual version polling applies it live). Historical content
+// re-runs the current validation: validation rules may evolve with the server
+// version, and rolling back to content the current rules would reject must fail
+// explicitly rather than silently publish a bad version.
 func (s *Service) DevopsAllowlistRollback(ctx context.Context, req *DevopsAllowlistRollbackRequest) (*DevopsAllowlistPutResponse, error) {
 	if req == nil || req.Version <= 0 {
 		return nil, errorx.NewValidationError("devops allowlist rollback version is required")
@@ -223,12 +239,14 @@ func (s *Service) DevopsAllowlistRollback(ctx context.Context, req *DevopsAllowl
 	if extra := strings.TrimSpace(req.Message); extra != "" {
 		message = fmt.Sprintf("%s: %s", message, extra)
 	}
-	// baseVersion=0：回滚目标是显式版本号，内容取自服务端历史而非过期编辑态。
+	// baseVersion=0: the rollback target is an explicit version number and the
+	// content comes from the server history, not from a stale edit state.
 	return s.publishDevopsAllowlist(ctx, content, message, 0)
 }
 
-// DevopsAllowlistVersionsGet 返回当前 scope 的版本历史（新→旧）。未发布回
-// 空数组而非 404——空历史是常态而非错误。
+// DevopsAllowlistVersionsGet returns the current scope's version history
+// (newest → oldest). Never-published returns an empty array rather than 404 —
+// an empty history is the norm, not an error.
 func (s *Service) DevopsAllowlistVersionsGet(ctx context.Context) ([]DevopsAllowlistVersionItem, error) {
 	scope := svc.GameScopeFromContext(ctx)
 	if scope.GameID == "" || scope.Env == "" {
@@ -250,7 +268,8 @@ func (s *Service) DevopsAllowlistVersionsGet(ctx context.Context) ([]DevopsAllow
 	return items, nil
 }
 
-// parseDevopsAllowlist 发布/预检共用解析+校验（agent apply 同一真值）。
+// parseDevopsAllowlist is the shared parse+validate used by publish and
+// precheck (the same truth as agent apply).
 func parseDevopsAllowlist(content string) ([]devopsconfig.AllowHost, error) {
 	entries, err := devopsconfig.ParseAllowlistJSON([]byte(content))
 	if err != nil {
@@ -262,9 +281,11 @@ func parseDevopsAllowlist(content string) ([]devopsconfig.AllowHost, error) {
 	return entries, nil
 }
 
-// publishDevopsAllowlist 校验后落库递增版本（发布与回滚共用路径）。game/env
-// scope 必须非空：devops-agent 注册即携带 scope，空 env 的发布永远拉不到，
-// 宁可发布时拒绝。
+// publishDevopsAllowlist validates and writes the database, incrementing the
+// version (shared by publish and rollback). The game/env scope must be
+// non-empty: the devops agent carries its scope from registration, so a publish
+// with an empty env would never be pulled — refusing at publish time is
+// preferable.
 func (s *Service) publishDevopsAllowlist(ctx context.Context, content, message string, baseVersion int) (*DevopsAllowlistPutResponse, error) {
 	scope := svc.GameScopeFromContext(ctx)
 	if scope.GameID == "" || scope.Env == "" {

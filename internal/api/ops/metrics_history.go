@@ -31,8 +31,9 @@ func agentMetricsHistory(ctx context.Context, svcCtx *svc.ServiceContext, req *A
 		limit = 100
 	}
 
-	// OPS-010 聚合面（90 天小时聚合）：window=hourly 走 agent_metrics_hourly，
-	// 否则原始 7 天面 agent_metrics_history。
+	// OPS-010 aggregation surface (90-day hourly aggregation): window=hourly
+	// reads agent_metrics_hourly, otherwise the raw 7-day surface
+	// agent_metrics_history.
 	var entries []reg.MetricsEntry
 	if req.Window == "hourly" {
 		entries = svcCtx.MetricsStore.GetHourlyHistory(req.AgentID, since, limit)

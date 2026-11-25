@@ -1,8 +1,10 @@
 package ops
 
-// 远程 Shell 边界物化（agent-supervisor-design §10.7 三件套前置之二：审计）。
-// exec 是高风险动作：每次尝试（成功 / 执行失败 / 客户端不可用）都留
-// execution_logs 记录（§10.4 指定 execlog 为受授权动作审计主入口）。
+// Remote shell boundary materialization (agent-supervisor-design §10.7 trio
+// prerequisite #2: audit). exec is a high-risk action: every attempt (success /
+// execution failure / client unavailable) leaves an execution_logs record
+// (§10.4 designates execlog as the primary audit entry point for authorized
+// actions).
 
 import (
 	"context"
@@ -23,8 +25,9 @@ import (
 	"gorm.io/gorm"
 )
 
-// newExecAuditSvcCtx 装 :memory: sqlite + 真 Writer（Run 已启动，Cleanup 时
-// Stop 冲刷并等待，供断言落库内容）。
+// newExecAuditSvcCtx wires an :memory: sqlite plus a real Writer (Run already
+// started; Stop flushes and waits during Cleanup so assertions can check what
+// landed in the database).
 func newExecAuditSvcCtx(t *testing.T) (*svc.ServiceContext, *gorm.DB) {
 	t.Helper()
 	db, err := gorm.Open(gsqlite.Open("file:"+t.Name()+"?mode=memory&cache=private"), &gorm.Config{})
@@ -44,7 +47,7 @@ func setExecCaller(t *testing.T, agentID string, caller transport.SessionCaller)
 	t.Helper()
 	client := agentops.GetAgentOpsClient()
 	client.SetSessionResolver(&fakeResolver{conns: map[string]transport.SessionCaller{agentID: caller}})
-	t.Cleanup(func() { client.SetSessionResolver(nil) }) // 全局单例：用后复位
+	t.Cleanup(func() { client.SetSessionResolver(nil) }) // global singleton: reset after use
 }
 
 func execResp(exitCode int32, stdout, stderr string) *opsv1.ExecuteCommandResponse {
@@ -55,7 +58,7 @@ func TestOpsAgentExecCommandAudited(t *testing.T) {
 	svcCtx, db := newExecAuditSvcCtx(t)
 	ctx := context.Background()
 
-	// 成功路径：exit 0 留痕。
+	// success path: exit 0 leaves a trail.
 	setExecCaller(t, "agent-1", &fakeCaller{respFor: map[uint32]proto.Message{
 		protocol.MsgExecuteCommandRequest: execResp(0, "ok-out", ""),
 	}})
@@ -63,21 +66,22 @@ func TestOpsAgentExecCommandAudited(t *testing.T) {
 	require.NoError(t, err)
 	assert.EqualValues(t, 0, resp.Result.ExitCode)
 
-	// 执行失败路径（exit 非 0）也留痕——执行完成但退出码非 0 是业务失败。
+	// execution-failure path (non-zero exit) also leaves a trail — execution
+	// completing with a non-zero exit code is a business failure.
 	setExecCaller(t, "agent-1", &fakeCaller{respFor: map[uint32]proto.Message{
 		protocol.MsgExecuteCommandRequest: execResp(2, "", "boom"),
 	}})
 	_, err = opsAgentExecCommand(ctx, svcCtx, &OpsExecCommandRequest{AgentID: "agent-1", Command: "ls"})
 	require.NoError(t, err)
 
-	// 客户端不可用路径：调用失败同样留痕，不留静默空洞。
+	// client-unavailable path: a call failure leaves a trail too, with no silent hole.
 	setExecCaller(t, "agent-err", &fakeCaller{errOn: map[uint32]error{
 		protocol.MsgExecuteCommandRequest: assert.AnError,
 	}})
 	_, err = opsAgentExecCommand(ctx, svcCtx, &OpsExecCommandRequest{AgentID: "agent-err", Command: "ls"})
 	require.Error(t, err)
 
-	// Writer.Stop 冲刷后逐条核对落库内容。
+	// after Writer.Stop flushes, verify the landed content record by record.
 	svcCtx.ExecutionLogWriter.Stop()
 	var logs []model.ExecutionLog
 	require.NoError(t, db.Order("id").Find(&logs).Error)
@@ -95,7 +99,8 @@ func TestOpsAgentExecCommandAudited(t *testing.T) {
 }
 
 func TestOpsAgentExecCommandAuditNilWriterNoop(t *testing.T) {
-	// 审计面缺失不得阻断执行主路径（旧装配 / 无 Writer 单元测试形态）。
+	// A missing audit surface must not block the main execution path (legacy
+	// assembly / no-Writer unit-test shape).
 	ctx := context.Background()
 	setExecCaller(t, "agent-1", &fakeCaller{respFor: map[uint32]proto.Message{
 		protocol.MsgExecuteCommandRequest: execResp(0, "x", ""),

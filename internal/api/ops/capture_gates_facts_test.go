@@ -1,12 +1,15 @@
 package ops
 
-// capture_gates.go service/handler 错误面补测：五个 handler 的 service 错误
-// 分支（lint 后语义不合法、config_versions 表故障的 Get/Put/Rollback/Versions
-// 透传）、captureGatesAuthor 的 nil ctx 兜底、captureAgentFacts 的 scope/
-// 角色/过期/双 contributor 交集分支、parseCapabilityLabel 的空键与能力键。
+// Extra error-surface coverage for capture_gates.go service/handler: the service
+// error branches of the five handlers (semantically invalid after lint, and
+// passthrough of Get/Put/Rollback/Versions when the config_versions table
+// fails), captureGatesAuthor's nil-ctx fallback, captureAgentFacts' scope/
+// role/expiry/two-contributor intersection branches, and
+// parseCapabilityLabel's empty-key and capability keys.
 //
-// 复用 capture_gates_test.go 的 validGatesContent；DB 故障面用本地 fixture
-// （暴露 db 句柄以便 drop 表模拟非 NotFound 错误）。
+// Reuses validGatesContent from capture_gates_test.go; the DB failure surface
+// uses a local fixture (exposes the db handle so the table can be dropped to
+// simulate a non-NotFound error).
 
 import (
 	"context"
@@ -23,7 +26,8 @@ import (
 	"gorm.io/gorm"
 )
 
-// captureGatesSvcDB 同 newCaptureGatesService 但暴露 db（drop 表模拟故障）。
+// captureGatesSvcDB is like newCaptureGatesService but exposes db (so the table
+// can be dropped to simulate failures).
 func captureGatesSvcDB(t *testing.T) (*Service, context.Context, *gorm.DB) {
 	t.Helper()
 	db, err := gorm.Open(gsqlite.Open(t.TempDir()+"/cg_extra.db"), &gorm.Config{})
@@ -38,40 +42,42 @@ func TestCaptureGatesErrorPaths(t *testing.T) {
 	s, _, db := captureGatesSvcDB(t)
 	h := NewHandler(s)
 
-	// lint 通过但 Gates 反序列化失败（数组元素类型错）→ validate 422
+	// Lint passes but Gates unmarshalling fails (wrong array element type) ->
+	// validate 422
 	c, w := withScopeRequest(t, http.MethodPost, "/ops/capture/gates/validate",
 		`{"content":"{\"reconcile\":{\"rules\":[42]}}"}`)
 	h.CaptureGatesValidate(c)
 	require.Equal(t, http.StatusUnprocessableEntity, w.Code)
 	require.Contains(t, w.Body.String(), "parse gates json")
 
-	// publish 同型内容 → 422（同一真值）
+	// Publish with the same content shape -> 422 (same truth)
 	c, w = withScopeRequest(t, http.MethodPut, "/ops/capture/gates",
 		`{"content":"{\"reconcile\":{\"rules\":[42]}}"}`)
 	h.CaptureGatesPut(c)
 	require.Equal(t, http.StatusUnprocessableEntity, w.Code)
 	require.Contains(t, w.Body.String(), "parse gates json")
 
-	// config_versions 表缺失 → 非 NotFound 错误逐端点透传
+	// config_versions table missing -> the non-NotFound error passes through on
+	// every endpoint
 	require.NoError(t, db.Migrator().DropTable(&model.ConfigVersion{}))
 
-	// Get：FindLatestByScope 错误 → 500
+	// Get: FindLatestByScope error -> 500
 	c, w = withScopeRequest(t, http.MethodGet, "/ops/capture/gates", "")
 	h.CaptureGatesGet(c)
 	require.Equal(t, http.StatusInternalServerError, w.Code)
 
-	// Put：CreateWithMeta 错误 → 500
+	// Put: CreateWithMeta error -> 500
 	c, w = withScopeRequest(t, http.MethodPut, "/ops/capture/gates",
 		`{"content":"{\"reconcile\":{\"rules\":[]}}"}`)
 	h.CaptureGatesPut(c)
 	require.Equal(t, http.StatusInternalServerError, w.Code)
 
-	// Rollback：FindByScope 错误 → 500
+	// Rollback: FindByScope error -> 500
 	c, w = withScopeRequest(t, http.MethodPost, "/ops/capture/gates/rollback", `{"version":1}`)
 	h.CaptureGatesRollback(c)
 	require.Equal(t, http.StatusInternalServerError, w.Code)
 
-	// Versions：ListByScope 错误 → 500
+	// Versions: ListByScope error -> 500
 	c, w = withScopeRequest(t, http.MethodGet, "/ops/capture/gates/versions", "")
 	h.CaptureGatesVersionsGet(c)
 	require.Equal(t, http.StatusInternalServerError, w.Code)
@@ -92,7 +98,7 @@ func TestParseCapabilityLabel(t *testing.T) {
 	require.True(t, caps.Snapshot)
 	require.True(t, caps.Pushdown)
 
-	// 未知能力键拒绝
+	// Unknown capability key is rejected
 	_, err = parseCapabilityLabel("beforeImage,warp-drive")
 	require.ErrorContains(t, err, "unknown connector capability")
 }
@@ -117,13 +123,14 @@ func TestCaptureAgentFactsScopeAndIntersect(t *testing.T) {
 	}
 	fresh := time.Now().Add(time.Hour)
 
-	// 其他 scope（402 continue）/ 非 capture 角色、过期会话（405 continue）
+	// Other scope (continue at 402) / non-capture role, expired session
+	// (continue at 405)
 	upsert("a-other", "other", "prod", labelRoleCapture, "game.items", "beforeImage", fresh)
 	upsert("a-idle", "demo", "prod", "agent", "game.items", "beforeImage", fresh)
 	upsert("a-expired", "demo", "prod", labelRoleCapture, "game.items", "beforeImage", time.Now().Add(-time.Hour))
 
-	// 两个有效 capture agent：tables 并集、capabilities 交集（从严）
-	// 尾随逗号覆盖空键跳过分支
+	// Two valid capture agents: tables union, capabilities intersection (strict)
+	// The trailing comma covers the empty-key skip branch
 	upsert("a-cap1", "demo", "prod", labelRoleCapture, "game.items, game.ledger",
 		"beforeImage,afterImage,snapshot,pushdown,", fresh)
 	upsert("a-cap2", "demo", "prod", labelRoleCapture, "game.items",

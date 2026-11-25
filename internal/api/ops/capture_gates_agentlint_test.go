@@ -9,11 +9,13 @@ import (
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 )
 
-// 发布校验服务端化（todo 4288）：依赖+能力感知 lint 覆盖。facts 经注册
-// labels（captureTables / captureConnectorCapabilities），与 agent 侧
-// buildPayload 上报面两侧锁死。
+// Server-side publish validation (todo 4288): dependency- and
+// capability-aware lint coverage. The facts flow through the registration
+// labels (captureTables / captureConnectorCapabilities), locked on both sides
+// with the agent-side buildPayload reporting surface.
 
-// withRegistryAgent 向 Service 注入带 labels 的已连 capture 会话。
+// withRegistryAgent injects a connected capture session with labels into the
+// Service.
 func withRegistryAgent(s *Service, agentID string, labels map[string]string) {
 	store := reg.NewStore()
 	store.Mu().Lock()
@@ -49,8 +51,10 @@ func TestCaptureGatesPublishRejectsTableOutsideScope(t *testing.T) {
 	s, ctx := newCaptureGatesService(t)
 	withRegistryAgent(s, "cap-1", captureLabels("game.items", "afterImage,transactionMetadata,resumableCheckpoint"))
 
-	// 对账流水表不在采集白名单：发布即拒（点名表名），不发布「永远不
-	// 触发的规则」让运维误以为有防护。
+	// The ledger transaction table is outside the collection whitelist:
+	// publish is rejected outright (naming the table) instead of publishing a
+	// "rule that never triggers" and lulling ops into a false sense of
+	// protection.
 	_, err := s.CaptureGatesPut(ctx, &CaptureGatesPutRequest{Content: validGatesContent()})
 	if err == nil || !strings.Contains(err.Error(), "game.ledger") || !strings.Contains(err.Error(), "outside the agent collection scope") {
 		t.Fatalf("publish err = %v, want scope rejection naming game.ledger", err)
@@ -79,7 +83,8 @@ func TestCaptureGatesPublishRejectsMissingAfterImage(t *testing.T) {
 		t.Fatalf("publish err = %v, want capability rejection naming afterImage", err)
 	}
 
-	// CEP 突变同样读行像取增量：能力缺失同拦。
+	// CEP mutations likewise read row images like deltas: missing
+	// capabilities are blocked the same way.
 	content := `{"cep":{"burst":[{"name":"amount-spike","table":"game.items","ops":["update"],"deltaField":"2","threshold":100,"mode":"single","severity":"warn"}]}}`
 	if _, err := s.CaptureGatesPut(ctx, &CaptureGatesPutRequest{Content: content}); err == nil || !strings.Contains(err.Error(), "afterImage") {
 		t.Fatalf("burst publish err = %v, want afterImage rejection", err)
@@ -88,18 +93,20 @@ func TestCaptureGatesPublishRejectsMissingAfterImage(t *testing.T) {
 
 func TestCaptureGatesPublishSkipsWhenNoAgentFacts(t *testing.T) {
 	s, ctx := newCaptureGatesService(t)
-	// 无 RegistryStore（裁剪部署）/无会话/会话过期：事实不可知=跳过 lint，
-	// 结构+语义校验仍执行（滞后容忍，不惩罚未上报的存量部署）。
+	// No RegistryStore (trimmed deployment) / no session / expired session:
+	// facts unknown = skip the lint, while structural + semantic validation
+	// still runs (lag tolerance, so pre-existing deployments that never
+	// reported facts are not punished).
 	if _, err := s.CaptureGatesPut(ctx, &CaptureGatesPutRequest{Content: validGatesContent()}); err != nil {
 		t.Fatalf("publish without facts: %v", err)
 	}
 
-	withRegistryAgent(s, "cap-1", map[string]string{"role": "capture"}) // 缺自报 labels
+	withRegistryAgent(s, "cap-1", map[string]string{"role": "capture"}) // missing self-reported labels
 	if _, err := s.CaptureGatesPut(ctx, &CaptureGatesPutRequest{Content: validGatesContent()}); err != nil {
 		t.Fatalf("publish with labelless agent: %v", err)
 	}
 
-	withRegistryAgent(s, "cap-1", captureLabels("game.items", "warpDrive")) // 未知能力键
+	withRegistryAgent(s, "cap-1", captureLabels("game.items", "warpDrive")) // unknown capability key
 	if _, err := s.CaptureGatesPut(ctx, &CaptureGatesPutRequest{Content: validGatesContent()}); err != nil {
 		t.Fatalf("publish with unknown capability key: %v", err)
 	}
@@ -117,8 +124,9 @@ func TestCaptureGatesCEPBurstTableOutsideScope(t *testing.T) {
 }
 
 func TestLintAgainstAgentUnionAndIntersect(t *testing.T) {
-	// 多 agent：tables 并集（任一覆盖即可）、capabilities 交集（从严——
-	// 最弱连接器决定可发布面）。
+	// Multiple agents: tables take the union (any one covering is enough),
+	// capabilities take the intersection (strict -- the weakest connector
+	// determines the publishable surface).
 	facts := captureAgentFacts{tables: map[string]bool{"game.items": true}, capabilities: mustCaps(t, "afterImage,transactionMetadata"), contributors: 1}
 	other := captureAgentFacts{tables: map[string]bool{"game.ledger": true}, capabilities: mustCaps(t, "transactionMetadata,resumableCheckpoint"), contributors: 1}
 
@@ -133,8 +141,9 @@ func TestLintAgainstAgentUnionAndIntersect(t *testing.T) {
 	if !merged.tables["game.items"] || !merged.tables["game.ledger"] {
 		t.Fatalf("tables must union: %v", merged.tables)
 	}
-	// 交集 = {transactionMetadata}（afterImage 只有 agent1 有、
-	// resumableCheckpoint 只有 agent2 有——最弱连接器决定可发布面）。
+	// Intersection = {transactionMetadata} (only agent1 has afterImage and
+	// only agent2 has resumableCheckpoint -- the weakest connector determines
+	// the publishable surface).
 	if merged.capabilities.AfterImage || !merged.capabilities.TransactionMetadata || merged.capabilities.ResumableCheckpoint {
 		t.Fatalf("capabilities must intersect to transactionMetadata only: %+v", merged.capabilities)
 	}
@@ -153,11 +162,13 @@ func TestParseCapabilityLabelStrict(t *testing.T) {
 	}
 }
 
-// ValidateGates 语义真值在发布路径兜底（服务端化收口）：坏语义版本不再
-// 「发布成功、全员 agent apply 拒绝滞留 last-good」。
+// ValidateGates semantic truth is enforced as a fallback on the publish path
+// (the close-out of server-side validation): a bad semantic version no longer
+// "publishes successfully, then every agent apply rejects it and everyone
+// lingers on last-good".
 func TestCaptureGatesPublishRunsSemanticValidation(t *testing.T) {
 	s, ctx := newCaptureGatesService(t)
-	bad := `{"reconcile":{"rules":[{"name":"bad-rule"}]}}` // 缺双表/键规格
+	bad := `{"reconcile":{"rules":[{"name":"bad-rule"}]}}` // missing dual-table/key specs
 	if _, err := s.CaptureGatesPut(ctx, &CaptureGatesPutRequest{Content: bad}); err == nil {
 		t.Fatal("semantically invalid content must be rejected at publish")
 	}

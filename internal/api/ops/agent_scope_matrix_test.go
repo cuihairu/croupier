@@ -1,16 +1,23 @@
 package ops
 
-// AGENT-001：四类 Agent（sidecar/devops/capture/synthetics）scope 隔离矩阵。
+// AGENT-001: scope isolation matrix for the four agent kinds
+// (sidecar/devops/capture/synthetics).
 //
-// 逐项核对当前支持的注册/配置/列表/统计/详情/动作/日志/离线读取，覆盖：
-//   - 列表：listNodes 按 game/env 过滤 + role 标签过滤（跨 scope agent 不可见）
-//   - 详情：OpsNodeDetail 与列表同源，跨 scope 返回 404
-//   - 动作：requireAgentScope 拒绝跨 game / 跨 env
-//   - 离线读取：LastKnownScope 返回持久绑定（LastKnownScope 测试另覆盖授权）
-//   - 同 ID 冲突：AgentSessionStore.Upsert 拒绝更换 game/env 绑定
-//     （tcp_listener_test / control_handler 已覆盖，此处仅核对语义签名）
+// Verifies item by item the currently supported registration/config/list/
+// stats/detail/action/log/offline-read surfaces, covering:
+//   - list: listNodes filters by game/env plus the role label (cross-scope
+//     agents are invisible)
+//   - detail: OpsNodeDetail shares its source with the list; cross-scope
+//     returns 404
+//   - actions: requireAgentScope rejects cross-game / cross-env
+//   - offline read: LastKnownScope returns the persistent binding
+//     (LastKnownScope tests cover authorization separately)
+//   - same-ID conflict: AgentSessionStore.Upsert refuses to rebind game/env
+//     (already covered by tcp_listener_test / control_handler; only the
+//     semantic signature is verified here)
 //
-// devops 未接通的会话/回放列 NOT IMPLEMENTED（依赖 AGENT-002/003，不以假数据当验收）。
+// devops session/replay columns that are not wired up are NOT IMPLEMENTED
+// (they depend on AGENT-002/003; fake data is not accepted as sign-off).
 import (
 	"context"
 	"testing"
@@ -45,15 +52,15 @@ func seedRoleAgent(store *registry.Store, id, role, gameID, env string) {
 	})
 }
 
-// 列表：同 scope 的某角色可见，跨 game / 跨 env 的同角色不可见；role 过滤只
-// 返回该角色。
+// List: a role in the same scope is visible, while the same role across a
+// different game / env is not; role filtering returns only that role.
 func TestAgentScopeMatrix_ListFiltersRoleAndScope(t *testing.T) {
 	store := registry.NewStore()
 	seedRoleAgent(store, "sidecar-a", agentRoleSidecar, "g1", "prod")
 	seedRoleAgent(store, "devops-a", agentRoleDevops, "g1", "prod")
 	seedRoleAgent(store, "capture-a", agentRoleCapture, "g1", "prod")
 	seedRoleAgent(store, "synthetics-a", agentRoleSynthetic, "g1", "prod")
-	// 跨 scope 的同角色（不应被 g1/prod 选中）
+	// Same role across scopes (must not be selected by g1/prod)
 	seedRoleAgent(store, "capture-b", agentRoleCapture, "g2", "prod")
 	seedRoleAgent(store, "capture-c", agentRoleCapture, "g1", "dev")
 
@@ -69,27 +76,29 @@ func TestAgentScopeMatrix_ListFiltersRoleAndScope(t *testing.T) {
 		})
 	}
 
-	// 同角色跨 scope 不可见（g1/prod 只应看到 capture-a）
+	// The same role across scopes is invisible (g1/prod should only see
+	// capture-a)
 	capture := listNodes(context.Background(), svcCtx, "g1", "prod", agentRoleCapture)
 	require.Len(t, capture, 1)
 	assert.Equal(t, "capture-a", capture[0].Id)
 }
 
-// 详情：与列表同源，跨 scope 的 agent 详情不可见（404），同 scope 可见。
+// Detail: shares the list's source, so cross-scope agent detail is invisible
+// (404) while the same scope is visible.
 func TestAgentScopeMatrix_DetailSameSourceAsList(t *testing.T) {
 	store := registry.NewStore()
 	seedRoleAgent(store, "capture-a", agentRoleCapture, "g1", "prod")
 	svcCtx := &svc.ServiceContext{RegistryStore: store}
 	s := NewService(svcCtx)
 
-	// 同 scope 可见
+	// Visible in the same scope
 	ctx := svc.WithGameScope(context.Background(), svc.GameScope{GameID: "g1", Env: "prod"})
 	resp, err := s.OpsNodeDetail(ctx, &OpsNodeDetailRequest{NodeID: "capture-a"})
 	require.NoError(t, err)
 	assert.Equal(t, "capture-a", resp.Node.Id)
 	assert.Equal(t, "capture", resp.Node.Labels["role"])
 
-	// 跨 game / 跨 env 不可见（列表同源 → 404）
+	// Invisible across game / env (same source as the list -> 404)
 	for _, sc := range []svc.GameScope{
 		{GameID: "g2", Env: "prod"},
 		{GameID: "g1", Env: "dev"},
@@ -100,7 +109,8 @@ func TestAgentScopeMatrix_DetailSameSourceAsList(t *testing.T) {
 	}
 }
 
-// 动作：requireAgentScope 对四类角色一致拒绝跨 game / 跨 env。
+// Actions: requireAgentScope consistently rejects cross-game / cross-env for
+// all four roles.
 func TestAgentScopeMatrix_ActionsRejectCrossScope(t *testing.T) {
 	store := registry.NewStore()
 	seedRoleAgent(store, "sidecar-a", agentRoleSidecar, "g1", "prod")
@@ -120,9 +130,9 @@ func TestAgentScopeMatrix_ActionsRejectCrossScope(t *testing.T) {
 	}
 }
 
-// 同 ID 冲突：同一 Agent ID 全局唯一，已绑定 game/env 后不得改为其它
-// scope。跨 scope 指派由 dispatch.agentCanInvoke 拒绝（见 routing_scope_test
-// TestAgentCanInvoke_Matrix）。
+// Same-ID conflict: an Agent ID is globally unique, so once bound to a game/env
+// it cannot be switched to another scope. Cross-scope assignment is rejected by
+// dispatch.agentCanInvoke (see routing_scope_test TestAgentCanInvoke_Matrix).
 func TestAgentScopeMatrix_SameIDCannotChangeScope(t *testing.T) {
 	store := server.NewAgentSessionStore()
 	require.NoError(t, store.Upsert(&server.AgentSession{

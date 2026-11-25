@@ -6,10 +6,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// AUD-024：runbook 终态后台恢复循环须按服务生命周期共享单实例。此前每请求
-// runbookOrchestrator 都 New 一个临时编排器，各自自带恢复循环——请求一旦触发
-// enqueue 就各自遗留一个永不退出的后台 goroutine。本用例断言同一 Service 连续
-// 两次构造编排器复用同一共享循环（指针同源）。
+// AUD-024: the runbook terminal-state background recovery loop must be a single
+// instance shared across the service lifetime. Previously each
+// runbookOrchestrator call constructed a fresh orchestrator, each with its own
+// recovery loop — once a request triggered enqueue, each left behind a
+// background goroutine that never exits. This test asserts that two consecutive
+// orchestrator constructions on the same Service reuse the same shared loop
+// (same pointer).
 func TestService_RunbookOrchestratorSharesRecoveryLoop(t *testing.T) {
 	s, _ := newRunbookTestService(t)
 
@@ -23,9 +26,10 @@ func TestService_RunbookOrchestratorSharesRecoveryLoop(t *testing.T) {
 	require.Same(t, first, s.runbookRecovery, "同一服务生命周期内恢复循环必须共享单实例，不得每请求新建")
 }
 
-// AUD-024：服务退出（ServiceContext.Close）必须调用注册的 closer 释放恢复循环。
-// 本用例走真实注册链路——runbookOrchestrator 首次调用把 Stop 注册为 closer，
-// Close 调用它（不 panic、不阻塞）。
+// AUD-024: on service shutdown (ServiceContext.Close) the registered closer must
+// be invoked to release the recovery loop. This test goes through the real
+// registration chain — the first runbookOrchestrator call registers Stop as a
+// closer, and Close invokes it (no panic, no blocking).
 func TestService_CloseStopsRunbookRecoveryLoop(t *testing.T) {
 	s, svcCtx := newRunbookTestService(t)
 
@@ -34,10 +38,11 @@ func TestService_CloseStopsRunbookRecoveryLoop(t *testing.T) {
 	require.NotNil(t, s.runbookRecovery)
 
 	require.NotPanics(t, func() {
-		svcCtx.Close() // 触发 RegisterCloser 注册的 recovery.Stop
+		svcCtx.Close() // triggers the recovery.Stop registered via RegisterCloser
 	})
 
-	// 关闭后再次构造编排器仍可用（共享循环已 Stop，enqueue 会立即退出，不阻塞）。
+	// constructing the orchestrator again after Close still works (the shared loop
+	// is stopped; enqueue exits immediately without blocking).
 	_, err = s.runbookOrchestrator()
 	require.NoError(t, err)
 }

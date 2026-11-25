@@ -1,7 +1,9 @@
-// 第三方服务健康探针（OPEN-ISSUES #57）：对已配置的第三方外呼目标做一次
-// 手动探活——通知 webhook 四渠道（HTTP GET 只读探测）、检查更新源（GET）、
-// SMTP（TCP+EHLO，不发信）。探测经出站守卫（sec.*）与调用策略（net.*
-// 超时），结果含延迟/状态/错误。
+// Third-party service health probe (OPEN-ISSUES #57): one manual liveness probe
+// against configured third-party outbound targets — the four notification
+// webhook channels (HTTP GET read-only probe), the update source (GET), and
+// SMTP (TCP+EHLO, no mail sent). Probing passes through the outbound guard
+// (sec.*) and the call policy (net.* timeouts); the result carries
+// latency/status/error.
 package ops
 
 import (
@@ -11,7 +13,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// probeChannels 探针支持的渠道（键 = URL 探测目标；smtp 走 ProbeSMTP）。
+// probeChannels lists the channels the probe supports (key = the URL probe
+// target; smtp goes through ProbeSMTP).
 var probeChannels = map[string]bool{
 	"dingtalk": true,
 	"wecom":    true,
@@ -21,8 +24,9 @@ var probeChannels = map[string]bool{
 	"smtp":     true,
 }
 
-// ThirdPartyProbe serves POST /api/v1/ops/probes/:channel。
-// 未配置目标返回 configured=false（200，便于前端逐渠道渲染），非法渠道 404。
+// ThirdPartyProbe serves POST /api/v1/ops/probes/:channel.
+// An unconfigured target returns configured=false (200, so the frontend can
+// render channel by channel); an invalid channel returns 404.
 func (h *Handler) ThirdPartyProbe(c *gin.Context) {
 	channel := c.Param("channel")
 	if !probeChannels[channel] {
@@ -67,7 +71,7 @@ func (h *Handler) ThirdPartyProbe(c *gin.Context) {
 	response.Success(c, res)
 }
 
-// probeView 探针响应体。
+// probeView is the probe response body.
 type probeView struct {
 	Channel    string `json:"channel"`
 	Configured bool   `json:"configured"`

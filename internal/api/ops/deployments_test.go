@@ -51,7 +51,8 @@ func TestDeployPackageUploadEmptyNoObjectStore(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	s := &Service{}
 	h := NewHandler(s)
-	// 无 multipart 文件字段：handler 先拦 400（file 必填），不触达对象存储。
+	// no multipart file field: the handler rejects with 400 first (file required),
+	// never reaching the object store.
 	ctx, rec := newOpsTestContext(http.MethodPost, "/api/v1/ops/deploy/packages", `{}`)
 	h.DeployPackageUpload(ctx)
 	require.Equal(t, http.StatusBadRequest, rec.Code)
@@ -59,8 +60,9 @@ func TestDeployPackageUploadEmptyNoObjectStore(t *testing.T) {
 
 var _ = context.Background
 
-// 审核发现：bytesReader 每次 Read/Seek 新建 bytes.Reader，Read 永不返回 EOF
-// ——objstore Put 的 io.Copy 死循环。回归：单 reader 持久游标，读尽返回 EOF。
+// Review finding: bytesReader created a new bytes.Reader on every Read/Seek, so
+// Read never returned EOF — an io.Copy loop in objstore Put. Regression: a single
+// reader with a persistent cursor, returning EOF when exhausted.
 func TestBytesReader_ReadsToEOF(t *testing.T) {
 	r := newBytesReader([]byte("hello"))
 	buf := make([]byte, 3)
@@ -77,8 +79,9 @@ func TestBytesReader_ReadsToEOF(t *testing.T) {
 	require.ErrorIs(t, err, io.EOF, "读尽必须返回 EOF（旧实现永不 EOF 致 io.Copy 死循环）")
 }
 
-// 审核发现：role/name/version 未净化即拼接对象键与 agent 暂存路径。回归：
-// 含路径分隔符/遍历序列被拒。
+// Review finding: role/name/version were concatenated into the object key and the
+// agent staging path without sanitizing. Regression: values with path separators or
+// traversal sequences are rejected.
 func TestSafeObjectPathPart_RejectsTraversal(t *testing.T) {
 	for _, bad := range []string{"../x", "a/b", "a\\b", "..", ".", "", "v1/../x"} {
 		_, err := safeObjectPathPart(bad)
@@ -91,9 +94,11 @@ func TestSafeObjectPathPart_RejectsTraversal(t *testing.T) {
 	}
 }
 
-// 审核发现 726：同 (role,name,version) 重复上传曾覆盖同一对象键，历史记录
-// Checksum 与对象内容不再匹配。回归：对象键含唯一 packageID，两次上传不同
-// 内容互不覆盖，各自 Checksum 与对象内容一致。
+// Review finding 726: repeated uploads with the same (role,name,version) used to
+// overwrite the same object key, so historical Checksum values no longer matched the
+// object content. Regression: the object key embeds a unique packageID, two uploads
+// with different content do not overwrite each other, and each Checksum matches its
+// object content.
 func TestDeployPackageUpload_SameTripleDoesNotOverwrite(t *testing.T) {
 	ctx := context.Background()
 	db, err := gorm.Open(sqlite.Open(t.TempDir()+"/deploy.db"), &gorm.Config{})
@@ -115,7 +120,7 @@ func TestDeployPackageUpload_SameTripleDoesNotOverwrite(t *testing.T) {
 
 	assert.NotEqual(t, first.Package.ObjectKey, second.Package.ObjectKey,
 		"同 (role,name,version) 上传必须写入不同对象键，不得覆盖")
-	// 旧对象内容仍可读回，且 Checksum 与内容一致。
+	// the old object content is still readable back, and the Checksum matches the content.
 	r, err := store.Get(ctx, first.Package.ObjectKey)
 	require.NoError(t, err)
 	buf := make([]byte, 32)

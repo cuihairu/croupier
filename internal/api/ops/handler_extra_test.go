@@ -1,19 +1,23 @@
 package ops
 
-// handler.go 补测：supervisor 族 handler 错误分支与日志下载默认文件名
-// （文件名缺省 + X-Truncated=false）、metrics/processes 成功面、别名委托
-// （AgentSupervisor 族 / AgentProcessUpdate）、路径参数直取的进程更新成功、
-// alert 流转 handler 往返、metrics history/log search 的空 store 成功与
-// bind 错误、batch op 五端点（创建带 scope 注入与实名、执行 dry-run、详情、
-// 列表、错误分支）、runbook 八端点（定义带 scope/实名、列表、详情、删除
-// 204、运行（ContinueOnFailure 步 → partial 仍 200）、运行详情与列表）、
-// service 错误分支（隧道不可达的 supervisor/进程更新、ghost agent、
-// 编排器未装配的 batch op 与 runbook）。
+// Extra coverage for handler.go: supervisor-family handler error branches and
+// the log download default filename (filename omitted + X-Truncated=false),
+// the metrics/processes success surface, alias delegation (AgentSupervisor
+// family / AgentProcessUpdate), the process-update success path that reads path
+// parameters directly, the alert handling handler round trip, empty-store
+// success and bind errors for metrics history / log search, the five batch-op
+// endpoints (create with scope injection and real name, execute dry-run,
+// detail, list, error branches), the eight runbook endpoints (define with
+// scope/real name, list, detail, delete 204, run (a ContinueOnFailure step →
+// partial still 200), run detail and list), and service error branches
+// (supervisor/process update with an unreachable tunnel, ghost agent, and
+// batch op / runbook with an unwired orchestrator).
 //
-// 诚实跳过（不可达）：GET 侧 handler 的 bind 错误分支——supervisor 三端点
-// （110/129/150）、OpsNodeDetail（493）、BatchOpList（1013）、RunbookList
-// （1059）、RunbookRunList（1127）。请求字段均无 binding:required，且
-// BindQueryCompat 吞掉 ShouldBindQuery 错误（#59 同款），GET 侧不可触发。
+// Honestly skipped (unreachable): the GET-side handler bind error branches —
+// the three supervisor endpoints (110/129/150), OpsNodeDetail (493),
+// BatchOpList (1013), RunbookList (1059), RunbookRunList (1127). No request
+// field carries binding:required, and BindQueryCompat swallows
+// ShouldBindQuery errors (#59, same class), so the GET side cannot trigger them.
 
 import (
 	"context"
@@ -35,10 +39,11 @@ import (
 	"gorm.io/gorm"
 )
 
-// bareOpsHandler service 全空的 handler（各 handler 的错误分支）。
+// bareOpsHandler is a handler whose service is completely empty (the error branch of each handler).
 func bareOpsHandler() *Handler { return NewHandler(NewService(&svc.ServiceContext{})) }
 
-// scopedOpsCtx 挂 game/env scope 与可选用户名的测试上下文（带路径参数）。
+// scopedOpsCtx builds a test context carrying the game/env scope and an optional
+// username (with path parameters).
 func scopedOpsCtx(method, target, body, username string, params ...gin.Param) (*gin.Context, *httptest.ResponseRecorder) {
 	req := httptest.NewRequest(method, target, nil)
 	if body != "" {
@@ -46,7 +51,7 @@ func scopedOpsCtx(method, target, body, username string, params ...gin.Param) (*
 	}
 	ctx := svc.WithGameScope(req.Context(), svc.GameScope{GameID: "demo", Env: "prod"})
 	if username != "" {
-		ctx = context.WithValue(ctx, "username", username) //nolint:staticcheck // 与 utils.CurrentUsername 键契约一致
+		ctx = context.WithValue(ctx, "username", username) //nolint:staticcheck // matches the key contract of utils.CurrentUsername
 	}
 	req = req.WithContext(ctx)
 	w := httptest.NewRecorder()
@@ -60,7 +65,7 @@ func TestOpsHandlerSupervisorFamilyErrors(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	h := bareOpsHandler()
 
-	// registry store 缺失 → requireAgentScope 错误 → 各 handler 错误分支
+	// missing registry store → requireAgentScope error → the error branch of each handler
 	for _, tc := range []struct {
 		name string
 		call func(*gin.Context)
@@ -76,7 +81,7 @@ func TestOpsHandlerSupervisorFamilyErrors(t *testing.T) {
 		require.NotEqual(t, http.StatusOK, w.Code, tc.name)
 	}
 
-	// 别名委托同错误面（覆盖委托行本身）
+	// the alias delegation shares the same error surface (covering the delegation line itself)
 	ctx, w := newOpsTestContext(http.MethodGet, "/api/v1/ops/x?agentId=a1", "")
 	h.AgentSupervisor(ctx)
 	require.NotEqual(t, http.StatusOK, w.Code)
@@ -101,7 +106,8 @@ func TestOpsHandlerMetricsProcessesAndLogSuccess(t *testing.T) {
 	svcCtx := &svc.ServiceContext{RegistryStore: store, MetricsStore: metrics}
 	h := NewHandler(NewService(svcCtx))
 
-	// metrics / processes 成功面（metrics 回显 agentId，processes 只回进程表）
+	// metrics / processes success surface (metrics echoes agentId, processes
+	// returns only the process table)
 	for _, tc := range []struct {
 		name     string
 		contains string
@@ -116,7 +122,7 @@ func TestOpsHandlerMetricsProcessesAndLogSuccess(t *testing.T) {
 		require.Contains(t, w.Body.String(), tc.contains)
 	}
 
-	// supervisor log 成功面：文件名缺省 → 默认名 + X-Truncated=false
+	// supervisor log success surface: filename omitted → default name + X-Truncated=false
 	caller := &fakeCaller{respFor: map[uint32]proto.Message{
 		uint32(protocol.MsgGetSupervisorLogRequest): &opsv1.GetSupervisorLogResponse{Content: []byte("line-1\n")},
 	}}
@@ -128,7 +134,7 @@ func TestOpsHandlerMetricsProcessesAndLogSuccess(t *testing.T) {
 	require.Equal(t, "false", w.Header().Get("X-Truncated"))
 	require.Contains(t, w.Body.String(), "line-1")
 
-	// 别名 AgentSupervisorLog 委托
+	// alias AgentSupervisorLog delegation
 	ctx, w = newOpsTestContext(http.MethodGet, "/api/v1/ops/x?agentId=a1", "")
 	h.AgentSupervisorLog(ctx)
 	require.Equal(t, http.StatusOK, w.Code)
@@ -148,13 +154,13 @@ func TestOpsHandlerAgentProcessUpdateSuccess(t *testing.T) {
 
 	params := gin.Params{{Key: "agentId", Value: "a1"}, {Key: "name", Value: "game"}}
 
-	// 坏 JSON → 400（bind 分支）
+	// bad JSON → 400 (bind branch)
 	ctx, w := newOpsTestContext(http.MethodPost, "/api/v1/ops/agents/a1/processes/game/update", "{bad")
 	ctx.Params = params
 	h.OpsAgentProcessUpdate(ctx)
 	require.Equal(t, http.StatusBadRequest, w.Code)
 
-	// 成功：stagedPath/expectedSha256 走 body，agentId/name 走路径
+	// success: stagedPath/expectedSha256 come from the body, agentId/name from the path
 	ctx, w = newOpsTestContext(http.MethodPost, "/api/v1/ops/agents/a1/processes/game/update",
 		`{"stagedPath":"/tmp/staged","expectedSha256":"sha"}`)
 	ctx.Params = params
@@ -162,7 +168,7 @@ func TestOpsHandlerAgentProcessUpdateSuccess(t *testing.T) {
 	require.Equal(t, http.StatusOK, w.Code)
 	require.Contains(t, w.Body.String(), "fp-9")
 
-	// 别名 AgentProcessUpdate 委托
+	// alias AgentProcessUpdate delegation
 	ctx, w = newOpsTestContext(http.MethodPost, "/api/v1/ops/agents/a1/processes/game/update",
 		`{"stagedPath":"/tmp/staged","expectedSha256":"sha"}`)
 	ctx.Params = params
@@ -180,19 +186,19 @@ func TestOpsHandlerAlertHandleRoundTrip(t *testing.T) {
 	}))
 	h := NewHandler(NewService(&svc.ServiceContext{AlertModel: model.NewAlertModel(db)}))
 
-	// 坏 JSON → 400
+	// bad JSON → 400
 	ctx, w := newOpsTestContext(http.MethodPost, "/api/v1/ops/alerts/1/handle", "{bad")
 	ctx.Params = gin.Params{{Key: "id", Value: "1"}}
 	h.OpsAlertHandle(ctx)
 	require.Equal(t, http.StatusBadRequest, w.Code)
 
-	// 不存在的告警 → 错误分支
+	// nonexistent alert → error branch
 	ctx, w = scopedOpsCtx(http.MethodPost, "/api/v1/ops/alerts/99/handle", `{"action":"acknowledge"}`, "alice",
 		gin.Param{Key: "id", Value: "99"})
 	h.OpsAlertHandle(ctx)
 	require.NotEqual(t, http.StatusOK, w.Code)
 
-	// 成功流转（handleStatus → acknowledged）
+	// successful transition (handleStatus → acknowledged)
 	ctx, w = scopedOpsCtx(http.MethodPost, "/api/v1/ops/alerts/1/handle",
 		`{"action":"acknowledge","remark":"seen"}`, "alice",
 		gin.Param{Key: "id", Value: "1"})
@@ -207,17 +213,17 @@ func TestOpsHandlerMetricsHistoryAndLogSearch(t *testing.T) {
 	require.NoError(t, store.UpsertAgent(&registry.AgentSession{AgentID: "a1", GameID: "demo", Env: "prod"}))
 	h := NewHandler(NewService(&svc.ServiceContext{RegistryStore: store}))
 
-	// metrics history：MetricsStore 缺失 → 空成功
+	// metrics history: MetricsStore missing → empty success
 	ctx, w := newOpsTestContext(http.MethodGet, "/api/v1/ops/x?agentId=a1", "")
 	h.AgentMetricsHistory(ctx)
 	require.Equal(t, http.StatusOK, w.Code)
 
-	// log search：agentId 缺失 → bind 校验错误
+	// log search: agentId missing → bind validation error
 	ctx, w = newOpsTestContext(http.MethodGet, "/api/v1/ops/logs", "")
 	h.AgentLogSearch(ctx)
 	require.NotEqual(t, http.StatusOK, w.Code)
 
-	// log search：store 缺失 → 空成功
+	// log search: store missing → empty success
 	ctx, w = newOpsTestContext(http.MethodGet, "/api/v1/ops/logs?agentId=a1", "")
 	h.AgentLogSearch(ctx)
 	require.Equal(t, http.StatusOK, w.Code)
@@ -233,12 +239,12 @@ func TestOpsHandlerBatchOpFamily(t *testing.T) {
 	require.NoError(t, store.UpsertAgent(&registry.AgentSession{AgentID: "a1", GameID: "demo", Env: "prod"}))
 	h := NewHandler(NewService(&svc.ServiceContext{DB: db, RegistryStore: store}))
 
-	// 创建：坏 JSON → 400
+	// create: bad JSON → 400
 	ctx, w := scopedOpsCtx(http.MethodPost, "/api/v1/ops/batch", "{bad", "alice")
 	h.BatchOpCreateHandler(ctx)
 	require.Equal(t, http.StatusBadRequest, w.Code)
 
-	// 创建成功：scope 注入 + 实名（body 不带 gameId/env，ctx demo/prod）
+	// create success: scope injection + real name (no gameId/env in the body, ctx demo/prod)
 	ctx, w = scopedOpsCtx(http.MethodPost, "/api/v1/ops/batch",
 		`{"kind":"config","agentIds":["a1"],"config":{"path":"/etc/x","contentBase64":"djE=","mode":644}}`, "alice")
 	h.BatchOpCreateHandler(ctx)
@@ -249,7 +255,7 @@ func TestOpsHandlerBatchOpFamily(t *testing.T) {
 	require.Equal(t, "alice", created.CreatedBy)
 	batchID := created.BatchID
 
-	// 执行：坏 JSON / 缺失批次错误
+	// execute: bad JSON / missing-batch error
 	ctx, w = scopedOpsCtx(http.MethodPost, "/api/v1/ops/batch/b1/execute", "{bad", "alice",
 		gin.Param{Key: "id", Value: "b1"})
 	h.BatchOpExecuteHandler(ctx)
@@ -259,13 +265,13 @@ func TestOpsHandlerBatchOpFamily(t *testing.T) {
 	h.BatchOpExecuteHandler(ctx)
 	require.NotEqual(t, http.StatusOK, w.Code)
 
-	// 执行 dry-run 成功
+	// execute dry-run success
 	ctx, w = scopedOpsCtx(http.MethodPost, "/api/v1/ops/batch/"+batchID+"/execute", `{"dryRun":true}`, "alice",
 		gin.Param{Key: "id", Value: batchID})
 	h.BatchOpExecuteHandler(ctx)
 	require.Equal(t, http.StatusOK, w.Code)
 
-	// 详情：缺失错误 / 命中成功
+	// detail: missing error / hit success
 	ctx, w = scopedOpsCtx(http.MethodGet, "/api/v1/ops/batch/ghost", "", "alice",
 		gin.Param{Key: "id", Value: "ghost"})
 	h.BatchOpGetHandler(ctx)
@@ -275,7 +281,7 @@ func TestOpsHandlerBatchOpFamily(t *testing.T) {
 	h.BatchOpGetHandler(ctx)
 	require.Equal(t, http.StatusOK, w.Code)
 
-	// 列表
+	// list
 	ctx, w = scopedOpsCtx(http.MethodGet, "/api/v1/ops/batch?limit=10", "", "alice")
 	h.BatchOpListHandler(ctx)
 	require.Equal(t, http.StatusOK, w.Code)
@@ -287,12 +293,12 @@ func TestOpsHandlerRunbookFamily(t *testing.T) {
 	db := runbookDB(t)
 	h := NewHandler(NewService(&svc.ServiceContext{DB: db}))
 
-	// 定义：坏 JSON → 400
+	// define: bad JSON → 400
 	ctx, w := scopedOpsCtx(http.MethodPost, "/api/v1/ops/runbooks", "{bad", "alice")
 	h.RunbookCreateHandler(ctx)
 	require.Equal(t, http.StatusBadRequest, w.Code)
 
-	// 定义成功（scope 注入 + 实名）
+	// define success (scope injection + real name)
 	ctx, w = scopedOpsCtx(http.MethodPost, "/api/v1/ops/runbooks",
 		`{"name":"restart","description":"dr","steps":[{"name":"s1","kind":"batch_exec","agentIds":["a1"],"exec":{"command":"echo"},"continueOnFailure":true}]}`, "alice")
 	h.RunbookCreateHandler(ctx)
@@ -304,18 +310,18 @@ func TestOpsHandlerRunbookFamily(t *testing.T) {
 	rbID := created.RunbookID
 	require.NotEmpty(t, rbID, "Define must mint a stable runbook id")
 
-	// 定义校验失败（name 缺失）→ 错误分支
+	// define validation failure (name missing) → error branch
 	ctx, w = scopedOpsCtx(http.MethodPost, "/api/v1/ops/runbooks", `{"description":"no name"}`, "alice")
 	h.RunbookCreateHandler(ctx)
 	require.NotEqual(t, http.StatusOK, w.Code)
 
-	// 列表
+	// list
 	ctx, w = scopedOpsCtx(http.MethodGet, "/api/v1/ops/runbooks?limit=10", "", "alice")
 	h.RunbookListHandler(ctx)
 	require.Equal(t, http.StatusOK, w.Code)
 	require.Contains(t, w.Body.String(), rbID)
 
-	// 详情：缺失错误 / 命中
+	// detail: missing error / hit
 	ctx, w = scopedOpsCtx(http.MethodGet, "/api/v1/ops/runbooks/ghost", "", "alice",
 		gin.Param{Key: "id", Value: "ghost"})
 	h.RunbookGetHandler(ctx)
@@ -325,7 +331,7 @@ func TestOpsHandlerRunbookFamily(t *testing.T) {
 	h.RunbookGetHandler(ctx)
 	require.Equal(t, http.StatusOK, w.Code)
 
-	// 删除：缺失错误 / 成功 204（先复制一条再删，保留列表样例）
+	// delete: missing error / success 204 (insert one first, then delete it, keeping the list sample)
 	ctx, w = scopedOpsCtx(http.MethodDelete, "/api/v1/ops/runbooks/ghost", "", "alice",
 		gin.Param{Key: "id", Value: "ghost"})
 	h.RunbookDeleteHandler(ctx)
@@ -336,10 +342,11 @@ func TestOpsHandlerRunbookFamily(t *testing.T) {
 	ctx, w = scopedOpsCtx(http.MethodDelete, "/api/v1/ops/runbooks/rb-tmp", "", "alice",
 		gin.Param{Key: "id", Value: "rb-tmp"})
 	h.RunbookDeleteHandler(ctx)
-	// gin 的 c.Status 延迟落状态码，测试上下文须读 Writer 缓存值
+	// gin's c.Status defers setting the status code, so the test context must read
+	// the Writer's cached value
 	require.Equal(t, http.StatusNoContent, ctx.Writer.Status())
 
-	// 运行：坏 JSON → 400；runbook 缺失 → 错误
+	// run: bad JSON → 400; missing runbook → error
 	ctx, w = scopedOpsCtx(http.MethodPost, "/api/v1/ops/runbooks/"+rbID+"/run", "{bad", "alice",
 		gin.Param{Key: "id", Value: rbID})
 	h.RunbookRunHandler(ctx)
@@ -349,8 +356,9 @@ func TestOpsHandlerRunbookFamily(t *testing.T) {
 	h.RunbookRunHandler(ctx)
 	require.NotEqual(t, http.StatusOK, w.Code)
 
-	// 运行：batch_exec 步骤无 registry（batch op 编排器不可用）→ 步失败，
-	// 但 continueOnFailure → partial 终态且 HTTP 200（成功分支）
+	// run: a batch_exec step with no registry (batch-op orchestrator
+	// unavailable) → step fails, but continueOnFailure → partial final state and
+	// HTTP 200 (success branch)
 	ctx, w = scopedOpsCtx(http.MethodPost, "/api/v1/ops/runbooks/"+rbID+"/run", `{"params":{}}`, "alice",
 		gin.Param{Key: "id", Value: rbID})
 	h.RunbookRunHandler(ctx)
@@ -362,7 +370,7 @@ func TestOpsHandlerRunbookFamily(t *testing.T) {
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &runRes))
 	require.NotEmpty(t, runRes.RunID)
 
-	// 运行详情 / 运行列表
+	// run detail / run list
 	ctx, w = scopedOpsCtx(http.MethodGet, "/api/v1/ops/runbook-runs/ghost", "", "alice",
 		gin.Param{Key: "runId", Value: "ghost"})
 	h.RunbookRunGetHandler(ctx)
@@ -383,8 +391,8 @@ func TestOpsHandlerServiceErrorBranches(t *testing.T) {
 	store := registry.NewStore()
 	require.NoError(t, store.UpsertAgent(&registry.AgentSession{AgentID: "a1", GameID: "demo", Env: "prod"}))
 
-	// registry 有会话但 ops 隧道不可达（无解析器）→ supervisor 族 service
-	// 错误分支（110/129/150）
+	// a session is registered but the ops tunnel is unreachable (no resolver) →
+	// supervisor-family service error branches (110/129/150)
 	h := NewHandler(NewService(&svc.ServiceContext{RegistryStore: store}))
 	for _, tc := range []struct {
 		name string
@@ -399,8 +407,8 @@ func TestOpsHandlerServiceErrorBranches(t *testing.T) {
 		require.NotEqual(t, http.StatusOK, w.Code, tc.name)
 	}
 
-	// ghost agent → requireAgentScope "agent not found" → metrics history
-	// 与 log search 的 service 错误分支（493/766）
+	// ghost agent → requireAgentScope "agent not found" → the service error
+	// branches of metrics history and log search (493/766)
 	hGhost := NewHandler(NewService(&svc.ServiceContext{RegistryStore: registry.NewStore()}))
 	ctx, w := newOpsTestContext(http.MethodGet, "/api/v1/ops/x?agentId=ghost", "")
 	hGhost.AgentMetricsHistory(ctx)
@@ -409,7 +417,7 @@ func TestOpsHandlerServiceErrorBranches(t *testing.T) {
 	hGhost.AgentLogSearch(ctx)
 	require.NotEqual(t, http.StatusOK, w.Code)
 
-	// 编排器未装配 → batch op 创建/执行/列表 service 错误分支（975/1013/1018）
+	// orchestrator not wired → batch-op create/execute/list service error branches (975/1013/1018)
 	hBatch := NewHandler(NewService(&svc.ServiceContext{}))
 	ctx, w = scopedOpsCtx(http.MethodPost, "/api/v1/ops/batch",
 		`{"kind":"config","agentIds":["a1"],"config":{"path":"/x","contentBase64":"djE=","mode":644}}`, "alice")
@@ -423,8 +431,8 @@ func TestOpsHandlerServiceErrorBranches(t *testing.T) {
 	hBatch.BatchOpListHandler(ctx)
 	require.NotEqual(t, http.StatusOK, w.Code)
 
-	// meta DB 未装配 → runbook 创建/列表/运行列表 service 错误分支
-	// （1059/1064/1132）
+	// meta DB not wired → runbook create/list/run-list service error branches
+	// (1059/1064/1132)
 	hRb := NewHandler(NewService(&svc.ServiceContext{}))
 	ctx, w = scopedOpsCtx(http.MethodPost, "/api/v1/ops/runbooks",
 		`{"name":"rb","steps":[]}`, "alice")
@@ -444,7 +452,7 @@ func TestOpsHandlerProcessUpdateServiceError(t *testing.T) {
 	require.NoError(t, store.UpsertAgent(&registry.AgentSession{AgentID: "a1", GameID: "demo", Env: "prod"}))
 	h := NewHandler(NewService(&svc.ServiceContext{RegistryStore: store}))
 
-	// 会话在册但隧道不可达（无解析器）→ service 错误分支（254）
+	// a session is registered but the tunnel is unreachable (no resolver) → service error branch (254)
 	ctx, w := scopedOpsCtx(http.MethodPost, "/api/v1/ops/agents/a1/processes/game/update",
 		`{"stagedPath":"/tmp/staged","expectedSha256":"sha"}`, "alice",
 		gin.Param{Key: "agentId", Value: "a1"}, gin.Param{Key: "name", Value: "game"})

@@ -16,9 +16,9 @@ type OpsAgentInfo struct {
 	Functions []string          `json:"functions"`
 	Processes []string          `json:"processes"`
 	Labels    map[string]string `json:"labels"`
-	// OwnerInstance 集群模式下该 agent 连接的持有实例（本实例直连时为空）。
+	// OwnerInstance is the owning instance this agent connects to in cluster mode (empty when connected to this instance directly).
 	OwnerInstance string `json:"ownerInstance,omitempty"`
-	// Supervisor 监管聚合灯（ok/warn/error + 计数）；agent 无上报时为 nil。
+	// Supervisor is the supervision aggregate light (ok/warn/error + counts); nil when the agent has not reported.
 	Supervisor *OpsSupervisorSummary `json:"supervisor,omitempty"`
 }
 
@@ -59,8 +59,9 @@ type OpsAgentSystemInfo struct {
 	TotalMemory   uint64 `json:"totalMemory"`
 	BootTime      string `json:"bootTime"`
 	AgentVersion  string `json:"agentVersion"`
-	// AgentBinarySha256 是 agent 二进制内容 sha256（§10.5 指纹：失联排查
-	// 锚点；空=agent 未上行或二进制不可读）。
+	// AgentBinarySha256 is the sha256 of the agent binary contents (the §10.5
+	// fingerprint: an anchor for lost-connection triage; empty = the agent has not
+	// reported it or the binary is unreadable).
 	AgentBinarySha256 string `json:"agentBinarySha256,omitempty"`
 }
 
@@ -79,8 +80,9 @@ type OpsAgentsListResponse struct {
 	Agents []OpsAgentInfo `json:"agents"`
 }
 
-// Supervisor 监管视图（S1 只读：快照来自 agent metrics 上报捎带的
-// SupervisedProcessSnapshot，server 内存 MetricsStore 最新一报）。
+// Supervisor views (S1 read-only: snapshots come from the SupervisedProcessSnapshot
+// piggybacked on agent metrics reports, the MetricsStore's latest report held in
+// server memory).
 
 type OpsAgentSupervisorRequest struct {
 	AgentID string `uri:"agentId" form:"agentId"`
@@ -95,30 +97,35 @@ type OpsSupervisedProcess struct {
 	RssBytes      int64    `json:"rssBytes"`
 	CpuPercent    float64  `json:"cpuPercent"`
 	Flags         []string `json:"flags"`
-	// LastEventUnix 最近一次 supervisor 事件时间（0=无）；NextRestartAtUnix
-	// 仅 BACKOFF 态非零（面板渲染退避倒计时）。SnapshotProfile 是 S3 崩溃
-	// 快照档（none/go/node/python/jvm，空=未知）。Kind 是受管对象类别
-	// （program/probe-adapter，§10.1）；AdapterId 在 kind=probe-adapter 时非空。
+	// LastEventUnix is the time of the most recent supervisor event (0 = none);
+	// NextRestartAtUnix is non-zero only in the BACKOFF state (the panel renders a
+	// backoff countdown). SnapshotProfile is the S3 crash snapshot profile
+	// (none/go/node/python/jvm, empty = unknown). Kind is the managed-object
+	// category (program/probe-adapter, §10.1); AdapterId is non-empty when
+	// kind=probe-adapter.
 	LastEventUnix     int64  `json:"lastEventUnix"`
 	NextRestartAtUnix int64  `json:"nextRestartAtUnix"`
 	SnapshotProfile   string `json:"snapshotProfile,omitempty"`
 	Kind              string `json:"kind"`
 	AdapterId         string `json:"adapterId,omitempty"`
-	// NextScheduleAtUnix/NextScheduleAction 是调度状态（§10.6）：下一次
-	// 定时触发时间与动作，无调度条目为零值（事前可见，面板可渲染倒计时）。
+	// NextScheduleAtUnix/NextScheduleAction is the scheduling state (§10.6): the
+	// next scheduled trigger time and action, zero values when there is no schedule
+	// entry (visible in advance, so the panel can render a countdown).
 	NextScheduleAtUnix int64  `json:"nextScheduleAtUnix,omitempty"`
 	NextScheduleAction string `json:"nextScheduleAction,omitempty"`
-	// Fingerprint 是运行实例二进制的 sha256（§10.4 指纹，spawn 时算一次）；
-	// 空=未运行或未计算。告警/探针 timeline 与更新记录按 (target, 时间, 指纹) 对齐。
+	// Fingerprint is the sha256 of the running instance's binary (the §10.4
+	// fingerprint, computed once at spawn); empty = not running or not computed.
+	// Alert/probe timelines and update records align on (target, time, fingerprint).
 	Fingerprint string `json:"fingerprint,omitempty"`
-	// ScheduleSuspended 是调度暂停态（§10.2 暂停与恢复，暂停对象=调度）：
-	// 维护窗口内 cron 冻结，进程运行态不动；无调度条目恒 false。
+	// ScheduleSuspended is the scheduling-paused state (§10.2 pause and resume;
+	// what is paused is the schedule): cron is frozen inside a maintenance window
+	// while process run states are untouched; always false with no schedule entry.
 	ScheduleSuspended bool `json:"scheduleSuspended,omitempty"`
 }
 
 type OpsSupervisorSummary struct {
-	// Status 聚合灯：ok（全部 RUNNING 且无 flags）/ warn（有非 RUNNING 或
-	// 有超限标记）/ error（有 FAILED/BROKEN）。
+	// Status aggregate light: ok (all RUNNING and no flags) / warn (any non-RUNNING
+	// or over-limit flags) / error (any FAILED/BROKEN).
 	Status  string `json:"status"`
 	Total   int    `json:"total"`
 	Running int    `json:"running"`
@@ -126,14 +133,15 @@ type OpsSupervisorSummary struct {
 
 type OpsAgentSupervisorResponse struct {
 	AgentID string `json:"agentId"`
-	// Timestamp 是 server 收到最新 metrics 上报的时间（面板据此判断数据新鲜度）。
+	// Timestamp is when the server received the latest metrics report (the panel uses it to judge data freshness).
 	Timestamp string                 `json:"timestamp"`
 	Processes []OpsSupervisedProcess `json:"processes"`
 	Summary   OpsSupervisorSummary   `json:"summary"`
 }
 
-// Supervisor 事件日志（S2：事件由 agent 产生、metrics 上报捎带，server 端
-// MetricsStore 内存环缓存；面板增量拉取游标为 seq）。
+// Supervisor event log (S2: events are produced by the agent and piggybacked on
+// metrics reports, cached in the server's in-memory MetricsStore ring; the panel
+// uses seq as its incremental-pull cursor).
 
 type OpsAgentSupervisorEventsRequest struct {
 	AgentID  string `uri:"agentId" form:"agentId"`
@@ -144,7 +152,7 @@ type OpsAgentSupervisorEventsRequest struct {
 type OpsSupervisorEvent struct {
 	Seq int64  `json:"seq"`
 	Ts  string `json:"ts"`
-	// TsUnix 事件原始 unix 秒（面板本地化渲染用；ts 是 server 格式化串）。
+	// TsUnix is the event's raw unix seconds (for localized panel rendering; ts is the server-formatted string).
 	TsUnix       int64  `json:"tsUnix,omitempty"`
 	Process      string `json:"process"`
 	Event        string `json:"event"`
@@ -154,9 +162,10 @@ type OpsSupervisorEvent struct {
 	Signal       string `json:"signal"`
 	RestartCount int32  `json:"restartCount"`
 	Message      string `json:"message,omitempty"`
-	// 事件时点上下文（尽力诊断）：lastHeartbeat 最后心跳、lastError 进程
-	// 最后错误输出、oomSuspect OOM 疑似启发式、lastRssBytes 最后 RSS。
-	// S3：detect_down 附带崩溃快照目录与产物文件名（best-effort）。
+	// Event-time context (best-effort diagnostics): lastHeartbeat is the last
+	// heartbeat, lastError the process's final error output, oomSuspect the OOM
+	// suspicion heuristic, lastRssBytes the last RSS.
+	// S3: detect_down carries the crash snapshot directory and artifact file names (best-effort).
 	LastHeartbeat string   `json:"lastHeartbeat,omitempty"`
 	LastError     string   `json:"lastError,omitempty"`
 	OomSuspect    bool     `json:"oomSuspect"`
@@ -168,12 +177,12 @@ type OpsSupervisorEvent struct {
 type OpsAgentSupervisorEventsResponse struct {
 	AgentID string               `json:"agentId"`
 	Events  []OpsSupervisorEvent `json:"events"`
-	// LatestSeq server 环内最新 seq（0=无事件）；面板以此为增量游标。
+	// LatestSeq is the newest seq in the server's ring (0 = no events); the panel uses it as its incremental cursor.
 	LatestSeq int64 `json:"latestSeq"`
 }
 
-// OpsAgentSupervisorLogRequest 拉取 agent 本地 supervisor 事件日志文件
-// （tail 截断，二进制直传响应，非 JSON envelope）。
+// OpsAgentSupervisorLogRequest fetches the agent-local supervisor event log file
+// (tail-truncated, streamed back as raw binary, not a JSON envelope).
 type OpsAgentSupervisorLogRequest struct {
 	AgentID  string `uri:"agentId" form:"agentId"`
 	MaxBytes int    `form:"maxBytes"`
@@ -192,8 +201,8 @@ type OpsAlert struct {
 	Silenced    bool                   `json:"silenced,omitempty"`
 	Labels      map[string]interface{} `json:"labels,omitempty"`
 	Annotations map[string]interface{} `json:"annotations,omitempty"`
-	// 工作流状态（风险事件扩展，risk-control-panel-design.md §3.3）：
-	// 独立于 annotations.status（入站 lifecycle firing/resolved）。
+	// Workflow state (risk-event extension, risk-control-panel-design.md §3.3):
+	// independent of annotations.status (inbound lifecycle firing/resolved).
 	HandleStatus  string `json:"handleStatus,omitempty"`
 	HandledBy     string `json:"handledBy,omitempty"`
 	HandledRemark string `json:"handledRemark,omitempty"`
@@ -206,7 +215,7 @@ type OpsAlertSilenceDeleteRequest struct {
 
 type OpsAlertSilenceRequest struct {
 	AlertID  string `json:"alertId"`
-	Duration int    `json:"duration"` // 静默时长（分钟）
+	Duration int    `json:"duration"` // silence duration (minutes)
 }
 
 type OpsAlertSilenceResponse struct {
@@ -214,13 +223,14 @@ type OpsAlertSilenceResponse struct {
 }
 
 type OpsAlertsRequest struct {
-	// HandleStatus 工作流状态过滤（pending/acknowledged/ignored/escalated）。
+	// HandleStatus filters by workflow state (pending/acknowledged/ignored/escalated).
 	HandleStatus string `form:"handleStatus" json:"handleStatus,omitempty"`
 }
 
-// OpsAlertHandleRequest 风险事件工作流流转（POST /ops/alerts/:id/handle，
-// :id 为告警主键）。Action: acknowledge 已确认 / ignore 已忽略 /
-// escalate 已升级；remark 随流转落审计（处理人取认证上下文，时间取库钟）。
+// OpsAlertHandleRequest drives the risk-event workflow (POST /ops/alerts/:id/handle,
+// where :id is the alert primary key). Action: acknowledge acknowledged / ignore ignored /
+// escalate escalated; the remark is recorded in the audit trail with the transition
+// (the handler comes from the auth context, the time from the DB clock).
 type OpsAlertHandleRequest struct {
 	Action string `json:"action"`
 	Remark string `json:"remark,omitempty"`
@@ -284,7 +294,7 @@ type BackupsListResponse struct {
 
 type OpsBackupCreateRequest struct {
 	Name string `json:"name"`
-	Type string `json:"type"` // full, incremental（空=full）
+	Type string `json:"type"` // full, incremental (empty = full)
 }
 
 type OpsBackupCreateResponse struct {
@@ -517,8 +527,8 @@ type OpsNodeDrainResponse struct {
 	Status string `json:"status"`
 }
 
-// GET 走 BindQueryCompat 只认 form/json tag（不绑 uri tag），handler 侧以
-// c.Param 兜底路径参数（同 OpsNodeDetailRequest）。
+// GET uses BindQueryCompat, which only honors form/json tags (not uri tags); the
+// handler falls back to c.Param for path parameters (same as OpsNodeDetailRequest).
 type OpsNodeMetaRequest struct {
 	NodeID string `form:"nodeId" uri:"nodeId"`
 }
@@ -527,9 +537,10 @@ type OpsNodeMetaResponse struct {
 	Labels map[string]string `json:"labels"`
 }
 
-// OpsNodeDetailRequest/Response 支撑 GET /ops/nodes/:nodeId 单设备详情：
-// 与列表同源（listNodes），按 id 过滤，字段集一致。GET 走 BindQueryCompat
-// 只认 form/json tag（不绑 uri tag），handler 侧以 c.Param 兜底路径参数。
+// OpsNodeDetailRequest/Response back GET /ops/nodes/:nodeId single-node detail:
+// same source as the list (listNodes), filtered by id, identical field set. GET
+// uses BindQueryCompat, which only honors form/json tags (not uri tags); the
+// handler falls back to c.Param for path parameters.
 type OpsNodeDetailRequest struct {
 	NodeID string `form:"nodeId" uri:"nodeId"`
 }
@@ -746,7 +757,7 @@ type AgentMetricsHistoryRequest struct {
 	Since   string `json:"since"` // ISO 8601 timestamp
 	Limit   int    `json:"limit"` // Max entries to return (default: 100)
 	// Window selects the storage face: ""|"raw" = agent_metrics_history
-	// (7 天), "hourly" = agent_metrics_hourly (90 天聚合）。
+	// (7 days), "hourly" = agent_metrics_hourly (90-day aggregation).
 	Window string `json:"window"`
 }
 
@@ -762,8 +773,9 @@ type MetricsHistoryEntry struct {
 	CPU       *CpuMetrics    `json:"cpu,omitempty"`
 	Memory    *MemoryMetrics `json:"memory,omitempty"`
 	Disks     []DiskMetrics  `json:"disks,omitempty"`
-	// OPS-010 三面：网络收发速率、进程清单、监听端口清单。原始面在
-	// agent_metrics_history 落列；小时聚合面仅 Networks（速率均值）重建。
+	// OPS-010's three faces: network rx/tx rates, process list, listening port
+	// list. The raw face lands in the agent_metrics_history columns; the hourly
+	// aggregation face only reconstructs Networks (mean rates).
 	Networks  []NetworkHistoryMetrics `json:"networks,omitempty"`
 	Processes []ProcessHistoryMetrics `json:"processes,omitempty"`
 	Ports     []PortHistoryMetrics    `json:"ports,omitempty"`
@@ -800,7 +812,7 @@ type PortHistoryMetrics struct {
 }
 
 // AgentLogSearchRequest is used to query agent application log entries
-// (OPS-005 日志检索). AgentID is required for scope isolation.
+// (OPS-005 log retrieval). AgentID is required for scope isolation.
 type AgentLogSearchRequest struct {
 	AgentID string `json:"agentId" binding:"required"`
 	File    string `json:"file"`
@@ -828,8 +840,8 @@ type AgentLogEntryView struct {
 	Seq        int64  `json:"seq"`
 }
 
-// BatchOpExecuteRequest POST /ops/batch/:id/execute. DryRun=true 只预览
-// 目标集，不实际下发。
+// BatchOpExecuteRequest POST /ops/batch/:id/execute. DryRun=true only previews the
+// target set, nothing is dispatched.
 type BatchOpExecuteRequest struct {
 	DryRun bool `json:"dryRun"`
 }
@@ -874,15 +886,16 @@ type Node struct {
 	SDKLanguage  string            `json:"sdkLanguage,omitempty"`
 	SDKVersion   string            `json:"sdkVersion,omitempty"`
 	SDKName      string            `json:"sdkName,omitempty"`
-	Version      string            `json:"version,omitempty"` // agent 二进制版本（agent_sessions.Version）
+	Version      string            `json:"version,omitempty"` // agent binary version (agent_sessions.Version)
 	Functions    int               `json:"functions"`
 	ExpiresInSec int64             `json:"expiresInSec"`
 	// System metrics (from SystemInfoCache)
 	CPU    *CpuMetrics    `json:"cpu,omitempty"`
 	Memory *MemoryMetrics `json:"memory,omitempty"`
 	Disks  []DiskMetrics  `json:"disks,omitempty"`
-	// Supervisor 监管聚合灯（数据源同 CPU/Memory：MetricsStore 最新一报的
-	// SupervisedProcesses）；无上报或 agent 不在本地实例时为 nil。
+	// Supervisor is the supervision aggregate light (data source same as
+	// CPU/Memory: the MetricsStore's latest report of SupervisedProcesses); nil
+	// when there is no report or the agent is not on the local instance.
 	Supervisor *OpsSupervisorSummary `json:"supervisor,omitempty"`
 }
 

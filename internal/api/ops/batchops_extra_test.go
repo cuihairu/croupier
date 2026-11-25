@@ -1,8 +1,9 @@
 package ops
 
-// batchops.go 补测：agentOpsExecutor 的 ExecuteCommand/PushFile 全分支
-// （resolver 未装配早退、经 stub resolver+SessionCaller 的往返面）、
-// BatchOpGet 的草稿读取路径与 orchestrator 装配缺失早退。
+// Extra coverage for batchops.go: every branch of agentOpsExecutor's
+// ExecuteCommand/PushFile (the early return when the resolver is not wired, and
+// the round trip through a stub resolver + SessionCaller), plus BatchOpGet's
+// draft read path and the orchestrator's missing-wiring early return.
 
 import (
 	"context"
@@ -23,8 +24,8 @@ import (
 	"gorm.io/gorm"
 )
 
-// stubAgentResolver 把任意 agentID 解析到同一个 stub caller（批面执行器的
-// 会话解析替身）。
+// stubAgentResolver resolves any agentID to the same stub caller (a session
+// resolution stand-in for the batch executor).
 type stubAgentResolver struct {
 	caller transport.SessionCaller
 }
@@ -33,7 +34,8 @@ func (r stubAgentResolver) ResolveAgentConn(string) (transport.SessionCaller, bo
 	return r.caller, true
 }
 
-// stubBatchCaller canned 响应的会话替身（Call 按 msgID 回预置载荷）。
+// stubBatchCaller is a session stand-in with canned responses (Call returns
+// the preset payload keyed by msgID).
 type stubBatchCaller struct {
 	resp  map[uint32][]byte
 	calls []uint32
@@ -84,7 +86,7 @@ func TestBatchOpGetDraft(t *testing.T) {
 	svcCtx := &svc.ServiceContext{DB: db, RegistryStore: registry.NewStore()}
 	s := NewService(svcCtx)
 
-	// 装配缺失（nil svcCtx）→ orchestrator 早退
+	// Missing wiring (nil svcCtx) -> orchestrator early return
 	bare := NewService(&svc.ServiceContext{})
 	_, err = bare.BatchOpGet(context.Background(), "g", "e", "b1")
 	require.ErrorContains(t, err, "batch op store or registry unavailable")

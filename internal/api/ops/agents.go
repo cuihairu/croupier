@@ -39,9 +39,11 @@ func (s *AgentService) List(ctx context.Context, gameId, env, status string) ([]
 
 	agents := make([]OpsAgentInfo, 0)
 
-	// 集群模式：以共享归属表为全集（本地 registry 只含连到本实例的
-	// agent，若只读本地，入口分流到不同实例时列表会随机变化）。
-	// 本地持有的补全详情（函数列表/版本/标签），非本地的标注 owner。
+	// Cluster mode: take the shared ownership table as the full set (the local
+	// registry only holds agents connected to this instance; reading only local
+	// data makes the listing change at random when requests fan out to
+	// different instances). Fill in details for locally held agents (function
+	// list/version/labels) and mark non-local ones with their owner.
 	if s.svcCtx.Cluster != nil && s.svcCtx.Cluster.ListAgentOwners != nil {
 		owners, err := s.svcCtx.Cluster.ListAgentOwners(ctx)
 		if err == nil {
@@ -75,7 +77,8 @@ func (s *AgentService) List(ctx context.Context, gameId, env, status string) ([]
 			}
 			return agents, nil
 		}
-		// 归属表读取失败时退回本地视图（诊断意义大于精确）
+		// When the ownership table cannot be read, fall back to the local view
+		// (diagnostic value beats precision)
 	}
 
 	for _, sess := range store.AgentsUnsafe() {
@@ -263,7 +266,7 @@ func (s *AgentService) StopProcess(ctx context.Context, agentId, processName str
 	return err
 }
 
-// UpdateProcess swaps a managed process binary on the agent (§10.4 更新状态+指纹).
+// UpdateProcess swaps a managed process binary on the agent (§10.4 update status + fingerprint).
 func (s *AgentService) UpdateProcess(ctx context.Context, agentId, processName, stagedPath, expectedSha256 string) (*opsv1.UpdateProcessResponse, error) {
 	if err := s.requireAgentScope(ctx, agentId); err != nil {
 		return nil, err
@@ -302,7 +305,8 @@ func (s *AgentService) RestartProcess(ctx context.Context, agentId, processName 
 }
 
 // SetSchedulePause suspends or resumes a managed process's schedule firing
-// (§10.2 暂停与恢复，暂停对象=调度；进程运行态不动).
+// (§10.2 suspend and resume; the pause target is the schedule firing, the
+// process runtime state is untouched).
 func (s *AgentService) SetSchedulePause(ctx context.Context, agentId, processName string, suspended bool) (*opsv1.SchedulePauseResponse, error) {
 	if err := s.requireAgentScope(ctx, agentId); err != nil {
 		return nil, err

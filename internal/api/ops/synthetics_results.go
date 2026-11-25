@@ -23,8 +23,10 @@ type SyntheticsResult struct {
 	ErrorClass string `json:"errorClass"`
 	Error      string `json:"error"`
 	CreatedAt  int64  `json:"createdAt"`
-	// TargetCategory 执行时类别快照（目标分类设计 §4.4：历史记录保留执行时
-	// 类别快照，取自落库 payload，不受当前目标配置改写）；旧记录无该位=空。
+	// TargetCategory is the category snapshot captured at execution time
+	// (target-category design §4.4: history records keep the execution-time
+	// category snapshot taken from the landed payload, unaffected by later
+	// target config rewrites); older records without this field are empty.
 	TargetCategory string `json:"targetCategory,omitempty"`
 }
 type SyntheticsResultsResponse struct {
@@ -35,7 +37,8 @@ type SyntheticsResultsResponse struct {
 func (h *Handler) SyntheticsResults(c *gin.Context) {
 	gameID, env := c.Query("gameId"), c.Query("env")
 	if gameID == "" || env == "" {
-		// AUD-047：缺参是客户端输入错误，按 400 呈现而非落 opaque 500。
+		// AUD-047: missing params are a client input error, surfaced as 400
+		// rather than falling into an opaque 500.
 		response.Error(c, errorx.NewBadRequest("gameId and env are required"))
 		return
 	}
@@ -50,7 +53,9 @@ func (h *Handler) SyntheticsResults(c *gin.Context) {
 		item := SyntheticsResult{ID: row.ID, AgentID: row.AgentID, GameID: row.GameID, Env: row.Env, Kind: row.Kind, Target: row.Target, Status: row.Status, LatencyMS: row.LatencyMS, ErrorClass: row.ErrorClass, CreatedAt: row.CreatedAt.UnixMilli()}
 		ev := &opsv1.AlertEvent{}
 		if proto.Unmarshal(row.Payload, ev) == nil {
-			// 执行时快照优先：事件级字段缺失时退回消息体（detail/window 内也带）。
+			// Execution-time snapshot takes precedence: when event-level fields
+			// are missing, fall back to the message body (also carried inside
+			// detail/window).
 			item.TargetCategory = ev.GetTargetCategory()
 			if d := ev.GetDetail(); d != nil {
 				item.Error = d.GetErr()
