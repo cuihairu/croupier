@@ -16,10 +16,11 @@ func NewHandler(service *Service) *Handler {
 	return &Handler{service: service}
 }
 
-// ---- 管理端 ----
+// ---- Admin side ----
 
-// List serves GET /admin/announcements?gameId=：gameId 非空时只返回对该
-// 游戏适用的公告（未绑定=全服可见，或绑定了该游戏，#45）。
+// List serves GET /admin/announcements?gameId=: when gameId is non-empty,
+// only announcements that apply to that game are returned (unbound = visible
+// server-wide, or bound to that game, #45).
 func (h *Handler) List(c *gin.Context) {
 	resp, err := h.service.List(c.Request.Context(), c.Query("gameId"))
 	if err != nil {
@@ -78,12 +79,14 @@ func (h *Handler) Delete(c *gin.Context) {
 	response.NoContent(c)
 }
 
-// ---- 用户侧 ----
+// ---- User side ----
 
-// Active serves GET /announcements/active：当前用户可见的生效公告，
-// shouldPopup=true 的条目前端在登录后弹窗展示直至确认。
-// 游戏过滤（#45）取 X-Game-ID 头（顶栏全局 scope 经前端拦截器注入；
-// 本路由不在 scoped 组、无 GameDBMiddleware，故直接读头）。
+// Active serves GET /announcements/active: active announcements visible to
+// the current user; items with shouldPopup=true are shown by the frontend as
+// a popup after login until acknowledged.
+// The game filter (#45) reads the X-Game-ID header (the top bar's global
+// scope is injected by the frontend interceptor; this route is not in the
+// scoped group and has no GameDBMiddleware, so the header is read directly).
 func (h *Handler) Active(c *gin.Context) {
 	username, roles, err := utils.LoadCurrentAdmin(c.Request.Context(), h.service.svcCtx)
 	if err != nil {
@@ -99,7 +102,8 @@ func (h *Handler) Active(c *gin.Context) {
 	response.Success(c, resp)
 }
 
-// Dismiss serves POST /announcements/:id/dismiss：确认公告（不再弹窗，幂等）。
+// Dismiss serves POST /announcements/:id/dismiss: acknowledge an
+// announcement (stops the popup, idempotent).
 func (h *Handler) Dismiss(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {

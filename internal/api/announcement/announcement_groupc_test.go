@@ -1,5 +1,6 @@
-// 补齐 announcement 包剩余可覆盖分支（group C）：
-// handler.Create 的 service 校验失败分支（audience=role 未指定 role）。
+// Fill out the remaining coverable branches of the announcement package
+// (group C): the service validation failure branch of handler.Create
+// (audience=role without a role).
 package announcement
 
 import (
@@ -9,8 +10,9 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// 请求体通过 JSON 绑定后，service 的 validateAudience 失败 → response.Error
-// 映射 400，覆盖 handler.Create 的 service 错误分支。
+// After the request body is bound from JSON, the service's validateAudience
+// fails -> response.Error maps it to 400, covering the service error branch
+// of handler.Create.
 func TestAnnouncementHandler_Create_ServiceValidationFailure(t *testing.T) {
 	_, r := newHandlerFixture(t)
 

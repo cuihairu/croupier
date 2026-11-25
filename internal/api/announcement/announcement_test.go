@@ -21,7 +21,8 @@ func newFixture(t *testing.T) *Service {
 	return NewService(&svc.ServiceContext{DB: db})
 }
 
-// 生命周期：创建（默认生效）→ 按受众可见 → 弹窗直至确认 → 下线不可见。
+// Lifecycle: create (active by default) -> visible per audience -> popups
+// until acknowledged -> invisible once taken offline.
 func TestAnnouncementLifecycle(t *testing.T) {
 	s := newFixture(t)
 	ctx := context.Background()
@@ -37,29 +38,30 @@ func TestAnnouncementLifecycle(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// 全员用户：可见维护公告（shouldPopup=未确认），不可见角色公告
+	// All-users account: sees the maintenance announcement (shouldPopup=not
+	// yet acknowledged), not the role announcement
 	resp, err := s.ActiveForUser(ctx, "alice", nil, "")
 	require.NoError(t, err)
 	require.Len(t, resp.Items, 1)
 	assert.Equal(t, created.ID, resp.Items[0].ID)
 	assert.True(t, resp.Items[0].ShouldPopup, "未确认前应弹窗")
 
-	// admin 角色用户：两条都可见
+	// User with the admin role: sees both
 	resp, err = s.ActiveForUser(ctx, "bob", []string{"admin"}, "")
 	require.NoError(t, err)
 	assert.Len(t, resp.Items, 2)
 
-	// 确认后不再弹（列表仍可见）
+	// No more popups after acknowledgement (still visible in the list)
 	_, err = s.Dismiss(ctx, "alice", uint(created.ID))
 	require.NoError(t, err)
-	_, err = s.Dismiss(ctx, "alice", uint(created.ID)) // 幂等
+	_, err = s.Dismiss(ctx, "alice", uint(created.ID)) // idempotent
 	require.NoError(t, err)
 	resp, err = s.ActiveForUser(ctx, "alice", nil, "")
 	require.NoError(t, err)
 	require.Len(t, resp.Items, 1)
 	assert.False(t, resp.Items[0].ShouldPopup, "确认后不再弹窗")
 
-	// 下线后全员不可见
+	// Once taken offline, invisible to everyone
 	off := false
 	_, err = s.Update(ctx, uint(created.ID), &UpdateRequest{Active: &off})
 	require.NoError(t, err)
@@ -68,14 +70,14 @@ func TestAnnouncementLifecycle(t *testing.T) {
 	require.Len(t, resp.Items, 1)
 	assert.Equal(t, roleA.ID, resp.Items[0].ID)
 
-	// 删除 + 确认记录级联清理
+	// Delete plus cascade cleanup of acknowledgement records
 	require.NoError(t, s.Delete(ctx, uint(roleA.ID)))
 	resp, err = s.ActiveForUser(ctx, "bob", []string{"admin"}, "")
 	require.NoError(t, err)
 	assert.Empty(t, resp.Items)
 }
 
-// 发布窗口：未开始不可见，已结束不可见。
+// Publish window: invisible before it starts, invisible after it ends.
 func TestAnnouncementWindow(t *testing.T) {
 	s := newFixture(t)
 	ctx := context.Background()
@@ -97,7 +99,8 @@ func TestAnnouncementWindow(t *testing.T) {
 	}
 }
 
-// 受众校验：audience=role 缺 role 拒绝；非法 audience 拒绝。
+// Audience validation: audience=role without a role is rejected; an invalid
+// audience is rejected.
 func TestAnnouncementAudienceValidation(t *testing.T) {
 	s := newFixture(t)
 	ctx := context.Background()
@@ -109,12 +112,13 @@ func TestAnnouncementAudienceValidation(t *testing.T) {
 	assert.ErrorContains(t, err, "all 或 role")
 }
 
-// 更新分支覆盖：不存在 → 404；字段部分更新（audience/role 校验、popup、窗口）。
+// Update branch coverage: missing announcement -> 404; partial field updates
+// (audience/role validation, popup, window).
 func TestAnnouncementUpdateBranches(t *testing.T) {
 	s := newFixture(t)
 	ctx := context.Background()
 
-	// 不存在的公告
+	// Announcement that does not exist
 	_, err := s.Update(ctx, 999, &UpdateRequest{Title: strPtr("x")})
 	assert.ErrorContains(t, err, "不存在")
 
@@ -122,35 +126,35 @@ func TestAnnouncementUpdateBranches(t *testing.T) {
 	require.NoError(t, err)
 	id := uint(created.ID)
 
-	// audience=role 但未带 role → 拒绝
+	// audience=role without a role -> rejected
 	_, err = s.Update(ctx, id, &UpdateRequest{Audience: strPtr("role")})
 	assert.ErrorContains(t, err, "role")
 
-	// audience=role + role → 通过
+	// audience=role plus role -> accepted
 	upd, err := s.Update(ctx, id, &UpdateRequest{Audience: strPtr("role"), Role: strPtr("ops")})
 	require.NoError(t, err)
 	assert.Equal(t, "ops", upd.Role)
 
-	// role 换名 + 沿用已有 audience → 通过
+	// Role renamed while the existing audience is kept -> accepted
 	upd, err = s.Update(ctx, id, &UpdateRequest{Role: strPtr("gm")})
 	require.NoError(t, err)
 	assert.Equal(t, "gm", upd.Role)
 
-	// 空更新（无字段变化）
+	// Empty update (no field changes)
 	_, err = s.Update(ctx, id, &UpdateRequest{})
 	require.NoError(t, err)
 
-	// popup / 窗口字段
+	// popup / window fields
 	start := time.Now().Add(time.Hour)
 	upd, err = s.Update(ctx, id, &UpdateRequest{Popup: boolPtr(false), StartAt: &start})
 	require.NoError(t, err)
 	assert.False(t, upd.Popup)
 
-	// 不存在的删除
+	// Delete of a missing announcement
 	err = s.Delete(ctx, 999)
 	assert.ErrorContains(t, err, "不存在")
 
-	// Dismiss 不存在的公告
+	// Dismiss of a missing announcement
 	_, err = s.Dismiss(ctx, "alice", 999)
 	assert.ErrorContains(t, err, "不存在")
 }
@@ -158,7 +162,8 @@ func TestAnnouncementUpdateBranches(t *testing.T) {
 func strPtr(s string) *string { return &s }
 func boolPtr(b bool) *bool    { return &b }
 
-// DB 故障注入：删表后各操作走错误分支；currentUser 从上下文取用户名。
+// DB failure injection: after dropping tables each operation takes its error
+// branch; currentUser reads the username from the context.
 func TestAnnouncementDBErrorBranches(t *testing.T) {
 	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)

@@ -1,9 +1,10 @@
-// 覆盖目标（coverage final）：
-//  1. handler.Create 的 ShouldBindJSON 失败分支（Validator 注入）。
-//  2. handler.Active 的 service 错误分支（认证通过后 announcements 表损坏）。
-//  3. handler.Dismiss 的 LoadCurrentAdmin 失败分支（无认证上下文）。
-//  4. service.Update 的 Updates 失败（update callback 注错）。
-//  5. service.Update 的回读 First 失败（query callback 按次注错）。
+// Coverage targets (coverage final):
+//  1. The ShouldBindJSON failure branch in handler.Create (injected Validator).
+//  2. The service error branch in handler.Active (announcements table missing
+//     after authentication passes).
+//  3. The LoadCurrentAdmin failure branch in handler.Dismiss (no auth context).
+//  4. The Updates failure in service.Update (injected update callback).
+//  5. The read-back First failure in service.Update (per-call query callback).
 package announcement
 
 import (
@@ -40,7 +41,8 @@ func TestAnnouncementHandler_Create_BindValidatorFailure(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
-	// 注入的非 ValidationErrors 错误经 response.Error 走默认 500 映射
+	// The injected non-ValidationErrors error goes through response.Error and
+	// takes the default 500 mapping.
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
 
@@ -52,7 +54,8 @@ func TestAnnouncementHandler_Active_ServiceError_Authenticated(t *testing.T) {
 	require.NoError(t, svcCtx.AdminModel.Create(context.Background(), &model.Admin{Username: "alice", Nickname: "A"}, "x"))
 	h := NewHandler(NewService(svcCtx))
 
-	// 认证通过 + announcements 表缺失 → ActiveForUser 查询失败 → 500。
+	// Authenticated + announcements table missing -> the ActiveForUser query
+	// fails -> 500.
 	require.NoError(t, db.Migrator().DropTable("announcements"))
 	gin.SetMode(gin.TestMode)
 	w := httptest.NewRecorder()
@@ -66,8 +69,9 @@ func TestAnnouncementHandler_Active_ServiceError_Authenticated(t *testing.T) {
 func TestAnnouncementHandler_Dismiss_LoadCurrentAdminFailure(t *testing.T) {
 	_, r := newHandlerFixture(t)
 
-	// 合法 ID + 无认证上下文 → LoadCurrentAdmin 失败（CurrentUsername 的
-	// 原生 error 不带 401 语义）→ response.Error 默认 500。
+	// Well-formed ID + no auth context -> LoadCurrentAdmin fails (the raw
+	// error from CurrentUsername carries no 401 semantics) -> response.Error
+	// defaults to 500.
 	req := httptest.NewRequest(http.MethodPost, "/announcements/1/dismiss", nil)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
@@ -77,7 +81,7 @@ func TestAnnouncementHandler_Dismiss_LoadCurrentAdminFailure(t *testing.T) {
 func TestAnnouncementService_Update_Failures(t *testing.T) {
 	ctx := context.Background()
 
-	// Updates 落库失败。
+	// The Updates write to the database fails.
 	db1, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, db1.AutoMigrate(&model.Announcement{}, &model.AnnouncementRead{}, &model.AnnouncementGame{}))
@@ -91,7 +95,8 @@ func TestAnnouncementService_Update_Failures(t *testing.T) {
 	_, err = s1.Update(ctx, uint(created1.ID), &UpdateRequest{Title: strPtr("x")})
 	require.ErrorContains(t, err, "update boom")
 
-	// 回读 First 失败：Update 流程 SELECT 依次 First → (Updates) → 回读 First。
+	// The read-back First fails: the Update flow SELECTs as First ->
+	// (Updates) -> read-back First.
 	db2, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, db2.AutoMigrate(&model.Announcement{}, &model.AnnouncementRead{}, &model.AnnouncementGame{}))

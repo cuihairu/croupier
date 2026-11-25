@@ -2,7 +2,7 @@ package announcement
 
 import "time"
 
-// ---- 管理 DTO ----
+// ---- Admin DTOs ----
 
 type AdminAnnouncementItem struct {
 	ID        int64      `json:"id"`
@@ -14,7 +14,8 @@ type AdminAnnouncementItem struct {
 	Active    bool       `json:"active"`
 	StartAt   *time.Time `json:"startAt,omitempty"`
 	EndAt     *time.Time `json:"endAt,omitempty"`
-	// GameIds 为绑定的游戏标识列表（#45）；空=未绑定=全服可见
+	// GameIds lists the bound game identifiers (#45); empty = unbound =
+	// visible server-wide
 	GameIds   []string  `json:"gameIds,omitempty"`
 	CreatedBy string    `json:"createdBy,omitempty"`
 	CreatedAt time.Time `json:"createdAt"`
@@ -35,7 +36,8 @@ type CreateRequest struct {
 	Active    *bool      `json:"active"`
 	StartAt   *time.Time `json:"startAt"`
 	EndAt     *time.Time `json:"endAt"`
-	// GameIds 绑定的游戏标识（#45）；空/缺省=全服可见
+	// GameIds are the bound game identifiers (#45); empty/omitted = visible
+	// server-wide
 	GameIds []string `json:"gameIds"`
 }
 
@@ -48,15 +50,17 @@ type UpdateRequest struct {
 	Active    *bool      `json:"active"`
 	StartAt   *time.Time `json:"startAt"`
 	EndAt     *time.Time `json:"endAt"`
-	// GameIds 非 nil 时全量替换绑定（含空数组=清空绑定→全服可见）；
-	// nil（缺省）= 绑定不动
+	// GameIds replaces all bindings when non-nil (an empty slice clears the
+	// bindings -> visible server-wide); nil (omitted) leaves bindings
+	// untouched
 	GameIds *[]string `json:"gameIds"`
 }
 
-// ---- 用户侧 DTO ----
+// ---- User-side DTOs ----
 
-// ActiveItem 是当前用户可见的公告；shouldPopup=true 时前端弹窗展示，
-// 直至用户确认（dismiss）。
+// ActiveItem is an announcement visible to the current user; when
+// shouldPopup=true the frontend shows it as a popup until the user
+// acknowledges it (dismiss).
 type ActiveItem struct {
 	ID          int64     `json:"id"`
 	Title       string    `json:"title"`

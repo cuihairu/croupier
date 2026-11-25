@@ -1,5 +1,6 @@
-// Package announcement 提供后台公告：面向全体/角色的 Markdown 公告，
-// popup 公告在用户登录后弹窗展示直至显式确认（announcement_reads）。
+// Package announcement provides admin announcements: Markdown announcements
+// targeted at everyone or at a role; popup announcements are shown to the
+// user after login until explicitly acknowledged (announcement_reads).
 package announcement
 
 import (
@@ -26,11 +27,12 @@ func NewService(svcCtx *svc.ServiceContext) *Service {
 
 func (s *Service) db() *gorm.DB { return s.svcCtx.DB }
 
-// ---- 管理 ----
+// ---- Admin ----
 
-// List 返回公告列表（按更新时间倒序），每项带绑定的游戏标识。
-// gameID 非空时只返回「对该游戏适用」的公告：未绑定任何游戏（全服可见）
-// 或绑定了该游戏（#45）。
+// List returns the announcement list (newest update first), each item
+// carrying its bound game identifiers. When gameID is non-empty, only
+// announcements that "apply to that game" are returned: announcements bound
+// to no game (visible server-wide) or bound to that game (#45).
 func (s *Service) List(ctx context.Context, gameID string) (*AdminListResponse, error) {
 	var rows []model.Announcement
 	if err := s.db().WithContext(ctx).Order("updated_at DESC").Find(&rows).Error; err != nil {
@@ -136,7 +138,8 @@ func (s *Service) Update(ctx context.Context, id uint, req *UpdateRequest) (*Adm
 			return nil, err
 		}
 	}
-	// #45：gameIds 非 nil（含空数组）→ 全量替换绑定；缺省 → 绑定不动
+	// #45: gameIds non-nil (including an empty slice) -> replace all
+	// bindings; omitted -> bindings untouched
 	if req.GameIds != nil {
 		if err := s.replaceGameBindings(ctx, id, normalizeGameIDs(*req.GameIds)); err != nil {
 			return nil, err
@@ -162,20 +165,23 @@ func (s *Service) Delete(ctx context.Context, id uint) error {
 	if res.RowsAffected == 0 {
 		return errorx.NewNotFound("公告不存在")
 	}
-	// 级联清理确认记录与游戏绑定
+	// Cascade cleanup of acknowledgement records and game bindings
 	if err := s.db().WithContext(ctx).Where("announcement_id = ?", id).Delete(&model.AnnouncementRead{}).Error; err != nil {
 		return err
 	}
 	return s.db().WithContext(ctx).Where("announcement_id = ?", id).Delete(&model.AnnouncementGame{}).Error
 }
 
-// ---- 用户侧 ----
+// ---- User side ----
 
-// ActiveForUser 返回当前用户可见的生效公告（按创建时间倒序）。
-// shouldPopup = popup && 未确认 && 未过期；「未确认前每次登录都弹」
-// 由前端在每次会话初始化时调用本接口实现。
-// gameID 为当前顶栏选择的游戏（X-Game-ID）：未绑定公告始终可见；
-// 绑定公告仅当绑定含该游戏时可见，无游戏上下文（空）时只看未绑定（#45）。
+// ActiveForUser returns the active announcements visible to the current user
+// (newest first). shouldPopup = popup && not acknowledged && not expired;
+// "pop up on every login until acknowledged" is implemented by the frontend
+// calling this endpoint on each session initialization.
+// gameID is the game currently selected in the top bar (X-Game-ID):
+// unbound announcements are always visible; bound announcements are visible
+// only when their bindings include that game, and with no game context
+// (empty) only unbound announcements show (#45).
 func (s *Service) ActiveForUser(ctx context.Context, username string, roles []string, gameID string) (*ActiveListResponse, error) {
 	var rows []model.Announcement
 	if err := s.db().WithContext(ctx).
@@ -230,7 +236,7 @@ func (s *Service) ActiveForUser(ctx context.Context, username string, roles []st
 	return &ActiveListResponse{Items: items}, nil
 }
 
-// Dismiss 记录用户确认（幂等）。
+// Dismiss records the user's acknowledgement (idempotent).
 func (s *Service) Dismiss(ctx context.Context, username string, id uint) (*DismissResponse, error) {
 	var row model.Announcement
 	if err := s.db().WithContext(ctx).First(&row, id).Error; err != nil {
@@ -268,10 +274,12 @@ func visibleTo(a *model.Announcement, roleSet map[string]bool) bool {
 	return true // all
 }
 
-// ---- 游戏绑定（#45）----
+// ---- Game bindings (#45) ----
 
-// applicableToGame 判断公告对某游戏是否适用：未绑定任何游戏 = 全服可见；
-// 有绑定时仅当绑定含该游戏。gameID 为空（无游戏上下文）时只看未绑定。
+// applicableToGame decides whether an announcement applies to a game:
+// bound to no game = visible server-wide; when bindings exist it applies
+// only if they include the game. With an empty gameID (no game context) only
+// unbound announcements apply.
 func applicableToGame(gameIDs []string, gameID string) bool {
 	if len(gameIDs) == 0 {
 		return true
@@ -287,7 +295,8 @@ func applicableToGame(gameIDs []string, gameID string) bool {
 	return false
 }
 
-// normalizeGameIDs 归一绑定入参：trim、丢空串、去重（保序）。
+// normalizeGameIDs normalizes the binding input: trims, drops empty strings,
+// deduplicates (order-preserving).
 func normalizeGameIDs(in []string) []string {
 	out := make([]string, 0, len(in))
 	seen := map[string]bool{}
@@ -302,7 +311,8 @@ func normalizeGameIDs(in []string) []string {
 	return out
 }
 
-// replaceGameBindings 全量替换公告的游戏绑定（先删后插，幂等）。
+// replaceGameBindings fully replaces an announcement's game bindings
+// (delete first, then insert; idempotent).
 func (s *Service) replaceGameBindings(ctx context.Context, announcementID uint, gameIDs []string) error {
 	if err := s.db().WithContext(ctx).
 		Where("announcement_id = ?", announcementID).
@@ -319,7 +329,8 @@ func (s *Service) replaceGameBindings(ctx context.Context, announcementID uint, 
 	return s.db().WithContext(ctx).Create(&rows).Error
 }
 
-// gameIDsByAnnouncement 批量加载公告→绑定游戏标识映射（一次查询防 N+1）。
+// gameIDsByAnnouncement loads the announcement -> bound game IDs mapping in
+// bulk (one query to avoid N+1).
 func (s *Service) gameIDsByAnnouncement(ctx context.Context, ids []uint) (map[uint][]string, error) {
 	out := map[uint][]string{}
 	if len(ids) == 0 {

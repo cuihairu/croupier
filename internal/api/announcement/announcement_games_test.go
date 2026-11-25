@@ -1,6 +1,8 @@
-// 公告↔游戏多对多绑定回归（#45）：一公告可绑定多游戏，未绑定任何
-// 游戏 = 全服可见。锁定绑定写路径（create/update 全量替换语义）、
-// 管理列表 gameId 过滤、用户侧 active 的 X-Game-ID 过滤。
+// Announcement <-> game many-to-many binding regression (#45): one
+// announcement can bind multiple games; binding no games means visible
+// server-wide. Pins down the binding write path (full-replacement semantics
+// on create/update), the admin list gameId filter, and the user-side active
+// X-Game-ID filter.
 package announcement
 
 import (
@@ -27,7 +29,8 @@ func TestAnnouncementGameBindingsLifecycle(t *testing.T) {
 	s := newFixture(t)
 	ctx := context.Background()
 
-	// 创建带绑定：入参含空串/重复 → 归一（trim、去重、丢空）
+	// Create with bindings: input contains blanks/duplicates -> normalized
+	// (trimmed, deduplicated, empties dropped)
 	created, err := s.Create(ctx, &CreateRequest{
 		Title: "版本更新", ContentMd: "v2 上线", Audience: "all",
 		GameIds: []string{" demo ", "", "battle", "demo"},
@@ -36,23 +39,24 @@ func TestAnnouncementGameBindingsLifecycle(t *testing.T) {
 	assert.ElementsMatch(t, []string{"demo", "battle"}, gameIDsOf(t, s, uint(created.ID)))
 	assert.Equal(t, []string{"demo", "battle"}, created.GameIds)
 
-	// 未绑定（缺省）= 全服可见
+	// No bindings (omitted) = visible server-wide
 	allSrv, err := s.Create(ctx, &CreateRequest{Title: "全服公告", ContentMd: "hi", Audience: "all"})
 	require.NoError(t, err)
 	assert.Empty(t, gameIDsOf(t, s, uint(allSrv.ID)))
 
-	// 更新：gameIds 缺省（nil）→ 绑定不动
+	// Update: gameIds omitted (nil) -> bindings left untouched
 	kept, err := s.Update(ctx, uint(created.ID), &UpdateRequest{Title: strPtr("版本更新 v2")})
 	require.NoError(t, err)
 	assert.ElementsMatch(t, []string{"demo", "battle"}, kept.GameIds)
 
-	// 更新：gameIds=[]（非 nil 空数组）→ 清空绑定 → 全服可见
+	// Update: gameIds=[] (non-nil empty slice) -> bindings cleared ->
+	// visible server-wide
 	cleared, err := s.Update(ctx, uint(created.ID), &UpdateRequest{GameIds: &[]string{}})
 	require.NoError(t, err)
 	assert.Empty(t, cleared.GameIds)
 	assert.Empty(t, gameIDsOf(t, s, uint(created.ID)))
 
-	// 更新：非空数组 → 全量替换
+	// Update: non-empty slice -> full replacement
 	replaced, err := s.Update(ctx, uint(created.ID), &UpdateRequest{GameIds: &[]string{"rpg"}})
 	require.NoError(t, err)
 	assert.Equal(t, []string{"rpg"}, replaced.GameIds)
@@ -75,12 +79,13 @@ func TestAnnouncementListGameFilter(t *testing.T) {
 	require.NoError(t, err)
 	_ = multi
 
-	// 不过滤：全部可见，且各项带绑定
+	// No filter: everything visible, each item carrying its bindings
 	list, err := s.List(ctx, "")
 	require.NoError(t, err)
 	assert.Len(t, list.Items, 4)
 
-	// gameId=demo：全服 + demo 绑定（含多游戏绑定）
+	// gameId=demo: server-wide + demo-bound items (including multi-game
+	// bindings)
 	demoList, err := s.List(ctx, "demo")
 	require.NoError(t, err)
 	titles := titlesOf(demoList.Items)
@@ -89,7 +94,7 @@ func TestAnnouncementListGameFilter(t *testing.T) {
 	assert.Contains(t, titles, "双游戏")
 	assert.NotContains(t, titles, rpgOnly.Title)
 
-	// 无效 gameId：仅全服可见
+	// Invalid gameId: only the server-wide announcement
 	none, err := s.List(ctx, "no-such-game")
 	require.NoError(t, err)
 	require.Len(t, none.Items, 1)
@@ -106,17 +111,18 @@ func TestAnnouncementActiveForUserGameFilter(t *testing.T) {
 		GameIds: []string{"demo"}})
 	require.NoError(t, err)
 
-	// 有游戏上下文（X-Game-ID=demo）：全服 + demo
+	// With a game context (X-Game-ID=demo): server-wide + demo
 	inGame, err := s.ActiveForUser(ctx, "alice", nil, "demo")
 	require.NoError(t, err)
 	assert.ElementsMatch(t, []string{"全服弹窗", "demo 专属"}, titlesOfActive(inGame.Items))
 
-	// 其他游戏：只有全服
+	// Another game: only the server-wide announcement
 	otherGame, err := s.ActiveForUser(ctx, "alice", nil, "rpg")
 	require.NoError(t, err)
 	assert.Equal(t, []string{"全服弹窗"}, titlesOfActive(otherGame.Items))
 
-	// 无游戏上下文（scope 未选择）：绑定公告不可见（严格语义）
+	// No game context (no scope selected): bound announcements are invisible
+	// (strict semantics)
 	noGame, err := s.ActiveForUser(ctx, "alice", nil, "")
 	require.NoError(t, err)
 	assert.Equal(t, []string{"全服弹窗"}, titlesOfActive(noGame.Items))

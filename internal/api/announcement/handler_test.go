@@ -56,17 +56,17 @@ func doJSON2(r *gin.Engine, method, path, body string, username string) *httptes
 func TestHandler_AdminCRUD(t *testing.T) {
 	_, r := newHandlerFixture(t)
 
-	// List：空列表
+	// List: empty list
 	w := doJSON2(r, http.MethodGet, "/admin/announcements", "", "")
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	// Create：成功 201 + 非法 body 400
+	// Create: 201 on success + 400 on invalid body
 	w = doJSON2(r, http.MethodPost, "/admin/announcements", `{"title":"维护","contentMd":"c","audience":"all","popup":true}`, "")
 	require.Equal(t, http.StatusCreated, w.Code, w.Body.String())
 	w = doJSON2(r, http.MethodPost, "/admin/announcements", `{bad`, "")
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 
-	// Update：成功 / 非法 ID / 非法 body
+	// Update: success / invalid ID / invalid body
 	w = doJSON2(r, http.MethodPut, "/admin/announcements/1", `{"title":"改"}`, "")
 	assert.Equal(t, http.StatusOK, w.Code, w.Body.String())
 	w = doJSON2(r, http.MethodPut, "/admin/announcements/abc", `{}`, "")
@@ -74,7 +74,7 @@ func TestHandler_AdminCRUD(t *testing.T) {
 	w = doJSON2(r, http.MethodPut, "/admin/announcements/1", `{bad`, "")
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 
-	// Delete：成功 204 / 非法 ID 400
+	// Delete: 204 on success / 400 on invalid ID
 	w = doJSON2(r, http.MethodDelete, "/admin/announcements/1", "", "")
 	assert.Equal(t, http.StatusNoContent, w.Code)
 	w = doJSON2(r, http.MethodDelete, "/admin/announcements/xyz", "", "")
@@ -84,19 +84,21 @@ func TestHandler_AdminCRUD(t *testing.T) {
 func TestHandler_UserSide_ActiveAndDismiss(t *testing.T) {
 	_, r := newHandlerFixture(t)
 
-	// 未认证：Active 报错（无 username 上下文）
+	// Unauthenticated: Active errors out (no username context)
 	w := doJSON2(r, http.MethodGet, "/announcements/active", "", "")
 	assert.NotEqual(t, http.StatusOK, w.Code)
 
-	// 未认证：Dismiss 先校验 ID，非法 ID 优先 400
+	// Unauthenticated: Dismiss validates the ID first, so an invalid ID wins
+	// with 400
 	w = doJSON2(r, http.MethodPost, "/announcements/abc/dismiss", "", "")
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 
-	// 创建一条全员公告
+	// Create an all-users announcement
 	w = doJSON2(r, http.MethodPost, "/admin/announcements", `{"title":"通知","contentMd":"c","audience":"all","popup":true}`, "")
 	require.Equal(t, http.StatusCreated, w.Code, w.Body.String())
 
-	// 认证后：Active 可见且 shouldPopup=true；Dismiss 确认后不再弹
+	// Authenticated: Active is visible with shouldPopup=true; after Dismiss
+	// the popup stops
 	w = doJSON2(r, http.MethodGet, "/announcements/active", "", "alice")
 	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
 	assert.Contains(t, w.Body.String(), `"shouldPopup":true`)
@@ -109,7 +111,8 @@ func TestHandler_UserSide_ActiveAndDismiss(t *testing.T) {
 	assert.Contains(t, w.Body.String(), `"shouldPopup":false`)
 }
 
-// service 错误经 response.Error 映射：404（不存在）走 HTTP 层验证。
+// Service errors mapped by response.Error: the 404 (missing) path is
+// verified at the HTTP layer.
 func TestHandler_AdminCRUD_NotFound(t *testing.T) {
 	_, r := newHandlerFixture(t)
 
@@ -120,16 +123,18 @@ func TestHandler_AdminCRUD_NotFound(t *testing.T) {
 	w = doJSON2(r, http.MethodDelete, "/admin/announcements/99", "", "")
 	assert.Equal(t, http.StatusNotFound, w.Code)
 
-	// 认证用户 dismiss 不存在的公告 → 404
+	// Authenticated user dismisses a missing announcement -> 404
 	w = doJSON2(r, http.MethodPost, "/announcements/99/dismiss", "", "alice")
 	assert.Equal(t, http.StatusNotFound, w.Code, w.Body.String())
 }
 
-// List 的 bind 无 body、Active 的 service 错误分支经 HTTP 验证。
+// List's bind without a body and Active's service error branch, verified
+// over HTTP.
 func TestHandler_List_CreateDBError(t *testing.T) {
 	_, _ = newHandlerFixture(t)
 
-	// 直接构造坏 DB 的 handler：List/Create 走 500 错误分支
+	// Build a handler around a broken DB directly: List/Create take the 500
+	// error branches
 	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
 	bad := NewHandler(NewService(&svc.ServiceContext{DB: db}))
@@ -140,7 +145,8 @@ func TestHandler_List_CreateDBError(t *testing.T) {
 	w := doJSON2(badRouter, http.MethodGet, "/bad/announcements", "", "")
 	assert.Equal(t, http.StatusInternalServerError, w.Code, "List 错误走 internal_error 兜底")
 
-	// POST：错误分支只需保证非 200 且带 error 字段（错误码由驱动错误链决定）
+	// POST: the error branch only needs to be non-200 and carry an error
+	// field (the error code depends on the driver error chain)
 	w = doJSON2(badRouter, http.MethodPost, "/bad/announcements", `{"title":"t","audience":"all"}`, "")
 	assert.NotEqual(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), "error")

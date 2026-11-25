@@ -1,17 +1,22 @@
 package announcement
 
-// 覆盖率巡检补测（service.go 残余 8 块）：全为「DB 操作失败 → 原样透传」
-// 的错误返回，注入口径与 svc 批一致——**缺表**（DropTable 让目标表不存在，
-// gorm 立即报错且不产生副作用）。逐块对应：
+// Coverage sweep follow-up tests (8 remaining blocks in service.go): all of
+// them are "DB operation fails -> error passed through unchanged" returns,
+// injected the same way as the svc batch -- **missing table** (DropTable
+// makes the target table disappear; gorm errors out immediately with no side
+// effects). Block-by-block mapping:
 //
-//	List     → announcements 缺表（查询失败）
-//	Create   → announcements 缺表（写入失败）
-//	Update   → gameIds 非 nil 时绑定替换失败；缺省时绑定批量查询失败
-//	Delete   → 公告本体删成功后，确认记录表缺表（级联清理失败）
-//	用户侧   → announcement_games 缺表（绑定批量查询失败）
+//	List     -> announcements missing (query fails)
+//	Create   -> announcements missing (write fails)
+//	Update   -> binding replacement fails when gameIds is non-nil; binding
+//	            batch query fails when omitted
+//	Delete   -> read table missing after the announcement itself deletes
+//	            successfully (cascade cleanup fails)
+//	User side -> announcement_games missing (binding batch query fails)
 //
-// 两个私有 helper（replaceGameBindings / gameIDsByAnnouncement）另作直调
-// 断言，避免只经上层间接覆盖。
+// The two private helpers (replaceGameBindings / gameIDsByAnnouncement) get
+// direct-call assertions so they are not covered only indirectly via the
+// upper layers.
 
 import (
 	"context"
@@ -22,7 +27,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// dropTable 擦除目标表制造确定性 DB 失败（同包测试，可经 s.db() 取句柄）。
+// dropTable wipes the target table to produce a deterministic DB failure
+// (same-package test, so the handle is reachable via s.db()).
 func dropTable(t *testing.T, s *Service, model any) {
 	t.Helper()
 	require.NoError(t, s.db().Migrator().DropTable(model))
@@ -42,8 +48,10 @@ func TestAnnouncementService_ListAndCreateTableMissing(t *testing.T) {
 	assert.Nil(t, created)
 }
 
-// 公告本体表在、绑定表缺：查询与写入各自的后半段失败（列表回填绑定 /
-// 创建后写绑定），错误须透传而不是静默按「无绑定」处理。
+// The announcement table exists but the binding table is missing: the second
+// half of each path fails (binding backfill on list / binding write after
+// create). Errors must pass through instead of being silently treated as
+// "no bindings".
 func TestAnnouncementService_BindingTableMissingAfterWrite(t *testing.T) {
 	s := newFixture(t)
 	ctx := context.Background()
@@ -56,8 +64,10 @@ func TestAnnouncementService_BindingTableMissingAfterWrite(t *testing.T) {
 	assert.Nil(t, created)
 }
 
-// 公告本体已落库、绑定表缺：列表回填绑定失败须透传（不得静默按「无绑定」
-// 返回，把数据损坏伪装成正常列表）。
+// The announcement itself has landed in the database but the binding table is
+// missing: the list binding backfill must pass the error through (never
+// silently return "no bindings", disguising data corruption as a normal
+// list).
 func TestAnnouncementService_ListBindingReadFailure(t *testing.T) {
 	s := newFixture(t)
 	ctx := context.Background()
@@ -71,8 +81,11 @@ func TestAnnouncementService_ListBindingReadFailure(t *testing.T) {
 	assert.Error(t, err, "列表回填绑定失败须透传（绑定表缺）")
 	assert.Nil(t, list)
 
-	// 顺带锁定「查无公告时短路」：ids 为空 → 不触绑定查询 → 正常返回。
-	// （无公告的库与缺表库不可兼得，此处只验证短路语义本身。）
+	// Also pin down the "short-circuit when there are no announcements"
+	// behavior: empty ids -> binding query never runs -> normal return.
+	// (A database with no announcements and a database with a dropped table
+	// cannot coexist, so only the short-circuit semantics itself is verified
+	// here.)
 	empty := newFixture(t)
 	emptyList, err := empty.List(ctx, "")
 	require.NoError(t, err)
@@ -93,17 +106,20 @@ func TestAnnouncementService_UpdateBindingAndReadPaths(t *testing.T) {
 	require.NoError(t, err)
 	dropTable(t, s, &model.AnnouncementGame{})
 
-	// gameIds 非 nil → 先走全量替换绑定，绑定表缺表即失败
+	// gameIds non-nil -> full binding replacement runs first and fails since
+	// the binding table is missing
 	item, err := s.Update(ctx, uint(created.ID), &UpdateRequest{GameIds: &gameIDs})
 	assert.Error(t, err, "绑定替换失败须透传（表缺）")
 	assert.Nil(t, item)
 
-	// gameIds 缺省 → 跳过替换，回读时绑定批量查询撞缺表
+	// gameIds omitted -> replacement skipped, the read-back binding batch
+	// query hits the missing table
 	item, err = s.Update(ctx, uint(created.ID), &UpdateRequest{})
 	assert.Error(t, err, "回读绑定失败须透传（表缺）")
 	assert.Nil(t, item)
 
-	// 用户侧：绑定批量查询同样撞缺表（拉取失败不得静默丢绑定）
+	// User side: the binding batch query hits the missing table too (a fetch
+	// failure must not silently drop bindings)
 	resp, err := s.ActiveForUser(ctx, "alice", nil, "")
 	assert.Error(t, err)
 	assert.Nil(t, resp)
@@ -116,8 +132,9 @@ func TestAnnouncementService_DeleteCascadeReadTableMissing(t *testing.T) {
 	require.NoError(t, err)
 	dropTable(t, s, &model.AnnouncementRead{})
 
-	// 公告本体删除已成功（RowsAffected=1），级联清理确认记录时撞缺表：
-	// 错误须上抛，不得把「已部分删除」当成功。
+	// The announcement itself was deleted successfully (RowsAffected=1), then
+	// the cascade cleanup of read records hits the missing table: the error
+	// must propagate, never treating "partially deleted" as success.
 	assert.Error(t, s.Delete(ctx, uint(created.ID)), "确认记录表缺表时级联清理失败须透传")
 }
 
@@ -127,7 +144,8 @@ func TestAnnouncementService_BindingHelpersDirect(t *testing.T) {
 	created, err := s.Create(ctx, &CreateRequest{Title: "helper 公告", ContentMd: "body", Audience: "all"})
 	require.NoError(t, err)
 
-	// 绑定表缺表时两个 helper 各自失败，错误不得被吞掉
+	// With the binding table missing, both helpers fail on their own and the
+	// errors must not be swallowed
 	dropTable(t, s, &model.AnnouncementGame{})
 	assert.Error(t, s.replaceGameBindings(ctx, uint(created.ID), []string{"game-a"}), "先删后插：删即失败")
 	assert.Error(t, s.replaceGameBindings(ctx, uint(created.ID), nil), "空绑定列表也先删后失败")
@@ -136,7 +154,8 @@ func TestAnnouncementService_BindingHelpersDirect(t *testing.T) {
 	assert.Error(t, err, "绑定批量查询失败须透传")
 	assert.Nil(t, bindings)
 
-	// 空入参短路：表缺也不报错（无查询即无失败）
+	// Empty input short-circuits: no error even with the table missing (no
+	// query means no failure)
 	empty, err := s.gameIDsByAnnouncement(ctx, nil)
 	require.NoError(t, err, "空 ids 直接短路返回，不触表")
 	assert.Empty(t, empty)
