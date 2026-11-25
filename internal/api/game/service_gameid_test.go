@@ -1,5 +1,5 @@
-// GAME-013：games REST 显式 gameId 支持（Create/Update 的连字符保留、
-// 唯一性、改名守卫）覆盖。
+// GAME-013: coverage for explicit gameId support in the games REST API (hyphen preservation
+// in Create/Update, uniqueness, and the rename guard).
 package game
 
 import (
@@ -22,8 +22,8 @@ func newGameServiceTestCtx(t *testing.T) (context.Context, *Service) {
 	return ctx, NewService(svcCtx)
 }
 
-// 显式 gameId 连字符原样保留，与 SDK 侧注册口径（demo-game）一致；
-// 业务串寻址可解析到该游戏。
+// An explicit gameId keeps its hyphen verbatim, consistent with the SDK-side registration
+// convention (demo-game); business string addressing resolves to that game.
 func Test_Create_ExplicitGameIDWithHyphen(t *testing.T) {
 	ctx, service := newGameServiceTestCtx(t)
 
@@ -38,13 +38,14 @@ func Test_Create_ExplicitGameIDWithHyphen(t *testing.T) {
 	assert.Equal(t, "demo-game", resp.Game.GameID)
 	assert.Equal(t, "DemoGame", resp.Game.Name)
 
-	// 业务串寻址（X-Game-ID 同口径）可解析。
+	// Business string addressing (same convention as X-Game-ID) resolves.
 	found, err := service.svcCtx.GameModel.FindByGameIDString(ctx, "demo-game")
 	require.NoError(t, err)
 	assert.Equal(t, resp.Game.ID, found.ID)
 }
 
-// 未显式提交 gameId 时保持既有语义：Name 派生，连字符归一为下划线。
+// Without an explicit gameId, the existing semantics hold: derived from Name, with hyphens
+// normalized to underscores.
 func Test_Create_GameIDDerivedFromNameNormalizesHyphen(t *testing.T) {
 	ctx, service := newGameServiceTestCtx(t)
 
@@ -54,7 +55,7 @@ func Test_Create_GameIDDerivedFromNameNormalizesHyphen(t *testing.T) {
 	assert.Equal(t, "demo_game", resp.Game.GameID)
 }
 
-// 显式 gameId 非法字符集 / 长度超界被拒绝。
+// An explicit gameId with an invalid character set or out-of-bounds length is rejected.
 func Test_Create_ExplicitGameID_InvalidCharacters(t *testing.T) {
 	ctx, service := newGameServiceTestCtx(t)
 
@@ -69,20 +70,22 @@ func Test_Create_ExplicitGameID_InvalidCharacters(t *testing.T) {
 	}
 }
 
-// 显式 gameId 重复（大小写不敏感归一后冲突）被 409 拒绝。
+// A duplicate explicit gameId (conflicting after case-insensitive normalization) is rejected
+// with 409.
 func Test_Create_ExplicitGameID_Duplicate(t *testing.T) {
 	ctx, service := newGameServiceTestCtx(t)
 
 	_, err := service.Create(ctx, &GameCreateRequest{Name: "first", AliasName: "First", GameID: "demo-game"})
 	require.NoError(t, err)
 
-	// 同名不同写法（大写归一 + 连字符）冲突。
+	// Same name in a different spelling (uppercase normalization + hyphen) conflicts.
 	resp, err := service.Create(ctx, &GameCreateRequest{Name: "second", AliasName: "Second", GameID: "Demo-Game"})
 	assert.Error(t, err)
 	assert.Nil(t, resp)
 }
 
-// 未绑定环境的游戏可改 game_id；改名后旧标识不可寻址、新标识可寻址。
+// A game with no environment bindings may change its game_id; after the rename the old
+// identifier is no longer addressable and the new one is.
 func Test_Update_RenameGameID_Success(t *testing.T) {
 	ctx, service := newGameServiceTestCtx(t)
 
@@ -104,7 +107,8 @@ func Test_Update_RenameGameID_Success(t *testing.T) {
 	assert.Equal(t, created.Game.ID, found.ID)
 }
 
-// 游戏已绑定环境时拒绝改 game_id（防路由数据悬空）。
+// Renaming game_id is rejected when the game already has environment bindings (prevents
+// dangling routing data).
 func Test_Update_RenameGameID_BlockedByEnvBinding(t *testing.T) {
 	ctx, service := newGameServiceTestCtx(t)
 
@@ -124,7 +128,8 @@ func Test_Update_RenameGameID_BlockedByEnvBinding(t *testing.T) {
 	assert.Nil(t, resp)
 }
 
-// 游戏 envs 元数据非空（尚未 backfill 绑定的过渡态）同样拒绝改 game_id。
+// Non-empty game envs metadata (the transitional state before bindings are backfilled) also
+// blocks renaming game_id.
 func Test_Update_RenameGameID_BlockedByEnvsMetadata(t *testing.T) {
 	ctx, service := newGameServiceTestCtx(t)
 
@@ -147,7 +152,7 @@ func Test_Update_RenameGameID_BlockedByEnvsMetadata(t *testing.T) {
 	assert.Nil(t, resp)
 }
 
-// 改 game_id 撞已有标识被 409 拒绝。
+// Renaming game_id onto an existing identifier is rejected with 409.
 func Test_Update_RenameGameID_Duplicate(t *testing.T) {
 	ctx, service := newGameServiceTestCtx(t)
 

@@ -56,7 +56,8 @@ func TestSniffIconKind(t *testing.T) {
 	}
 }
 
-// iconTestService 组装带 file 对象存储的服务（权限用例复用包内既有 seeding）。
+// iconTestService assembles a service with file object storage (permission cases reuse the
+// seeding that already exists in this package).
 func iconTestService(t *testing.T, driver string) (*Service, string) {
 	t.Helper()
 	db := setupTestDB(t)
@@ -72,7 +73,8 @@ func iconTestService(t *testing.T, driver string) (*Service, string) {
 
 func TestService_UploadIcon_PermissionDenied(t *testing.T) {
 	svc, _ := iconTestService(t, "file")
-	// 与包内既有 unauthorized 用例同键：用户名不存在同样走权限拒绝出口。
+	// Same key as the existing unauthorized case in this package: an unknown username also
+	// takes the permission-denied exit.
 	ctx := context.WithValue(context.Background(), "username", "unauthorized") //nolint:staticcheck,revive
 	_, err := svc.UploadIcon(ctx, bytes.NewReader(pngMagic), int64(len(pngMagic)), "a.png")
 	require.Error(t, err)
@@ -117,11 +119,13 @@ func TestService_UploadIcon_BadContent(t *testing.T) {
 	svc, _ := iconTestService(t, "file")
 	ctx, _ := createTestAdminWithContext(t, svc.svcCtx.DB, "iconadmin4", "password123", "admin")
 
-	// 伪装 .png 扩展名的文本内容：按内容判定拒绝，不信任扩展名。
+	// Text content disguised with a .png extension: rejected by content sniffing, the
+	// extension is not trusted.
 	_, err := svc.UploadIcon(ctx, strings.NewReader("not an icon at all"), 18, "a.png")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "仅支持")
-	// 拒绝白名单外内容必须是 400（客户端送错文件），曾漂成 500 内部错误。
+	// Rejecting content outside the allowlist must be 400 (the client sent the wrong file);
+	// it once drifted to a 500 internal error.
 	var codeErr *errorx.CodeError
 	require.ErrorAs(t, err, &codeErr, "坏内容须为 errorx CodeError（映射 4xx），不可裸 error 归 internal_error 500")
 }
@@ -135,19 +139,21 @@ func TestService_UploadIcon_ContentAddressed(t *testing.T) {
 	assert.Regexp(t, regexp.MustCompile(`^icons/games/[0-9a-f]{16}\.png$`), resp1.Key)
 	assert.Equal(t, "/uploads/"+resp1.Key, resp1.URL)
 
-	// 同内容重传：同 key 幂等覆盖（文件字节一致）。
+	// Re-uploading identical content: the same key is overwritten idempotently (same file
+	// bytes).
 	resp2, err := svc.UploadIcon(ctx, bytes.NewReader(pngMagic), int64(len(pngMagic)), "other-name.png")
 	require.NoError(t, err)
 	assert.Equal(t, resp1.Key, resp2.Key)
 
-	// 不同内容：不同 key，互不覆盖。
+	// Different content: a different key, and the two do not overwrite each other.
 	svg := []byte(`<svg xmlns="http://www.w3.org/2000/svg"><rect/></svg>`)
 	resp3, err := svc.UploadIcon(ctx, bytes.NewReader(svg), int64(len(svg)), "logo.svg")
 	require.NoError(t, err)
 	assert.NotEqual(t, resp1.Key, resp3.Key)
 	assert.Regexp(t, regexp.MustCompile(`\.svg$`), resp3.Key)
 
-	// 落盘校验：file 驱动下 baseDir/icons/games/<key 文件名> 与上传内容一致。
+	// On-disk verification: under the file driver, baseDir/icons/games/<key file name> matches
+	// the uploaded content.
 	written, err := os.ReadFile(filepath.Join(baseDir, filepath.FromSlash(resp1.Key)))
 	require.NoError(t, err)
 	assert.Equal(t, pngMagic, written)
@@ -184,7 +190,7 @@ func TestHandler_UploadIcon_Multipart(t *testing.T) {
 
 	ctx, _ := createTestAdminWithContext(t, db, "iconhandler", "password123", "admin")
 
-	// 正常链：200 + key/url，文件落盘。
+	// Happy path: 200 plus key/url, and the file lands on disk.
 	req := iconHandlerMultipartRequest(t, "logo.png", pngMagic, "file").WithContext(ctx)
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
@@ -199,7 +205,7 @@ func TestHandler_UploadIcon_Multipart(t *testing.T) {
 	_, statErr := os.Stat(filepath.Join(baseDir, filepath.FromSlash(resp.Key)))
 	assert.NoError(t, statErr, "图标应已落盘")
 
-	// 缺 file 字段 → 400
+	// Missing file field -> 400
 	req2 := iconHandlerMultipartRequest(t, "", nil, "").WithContext(ctx)
 	w2 := httptest.NewRecorder()
 	c2, _ := gin.CreateTestContext(w2)
@@ -207,7 +213,7 @@ func TestHandler_UploadIcon_Multipart(t *testing.T) {
 	h.UploadIcon(c2)
 	assert.Equal(t, http.StatusBadRequest, w2.Code)
 
-	// Open 缝隙故障注入 → 500
+	// Failure injection at the Open seam -> 500
 	orig := openIconMultipartFileHeader
 	openIconMultipartFileHeader = func(_ *multipart.FileHeader) (multipart.File, error) {
 		return nil, os.ErrInvalid

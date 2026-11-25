@@ -7,9 +7,11 @@ type GameCreateRequest struct {
 	Icon        string `json:"icon"`
 	Description string `json:"description"`
 	Config      string `json:"config"`
-	// GameID 显式业务标识（X-Game-ID 路由口径）。缺省时从 Name 派生
-	// （连字符会被归一为下划线）；显式提交时原样保留连字符，供 SDK 侧
-	// 注册的 gameId（如 demo-game）与控制台手建 scope 对齐。
+	// GameID is the explicit business identifier (the X-Game-ID routing
+	// convention). When absent it is derived from Name (hyphens are
+	// normalized to underscores); when submitted explicitly, hyphens are
+	// preserved as-is so the SDK-registered gameId (e.g. demo-game) lines up
+	// with a manually created console scope.
 	GameID string `json:"gameId"`
 }
 
@@ -123,13 +125,16 @@ type GameUpdateRequest struct {
 	ID        string `uri:"id"`
 	Name      string `json:"name"`
 	AliasName string `json:"aliasName"`
-	// Icon 指针语义：字段出现即更新（空串 = 清空，回落默认骰子图标），缺省 = 保持。
+	// Icon uses pointer semantics: the field's presence means update (empty
+	// string = clear, falling back to the default dice icon), absence = keep.
 	Icon        *string `json:"icon"`
 	Description string  `json:"description"`
 	Config      string  `json:"config"`
 	Status      string  `json:"status"`
-	// GameID 非空 = 变更业务标识。仅在游戏未绑定任何环境（game_envs 与
-	// envs 元数据均为空）时允许，避免已路由数据的引用悬空。
+	// A non-empty GameID means changing the business identifier. Allowed only
+	// when the game is not bound to any environment (both game_envs and the
+	// envs metadata are empty), so references from already-routed data do not
+	// dangle.
 	GameID string `json:"gameId"`
 }
 

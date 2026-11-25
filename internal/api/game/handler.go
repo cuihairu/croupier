@@ -48,7 +48,7 @@ func (h *Handler) Create(c *gin.Context) {
 // Detail handles the request to get game details
 func (h *Handler) Detail(c *gin.Context) {
 	var req GameDetailRequest
-	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
+	_ = c.ShouldBindUri(&req) // uri fields are all strings with no required: binding cannot fail, the fill semantics are kept
 
 	resp, err := h.service.Detail(c.Request.Context(), &req)
 	if err != nil {
@@ -61,7 +61,7 @@ func (h *Handler) Detail(c *gin.Context) {
 // Update handles the request to update a game
 func (h *Handler) Update(c *gin.Context) {
 	var req GameUpdateRequest
-	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
+	_ = c.ShouldBindUri(&req) // uri fields are all strings with no required: binding cannot fail, the fill semantics are kept
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, err)
 		return
@@ -78,7 +78,7 @@ func (h *Handler) Update(c *gin.Context) {
 // Delete handles the request to delete a game
 func (h *Handler) Delete(c *gin.Context) {
 	var req GameDeleteRequest
-	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
+	_ = c.ShouldBindUri(&req) // uri fields are all strings with no required: binding cannot fail, the fill semantics are kept
 
 	if err := h.service.Delete(c.Request.Context(), &req); err != nil {
 		response.Error(c, err)
@@ -90,7 +90,7 @@ func (h *Handler) Delete(c *gin.Context) {
 // EnvsList handles the request to list game environments
 func (h *Handler) EnvsList(c *gin.Context) {
 	var req GameEnvsListRequest
-	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
+	_ = c.ShouldBindUri(&req) // uri fields are all strings with no required: binding cannot fail, the fill semantics are kept
 
 	resp, err := h.service.EnvsList(c.Request.Context(), &req)
 	if err != nil {
@@ -103,7 +103,7 @@ func (h *Handler) EnvsList(c *gin.Context) {
 // EnvAdd handles the request to add a game environment
 func (h *Handler) EnvAdd(c *gin.Context) {
 	var req GameEnvAddRequest
-	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
+	_ = c.ShouldBindUri(&req) // uri fields are all strings with no required: binding cannot fail, the fill semantics are kept
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, err)
 		return
@@ -120,7 +120,7 @@ func (h *Handler) EnvAdd(c *gin.Context) {
 // EnvUpdate handles the request to update a game environment
 func (h *Handler) EnvUpdate(c *gin.Context) {
 	var req GameEnvUpdateRequest
-	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
+	_ = c.ShouldBindUri(&req) // uri fields are all strings with no required: binding cannot fail, the fill semantics are kept
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, err)
 		return
@@ -137,7 +137,7 @@ func (h *Handler) EnvUpdate(c *gin.Context) {
 // EnvDelete handles the request to delete a game environment
 func (h *Handler) EnvDelete(c *gin.Context) {
 	var req GameEnvDeleteRequest
-	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
+	_ = c.ShouldBindUri(&req) // uri fields are all strings with no required: binding cannot fail, the fill semantics are kept
 
 	resp, err := h.service.EnvDelete(c.Request.Context(), &req)
 	if err != nil {

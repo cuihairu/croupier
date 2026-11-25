@@ -22,17 +22,20 @@ var allowedGameStatuses = map[string]struct{}{
 
 var gameNamePattern = regexp.MustCompile(`^[A-Za-z0-9_@-]+$`)
 
-// explicitGameIDPattern 与 svc.sanitizeGameID 语义对齐：小写字母/数字/
-// 下划线/连字符。连字符原样保留（与 SDK 侧注册的 gameId 一致）。
+// explicitGameIDPattern is aligned with the semantics of svc.sanitizeGameID:
+// lowercase letters, digits, underscores and hyphens. Hyphens are preserved
+// as-is (consistent with the gameId registered on the SDK side).
 var explicitGameIDPattern = regexp.MustCompile(`^[a-z0-9_-]+$`)
 
 func parseGameID(id string) (uint, error) {
 	return utils.ParseUintID(id, "游戏ID")
 }
 
-// resolveGameID 兼容两种寻址形态：数字主键（历史形态）与业务 game_id（=Name，
-// BeforeCreate 自动填充）。前端环境页自授权视图（/profile/games）驱动后不再
-// 持有数字主键，环境端点因此接受业务串寻址。
+// resolveGameID accepts both addressing forms: the numeric primary key (the
+// legacy form) and the business game_id (= Name, auto-filled by BeforeCreate).
+// After the frontend environment page moved to the self-authorized view
+// (/profile/games) it no longer holds numeric primary keys, so the
+// environment endpoints accept business-string addressing.
 func (s *Service) resolveGameID(ctx context.Context, raw string) (uint, error) {
 	if id, err := parseGameID(raw); err == nil {
 		return id, nil
@@ -42,15 +45,18 @@ func (s *Service) resolveGameID(ctx context.Context, raw string) (uint, error) {
 		return 0, errorx.NewNotFound("游戏 " + strings.TrimSpace(raw) + " 不存在")
 	}
 	if err != nil {
-		// 真实存储错误按原样上抛，禁止吞成 404。
+		// A genuine storage error is propagated as-is; never swallow it into
+		// a 404.
 		return 0, err
 	}
 	return game.ID, nil
 }
 
-// gameLookupErr 把模型层"游戏不存在"翻译成 404 契约错误。数字主键寻址
-// 不做存在性预检（resolveGameID 对数字直接放行），载入失败时在这里统一
-// 收口；其余错误（数据库故障等）原样上抛，禁止吞成 404。
+// gameLookupErr translates the model-layer "game not found" into a 404
+// contract error. Numeric primary-key addressing performs no existence
+// pre-check (resolveGameID lets numbers pass through directly), so load
+// failures are consolidated here; other errors (database failures, etc.)
+// are propagated as-is and never swallowed into a 404.
 func gameLookupErr(rawID string, err error) error {
 	if errors.Is(err, model.ErrGameNotFound) {
 		return errorx.NewNotFound("游戏 " + rawID + " 不存在")
@@ -58,10 +64,14 @@ func gameLookupErr(rawID string, err error) error {
 	return err
 }
 
-// gameEnvScopes 返回当前操作者在指定游戏上的授权环境集合。admin 角色直过
-// （isAdmin=true，allowed 为 nil 表示不限制）；其余操作者按 admin_game_env_scopes
-// 授权表过滤——RBAC 功能权限点（games:manage）只表达「能否管理游戏环境」，
-// 该表表达「在哪些 (game, env) 上被授权」，环境写路径两道防线都必须过。
+// gameEnvScopes returns the set of environments the current operator is
+// authorized for on the given game. The admin role passes directly
+// (isAdmin=true, with allowed nil meaning unrestricted); all other operators
+// are filtered against the admin_game_env_scopes authorization table -- the
+// RBAC functional permission point (games:manage) only expresses "may manage
+// game environments", while this table expresses "authorized on which
+// (game, env) pairs"; both lines of defense must pass on the environment
+// write path.
 func (s *Service) gameEnvScopes(ctx context.Context, gameID uint) (map[string]struct{}, bool, error) {
 	admin, roles, err := utils.LoadCurrentAdmin(ctx, s.svcCtx)
 	if err != nil {
@@ -83,9 +93,12 @@ func (s *Service) gameEnvScopes(ctx context.Context, gameID uint) (map[string]st
 	return allowed, false, nil
 }
 
-// authorizeGameEnv 是环境写路径的授权防线：目标环境必须命中授权集合。
-// envs 变参为空表示仅校验游戏维度（EnvAdd 场景——新增环境尚不存在，
-// 不在授权表内，只要操作者在该游戏持有任一环境授权即可）。
+// authorizeGameEnv is the authorization gate on the environment write path:
+// the target environment must hit the authorized set. An empty envs variadic
+// means only the game dimension is validated (the EnvAdd case -- a new
+// environment does not exist yet and is not in the authorization table, so
+// it suffices that the operator holds any environment authorization on that
+// game).
 func (s *Service) authorizeGameEnv(ctx context.Context, gameID uint, envs ...string) error {
 	allowed, isAdmin, err := s.gameEnvScopes(ctx, gameID)
 	if err != nil {
@@ -105,8 +118,8 @@ func (s *Service) authorizeGameEnv(ctx context.Context, gameID uint, envs ...str
 	return nil
 }
 
-// filterEnvItemsByScopes 按授权环境集合过滤列表项（小写对齐 findEnvIndex 的
-// EqualFold 语义）。
+// filterEnvItemsByScopes filters list items by the authorized environment set
+// (lowercased, matching findEnvIndex's EqualFold semantics).
 func filterEnvItemsByScopes(items []GameEnvItem, allowed map[string]struct{}) []GameEnvItem {
 	filtered := make([]GameEnvItem, 0, len(items))
 	for _, item := range items {
@@ -191,9 +204,11 @@ func sanitizeGameName(name string) (string, error) {
 	return trimmed, nil
 }
 
-// sanitizeExplicitGameID 归一显式提交的 gameId：留空返回空串（未提交），
-// 其余按 sanitizeGameID 语义小写化、空格折叠为下划线，并限定字符集与
-// 长度（games.game_id 列 size:64）。连字符可用（demo-game）。
+// sanitizeExplicitGameID normalizes an explicitly submitted gameId: empty
+// input returns the empty string (not submitted), otherwise it lowercases and
+// folds spaces into underscores per sanitizeGameID semantics, and constrains
+// both the charset and length (the games.game_id column is size:64).
+// Hyphens are allowed (demo-game).
 func sanitizeExplicitGameID(raw string) (string, error) {
 	trimmed := strings.TrimSpace(raw)
 	if trimmed == "" {

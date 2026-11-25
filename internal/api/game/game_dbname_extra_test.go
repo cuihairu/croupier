@@ -1,5 +1,5 @@
-// 覆盖目标：game handler 的存储错误分支（表删除）与
-// deriveGameDBName 的默认命名分支。
+// Coverage targets: the game handler's store error branches (table drop) and
+// the default naming branch of deriveGameDBName.
 package game
 
 import (
@@ -43,7 +43,7 @@ func TestGameHandler_EnvsList_StoreError(t *testing.T) {
 }
 
 func TestDeriveGameDBName_Default(t *testing.T) {
-	// 无 Router：默认命名（Router 分支由 router 包自身覆盖）
+	// No Router: default naming (the Router branch is covered by the router package itself)
 	s := NewService(&svc.ServiceContext{})
 	assert.Equal(t, router.DefaultGameDBName("demo", "prod"), s.deriveGameDBName("demo", "prod"))
 }

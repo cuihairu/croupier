@@ -9,9 +9,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// 服务层回归：删除游戏后同名重建必须成功，而不是 duplicate-key 500
-// （线上实证：软删墓碑占住 game_id/alias_name 物理唯一索引，重建报
-// SQLSTATE 23505；删除路径已改硬删，0039 迁移清存量墓碑）。
+// Service-layer regression: recreating a game with the same name after deleting it must
+// succeed, not hit a duplicate-key 500
+// (production evidence: soft-delete tombstones held the game_id/alias_name physical unique
+// indexes and recreation failed with SQLSTATE 23505; the delete path was switched to hard
+// delete and the 0039 migration cleared pre-existing tombstones).
 func TestGameDeleteThenRecreateSameName(t *testing.T) {
 	db := setupTestDB(t)
 	seedTestPermissions(t, db)
@@ -25,17 +27,19 @@ func TestGameDeleteThenRecreateSameName(t *testing.T) {
 	firstID := strconv.FormatUint(uint64(resp.Game.ID), 10)
 	require.NoError(t, svc.Delete(ctx, &GameDeleteRequest{ID: firstID}))
 
-	// 墓碑行必须物理消失（Unscoped 也查不到）。
+	// The tombstone rows must be gone physically (not even Unscoped finds them).
 	var tombstones int64
 	require.NoError(t, db.Unscoped().Model(&model.Game{}).Where("name = ?", "recreate_me").Count(&tombstones).Error)
 	assert.Zero(t, tombstones, "删除后不应残留软删墓碑行")
 
-	// 同名 + 同显示名重建（两条唯一索引都被墓碑占过）。
+	// Recreate with the same name and same display name (both unique indexes had been held
+	// by tombstones).
 	resp2, err := svc.Create(ctx, &GameCreateRequest{Name: "recreate_me", AliasName: "重建回归"})
 	require.NoError(t, err)
 	assert.NotEqual(t, resp.Game.ID, resp2.Game.ID)
 
-	// 显示名缺省回填（alias_name = name）路径同样不能踩唯一索引。
+	// The display-name default backfill path (alias_name = name) must likewise not step on
+	// the unique index.
 	require.NoError(t, svc.Delete(ctx, &GameDeleteRequest{
 		ID: strconv.FormatUint(uint64(resp2.Game.ID), 10)}))
 	resp3, err := svc.Create(ctx, &GameCreateRequest{Name: "recreate_me"})

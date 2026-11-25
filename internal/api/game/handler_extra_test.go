@@ -38,14 +38,14 @@ func setupGameHandlerTest(t *testing.T) (*Handler, *gorm.DB) {
 		Nickname: "Test Admin",
 		Status:   1,
 	}
-	err = adminModel.Create(nil, admin, "password123") //nolint:staticcheck // 刻意 nil context：model 层不消费 ctx
+	err = adminModel.Create(nil, admin, "password123") //nolint:staticcheck // deliberately nil context: the model layer does not consume ctx
 	require.NoError(t, err)
 
 	role := &model.Role{Name: "admin"}
-	err = roleModel.Create(nil, role) //nolint:staticcheck // 刻意 nil context：model 层不消费 ctx
+	err = roleModel.Create(nil, role) //nolint:staticcheck // deliberately nil context: the model layer does not consume ctx
 	require.NoError(t, err)
 
-	err = adminModel.AssignRole(nil, admin.ID, role.ID) //nolint:staticcheck // 刻意 nil context：model 层不消费 ctx
+	err = adminModel.AssignRole(nil, admin.ID, role.ID) //nolint:staticcheck // deliberately nil context: the model layer does not consume ctx
 	require.NoError(t, err)
 
 	err = roleModel.ReplacePermissions(context.TODO(), role.ID, []string{

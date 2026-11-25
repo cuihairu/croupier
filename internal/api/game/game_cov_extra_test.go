@@ -1,7 +1,8 @@
-// 覆盖目标：game service 的 DB 错误分支（Exists/Create/Update/Delete/
-// UpdateEnvsAndBindings/FindEnvBinding/ListEnvBindings）、Router 分支
-// （deriveGameDBName / ForgetGame / Forget）、enrichedEnvs 的 GetEnvs 与
-// 绑定查询失败、EnvUpdate 非法 ID，以及 handler List 的查询参数绑定错误。
+// Coverage targets: the game service's DB error branches (Exists/Create/Update/Delete/
+// UpdateEnvsAndBindings/FindEnvBinding/ListEnvBindings), the Router branches
+// (deriveGameDBName / ForgetGame / Forget), GetEnvs of enrichedEnvs and binding
+// query failures, EnvUpdate with an invalid ID, and the handler List query
+// parameter binding error.
 package game
 
 import (
@@ -24,7 +25,7 @@ import (
 	"gorm.io/gorm/schema"
 )
 
-// ---- gorm 错误注入基建 ----
+// ---- gorm error injection infrastructure ----
 
 var covSchemaCache = &sync.Map{}
 
@@ -85,13 +86,13 @@ func (f *covFailureInjector) register(db *gorm.DB) {
 	}
 	_ = db.Callback().Create().Before("gorm:create").Register("cov_fail_create", callback("create"))
 	_ = db.Callback().Query().Before("gorm:query").Register("cov_fail_query", callback("query"))
-	// Scan/Rows 走 Row 处理器（gorm:row），需单独挂接。
+	// Scan/Rows go through the Row processor (gorm:row) and need a separate hook.
 	_ = db.Callback().Row().Before("gorm:row").Register("cov_fail_row", callback("query"))
 	_ = db.Callback().Update().Before("gorm:update").Register("cov_fail_update", callback("update"))
 	_ = db.Callback().Delete().Before("gorm:delete").Register("cov_fail_delete", callback("delete"))
 }
 
-// ---- 独立测试环境 ----
+// ---- isolated test environment ----
 
 func newGameCovEnv(t *testing.T) (*Service, context.Context, *covFailureInjector, *gorm.DB, *svc.ServiceContext) {
 	t.Helper()
@@ -133,7 +134,7 @@ func newGameCovEnv(t *testing.T) (*Service, context.Context, *covFailureInjector
 	return NewService(svcCtx), ctx, inj, db, svcCtx
 }
 
-// seedCovGame 创建一个带 prod 环境的游戏并返回其数字 ID 字符串。
+// seedCovGame creates a game with a prod environment and returns its numeric ID as a string.
 func seedCovGame(t *testing.T, db *gorm.DB, name string) string {
 	t.Helper()
 	game := &model.Game{GameID: name, Name: name, Status: "dev", Enabled: true}
@@ -162,7 +163,7 @@ func TestGameCov_HandlerListBindError(t *testing.T) {
 
 // ---- service ----
 
-// deriveGameDBName 走 Router 分支：EnvAdd 持久化的绑定使用 Router 命名。
+// deriveGameDBName takes the Router branch: bindings persisted by EnvAdd use Router naming.
 func TestGameCov_EnvAdd_WithRouter(t *testing.T) {
 	s, ctx, _, db, svcCtx := newGameCovEnv(t)
 	svcCtx.Router = router.New(router.Config{}, db)
@@ -178,7 +179,7 @@ func TestGameCov_EnvAdd_WithRouter(t *testing.T) {
 	assert.Equal(t, router.DefaultGameDBName("covrouter", "stage2"), binding.DatabaseName)
 }
 
-// Create：名称唯一性检查查询失败。
+// Create: query for the name uniqueness check fails.
 func TestGameCov_Create_ExistsCheckError(t *testing.T) {
 	s, ctx, inj, _, _ := newGameCovEnv(t)
 	inj.failAt["query:games"] = 1
@@ -188,7 +189,7 @@ func TestGameCov_Create_ExistsCheckError(t *testing.T) {
 	assert.Nil(t, resp)
 }
 
-// Create：games 写入失败。
+// Create: writing the games row fails.
 func TestGameCov_Create_CreateError(t *testing.T) {
 	s, ctx, inj, _, _ := newGameCovEnv(t)
 	inj.failAll["create:games"] = true
@@ -198,7 +199,7 @@ func TestGameCov_Create_CreateError(t *testing.T) {
 	assert.Nil(t, resp)
 }
 
-// Update：重命名时的唯一性检查查询失败。
+// Update: query for the rename uniqueness check fails.
 func TestGameCov_Update_ExistsCheckError(t *testing.T) {
 	s, ctx, inj, db, _ := newGameCovEnv(t)
 	id := seedCovGame(t, db, "covgame")
@@ -209,7 +210,7 @@ func TestGameCov_Update_ExistsCheckError(t *testing.T) {
 	assert.Nil(t, resp)
 }
 
-// Update：games 更新失败。
+// Update: updating the games row fails.
 func TestGameCov_Update_UpdateError(t *testing.T) {
 	s, ctx, inj, db, _ := newGameCovEnv(t)
 	id := seedCovGame(t, db, "covgame")
@@ -220,7 +221,7 @@ func TestGameCov_Update_UpdateError(t *testing.T) {
 	assert.Nil(t, resp)
 }
 
-// Delete：游戏存在但 DeleteWithEnvBindings 事务失败。
+// Delete: the game exists but the DeleteWithEnvBindings transaction fails.
 func TestGameCov_Delete_WithBindingsError(t *testing.T) {
 	s, ctx, inj, db, _ := newGameCovEnv(t)
 	id := seedCovGame(t, db, "covgame")
@@ -230,21 +231,21 @@ func TestGameCov_Delete_WithBindingsError(t *testing.T) {
 	require.Error(t, err)
 }
 
-// Delete：携带 Router 时走 ForgetGame 清理缓存连接。
+// Delete: with a Router present, ForgetGame clears cached connections.
 func TestGameCov_Delete_WithRouter(t *testing.T) {
 	s, ctx, _, db, svcCtx := newGameCovEnv(t)
 	svcCtx.Router = router.New(router.Config{}, db)
 	id := seedCovGame(t, db, "covrouterdel")
 
-	// 环境未清空 → 拒绝删除（删除门禁）
+	// Environments not emptied -> deletion refused (deletion gate)
 	require.Error(t, s.Delete(ctx, &GameDeleteRequest{ID: id}))
 
-	// 清空 Envs 元数据 → 放行，覆盖 Router forget 路径
+	// Clear the Envs metadata -> deletion is let through, covering the Router forget path
 	require.NoError(t, db.Model(&model.Game{}).Where("id = ?", id).Update("envs", "[]").Error)
 	require.NoError(t, s.Delete(ctx, &GameDeleteRequest{ID: id}))
 }
 
-// Delete：游戏已不存在时兜底 Delete 报错（幂等路径的失败分支）。
+// Delete: fallback Delete errors when the game is already gone (failure branch of the idempotent path).
 func TestGameCov_Delete_MissingGamePlainDeleteError(t *testing.T) {
 	s, ctx, inj, _, _ := newGameCovEnv(t)
 	inj.failAll["delete:games"] = true
@@ -253,8 +254,8 @@ func TestGameCov_Delete_MissingGamePlainDeleteError(t *testing.T) {
 	require.Error(t, err)
 }
 
-// enrichedEnvs：envs JSON 为合法 JSON 但非数组 → GetEnvs 解码失败返回空环境。
-// （不能用非法 JSON：缓存层 cachedFetch 会先因 marshal 失败而报错。）
+// enrichedEnvs: envs JSON is valid JSON but not an array -> GetEnvs decoding fails and returns no envs.
+// (Invalid JSON will not do: the cache layer's cachedFetch errors out first on the marshal failure.)
 func TestGameCov_EnvsList_BadEnvsJSON(t *testing.T) {
 	s, ctx, _, db, _ := newGameCovEnv(t)
 	id := seedCovGame(t, db, "covbadenvs")
@@ -266,7 +267,7 @@ func TestGameCov_EnvsList_BadEnvsJSON(t *testing.T) {
 	assert.Empty(t, resp.Envs)
 }
 
-// enrichedEnvs：ListEnvBindings 查询失败 → 返回未增强的环境项。
+// enrichedEnvs: ListEnvBindings query fails -> unenriched env items are returned.
 func TestGameCov_EnvsList_BindingsQueryError(t *testing.T) {
 	s, ctx, inj, db, _ := newGameCovEnv(t)
 	id := seedCovGame(t, db, "covbinderr")
@@ -279,7 +280,7 @@ func TestGameCov_EnvsList_BindingsQueryError(t *testing.T) {
 	assert.Empty(t, resp.Envs[0].DatabaseName)
 }
 
-// EnvAdd：UpdateEnvsAndBindings 事务失败。
+// EnvAdd: UpdateEnvsAndBindings transaction fails.
 func TestGameCov_EnvAdd_UpdateEnvsAndBindingsError(t *testing.T) {
 	s, ctx, inj, db, _ := newGameCovEnv(t)
 	id := seedCovGame(t, db, "covenvadd")
@@ -290,7 +291,7 @@ func TestGameCov_EnvAdd_UpdateEnvsAndBindingsError(t *testing.T) {
 	assert.Nil(t, resp)
 }
 
-// EnvUpdate：非法数字 ID。
+// EnvUpdate: invalid numeric ID.
 func TestGameCov_EnvUpdate_BadID(t *testing.T) {
 	s, ctx, _, _, _ := newGameCovEnv(t)
 
@@ -299,7 +300,7 @@ func TestGameCov_EnvUpdate_BadID(t *testing.T) {
 	assert.Nil(t, resp)
 }
 
-// EnvUpdate：FindEnvBinding 查询失败。
+// EnvUpdate: FindEnvBinding query fails.
 func TestGameCov_EnvUpdate_FindEnvBindingError(t *testing.T) {
 	s, ctx, inj, db, _ := newGameCovEnv(t)
 	id := seedCovGame(t, db, "covenvupd")
@@ -310,7 +311,7 @@ func TestGameCov_EnvUpdate_FindEnvBindingError(t *testing.T) {
 	assert.Nil(t, resp)
 }
 
-// EnvUpdate：UpdateEnvsAndBindings 事务失败。
+// EnvUpdate: UpdateEnvsAndBindings transaction fails.
 func TestGameCov_EnvUpdate_UpdateEnvsAndBindingsError(t *testing.T) {
 	s, ctx, inj, db, _ := newGameCovEnv(t)
 	id := seedCovGame(t, db, "covenvupd2")
@@ -321,7 +322,7 @@ func TestGameCov_EnvUpdate_UpdateEnvsAndBindingsError(t *testing.T) {
 	assert.Nil(t, resp)
 }
 
-// EnvDelete：UpdateEnvsAndBindings 事务失败。
+// EnvDelete: UpdateEnvsAndBindings transaction fails.
 func TestGameCov_EnvDelete_UpdateEnvsAndBindingsError(t *testing.T) {
 	s, ctx, inj, db, _ := newGameCovEnv(t)
 	id := seedCovGame(t, db, "covenvdel")
@@ -332,7 +333,7 @@ func TestGameCov_EnvDelete_UpdateEnvsAndBindingsError(t *testing.T) {
 	assert.Nil(t, resp)
 }
 
-// EnvDelete：携带 Router 时走 Forget 清理该环境缓存连接。
+// EnvDelete: with a Router present, Forget clears that environment's cached connection.
 func TestGameCov_EnvDelete_WithRouter(t *testing.T) {
 	s, ctx, _, db, svcCtx := newGameCovEnv(t)
 	svcCtx.Router = router.New(router.Config{}, db)

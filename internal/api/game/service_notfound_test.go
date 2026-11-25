@@ -13,9 +13,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// 游戏不存在（含删除后）时，详情与环境端点必须回 404 not_found，
-// 不得把模型层普通 error 透传成 500 internal_error。
-// 线上走查回归：创建 → 删除 → GET 详情曾返回 500 "game not found"。
+// When a game does not exist (including after deletion), the detail and env endpoints must
+// return 404 not_found, and must not pass a plain model-layer error through as
+// 500 internal_error.
+// Regression from a production walkthrough: create -> delete -> GET detail once returned
+// 500 "game not found".
 func TestGameLookup_MissingGameReturns404(t *testing.T) {
 	db := setupTestDB(t)
 	seedTestPermissions(t, db)
@@ -38,28 +40,29 @@ func TestGameLookup_MissingGameReturns404(t *testing.T) {
 		assert.Equal(t, "not_found", codeErr.ErrorCode())
 	}
 
-	// 模型层：可 errors.Is 识别的哨兵，文案保留 "game not found"。
+	// Model layer: a sentinel recognizable via errors.Is, with the message kept as
+	// "game not found".
 	_, err = svcCtx.GameModel.FindOne(context.Background(), 999999)
 	require.ErrorIs(t, err, model.ErrGameNotFound)
 	assert.Contains(t, err.Error(), "game not found")
 
-	// 删除后详情（走查回归主路径：此前 500）。
+	// Detail after deletion (the main walkthrough regression path: previously 500).
 	_, err = svc.Detail(ctx, &GameDetailRequest{ID: gameID})
 	assertNotFound(t, err)
 
-	// 数字主键寻址不预检存在性，载入失败同样 404。
+	// Numeric key addressing does not pre-check existence; a failed load is likewise 404.
 	_, err = svc.Detail(ctx, &GameDetailRequest{ID: "999999"})
 	assertNotFound(t, err)
 
-	// 业务串寻址不存在 → 404（resolveGameID 路径）。
+	// Business string addressing with no match -> 404 (the resolveGameID path).
 	_, err = svc.Detail(ctx, &GameDetailRequest{ID: "ghost_game"})
 	assertNotFound(t, err)
 
-	// 更新不存在的游戏：写 0 行后回读同样 404。
+	// Updating a missing game: the read-back after writing 0 rows is likewise 404.
 	_, err = svc.Update(ctx, &GameUpdateRequest{ID: gameID, AliasName: "不该成功"})
 	assertNotFound(t, err)
 
-	// 环境四端点。
+	// The four env endpoints.
 	_, err = svc.EnvsList(ctx, &GameEnvsListRequest{ID: gameID})
 	assertNotFound(t, err)
 
@@ -73,8 +76,8 @@ func TestGameLookup_MissingGameReturns404(t *testing.T) {
 	assertNotFound(t, err)
 }
 
-// HTTP 契约层：handler + response.Error 必须产出 404 {"error":"not_found"}，
-// 而不是 500 internal_error。
+// HTTP contract layer: handler + response.Error must produce 404 {"error":"not_found"},
+// not 500 internal_error.
 func TestGameDetail_HTTP_MissingGameContract(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 

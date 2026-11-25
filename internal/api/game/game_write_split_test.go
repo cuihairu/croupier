@@ -11,7 +11,8 @@ import (
 	"gorm.io/gorm"
 )
 
-// createPermUser 建一个仅持有指定功能权限点的非 admin 用户并返回其 ctx。
+// createPermUser creates a non-admin user holding only the given permission points and returns
+// its ctx.
 func createPermUser(t *testing.T, db *gorm.DB, username string, permIDs ...string) context.Context {
 	t.Helper()
 
@@ -36,7 +37,8 @@ func createPermUser(t *testing.T, db *gorm.DB, username string, permIDs ...strin
 
 func strPtr(s string) *string { return &s }
 
-// 游戏本体增删改与环境管理权限分离：games:manage 不得创建/编辑/删除游戏。
+// Game create/update/delete is separated from environment management permissions: games:manage
+// must not create, edit, or delete games.
 func TestGameWrite_PermissionSplit(t *testing.T) {
 	db := setupTestDB(t)
 	seedTestPermissions(t, db)
@@ -46,11 +48,11 @@ func TestGameWrite_PermissionSplit(t *testing.T) {
 	manageCtx := createPermUser(t, db, "perm_env_manager", "games:manage")
 	writeCtx := createPermUser(t, db, "perm_game_writer", "games:write")
 
-	// 仅 games:manage：创建/编辑/删除游戏全部拒绝
+	// games:manage only: creating, editing, and deleting games are all rejected
 	_, err := svc.Create(manageCtx, &GameCreateRequest{Name: "split_manage_game"})
 	require.Error(t, err)
 
-	// games:write：创建通过，icon 落库
+	// games:write: creation passes, the icon lands in the database
 	resp, err := svc.Create(writeCtx, &GameCreateRequest{
 		Name:      "split_write_game",
 		AliasName: "分拆写手",
@@ -61,12 +63,12 @@ func TestGameWrite_PermissionSplit(t *testing.T) {
 	assert.Equal(t, "https://cdn.example.com/game.png", resp.Game.Icon)
 	gameID := resp.Game.GameID
 
-	// 仅 games:manage：编辑与删除均拒绝
+	// games:manage only: both editing and deleting are rejected
 	_, err = svc.Update(manageCtx, &GameUpdateRequest{ID: gameID, AliasName: "越权改名", Icon: strPtr("x")})
 	require.Error(t, err)
 	require.Error(t, svc.Delete(manageCtx, &GameDeleteRequest{ID: gameID}))
 
-	// games:write：编辑（显示名 + 图标）通过；图标指针置空 = 清除
+	// games:write: editing (display name + icon) passes; a nil icon pointer = clear
 	upd, err := svc.Update(writeCtx, &GameUpdateRequest{
 		ID:        gameID,
 		AliasName: "改后显示名",
@@ -76,11 +78,12 @@ func TestGameWrite_PermissionSplit(t *testing.T) {
 	assert.Equal(t, "改后显示名", upd.Game.AliasName)
 	assert.Empty(t, upd.Game.Icon)
 
-	// 无环境的游戏，games:write 可删
+	// A game with no environments can be deleted by games:write
 	require.NoError(t, svc.Delete(writeCtx, &GameDeleteRequest{ID: gameID}))
 }
 
-// 显示名缺省回填游戏标识（alias_name 唯一索引不接受多个空串）。
+// The display name defaults back to the game identifier (the alias_name unique index does not
+// accept multiple empty strings).
 func TestGameCreate_AliasDefaultsToName(t *testing.T) {
 	db := setupTestDB(t)
 	seedTestPermissions(t, db)
@@ -95,7 +98,8 @@ func TestGameCreate_AliasDefaultsToName(t *testing.T) {
 	assert.Equal(t, "alias_default_game", resp.Game.AliasName)
 }
 
-// 删除游戏前必须清空环境：Envs 元数据与 game_envs 绑定表两处都拦（409 语义）。
+// Environments must be emptied before a game can be deleted: both the Envs metadata and the
+// game_envs binding table block it (409 semantics).
 func TestGameWrite_DeleteBlockedByEnvs(t *testing.T) {
 	db := setupTestDB(t)
 	seedTestPermissions(t, db)
@@ -109,7 +113,7 @@ func TestGameWrite_DeleteBlockedByEnvs(t *testing.T) {
 	require.NoError(t, gameModel.Create(context.Background(), game))
 	gameID := strconv.FormatUint(uint64(game.ID), 10)
 
-	// ① Envs 元数据非空 → 拒绝
+	// ① Envs metadata non-empty -> rejected
 	require.NoError(t, game.SetEnvs([]model.GameEnv{{Env: "prod", Description: "Production"}}))
 	require.NoError(t, db.Model(&model.Game{}).Where("id = ?", game.ID).
 		Update("envs", game.Envs).Error)
@@ -117,7 +121,7 @@ func TestGameWrite_DeleteBlockedByEnvs(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "环境")
 
-	// ② 清掉 Envs 元数据但绑定表仍有记录 → 仍拒绝
+	// ② Envs metadata cleared but the binding table still has rows -> still rejected
 	require.NoError(t, db.Model(&model.Game{}).Where("id = ?", game.ID).
 		Update("envs", "[]").Error)
 	require.NoError(t, db.Create(&model.GameEnvBinding{
@@ -127,7 +131,7 @@ func TestGameWrite_DeleteBlockedByEnvs(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "环境")
 
-	// ③ 两处清空 → 放行
+	// ③ Both cleared -> deletion is let through
 	require.NoError(t, db.Where("game_id = ? AND env = ?", game.GameID, "prod").
 		Delete(&model.GameEnvBinding{}).Error)
 	require.NoError(t, svc.Delete(writeCtx, &GameDeleteRequest{ID: gameID}))

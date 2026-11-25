@@ -13,9 +13,9 @@ import (
 	"gorm.io/gorm"
 )
 
-// createEnvScopedManager 建一个非 admin 角色的运营者：持有 games:manage 功能
-// 权限点（能过 RequireAnyPermission），但游戏/环境可见性由 admin_game_env_scopes
-// 授权表决定（gameEnvScopes 防线的数据源）。
+// createEnvScopedManager creates an operator with a non-admin role: it holds the games:manage
+// function permission (so it passes RequireAnyPermission), but game/env visibility is decided
+// by the admin_game_env_scopes grant table (the data source of the gameEnvScopes guard).
 func createEnvScopedManager(t *testing.T, db *gorm.DB, username string) (context.Context, uint) {
 	t.Helper()
 
@@ -34,7 +34,7 @@ func createEnvScopedManager(t *testing.T, db *gorm.DB, username string) (context
 	return context.WithValue(ctx, "adminID", admin.ID), admin.ID
 }
 
-// seedEnvScope 授予 (adminID, gameID, env) 的环境授权。
+// seedEnvScope grants an env scope for (adminID, gameID, env).
 func seedEnvScope(t *testing.T, db *gorm.DB, adminID, gameID uint, env string) {
 	t.Helper()
 	require.NoError(t, db.Create(&model.AdminGameEnvScope{AdminID: adminID, GameID: gameID, Env: env}).Error)
@@ -60,7 +60,8 @@ func TestService_EnvAdd_ForbiddenWithoutGameScope(t *testing.T) {
 
 	game := createScopeTestGame(t, db, "scope_add_denied")
 
-	// 持 games:manage 但无任何游戏授权 → 写路径拒绝（功能权限点不再是唯一防线）
+	// Holds games:manage but no game grants at all -> the write path is rejected (the
+	// function permission point is no longer the only line of defense)
 	ctx, _ := createEnvScopedManager(t, db, "manager_no_scope")
 	service := NewService(svcCtx)
 
@@ -82,7 +83,8 @@ func TestService_EnvAdd_SuccessWithGameScope(t *testing.T) {
 	game := createScopeTestGame(t, db, "scope_add_allowed",
 		model.GameEnv{Env: "prod", Description: "Production"})
 
-	// 游戏维度有授权（任一环境）即可新增环境（新增环境尚不存在、不在授权表内）
+	// A game-level grant (any environment) suffices to add an environment (the new
+	// environment does not exist yet and is not in the grant table)
 	ctx, adminID := createEnvScopedManager(t, db, "manager_add")
 	seedEnvScope(t, db, adminID, game.ID, "prod")
 	service := NewService(svcCtx)
@@ -109,14 +111,15 @@ func TestService_EnvUpdate_RequiresBothEnvsInScope(t *testing.T) {
 	seedEnvScope(t, db, adminID, game.ID, "prod")
 	service := NewService(svcCtx)
 
-	// 只改描述（名字不变）：目标环境 prod 在授权内 → 通过
+	// Only the description changes (name unchanged): the target env prod is within the
+	// grant -> passes
 	resp, err := service.EnvUpdate(ctx, &GameEnvUpdateRequest{
 		ID: gameID, EnvID: "prod", Name: "prod", Type: "Updated description",
 	})
 	require.NoError(t, err)
 	assert.Len(t, resp.Envs, 2)
 
-	// 目标环境 dev 不在授权内 → 拒绝
+	// The target env dev is outside the grant -> rejected
 	_, err = service.EnvUpdate(ctx, &GameEnvUpdateRequest{
 		ID: gameID, EnvID: "dev", Type: "Sneaky edit",
 	})
@@ -126,7 +129,8 @@ func TestService_EnvUpdate_RequiresBothEnvsInScope(t *testing.T) {
 	ce, _ := err.(*errorx.CodeError)
 	assert.Equal(t, http.StatusForbidden, ce.Code)
 
-	// 改名 prod → beta：beta 不在授权内，改名即扩权 → 拒绝
+	// Renaming prod -> beta: beta is outside the grant, and a rename is a privilege
+	// expansion -> rejected
 	_, err = service.EnvUpdate(ctx, &GameEnvUpdateRequest{
 		ID: gameID, EnvID: "prod", Name: "beta",
 	})
@@ -175,7 +179,7 @@ func TestService_EnvsList_FiltersByScope(t *testing.T) {
 	seedEnvScope(t, db, adminID, game.ID, "prod")
 	service := NewService(svcCtx)
 
-	// 只授权 prod：列表收敛到 prod，dev 不可见
+	// Only prod is granted: the listing narrows to prod and dev is not visible
 	resp, err := service.EnvsList(ctx, &GameEnvsListRequest{ID: gameID})
 	require.NoError(t, err)
 	require.Len(t, resp.Envs, 1)
@@ -190,7 +194,8 @@ func TestService_EnvsList_BusinessKeyAddressing(t *testing.T) {
 	game := createScopeTestGame(t, db, "scope_bizkey",
 		model.GameEnv{Env: "prod", Description: "Production"})
 
-	// 前端授权视图（/profile/games）无数字主键：业务 game_id 寻址等价可用
+	// The frontend authorization view (/profile/games) has no numeric primary key:
+	// addressing by business game_id works equivalently
 	ctx, _ := createTestAdminWithContext(t, db, "testadmin", "password123", "admin")
 	service := NewService(svcCtx)
 	resp, err := service.EnvsList(ctx, &GameEnvsListRequest{ID: game.GameID})
@@ -198,7 +203,7 @@ func TestService_EnvsList_BusinessKeyAddressing(t *testing.T) {
 	require.Len(t, resp.Envs, 1)
 	assert.Equal(t, "prod", resp.Envs[0].Env)
 
-	// 业务串不存在 → 404（非 400/500）
+	// Business string with no match -> 404 (not 400/500)
 	_, err = service.EnvsList(ctx, &GameEnvsListRequest{ID: "no-such-game"})
 	require.Error(t, err)
 	_, ok := err.(*errorx.CodeError)

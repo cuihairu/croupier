@@ -62,7 +62,8 @@ func (s *Service) List(ctx context.Context, req *GamesListRequest) (*GamesListRe
 
 // Create creates a new game
 func (s *Service) Create(ctx context.Context, req *GameCreateRequest) (*GameCreateResponse, error) {
-	// 游戏本体新增与环境管理分离：games:write 管游戏增删改，games:manage 管环境。
+	// Game creation is separated from environment management: games:write
+	// governs game create/update/delete, games:manage governs environments.
 	if _, _, err := utils.RequireAnyPermission(ctx, s.svcCtx, "无权创建游戏", "admin:all", "games:write"); err != nil {
 		return nil, err
 	}
@@ -79,8 +80,9 @@ func (s *Service) Create(ctx context.Context, req *GameCreateRequest) (*GameCrea
 		return nil, errorx.NewConflict("game_id 已存在: " + name)
 	}
 
-	// 显式 gameId：连字符原样保留（与 SDK 侧注册口径一致）；缺省回落
-	// Name 派生（BeforeCreate 把连字符归一为下划线）。
+	// Explicit gameId: hyphens are kept as-is (matching the SDK-side
+	// registration convention); when omitted, fall back to deriving it from
+	// Name (BeforeCreate normalizes hyphens to underscores).
 	explicitID, err := sanitizeExplicitGameID(req.GameID)
 	if err != nil {
 		return nil, err
@@ -95,7 +97,9 @@ func (s *Service) Create(ctx context.Context, req *GameCreateRequest) (*GameCrea
 
 	aliasName := strings.TrimSpace(req.AliasName)
 	if aliasName == "" {
-		// 显示名缺省回填游戏标识：alias_name 有唯一索引，多个空串会互相冲突。
+		// Default the display name to the game identifier: alias_name has a
+		// unique index, and several empty strings would collide with each
+		// other.
 		aliasName = name
 	}
 
@@ -148,7 +152,8 @@ func (s *Service) Detail(ctx context.Context, req *GameDetailRequest) (*GameDeta
 
 // Update updates an existing game
 func (s *Service) Update(ctx context.Context, req *GameUpdateRequest) (*GameUpdateResponse, error) {
-	// 游戏本体编辑（显示名/图标等）走 games:write，与环境管理权限分离。
+	// Editing the game body itself (display name, icon, etc.) goes through
+	// games:write, separated from environment management permission.
 	if _, _, err := utils.RequireAnyPermission(ctx, s.svcCtx, "无权更新游戏", "admin:all", "games:write"); err != nil {
 		return nil, err
 	}
@@ -173,8 +178,9 @@ func (s *Service) Update(ctx context.Context, req *GameUpdateRequest) (*GameUpda
 		}
 		updates["name"] = name
 	}
-	// 显式 gameId 变更：仅未绑定环境的游戏允许（绑定后改名会让 game_envs
-	// 与按 game_id 路由的存量数据悬空）。
+	// Explicit gameId change: only allowed for games without bound
+	// environments (renaming after binding would leave game_envs and the
+	// pre-existing data routed by game_id dangling).
 	newGameID, err := sanitizeExplicitGameID(req.GameID)
 	if err != nil {
 		return nil, err
@@ -209,7 +215,8 @@ func (s *Service) Update(ctx context.Context, req *GameUpdateRequest) (*GameUpda
 		updates["alias_name"] = v
 	}
 	if req.Icon != nil {
-		// 指针语义：显式提交即生效，空串清空图标（渲染回落默认骰子）。
+		// Pointer semantics: an explicit submission takes effect, and an empty
+		// string clears the icon (rendering falls back to the default dice).
 		updates["icon"] = strings.TrimSpace(*req.Icon)
 	}
 	if v := strings.TrimSpace(req.Description); v != "" {
@@ -232,8 +239,9 @@ func (s *Service) Update(ctx context.Context, req *GameUpdateRequest) (*GameUpda
 		return nil, err
 	}
 
-	// game_id 变更后丢弃路由器缓存的旧 (gameID, env) 连接，防止后续请求
-	// 继续落在旧库名上。
+	// After a game_id change, drop the router's cached old (gameID, env)
+	// connection so subsequent requests do not keep landing on the old
+	// database name.
 	if oldGameID != "" && s.svcCtx.Router != nil {
 		_ = s.svcCtx.Router.ForgetGame(oldGameID)
 	}
@@ -254,7 +262,8 @@ func (s *Service) Update(ctx context.Context, req *GameUpdateRequest) (*GameUpda
 
 // Delete deletes a game
 func (s *Service) Delete(ctx context.Context, req *GameDeleteRequest) error {
-	// 游戏删除属 games:write，games:manage（环境管理）不能删游戏。
+	// Deleting a game belongs to games:write; games:manage (environment
+	// management) cannot delete games.
 	if _, _, err := utils.RequireAnyPermission(ctx, s.svcCtx, "无权删除游戏", "admin:all", "games:write"); err != nil {
 		return err
 	}
@@ -270,7 +279,8 @@ func (s *Service) Delete(ctx context.Context, req *GameDeleteRequest) error {
 	game, findErr := s.svcCtx.GameModel.FindOne(ctx, id)
 
 	if findErr == nil && game != nil {
-		// 环境必须清空才允许删游戏：绑定表与 Envs 元数据两处都为 0 才放行。
+		// Environments must be emptied before a game can be deleted: both the
+		// binding table and the Envs metadata must be 0 to proceed.
 		bindings, err := s.svcCtx.GameModel.ListEnvBindings(ctx, game.GameID)
 		if err != nil {
 			return err
@@ -364,7 +374,8 @@ func (s *Service) EnvAdd(ctx context.Context, req *GameEnvAddRequest) (*GameEnvA
 		return nil, err
 	}
 
-	// 新增环境是游戏级操作（目标环境尚不存在），校验游戏维度授权。
+	// Adding an environment is a game-level operation (the target environment
+	// does not exist yet), so authorize on the game dimension.
 	if err := s.authorizeGameEnv(ctx, id); err != nil {
 		return nil, err
 	}
@@ -381,8 +392,10 @@ func (s *Service) EnvAdd(ctx context.Context, req *GameEnvAddRequest) (*GameEnvA
 		Env:         newEnv,
 		Description: strings.TrimSpace(req.Type),
 	})
-	// 设计债清理：Game.SetEnvs 仅 Marshal 纯 string 字段的 []GameEnv，恒返回
-	// nil（模型层注释已论证），原 err 分支不可达已删除（下同）。
+	// Design-debt cleanup: Game.SetEnvs only Marshals a []GameEnv of pure
+	// string fields and always returns nil (already argued in the model-layer
+	// comment), so the original err branch was unreachable and removed
+	// (likewise below).
 	_ = game.SetEnvs(envs)
 
 	if err := s.svcCtx.GameModel.UpdateEnvsAndBindings(
@@ -441,7 +454,9 @@ func (s *Service) EnvUpdate(ctx context.Context, req *GameEnvUpdateRequest) (*Ga
 		}
 		target.Env = newName
 	}
-	// 改名场景新旧环境都须在授权内，否则改名即扩权（把授权环境改名为任意新名）。
+	// In the rename case both the old and the new environment must be within
+	// the grant, otherwise renaming becomes privilege escalation (renaming an
+	// authorized environment to an arbitrary new name).
 	if err := s.authorizeGameEnv(ctx, id, oldEnvName, target.Env); err != nil {
 		return nil, err
 	}
@@ -450,7 +465,8 @@ func (s *Service) EnvUpdate(ctx context.Context, req *GameEnvUpdateRequest) (*Ga
 	}
 	envs[idx] = target
 
-	// 设计债清理：SetEnvs 恒返回 nil（见 EnvAdd 同注）。
+	// Design-debt cleanup: SetEnvs always returns nil (see the note in
+	// EnvAdd).
 	_ = game.SetEnvs(envs)
 	newEnvName := target.Env
 	currentBinding, err := s.svcCtx.GameModel.FindEnvBinding(ctx, game.GameID, oldEnvName)
@@ -520,7 +536,8 @@ func (s *Service) EnvDelete(ctx context.Context, req *GameEnvDeleteRequest) (*Ga
 
 	removedEnv := envs[idx].Env
 	envs = append(envs[:idx], envs[idx+1:]...)
-	// 设计债清理：SetEnvs 恒返回 nil（见 EnvAdd 同注）。
+	// Design-debt cleanup: SetEnvs always returns nil (see the note in
+	// EnvAdd).
 	_ = game.SetEnvs(envs)
 	if err := s.svcCtx.GameModel.UpdateEnvsAndBindings(
 		ctx,

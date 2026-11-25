@@ -1,10 +1,12 @@
 package game
 
-// 覆盖率巡检第十五轮（wt-api）：helpers.go 残余 3 块收口——
-// gameEnvScopes 的 LoadCurrentAdmin 失败翼（上下文无身份）与
-// GetAdminEnvScopes 存储错误翼（授权表缺表 → errorx 内部错误，不裸传
-// SQL 错误）、authorizeGameEnv 对 gameEnvScopes 错误的透传翼。
-// 复用 service_envscope_test.go 夹具（#47 授权防线域，本会话旧域）。
+// Coverage sweep round 15 (wt-api): closing out the 3 remaining blocks in helpers.go —
+// the LoadCurrentAdmin failure wing of gameEnvScopes (no identity in the context), the
+// GetAdminEnvScopes storage error wing (grant table missing -> errorx internal error, never
+// a raw SQL error passed through), and the authorizeGameEnv wing that passes gameEnvScopes
+// errors through.
+// Reuses the service_envscope_test.go fixtures (the #47 authorization guard domain, an older
+// domain from this session).
 
 import (
 	"context"
@@ -29,13 +31,14 @@ func TestGameEnvScopes_ErrorWings(t *testing.T) {
 	svcCtx := setupTestServiceContext(t, db)
 	service := NewService(svcCtx)
 
-	// LoadCurrentAdmin 失败翼：上下文无身份信息
+	// LoadCurrentAdmin failure wing: no identity in the context
 	_, _, err := service.gameEnvScopes(context.Background(), 1)
 	require.Error(t, err)
 
-	// GetAdminEnvScopes 存储错误翼：授权表缺表 → 包装为内部错误。
-	// setupTestDB 是 cache=shared 进程级共享库（DropTable 会毒化他用例），
-	// 缺表注入须用独立库。
+	// GetAdminEnvScopes storage error wing: grant table missing -> wrapped as an internal
+	// error.
+	// setupTestDB is a cache=shared process-wide shared database (DropTable would poison
+	// other cases), so the missing-table injection needs an isolated database.
 	iso, err := gorm.Open(gsqlite.Open(fmt.Sprintf("file:game_envscope_wings_%d?mode=memory&cache=shared", gameWingsDBSeq.Add(1))), &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, model.AutoMigrate(iso))
@@ -50,11 +53,12 @@ func TestGameEnvScopes_ErrorWings(t *testing.T) {
 	_, ok := err.(*errorx.CodeError)
 	assert.True(t, ok, "存储故障应包装为 CodeError，got %T: %v", err, err)
 
-	// authorizeGameEnv 透传翼：底层 gameEnvScopes 错误原样上抛
+	// authorizeGameEnv passthrough wing: the underlying gameEnvScopes error is raised as-is
 	err = service2.authorizeGameEnv(ctx, 1, "prod")
 	require.Error(t, err)
 
-	// EnvsList 透传翼：权限与游戏寻址都过后撞上 gameEnvScopes 存储故障
+	// EnvsList passthrough wing: after both permission and game addressing pass, it hits the
+	// gameEnvScopes storage failure
 	game := createScopeTestGame(t, iso, "envlist_store_broken", model.GameEnv{Env: "prod"})
 	_, err = service2.EnvsList(ctx, &GameEnvsListRequest{ID: strconv.FormatUint(uint64(game.ID), 10)})
 	require.Error(t, err)
