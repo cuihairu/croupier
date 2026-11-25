@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-// LogLevel 日志级别
+// LogLevel log level
 type LogLevel string
 
 const (
@@ -20,7 +20,7 @@ const (
 	LogLevelError LogLevel = "error"
 )
 
-// ErrorLogger 错误日志记录器
+// ErrorLogger error logger
 type ErrorLogger struct {
 	logger      *slog.Logger
 	serviceName string
@@ -28,19 +28,19 @@ type ErrorLogger struct {
 	enableJSON  bool
 }
 
-// NewErrorLogger 创建错误日志记录器
+// NewErrorLogger creates an error logger
 func NewErrorLogger(serviceName, version string, enableJSON bool) *ErrorLogger {
 	var logger *slog.Logger
 
 	if enableJSON {
-		// JSON格式的结构化日志
+		// Structured logging in JSON format
 		opts := &slog.HandlerOptions{
 			Level: slog.LevelInfo,
 		}
 		handler := slog.NewJSONHandler(os.Stdout, opts)
 		logger = slog.New(handler)
 	} else {
-		// 文本格式的日志
+		// Logging in text format
 		opts := &slog.HandlerOptions{
 			Level: slog.LevelInfo,
 		}
@@ -56,9 +56,9 @@ func NewErrorLogger(serviceName, version string, enableJSON bool) *ErrorLogger {
 	}
 }
 
-// LogError 记录错误日志
+// LogError logs an error
 func (el *ErrorLogger) LogError(err *AppError, context map[string]interface{}) {
-	// 构建日志属性
+	// Build the log attributes
 	attrs := []slog.Attr{
 		slog.String("service", el.serviceName),
 		slog.String("version", el.version),
@@ -74,12 +74,12 @@ func (el *ErrorLogger) LogError(err *AppError, context map[string]interface{}) {
 		slog.Int("http_status", err.HTTPStatusCode),
 	}
 
-	// 添加详细信息
+	// Add the details
 	if err.Details != "" {
 		attrs = append(attrs, slog.String("details", err.Details))
 	}
 
-	// 添加重试信息
+	// Add the retry info
 	if err.Retryable && err.RetryDelay > 0 {
 		attrs = append(attrs,
 			slog.Duration("retry_delay", err.RetryDelay),
@@ -87,24 +87,24 @@ func (el *ErrorLogger) LogError(err *AppError, context map[string]interface{}) {
 		)
 	}
 
-	// 添加上下文信息
+	// Add context info
 	if err.Context != nil {
 		for key, value := range err.Context {
 			attrs = append(attrs, slog.Any(key, value))
 		}
 	}
 
-	// 添加额外上下文（range nil map 为安全空遍历）
+	// Add extra context (ranging over a nil map is a safe empty iteration)
 	for key, value := range context {
 		attrs = append(attrs, slog.Any(key, value))
 	}
 
-	// 添加原始错误
+	// Add the original error
 	if err.Cause != nil {
 		attrs = append(attrs, slog.String("cause", err.Cause.Error()))
 	}
 
-	// 根据严重级别选择日志级别
+	// Choose the log level based on the severity
 	var logLevel slog.Level
 	switch err.Severity {
 	case SeverityLow:
@@ -120,19 +120,19 @@ func (el *ErrorLogger) LogError(err *AppError, context map[string]interface{}) {
 	el.logger.LogAttrs(stdctx.TODO(), logLevel, "Application error occurred", attrs...)
 }
 
-// LogErrorWithMetrics 记录错误并更新指标
+// LogErrorWithMetrics logs an error and updates metrics
 func (el *ErrorLogger) LogErrorWithMetrics(err *AppError, context map[string]interface{}, metricsCollector MetricsCollector) {
-	// 记录日志
+	// Log the error
 	el.LogError(err, context)
 
-	// 更新指标
+	// Update metrics
 	if metricsCollector != nil {
 		metricsCollector.IncrementErrorCount(err.Code, err.Severity, err.Category)
 		metricsCollector.RecordErrorDuration(err.Code, time.Since(err.Timestamp))
 	}
 }
 
-// LogPanic 记录panic错误
+// LogPanic logs a panic error
 func (el *ErrorLogger) LogPanic(recovered interface{}, context map[string]interface{}) {
 	attrs := []slog.Attr{
 		slog.String("service", el.serviceName),
@@ -141,14 +141,14 @@ func (el *ErrorLogger) LogPanic(recovered interface{}, context map[string]interf
 		slog.Time("timestamp", time.Now()),
 	}
 
-	// 添加panic信息
+	// Add the panic info
 	if recoveredStr, ok := recovered.(string); ok {
 		attrs = append(attrs, slog.String("panic", recoveredStr))
 	} else {
 		attrs = append(attrs, slog.Any("panic", recovered))
 	}
 
-	// 添加上下文信息（range nil map 为安全空遍历）
+	// Add context info (ranging over a nil map is a safe empty iteration)
 	for key, value := range context {
 		attrs = append(attrs, slog.Any(key, value))
 	}
@@ -156,7 +156,7 @@ func (el *ErrorLogger) LogPanic(recovered interface{}, context map[string]interf
 	el.logger.LogAttrs(stdctx.TODO(), slog.LevelError, "Application panic occurred", attrs...)
 }
 
-// MetricsCollector 指标收集器接口
+// MetricsCollector metrics collector interface
 type MetricsCollector interface {
 	IncrementErrorCount(code ErrorCode, severity ErrorSeverity, category ErrorCategory)
 	RecordErrorDuration(code ErrorCode, duration time.Duration)
@@ -164,7 +164,7 @@ type MetricsCollector interface {
 	RecordHTTPRequestDuration(method, path string, duration time.Duration)
 }
 
-// DefaultMetricsCollector 默认指标收集器
+// DefaultMetricsCollector default metrics collector
 type DefaultMetricsCollector struct {
 	errorCounts      map[ErrorCode]int64
 	errorDurations   map[ErrorCode]time.Duration
@@ -172,7 +172,7 @@ type DefaultMetricsCollector struct {
 	requestDurations map[string]time.Duration
 }
 
-// NewDefaultMetricsCollector 创建默认指标收集器
+// NewDefaultMetricsCollector creates a default metrics collector
 func NewDefaultMetricsCollector() *DefaultMetricsCollector {
 	return &DefaultMetricsCollector{
 		errorCounts:      make(map[ErrorCode]int64),
@@ -182,29 +182,29 @@ func NewDefaultMetricsCollector() *DefaultMetricsCollector {
 	}
 }
 
-// IncrementErrorCount 增加错误计数
+// IncrementErrorCount increments the error count
 func (dmc *DefaultMetricsCollector) IncrementErrorCount(code ErrorCode, severity ErrorSeverity, category ErrorCategory) {
 	dmc.errorCounts[code]++
 }
 
-// RecordErrorDuration 记录错误持续时间
+// RecordErrorDuration records the error duration
 func (dmc *DefaultMetricsCollector) RecordErrorDuration(code ErrorCode, duration time.Duration) {
 	dmc.errorDurations[code] = duration
 }
 
-// IncrementHTTPRequestCount 增加HTTP请求计数
+// IncrementHTTPRequestCount increments the HTTP request count
 func (dmc *DefaultMetricsCollector) IncrementHTTPRequestCount(method, path, statusCode string) {
 	key := fmt.Sprintf("%s %s %s", method, path, statusCode)
 	dmc.requestCounts[key]++
 }
 
-// RecordHTTPRequestDuration 记录HTTP请求持续时间
+// RecordHTTPRequestDuration records the HTTP request duration
 func (dmc *DefaultMetricsCollector) RecordHTTPRequestDuration(method, path string, duration time.Duration) {
 	key := fmt.Sprintf("%s %s", method, path)
 	dmc.requestDurations[key] = duration
 }
 
-// GetErrorCounts 获取错误计数
+// GetErrorCounts gets the error counts
 func (dmc *DefaultMetricsCollector) GetErrorCounts() map[ErrorCode]int64 {
 	result := make(map[ErrorCode]int64)
 	for code, count := range dmc.errorCounts {
@@ -213,7 +213,7 @@ func (dmc *DefaultMetricsCollector) GetErrorCounts() map[ErrorCode]int64 {
 	return result
 }
 
-// GetErrorDurations 获取错误持续时间
+// GetErrorDurations gets the error durations
 func (dmc *DefaultMetricsCollector) GetErrorDurations() map[ErrorCode]time.Duration {
 	result := make(map[ErrorCode]time.Duration)
 	for code, duration := range dmc.errorDurations {
@@ -222,7 +222,7 @@ func (dmc *DefaultMetricsCollector) GetErrorDurations() map[ErrorCode]time.Durat
 	return result
 }
 
-// GetRequestCounts 获取请求计数
+// GetRequestCounts gets the request counts
 func (dmc *DefaultMetricsCollector) GetRequestCounts() map[string]int64 {
 	result := make(map[string]int64)
 	for key, count := range dmc.requestCounts {
@@ -231,7 +231,7 @@ func (dmc *DefaultMetricsCollector) GetRequestCounts() map[string]int64 {
 	return result
 }
 
-// Reset 重置所有指标
+// Reset resets all metrics
 func (dmc *DefaultMetricsCollector) Reset() {
 	dmc.errorCounts = make(map[ErrorCode]int64)
 	dmc.errorDurations = make(map[ErrorCode]time.Duration)
@@ -239,7 +239,7 @@ func (dmc *DefaultMetricsCollector) Reset() {
 	dmc.requestDurations = make(map[string]time.Duration)
 }
 
-// ToJSON 将指标转换为JSON
+// ToJSON converts the metrics to JSON
 func (dmc *DefaultMetricsCollector) ToJSON() []byte {
 	metrics := map[string]interface{}{
 		"error_counts":      dmc.GetErrorCounts(),
@@ -249,14 +249,15 @@ func (dmc *DefaultMetricsCollector) ToJSON() []byte {
 		"timestamp":         time.Now(),
 	}
 
-	// metrics 的各字段均为 encoding/json 原生支持的类型
-	// （map[string]int64、map[ErrorCode]int64、map[...]time.Duration、
-	// time.Time；ErrorCode 为 string 底层），MarshalIndent 恒成功，无错误路径。
+	// Every field of metrics is a type natively supported by encoding/json
+	// (map[string]int64, map[ErrorCode]int64, map[...]time.Duration,
+	// time.Time; ErrorCode is backed by a string), so MarshalIndent always
+	// succeeds and there is no error path.
 	data, _ := json.MarshalIndent(metrics, "", "  ")
 	return data
 }
 
-// ErrorStats 错误统计信息
+// ErrorStats error statistics
 type ErrorStats struct {
 	TotalErrors      int64                   `json:"totalErrors"`
 	ErrorsByCode     map[ErrorCode]int64     `json:"errorsByCode"`
@@ -266,20 +267,20 @@ type ErrorStats struct {
 	TimeRange        TimeRange               `json:"timeRange"`
 }
 
-// TimeRange 时间范围
+// TimeRange time range
 type TimeRange struct {
 	Start time.Time `json:"start"`
 	End   time.Time `json:"end"`
 }
 
-// ErrorAnalyzer 错误分析器
+// ErrorAnalyzer error analyzer
 type ErrorAnalyzer struct {
 	errors           []*AppError
 	maxErrors        int
 	metricsCollector MetricsCollector
 }
 
-// NewErrorAnalyzer 创建错误分析器
+// NewErrorAnalyzer creates an error analyzer
 func NewErrorAnalyzer(maxErrors int, collector MetricsCollector) *ErrorAnalyzer {
 	return &ErrorAnalyzer{
 		errors:           make([]*AppError, 0, maxErrors),
@@ -288,22 +289,22 @@ func NewErrorAnalyzer(maxErrors int, collector MetricsCollector) *ErrorAnalyzer 
 	}
 }
 
-// AddError 添加错误到分析器
+// AddError adds an error to the analyzer
 func (ea *ErrorAnalyzer) AddError(err *AppError) {
 	if len(ea.errors) >= ea.maxErrors {
-		// 移除最旧的错误
+		// Remove the oldest error
 		ea.errors = ea.errors[1:]
 	}
 	ea.errors = append(ea.errors, err)
 
-	// 更新指标
+	// Update metrics
 	if ea.metricsCollector != nil {
 		ea.metricsCollector.IncrementErrorCount(err.Code, err.Severity, err.Category)
 		ea.metricsCollector.RecordErrorDuration(err.Code, time.Since(err.Timestamp))
 	}
 }
 
-// GetStats 获取错误统计信息
+// GetStats gets the error statistics
 func (ea *ErrorAnalyzer) GetStats() *ErrorStats {
 	stats := &ErrorStats{
 		TotalErrors:      int64(len(ea.errors)),
@@ -319,7 +320,7 @@ func (ea *ErrorAnalyzer) GetStats() *ErrorStats {
 			End:   ea.errors[len(ea.errors)-1].Timestamp,
 		}
 
-		// 只返回最近的10个错误
+		// Return only the 10 most recent errors
 		recentCount := 10
 		if len(ea.errors) < recentCount {
 			recentCount = len(ea.errors)
@@ -327,7 +328,7 @@ func (ea *ErrorAnalyzer) GetStats() *ErrorStats {
 		stats.RecentErrors = ea.errors[len(ea.errors)-recentCount:]
 	}
 
-	// 统计错误分布
+	// Tally the error distribution
 	for _, err := range ea.errors {
 		stats.ErrorsByCode[err.Code]++
 		stats.ErrorsBySeverity[err.Severity]++
@@ -337,14 +338,14 @@ func (ea *ErrorAnalyzer) GetStats() *ErrorStats {
 	return stats
 }
 
-// GetTopErrors 获取最常见的错误
+// GetTopErrors gets the most common errors
 func (ea *ErrorAnalyzer) GetTopErrors(limit int) []ErrorCode {
 	counts := make(map[ErrorCode]int64)
 	for _, err := range ea.errors {
 		counts[err.Code]++
 	}
 
-	// 排序并返回前N个
+	// Sort and return the top N
 	type errorCount struct {
 		code  ErrorCode
 		count int64
@@ -355,9 +356,11 @@ func (ea *ErrorAnalyzer) GetTopErrors(limit int) []ErrorCode {
 		sortedErrors = append(sortedErrors, errorCount{code: code, count: count})
 	}
 
-	// 按数量降序、code 升序。原先的冒泡只按数量排序，相等数量的顺序跟随
-	// map 遍历随机漂移（同一输入两次调用可能给出不同 top 序），且测试覆盖
-	// 交换分支只能碰运气；改为确定性排序后同一输入恒定同一输出。
+	// Sort by descending count, then ascending code. The previous bubble sort
+	// only ordered by count, so ties followed the random map iteration order
+	// (the same input could yield a different top order on two calls), and
+	// covering the swap branch in tests was left to chance; the deterministic
+	// sort makes the same input always produce the same output.
 	sort.Slice(sortedErrors, func(i, j int) bool {
 		if sortedErrors[i].count != sortedErrors[j].count {
 			return sortedErrors[i].count > sortedErrors[j].count
@@ -377,7 +380,7 @@ func (ea *ErrorAnalyzer) GetTopErrors(limit int) []ErrorCode {
 	return result
 }
 
-// Clear 清空错误记录
+// Clear clears the recorded errors
 func (ea *ErrorAnalyzer) Clear() {
 	ea.errors = ea.errors[:0]
 }

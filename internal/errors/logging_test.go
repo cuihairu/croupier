@@ -346,8 +346,9 @@ func TestErrorAnalyzer_GetTopErrors(t *testing.T) {
 	}
 }
 
-// GetTopErrors 相等数量按 code 升序决胜：排序输出对同一输入恒定同一顺序
-// （原冒泡实现相等数量的顺序跟随 map 遍历随机漂移）。
+// GetTopErrors breaks equal counts by ascending code: the sorted output keeps a
+// constant order for the same input (the original bubble implementation let ties
+// drift with the random map iteration order).
 func TestErrorAnalyzer_GetTopErrorsTieBreakByCode(t *testing.T) {
 	ea := NewErrorAnalyzer(100, nil)
 	ea.AddError(&AppError{Code: ErrCodeInternal, Timestamp: time.Now()})
@@ -364,7 +365,7 @@ func TestErrorAnalyzer_GetTopErrorsTieBreakByCode(t *testing.T) {
 		}
 	}
 
-	// 截断：limit 落在中间。
+	// Truncation: the limit falls in the middle.
 	top2 := ea.GetTopErrors(2)
 	if len(top2) != 2 || top2[0] >= top2[1] {
 		t.Fatalf("截断应保留 code 最小的前两个，got %v", top2)

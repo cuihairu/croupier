@@ -5,7 +5,7 @@ import (
 	"net/http"
 )
 
-// ErrorConfig 错误配置
+// ErrorConfig error configuration
 type ErrorConfig struct {
 	Code           ErrorCode
 	Message        string
@@ -17,9 +17,9 @@ type ErrorConfig struct {
 	DefaultDetails string
 }
 
-// 错误码配置映射
+// Error code configuration map
 var errorConfigs = map[ErrorCode]ErrorConfig{
-	// 通用错误
+	// General errors
 	ErrCodeInternal: {
 		Code:           ErrCodeInternal,
 		Message:        "Internal server error",
@@ -101,7 +101,7 @@ var errorConfigs = map[ErrorCode]ErrorConfig{
 		DefaultDetails: "Too many requests, please try again later",
 	},
 
-	// 业务错误
+	// Business errors
 	ErrCodeGameNotFound: {
 		Code:           ErrCodeGameNotFound,
 		Message:        "Game not found",
@@ -153,7 +153,7 @@ var errorConfigs = map[ErrorCode]ErrorConfig{
 		DefaultDetails: "The function version registered by the game server is below the configured version floor, so it was not materialized and no agent can serve it",
 	},
 
-	// 数据库错误
+	// Database errors
 	ErrCodeDatabaseError: {
 		Code:           ErrCodeDatabaseError,
 		Message:        "Database operation failed",
@@ -185,7 +185,7 @@ var errorConfigs = map[ErrorCode]ErrorConfig{
 		DefaultDetails: "The database transaction could not be completed",
 	},
 
-	// 网络错误
+	// Network errors
 	ErrCodeNetworkError: {
 		Code:           ErrCodeNetworkError,
 		Message:        "Network error",
@@ -217,7 +217,7 @@ var errorConfigs = map[ErrorCode]ErrorConfig{
 		DefaultDetails: "The connection to the external service timed out",
 	},
 
-	// 认证授权错误
+	// Authentication/authorization errors
 	ErrCodeTokenExpired: {
 		Code:           ErrCodeTokenExpired,
 		Message:        "Token has expired",
@@ -260,7 +260,7 @@ var errorConfigs = map[ErrorCode]ErrorConfig{
 	},
 }
 
-// GetErrorConfig 获取错误配置
+// GetErrorConfig gets the error configuration
 func GetErrorConfig(code ErrorCode) (ErrorConfig, error) {
 	config, exists := errorConfigs[code]
 	if !exists {
@@ -269,17 +269,17 @@ func GetErrorConfig(code ErrorCode) (ErrorConfig, error) {
 	return config, nil
 }
 
-// GetAllErrorConfigs 获取所有错误配置
+// GetAllErrorConfigs gets all error configurations
 func GetAllErrorConfigs() map[ErrorCode]ErrorConfig {
 	return errorConfigs
 }
 
-// AddCustomErrorConfig 添加自定义错误配置
+// AddCustomErrorConfig adds a custom error configuration
 func AddCustomErrorConfig(config ErrorConfig) {
 	errorConfigs[config.Code] = config
 }
 
-// GetHTTPStatusCode 根据错误码获取HTTP状态码
+// GetHTTPStatusCode gets the HTTP status code from the error code
 func GetHTTPStatusCode(code ErrorCode) int {
 	if config, exists := errorConfigs[code]; exists {
 		return config.HTTPStatusCode
@@ -287,7 +287,7 @@ func GetHTTPStatusCode(code ErrorCode) int {
 	return http.StatusInternalServerError
 }
 
-// GetUserError 判断是否为用户错误
+// GetUserError reports whether this is a user error
 func IsUserError(code ErrorCode) bool {
 	if config, exists := errorConfigs[code]; exists {
 		return config.UserError
@@ -295,7 +295,7 @@ func IsUserError(code ErrorCode) bool {
 	return false
 }
 
-// GetRetryable 判断错误是否可重试
+// GetRetryable reports whether the error is retryable
 func IsRetryable(code ErrorCode) bool {
 	if config, exists := errorConfigs[code]; exists {
 		return config.Retryable
@@ -303,7 +303,7 @@ func IsRetryable(code ErrorCode) bool {
 	return false
 }
 
-// GetSeverity 获取错误严重级别
+// GetSeverity gets the error severity
 func GetSeverity(code ErrorCode) ErrorSeverity {
 	if config, exists := errorConfigs[code]; exists {
 		return config.Severity

@@ -95,7 +95,7 @@ func TestResponseBuilder_WriteJSON(t *testing.T) {
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/test", nil)
 
-	// 测试成功响应
+	// Test the success response
 	builder := NewResponseBuilder[string]()
 	builder.Success("test-data").WriteJSON(w, req)
 
@@ -103,7 +103,7 @@ func TestResponseBuilder_WriteJSON(t *testing.T) {
 	assert.Equal(t, "application/json; charset=utf-8", w.Header().Get("Content-Type"))
 	assert.NotEmpty(t, w.Header().Get("X-Request-ID"))
 
-	// 验证响应内容
+	// Verify the response body
 	var response map[string]interface{}
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	require.NoError(t, err)
@@ -115,18 +115,18 @@ func TestResponseBuilder_WriteJSONError(t *testing.T) {
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/test", nil)
 
-	// 创建AppError
+	// Create an AppError
 	factory := NewErrorFactory("test-service")
 	appErr := factory.New(ErrCodeGameNotFound, "test-operation", nil)
 
-	// 测试错误响应
+	// Test the error response
 	builder := NewResponseBuilder[any]()
 	builder.Error(appErr).WriteJSON(w, req)
 
 	assert.Equal(t, http.StatusNotFound, w.Code)
 	assert.Equal(t, "application/json; charset=utf-8", w.Header().Get("Content-Type"))
 
-	// 验证响应内容
+	// Verify the response body
 	var response map[string]interface{}
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	require.NoError(t, err)
@@ -135,19 +135,19 @@ func TestResponseBuilder_WriteJSONError(t *testing.T) {
 }
 
 func TestConvenienceFunctions(t *testing.T) {
-	// 测试SuccessResponse
+	// Test SuccessResponse
 	successResp := SuccessResponse("test-data")
 	assert.True(t, successResp.Success)
 	assert.Equal(t, "test-data", successResp.Data)
 
-	// 测试ErrorResponse
+	// Test ErrorResponse
 	factory := NewErrorFactory("test-service")
 	appErr := factory.New(ErrCodeInternal, "test-op", nil)
 	errorResp := ErrorResponse(appErr)
 	assert.False(t, errorResp.Success)
 	assert.NotNil(t, errorResp.Error)
 
-	// 测试PaginatedResponse
+	// Test PaginatedResponse
 	pagination := &Pagination{Page: 1, PageSize: 10, Total: 100}
 	paginatedResp := PaginatedResponse([]string{"item1"}, pagination)
 	assert.True(t, paginatedResp.Success)
@@ -194,7 +194,7 @@ func TestResponseMiddleware(t *testing.T) {
 		_, _ = w.Write([]byte(`{"message":"test"}`))
 	}))
 
-	// 测试请求
+	// Test the request
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/test", nil)
 	req.Header.Set("X-Request-ID", "test-request-id")
@@ -212,7 +212,7 @@ func TestResponseMiddleware_GenerateRequestID(t *testing.T) {
 		_, _ = w.Write([]byte(`{"message":"test"}`))
 	}))
 
-	// 测试请求（不提供X-Request-ID）
+	// Test the request (without providing an X-Request-ID)
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/test", nil)
 
@@ -233,7 +233,7 @@ func TestErrorMetadata_ToJSON(t *testing.T) {
 
 	jsonData := err.ToJSON()
 
-	// 转换为JSON字符串并验证
+	// Convert to a JSON string and verify
 	jsonBytes, jsonErr := json.Marshal(jsonData)
 	require.NoError(t, jsonErr)
 	jsonStr := string(jsonBytes)
@@ -297,7 +297,7 @@ func TestAPIResponse_JsonMarshal(t *testing.T) {
 }
 
 func TestResponseBuilderErrorBranches(t *testing.T) {
-	// AppError 携带 RetryDelay/TraceID → 对应字段透出
+	// AppError carrying RetryDelay/TraceID → the corresponding fields surface
 	appErr := New(ErrCodeInternal, "op", nil).WithRetry(3*time.Second, 2)
 	appErr.TraceID = "trace-1"
 	resp := NewResponseBuilder[any]().Error(appErr).Build()
@@ -308,7 +308,7 @@ func TestResponseBuilderErrorBranches(t *testing.T) {
 		t.Fatal("trace id not promoted to request id")
 	}
 
-	// 标准错误 → 内部错误兜底
+	// Standard error → internal error fallback
 	resp2 := NewResponseBuilder[any]().Error(errors.New("plain")).Build()
 	if resp2.Error.Code != ErrCodeInternal {
 		t.Fatalf("code = %v", resp2.Error.Code)
@@ -344,8 +344,9 @@ func TestSendPaginatedWithMetadata(t *testing.T) {
 
 func TestErrorAnalyzerTopErrorsSorted(t *testing.T) {
 	ea := NewErrorAnalyzer(100, nil)
-	// codeA×1, codeB×3：计数降序确定性排序（排序实现已改为 sort.Slice，
-	// 相等数量按 code 升序决胜，不再依赖 map 遍历序）
+	// codeA×1, codeB×3: deterministic ordering by descending count (the sort
+	// implementation now uses sort.Slice, so equal counts are broken by
+	// ascending code instead of relying on map iteration order)
 	ea.AddError(New(ErrCodeInternal, "op", nil))
 	ea.AddError(New(ErrCodeInvalidInput, "op", nil))
 	ea.AddError(New(ErrCodeInvalidInput, "op", nil))

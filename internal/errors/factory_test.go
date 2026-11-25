@@ -48,7 +48,7 @@ func TestErrorFactory_WrapAppError(t *testing.T) {
 	appErr := factory.New(ErrCodeGameNotFound, "test-operation", nil)
 	wrappedErr := factory.Wrap(appErr, "another-operation")
 
-	// AppError不应该被包装
+	// AppError should not be wrapped
 	assert.Equal(t, appErr, wrappedErr)
 }
 
@@ -173,21 +173,21 @@ func TestAppError_WithMethods(t *testing.T) {
 
 	err := factory.New(ErrCodeInternal, "test-operation", errors.New("test cause"))
 
-	// 测试WithDetails
+	// Test WithDetails
 	_ = err.WithDetails("additional details")
 	assert.Equal(t, "additional details", err.Details)
 
-	// 测试WithContext
+	// Test WithContext
 	_ = err.WithContext("user_id", 123)
 	assert.Equal(t, 123, err.Context["user_id"])
 
-	// 测试WithRetry
+	// Test WithRetry
 	_ = err.WithRetry(2*time.Second, 3)
 	assert.True(t, err.Retryable)
 	assert.Equal(t, 2*time.Second, err.RetryDelay)
 	assert.Equal(t, 3, err.RetryCount)
 
-	// 测试WithHTTPHeader
+	// Test WithHTTPHeader
 	_ = err.WithHTTPHeader("X-Custom", "value")
 	assert.Equal(t, "value", err.HTTPHeaders["X-Custom"])
 }
@@ -197,11 +197,11 @@ func TestAppError_Error(t *testing.T) {
 
 	err := factory.New(ErrCodeInternal, "test-operation", errors.New("test cause"))
 
-	// ErrCodeInternal 有默认详情
+	// ErrCodeInternal has default details
 	expected := "[INTERNAL_ERROR] test-operation: Internal server error - An unexpected error occurred while processing your request"
 	assert.Equal(t, expected, err.Error())
 
-	// 覆盖详细信息
+	// Override the details
 	_ = err.WithDetails("additional details")
 	expected = "[INTERNAL_ERROR] test-operation: Internal server error - additional details"
 	assert.Equal(t, expected, err.Error())
@@ -214,13 +214,13 @@ func TestAppError_Is(t *testing.T) {
 	err2 := factory.New(ErrCodeGameNotFound, "test-operation", nil)
 	err3 := factory.New(ErrCodeInternal, "test-operation", nil)
 
-	// 相同错误码应该相等
+	// The same error code should compare equal
 	assert.True(t, err1.Is(err2))
 
-	// 不同错误码应该不相等
+	// Different error codes should not compare equal
 	assert.False(t, err1.Is(err3))
 
-	// 与标准错误比较
+	// Compare against a standard error
 	assert.False(t, err1.Is(errors.New("standard error")))
 }
 
@@ -254,7 +254,7 @@ func TestErrorCollection(t *testing.T) {
 	assert.Equal(t, 0, collection.Total)
 	assert.Nil(t, collection.First())
 
-	// 添加错误
+	// Add errors
 	err1 := factory.New(ErrCodeGameNotFound, "op1", nil)
 	err2 := factory.New(ErrCodeInternal, "op2", nil)
 
@@ -265,18 +265,18 @@ func TestErrorCollection(t *testing.T) {
 	assert.Equal(t, 2, collection.Total)
 	assert.Equal(t, err1, collection.First())
 
-	// 按错误码查找
+	// Find by error code
 	gameErrors := collection.GetByCode(ErrCodeGameNotFound)
 	assert.Len(t, gameErrors, 1)
 	assert.Equal(t, err1, gameErrors[0])
 
-	// 按严重级别查找
+	// Find by severity
 	lowSeverityErrors := collection.GetBySeverity(SeverityLow)
 	assert.Len(t, lowSeverityErrors, 1)
 }
 
 func TestGlobalConvenienceFunctions(t *testing.T) {
-	// 测试全局便捷函数
+	// Test the global convenience functions
 	err := New(ErrCodeGameNotFound, "test-operation", nil)
 	assert.NotNil(t, err)
 	assert.Equal(t, ErrCodeGameNotFound, err.Code)

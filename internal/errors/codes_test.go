@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-// TestGetAllErrorConfigs 测试获取所有错误配置
+// TestGetAllErrorConfigs tests getting all error configurations
 func TestGetAllErrorConfigs(t *testing.T) {
 	configs := GetAllErrorConfigs()
 
@@ -16,7 +16,7 @@ func TestGetAllErrorConfigs(t *testing.T) {
 		t.Fatal("GetAllErrorConfigs returned empty map")
 	}
 
-	// 验证一些已知的错误码存在
+	// Verify that some known error codes exist
 	knownCodes := []ErrorCode{
 		ErrCodeInternal,
 		ErrCodeInvalidInput,
@@ -41,7 +41,7 @@ func TestGetAllErrorConfigs(t *testing.T) {
 	}
 }
 
-// TestAddCustomErrorConfig 测试添加自定义错误配置
+// TestAddCustomErrorConfig tests adding a custom error configuration
 func TestAddCustomErrorConfig(t *testing.T) {
 	customCode := ErrorCode("CUSTOM_ERROR")
 	customConfig := ErrorConfig{
@@ -55,10 +55,10 @@ func TestAddCustomErrorConfig(t *testing.T) {
 		DefaultDetails: "Custom error details",
 	}
 
-	// 添加自定义配置
+	// Add the custom configuration
 	AddCustomErrorConfig(customConfig)
 
-	// 验证配置已添加
+	// Verify that the configuration was added
 	config, err := GetErrorConfig(customCode)
 	if err != nil {
 		t.Fatalf("Failed to get custom error config: %v", err)
@@ -85,7 +85,7 @@ func TestAddCustomErrorConfig(t *testing.T) {
 	}
 }
 
-// TestIsUserError 测试判断是否为用户错误
+// TestIsUserError tests determining whether this is a user error
 func TestIsUserError(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -113,7 +113,7 @@ func TestIsUserError(t *testing.T) {
 	}
 }
 
-// TestIsRetryable 测试判断错误是否可重试
+// TestIsRetryable tests determining whether the error is retryable
 func TestIsRetryable(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -142,7 +142,7 @@ func TestIsRetryable(t *testing.T) {
 	}
 }
 
-// TestGetSeverity 测试获取错误严重级别
+// TestGetSeverity tests getting the error severity
 func TestGetSeverity(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -171,7 +171,7 @@ func TestGetSeverity(t *testing.T) {
 	}
 }
 
-// TestGetHTTPStatusCode_UnknownCode 测试未知错误码返回默认状态码
+// TestGetHTTPStatusCode_UnknownCode tests that an unknown error code returns the default status code
 func TestGetHTTPStatusCode_UnknownCode(t *testing.T) {
 	unknownCode := ErrorCode("UNKNOWN_ERROR")
 	statusCode := GetHTTPStatusCode(unknownCode)
@@ -181,7 +181,7 @@ func TestGetHTTPStatusCode_UnknownCode(t *testing.T) {
 	}
 }
 
-// TestGetErrorConfig_UnknownCode 测试获取未知错误配置
+// TestGetErrorConfig_UnknownCode tests getting the configuration for an unknown error
 func TestGetErrorConfig_UnknownCode(t *testing.T) {
 	unknownCode := ErrorCode("UNKNOWN_ERROR")
 

@@ -5,12 +5,12 @@ import (
 	"time"
 )
 
-// ErrorCode 错误码类型
+// ErrorCode error code type
 type ErrorCode string
 
-// 预定义错误码
+// Predefined error codes
 const (
-	// 通用错误码 (1000-1999)
+	// General error codes (1000-1999)
 	ErrCodeInternal     ErrorCode = "INTERNAL_ERROR"
 	ErrCodeInvalidInput ErrorCode = "INVALID_INPUT"
 	ErrCodeNotFound     ErrorCode = "NOT_FOUND"
@@ -20,47 +20,49 @@ const (
 	ErrCodeTimeout      ErrorCode = "TIMEOUT"
 	ErrCodeRateLimit    ErrorCode = "RATE_LIMIT"
 
-	// 业务错误码 (2000-2999)
+	// Business error codes (2000-2999)
 	ErrCodeGameNotFound      ErrorCode = "GAME_NOT_FOUND"
 	ErrCodeGameAlreadyExist  ErrorCode = "GAME_ALREADY_EXIST"
 	ErrCodeGameDisabled      ErrorCode = "GAME_DISABLED"
 	ErrCodeInvalidGameStatus ErrorCode = "INVALID_GAME_STATUS"
-	// ErrCodeFunctionVersionBelowMinimum 执行侧可解释性（E9）：函数描述符
-	// 版本低于函数级最低版本门槛，注册面拦截（不物化）后调度无候选。与
-	// 「agent 真没活」（SERVICE_UNAVAILABLE）按码区分，避免把门槛拦截误判
-	// 为 agent 连接故障。
+	// ErrCodeFunctionVersionBelowMinimum execution-side explainability (E9): the function
+	// descriptor version is below the function-level minimum version floor, so it is
+	// intercepted at the registration surface (not materialized) and dispatch has no
+	// candidates. Distinguished by code from "the agent genuinely has no live session"
+	// (SERVICE_UNAVAILABLE), to avoid misjudging a version-floor interception as an
+	// agent connectivity failure.
 	ErrCodeFunctionVersionBelowMinimum ErrorCode = "FUNCTION_VERSION_BELOW_MINIMUM"
 
-	// 数据库错误码 (3000-3999)
+	// Database error codes (3000-3999)
 	ErrCodeDatabaseError     ErrorCode = "DATABASE_ERROR"
 	ErrCodeConnectionLost    ErrorCode = "CONNECTION_LOST"
 	ErrCodeTransactionFailed ErrorCode = "TRANSACTION_FAILED"
 
-	// 网络错误码 (4000-4999)
+	// Network error codes (4000-4999)
 	ErrCodeNetworkError       ErrorCode = "NETWORK_ERROR"
 	ErrCodeServiceUnavailable ErrorCode = "SERVICE_UNAVAILABLE"
 	ErrCodeConnectionTimeout  ErrorCode = "CONNECTION_TIMEOUT"
 
-	// 认证授权错误码 (5000-5999)
+	// Authentication/authorization error codes (5000-5999)
 	ErrCodeTokenExpired            ErrorCode = "TOKEN_EXPIRED"
 	ErrCodeInvalidToken            ErrorCode = "INVALID_TOKEN"
 	ErrCodeInvalidCredentials      ErrorCode = "INVALID_CREDENTIALS"
 	ErrCodeInsufficientPermissions ErrorCode = "INSUFFICIENT_PERMISSIONS"
 )
 
-// ErrorSeverity 错误严重级别
+// ErrorSeverity error severity
 type ErrorSeverity string
 
 const (
-	SeverityLow      ErrorSeverity = "low"      // 低：不影响主要功能
-	SeverityMedium   ErrorSeverity = "medium"   // 中：影响部分功能
-	SeverityHigh     ErrorSeverity = "high"     // 高：影响主要功能
-	SeverityCritical ErrorSeverity = "critical" // 严重：系统不可用
+	SeverityLow      ErrorSeverity = "low"      // low: does not affect core functionality
+	SeverityMedium   ErrorSeverity = "medium"   // medium: affects some functionality
+	SeverityHigh     ErrorSeverity = "high"     // high: affects core functionality
+	SeverityCritical ErrorSeverity = "critical" // critical: system unavailable
 )
 
-// AppError 应用程序错误
+// AppError application error
 type AppError struct {
-	// 基本错误信息
+	// Basic error info
 	Code      ErrorCode     `json:"code"`
 	Message   string        `json:"message"`
 	Details   string        `json:"details,omitempty"`
@@ -69,27 +71,27 @@ type AppError struct {
 	TraceID   string        `json:"traceId"`
 	Severity  ErrorSeverity `json:"severity"`
 
-	// 错误分类
+	// Error category
 	Category  ErrorCategory `json:"category"`
-	UserError bool          `json:"userError"` // 是否为用户输入错误
+	UserError bool          `json:"userError"` // whether this is a user-input error
 
-	// HTTP相关
+	// HTTP-related
 	HTTPStatusCode int               `json:"httpStatusCode"`
 	HTTPHeaders    map[string]string `json:"httpHeaders,omitempty"`
 
-	// 重试信息
+	// Retry info
 	Retryable  bool          `json:"retryable"`
 	RetryDelay time.Duration `json:"retryDelay,omitempty"`
 	RetryCount int           `json:"retryCount,omitempty"`
 
-	// 上下文信息
+	// Context info
 	Context map[string]interface{} `json:"context,omitempty"`
 
-	// 原始错误
+	// Original error
 	Cause error `json:"-"`
 }
 
-// ErrorCategory 错误分类
+// ErrorCategory error category
 type ErrorCategory string
 
 const (
@@ -103,7 +105,7 @@ const (
 	CategorySystem     ErrorCategory = "system"
 )
 
-// Error 实现error接口
+// Error implements the error interface
 func (e *AppError) Error() string {
 	if e.Details != "" {
 		return fmt.Sprintf("[%s] %s: %s - %s", e.Code, e.Operation, e.Message, e.Details)
@@ -111,12 +113,12 @@ func (e *AppError) Error() string {
 	return fmt.Sprintf("[%s] %s: %s", e.Code, e.Operation, e.Message)
 }
 
-// Unwrap 返回原始错误
+// Unwrap returns the original error
 func (e *AppError) Unwrap() error {
 	return e.Cause
 }
 
-// Is 检查错误类型
+// Is checks the error type
 func (e *AppError) Is(target error) bool {
 	if t, ok := target.(*AppError); ok {
 		return e.Code == t.Code
@@ -124,7 +126,7 @@ func (e *AppError) Is(target error) bool {
 	return false
 }
 
-// WithContext 添加上下文信息
+// WithContext adds context info
 func (e *AppError) WithContext(key string, value interface{}) *AppError {
 	if e.Context == nil {
 		e.Context = make(map[string]interface{})
@@ -133,13 +135,13 @@ func (e *AppError) WithContext(key string, value interface{}) *AppError {
 	return e
 }
 
-// WithDetails 添加详细信息
+// WithDetails adds details
 func (e *AppError) WithDetails(details string) *AppError {
 	e.Details = details
 	return e
 }
 
-// WithRetry 设置重试信息
+// WithRetry sets retry info
 func (e *AppError) WithRetry(delay time.Duration, count int) *AppError {
 	e.Retryable = true
 	e.RetryDelay = delay
@@ -147,7 +149,7 @@ func (e *AppError) WithRetry(delay time.Duration, count int) *AppError {
 	return e
 }
 
-// WithHTTPHeader 添加HTTP头
+// WithHTTPHeader adds an HTTP header
 func (e *AppError) WithHTTPHeader(key, value string) *AppError {
 	if e.HTTPHeaders == nil {
 		e.HTTPHeaders = make(map[string]string)
@@ -156,12 +158,12 @@ func (e *AppError) WithHTTPHeader(key, value string) *AppError {
 	return e
 }
 
-// String 返回错误的字符串表示
+// String returns the string representation of the error
 func (e *AppError) String() string {
 	return e.Error()
 }
 
-// ToJSON 返回JSON格式的错误信息
+// ToJSON returns the error info as JSON
 func (e *AppError) ToJSON() map[string]interface{} {
 	result := map[string]interface{}{
 		"code":        e.Code,
@@ -199,7 +201,7 @@ func (e *AppError) ToJSON() map[string]interface{} {
 	return result
 }
 
-// ErrorMetrics 错误指标
+// ErrorMetrics error metrics
 type ErrorMetrics struct {
 	Code      ErrorCode     `json:"code"`
 	Operation string        `json:"operation"`
@@ -210,24 +212,24 @@ type ErrorMetrics struct {
 	Severity  ErrorSeverity `json:"severity"`
 }
 
-// ErrorCollection 错误集合，用于批量错误处理
+// ErrorCollection error collection, used for batch error handling
 type ErrorCollection struct {
 	Errors []*AppError `json:"errors"`
 	Total  int         `json:"total"`
 }
 
-// Add 添加错误到集合
+// Add adds an error to the collection
 func (ec *ErrorCollection) Add(err *AppError) {
 	ec.Errors = append(ec.Errors, err)
 	ec.Total++
 }
 
-// HasErrors 检查是否有错误
+// HasErrors checks whether any errors exist
 func (ec *ErrorCollection) HasErrors() bool {
 	return ec.Total > 0
 }
 
-// GetByCode 根据错误码获取错误
+// GetByCode gets errors by error code
 func (ec *ErrorCollection) GetByCode(code ErrorCode) []*AppError {
 	var errors []*AppError
 	for _, err := range ec.Errors {
@@ -238,7 +240,7 @@ func (ec *ErrorCollection) GetByCode(code ErrorCode) []*AppError {
 	return errors
 }
 
-// GetBySeverity 根据严重级别获取错误
+// GetBySeverity gets errors by severity
 func (ec *ErrorCollection) GetBySeverity(severity ErrorSeverity) []*AppError {
 	var errors []*AppError
 	for _, err := range ec.Errors {
@@ -249,7 +251,7 @@ func (ec *ErrorCollection) GetBySeverity(severity ErrorSeverity) []*AppError {
 	return errors
 }
 
-// First 返回第一个错误
+// First returns the first error
 func (ec *ErrorCollection) First() *AppError {
 	if ec.Total > 0 {
 		return ec.Errors[0]
@@ -257,7 +259,7 @@ func (ec *ErrorCollection) First() *AppError {
 	return nil
 }
 
-// Error 实现error接口
+// Error implements the error interface
 func (ec *ErrorCollection) Error() string {
 	if ec.Total == 0 {
 		return "no errors"
@@ -268,7 +270,7 @@ func (ec *ErrorCollection) Error() string {
 	return fmt.Sprintf("%d errors occurred, first: %s", ec.Total, ec.Errors[0].Error())
 }
 
-// Is 检查是否包含特定错误
+// Is checks whether a specific error is contained
 func (ec *ErrorCollection) Is(target error) bool {
 	if targetAppErr, ok := target.(*AppError); ok {
 		for _, err := range ec.Errors {

@@ -8,26 +8,26 @@ import (
 	"github.com/google/uuid"
 )
 
-// ErrorFactory 错误工厂
+// ErrorFactory error factory
 type ErrorFactory struct {
 	serviceName    string
 	defaultTimeout time.Duration
 	traceGenerator TraceGenerator
 }
 
-// TraceGenerator 追踪ID生成器接口
+// TraceGenerator trace ID generator interface
 type TraceGenerator interface {
 	GenerateTraceID() string
 }
 
-// DefaultTraceGenerator 默认追踪ID生成器
+// DefaultTraceGenerator default trace ID generator
 type DefaultTraceGenerator struct{}
 
 func (d *DefaultTraceGenerator) GenerateTraceID() string {
 	return uuid.New().String()
 }
 
-// NewErrorFactory 创建错误工厂
+// NewErrorFactory creates an error factory
 func NewErrorFactory(serviceName string) *ErrorFactory {
 	return &ErrorFactory{
 		serviceName:    serviceName,
@@ -36,17 +36,17 @@ func NewErrorFactory(serviceName string) *ErrorFactory {
 	}
 }
 
-// WithTraceGenerator 设置追踪ID生成器
+// WithTraceGenerator sets the trace ID generator
 func (f *ErrorFactory) WithTraceGenerator(generator TraceGenerator) *ErrorFactory {
 	f.traceGenerator = generator
 	return f
 }
 
-// New 创建新的应用错误
+// New creates a new application error
 func (f *ErrorFactory) New(code ErrorCode, operation string, cause error) *AppError {
 	config, err := GetErrorConfig(code)
 	if err != nil {
-		// 如果找不到配置，使用默认配置
+		// If no config is found, use the default config
 		config = ErrorConfig{
 			Code:           code,
 			Message:        "Unknown error",
@@ -78,37 +78,37 @@ func (f *ErrorFactory) New(code ErrorCode, operation string, cause error) *AppEr
 	}
 }
 
-// Newf 创建带格式化消息的应用错误
+// Newf creates an application error with a formatted message
 func (f *ErrorFactory) Newf(code ErrorCode, operation string, cause error, format string, args ...interface{}) *AppError {
 	err := f.New(code, operation, cause)
 	err.Message = fmt.Sprintf(format, args...)
 	return err
 }
 
-// NewWithDetails 创建带详细信息的应用错误
+// NewWithDetails creates an application error with details
 func (f *ErrorFactory) NewWithDetails(code ErrorCode, operation string, details string, cause error) *AppError {
 	err := f.New(code, operation, cause)
 	err.Details = details
 	return err
 }
 
-// Wrap 包装现有错误
+// Wrap wraps an existing error
 func (f *ErrorFactory) Wrap(cause error, operation string) *AppError {
 	if cause == nil {
 		return nil
 	}
 
-	// 如果已经是AppError，直接返回
+	// If it is already an AppError, return it directly
 	if appErr, ok := cause.(*AppError); ok {
 		return appErr
 	}
 
-	// 根据错误类型推断错误码
+	// Infer the error code from the error type
 	code := f.inferErrorCode(cause)
 	return f.New(code, operation, cause)
 }
 
-// Wrapf 包装现有错误并添加格式化消息
+// Wrapf wraps an existing error and adds a formatted message
 func (f *ErrorFactory) Wrapf(cause error, operation string, format string, args ...interface{}) *AppError {
 	err := f.Wrap(cause, operation)
 	if err != nil {
@@ -117,53 +117,53 @@ func (f *ErrorFactory) Wrapf(cause error, operation string, format string, args 
 	return err
 }
 
-// InternalError 创建内部错误
+// InternalError creates an internal error
 func (f *ErrorFactory) InternalError(operation string, cause error) *AppError {
 	return f.New(ErrCodeInternal, operation, cause)
 }
 
-// InternalErrorf 创建带格式化消息的内部错误
+// InternalErrorf creates an internal error with a formatted message
 func (f *ErrorFactory) InternalErrorf(operation string, cause error, format string, args ...interface{}) *AppError {
 	return f.Newf(ErrCodeInternal, operation, cause, format, args...)
 }
 
-// InvalidInputError 创建输入验证错误
+// InvalidInputError creates an input validation error
 func (f *ErrorFactory) InvalidInputError(operation string, field, value string, cause error) *AppError {
 	details := fmt.Sprintf("Invalid value for field '%s': %s", field, value)
 	return f.NewWithDetails(ErrCodeInvalidInput, operation, details, cause)
 }
 
-// NotFoundError 创建资源未找到错误
+// NotFoundError creates a resource-not-found error
 func (f *ErrorFactory) NotFoundError(operation, resourceType, resourceID string) *AppError {
 	details := fmt.Sprintf("%s with ID '%s' not found", resourceType, resourceID)
 	return f.NewWithDetails(ErrCodeNotFound, operation, details, nil)
 }
 
-// UnauthorizedError 创建未授权错误
+// UnauthorizedError creates an unauthorized error
 func (f *ErrorFactory) UnauthorizedError(operation string, cause error) *AppError {
 	return f.New(ErrCodeUnauthorized, operation, cause)
 }
 
-// ForbiddenError 创建禁止访问错误
+// ForbiddenError creates a forbidden-access error
 func (f *ErrorFactory) ForbiddenError(operation string, resource string, cause error) *AppError {
 	details := fmt.Sprintf("Access to '%s' is forbidden", resource)
 	return f.NewWithDetails(ErrCodeForbidden, operation, details, cause)
 }
 
-// ConflictError 创建冲突错误
+// ConflictError creates a conflict error
 func (f *ErrorFactory) ConflictError(operation string, resource string, cause error) *AppError {
 	details := fmt.Sprintf("Conflict with existing %s", resource)
 	return f.NewWithDetails(ErrCodeConflict, operation, details, cause)
 }
 
-// TimeoutError 创建超时错误
+// TimeoutError creates a timeout error
 func (f *ErrorFactory) TimeoutError(operation string, timeout time.Duration, cause error) *AppError {
 	details := fmt.Sprintf("Operation timed out after %v", timeout)
 	return f.NewWithDetails(ErrCodeTimeout, operation, details, cause).
-		WithRetry(timeout, 1) // 建议重试一次
+		WithRetry(timeout, 1) // suggest one retry
 }
 
-// RateLimitError 创建速率限制错误
+// RateLimitError creates a rate limit error
 func (f *ErrorFactory) RateLimitError(operation string, limit int, window time.Duration) *AppError {
 	details := fmt.Sprintf("Rate limit exceeded: %d requests per %v", limit, window)
 	return f.NewWithDetails(ErrCodeRateLimit, operation, details, nil).
@@ -171,50 +171,50 @@ func (f *ErrorFactory) RateLimitError(operation string, limit int, window time.D
 		WithRetry(window, 1)
 }
 
-// DatabaseError 创建数据库错误
+// DatabaseError creates a database error
 func (f *ErrorFactory) DatabaseError(operation string, query string, cause error) *AppError {
 	details := fmt.Sprintf("Database error in query: %s", query)
 	return f.NewWithDetails(ErrCodeDatabaseError, operation, details, cause).
-		WithRetry(1*time.Second, 3) // 建议重试3次，每次间隔1秒
+		WithRetry(1*time.Second, 3) // suggest 3 retries, 1 second apart
 }
 
-// NetworkError 创建网络错误
+// NetworkError creates a network error
 func (f *ErrorFactory) NetworkError(operation string, endpoint string, cause error) *AppError {
 	details := fmt.Sprintf("Network error when calling %s", endpoint)
 	return f.NewWithDetails(ErrCodeNetworkError, operation, details, cause).
-		WithRetry(2*time.Second, 2) // 建议重试2次，每次间隔2秒
+		WithRetry(2*time.Second, 2) // suggest 2 retries, 2 seconds apart
 }
 
-// ServiceUnavailableError 创建服务不可用错误
+// ServiceUnavailableError creates a service-unavailable error
 func (f *ErrorFactory) ServiceUnavailableError(operation, service string, cause error) *AppError {
 	details := fmt.Sprintf("Service '%s' is currently unavailable", service)
 	return f.NewWithDetails(ErrCodeServiceUnavailable, operation, details, cause).
-		WithRetry(5*time.Second, 3) // 建议重试3次，每次间隔5秒
+		WithRetry(5*time.Second, 3) // suggest 3 retries, 5 seconds apart
 }
 
-// GameNotFoundError 创建游戏未找到错误
+// GameNotFoundError creates a game-not-found error
 func (f *ErrorFactory) GameNotFoundError(operation, gameID string) *AppError {
 	details := fmt.Sprintf("Game with ID '%s' not found", gameID)
 	return f.NewWithDetails(ErrCodeGameNotFound, operation, details, nil)
 }
 
-// GameAlreadyExistError 创建游戏已存在错误
+// GameAlreadyExistError creates a game-already-exists error
 func (f *ErrorFactory) GameAlreadyExistError(operation, gameName string) *AppError {
 	details := fmt.Sprintf("Game with name '%s' already exists", gameName)
 	return f.NewWithDetails(ErrCodeGameAlreadyExist, operation, details, nil)
 }
 
-// GameDisabledError 创建游戏已禁用错误
+// GameDisabledError creates a game-disabled error
 func (f *ErrorFactory) GameDisabledError(operation, gameID string) *AppError {
 	details := fmt.Sprintf("Game '%s' is currently disabled", gameID)
 	return f.NewWithDetails(ErrCodeGameDisabled, operation, details, nil)
 }
 
-// inferErrorCode 根据错误类型推断错误码
+// inferErrorCode infers the error code from the error type
 func (f *ErrorFactory) inferErrorCode(err error) ErrorCode {
 	errStr := err.Error()
 
-	// 根据错误字符串推断错误类型
+	// Infer the error type from the error string
 	switch {
 	case containsAny(errStr, "timeout", "deadline exceeded"):
 		return ErrCodeTimeout
@@ -239,7 +239,7 @@ func (f *ErrorFactory) inferErrorCode(err error) ErrorCode {
 	}
 }
 
-// containsAny 检查字符串是否包含任意一个关键词
+// containsAny checks whether the string contains any one of the keywords
 func containsAny(s string, keywords ...string) bool {
 	for _, keyword := range keywords {
 		if len(s) >= len(keyword) {
@@ -253,10 +253,10 @@ func containsAny(s string, keywords ...string) bool {
 	return false
 }
 
-// 全局默认错误工厂
+// Global default error factory
 var DefaultFactory = NewErrorFactory("croupier")
 
-// 全局便捷函数
+// Global convenience functions
 func New(code ErrorCode, operation string, cause error) *AppError {
 	return DefaultFactory.New(code, operation, cause)
 }

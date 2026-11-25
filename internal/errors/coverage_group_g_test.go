@@ -7,15 +7,17 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// WithVersion 在尚未挂过 Metadata 的构建器上首次调用时自行创建 Metadata，
-// 不应 panic 或丢失版本号（此前只覆盖了先 WithMetadata 再 WithVersion 的路径）。
+// WithVersion on a builder that has not had Metadata attached yet must create the
+// Metadata itself on first call, without panicking or losing the version
+// (previously only the WithMetadata-then-WithVersion path was covered).
 func TestResponseBuilderWithVersionCreatesMetadataG(t *testing.T) {
 	resp := NewResponseBuilder[string]().WithVersion("v1.2.3").Build()
 	require.NotNil(t, resp.Metadata, "WithVersion must lazily create Metadata")
 	assert.Equal(t, "v1.2.3", resp.Metadata.Version)
 }
 
-// 先 WithMetadata 再 WithVersion 的既有路径顺带复核：版本号覆盖、其余字段保留。
+// Also re-checks the existing WithMetadata-then-WithVersion path: the version
+// number is overwritten while the remaining fields are preserved.
 func TestResponseBuilderWithVersionKeepsExistingMetadataG(t *testing.T) {
 	resp := NewResponseBuilder[string]().
 		WithMetadata(&Metadata{RequestID: "req-1"}).

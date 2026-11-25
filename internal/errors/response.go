@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-// ResponseType 响应类型
+// ResponseType response type
 type ResponseType string
 
 const (
@@ -15,7 +15,7 @@ const (
 	ResponseTypeError   ResponseType = "error"
 )
 
-// APIResponse 通用API响应结构
+// APIResponse generic API response structure
 type APIResponse[T any] struct {
 	Type      ResponseType `json:"type"`
 	Success   bool         `json:"success"`
@@ -26,7 +26,7 @@ type APIResponse[T any] struct {
 	RequestID string       `json:"requestId"`
 }
 
-// ErrorInfo 错误信息
+// ErrorInfo error information
 type ErrorInfo struct {
 	Code       ErrorCode              `json:"code"`
 	Message    string                 `json:"message"`
@@ -39,7 +39,7 @@ type ErrorInfo struct {
 	Context    map[string]interface{} `json:"context,omitempty"`
 }
 
-// Metadata 响应元数据
+// Metadata response metadata
 type Metadata struct {
 	RequestID   string        `json:"requestId"`
 	Version     string        `json:"version"`
@@ -49,7 +49,7 @@ type Metadata struct {
 	Performance *Performance  `json:"performance,omitempty"`
 }
 
-// Pagination 分页信息
+// Pagination pagination info
 type Pagination struct {
 	Page       int   `json:"page"`
 	PageSize   int   `json:"pageSize"`
@@ -59,7 +59,7 @@ type Pagination struct {
 	HasPrev    bool  `json:"hasPrev"`
 }
 
-// Performance 性能信息
+// Performance performance info
 type Performance struct {
 	DatabaseQueries int           `json:"databaseQueries,omitempty"`
 	DatabaseTime    time.Duration `json:"databaseTime,omitempty"`
@@ -69,12 +69,12 @@ type Performance struct {
 	ExternalTime    time.Duration `json:"externalTime,omitempty"`
 }
 
-// ResponseBuilder 响应构建器
+// ResponseBuilder response builder
 type ResponseBuilder[T any] struct {
 	response *APIResponse[T]
 }
 
-// NewResponseBuilder 创建响应构建器
+// NewResponseBuilder creates a response builder
 func NewResponseBuilder[T any]() *ResponseBuilder[T] {
 	return &ResponseBuilder[T]{
 		response: &APIResponse[T]{
@@ -86,7 +86,7 @@ func NewResponseBuilder[T any]() *ResponseBuilder[T] {
 	}
 }
 
-// Success 设置成功响应数据
+// Success sets the success response data
 func (rb *ResponseBuilder[T]) Success(data T) *ResponseBuilder[T] {
 	rb.response.Type = ResponseTypeSuccess
 	rb.response.Success = true
@@ -94,7 +94,7 @@ func (rb *ResponseBuilder[T]) Success(data T) *ResponseBuilder[T] {
 	return rb
 }
 
-// Error 设置错误响应
+// Error sets the error response
 func (rb *ResponseBuilder[T]) Error(err error) *ResponseBuilder[T] {
 	rb.response.Type = ResponseTypeError
 	rb.response.Success = false
@@ -115,12 +115,12 @@ func (rb *ResponseBuilder[T]) Error(err error) *ResponseBuilder[T] {
 			rb.response.Error.RetryDelay = &appErr.RetryDelay
 		}
 
-		// 设置请求ID
+		// Set the request ID
 		if appErr.TraceID != "" {
 			rb.response.RequestID = appErr.TraceID
 		}
 	} else {
-		// 处理标准错误
+		// Handle standard errors
 		rb.response.Error = &ErrorInfo{
 			Code:    ErrCodeInternal,
 			Message: err.Error(),
@@ -131,13 +131,13 @@ func (rb *ResponseBuilder[T]) Error(err error) *ResponseBuilder[T] {
 	return rb
 }
 
-// WithRequestID 设置请求ID
+// WithRequestID sets the request ID
 func (rb *ResponseBuilder[T]) WithRequestID(requestID string) *ResponseBuilder[T] {
 	rb.response.RequestID = requestID
 	return rb
 }
 
-// WithMetadata 设置元数据
+// WithMetadata sets the metadata
 func (rb *ResponseBuilder[T]) WithMetadata(metadata *Metadata) *ResponseBuilder[T] {
 	rb.response.Metadata = metadata
 	if metadata.RequestID == "" {
@@ -147,7 +147,7 @@ func (rb *ResponseBuilder[T]) WithMetadata(metadata *Metadata) *ResponseBuilder[
 	return rb
 }
 
-// WithPagination 设置分页信息
+// WithPagination sets the pagination info
 func (rb *ResponseBuilder[T]) WithPagination(pagination *Pagination) *ResponseBuilder[T] {
 	if rb.response.Metadata == nil {
 		rb.response.Metadata = &Metadata{}
@@ -156,7 +156,7 @@ func (rb *ResponseBuilder[T]) WithPagination(pagination *Pagination) *ResponseBu
 	return rb
 }
 
-// WithPerformance 设置性能信息
+// WithPerformance sets the performance info
 func (rb *ResponseBuilder[T]) WithPerformance(performance *Performance) *ResponseBuilder[T] {
 	if rb.response.Metadata == nil {
 		rb.response.Metadata = &Metadata{}
@@ -165,7 +165,7 @@ func (rb *ResponseBuilder[T]) WithPerformance(performance *Performance) *Respons
 	return rb
 }
 
-// WithVersion 设置版本信息
+// WithVersion sets the version info
 func (rb *ResponseBuilder[T]) WithVersion(version string) *ResponseBuilder[T] {
 	if rb.response.Metadata == nil {
 		rb.response.Metadata = &Metadata{}
@@ -174,7 +174,7 @@ func (rb *ResponseBuilder[T]) WithVersion(version string) *ResponseBuilder[T] {
 	return rb
 }
 
-// Build 构建最终响应
+// Build builds the final response
 func (rb *ResponseBuilder[T]) Build() *APIResponse[T] {
 	if rb.response.Metadata != nil {
 		rb.response.Metadata.Timestamp = time.Now()
@@ -189,30 +189,30 @@ func (rb *ResponseBuilder[T]) Build() *APIResponse[T] {
 func (rb *ResponseBuilder[T]) WriteJSON(w http.ResponseWriter, r *http.Request) {
 	response := rb.Build()
 
-	// 设置状态码
+	// Set the status code
 	status := http.StatusOK
 	if !response.Success && response.Error != nil {
 		status = GetHTTPStatusCode(response.Error.Code)
 	}
 
-	// 设置请求ID到响应头
+	// Set the request ID in the response header
 	if response.RequestID != "" {
 		w.Header().Set("X-Request-ID", response.RequestID)
 	}
 
-	// 设置内容类型
+	// Set the content type
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(response)
 }
 
-// generateRequestID 生成请求ID
+// generateRequestID generates a request ID
 func generateRequestID() string {
 	return time.Now().Format("20060102150405") + "-" + randomString(8)
 }
 
-// randomString 生成随机字符串
+// randomString generates a random string
 func randomString(length int) string {
 	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	b := make([]byte, length)
@@ -222,17 +222,17 @@ func randomString(length int) string {
 	return string(b)
 }
 
-// SuccessResponse 创建成功响应的便捷函数
+// SuccessResponse is a convenience function that creates a success response
 func SuccessResponse[T any](data T) *APIResponse[T] {
 	return NewResponseBuilder[T]().Success(data).Build()
 }
 
-// ErrorResponse 创建错误响应的便捷函数
+// ErrorResponse is a convenience function that creates an error response
 func ErrorResponse(err error) *APIResponse[any] {
 	return NewResponseBuilder[any]().Error(err).Build()
 }
 
-// PaginatedResponse 创建分页响应的便捷函数
+// PaginatedResponse is a convenience function that creates a paginated response
 func PaginatedResponse[T any](data T, pagination *Pagination) *APIResponse[T] {
 	return NewResponseBuilder[T]().
 		Success(data).
@@ -242,17 +242,17 @@ func PaginatedResponse[T any](data T, pagination *Pagination) *APIResponse[T] {
 
 // HTTP handler helpers
 
-// SendSuccess 发送成功响应
+// SendSuccess sends a success response
 func SendSuccess(w http.ResponseWriter, r *http.Request, data interface{}) {
 	NewResponseBuilder[any]().Success(data).WriteJSON(w, r)
 }
 
-// SendError 发送错误响应
+// SendError sends an error response
 func SendError(w http.ResponseWriter, r *http.Request, err error) {
 	NewResponseBuilder[any]().Error(err).WriteJSON(w, r)
 }
 
-// SendPaginated 发送分页响应
+// SendPaginated sends a paginated response
 func SendPaginated(w http.ResponseWriter, r *http.Request, data interface{}, pagination *Pagination) {
 	NewResponseBuilder[any]().
 		Success(data).
@@ -260,7 +260,7 @@ func SendPaginated(w http.ResponseWriter, r *http.Request, data interface{}, pag
 		WriteJSON(w, r)
 }
 
-// SendPaginatedWithMetadata 发送带元数据的分页响应
+// SendPaginatedWithMetadata sends a paginated response with metadata
 func SendPaginatedWithMetadata(w http.ResponseWriter, r *http.Request, data interface{}, pagination *Pagination, metadata *Metadata) {
 	NewResponseBuilder[any]().
 		Success(data).

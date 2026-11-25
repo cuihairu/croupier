@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-// MockTraceGenerator 模拟追踪ID生成器
+// MockTraceGenerator mock trace ID generator
 type MockTraceGenerator struct {
 	traceID string
 }
@@ -14,7 +14,7 @@ func (m *MockTraceGenerator) GenerateTraceID() string {
 	return m.traceID
 }
 
-// TestErrorFactory_WithTraceGenerator 测试设置追踪ID生成器
+// TestErrorFactory_WithTraceGenerator tests setting the trace ID generator
 func TestErrorFactory_WithTraceGenerator(t *testing.T) {
 	factory := NewErrorFactory("test-service")
 	mockGen := &MockTraceGenerator{traceID: "mock-trace-123"}
@@ -29,14 +29,14 @@ func TestErrorFactory_WithTraceGenerator(t *testing.T) {
 		t.Error("TraceGenerator not set correctly")
 	}
 
-	// 验证使用新的生成器
+	// Verify that the new generator is used
 	err := newFactory.New(ErrCodeInternal, "test-op", nil)
 	if err.TraceID != "mock-trace-123" {
 		t.Errorf("Expected TraceID 'mock-trace-123', got '%s'", err.TraceID)
 	}
 }
 
-// TestErrorFactory_Wrapf_Formatted 测试带格式化消息的错误包装
+// TestErrorFactory_Wrapf_Formatted tests wrapping an error with a formatted message
 func TestErrorFactory_Wrapf_Formatted(t *testing.T) {
 	factory := NewErrorFactory("test-service")
 
@@ -57,19 +57,19 @@ func TestErrorFactory_Wrapf_Formatted(t *testing.T) {
 	}
 }
 
-// TestErrorFactory_Wrapf_NilCause 测试包装nil错误
+// TestErrorFactory_Wrapf_NilCause tests wrapping a nil error
 func TestErrorFactory_Wrapf_NilCause(t *testing.T) {
 	factory := NewErrorFactory("test-service")
 
 	err := factory.Wrapf(nil, "test-operation", "Formatted error: %s", "value")
 
-	// Wrapf 内部调用 Wrap，应该返回 nil
+	// Wrapf calls Wrap internally, which should return nil
 	if err != nil {
 		t.Error("Expected nil when wrapping nil error")
 	}
 }
 
-// TestErrorFactory_InternalErrorf 测试带格式化消息的内部错误
+// TestErrorFactory_InternalErrorf tests an internal error with a formatted message
 func TestErrorFactory_InternalErrorf(t *testing.T) {
 	factory := NewErrorFactory("test-service")
 	cause := errors.New("database connection failed")
@@ -94,7 +94,7 @@ func TestErrorFactory_InternalErrorf(t *testing.T) {
 	}
 }
 
-// TestErrorFactory_UnauthorizedError 测试未授权错误
+// TestErrorFactory_UnauthorizedError tests the unauthorized error
 func TestErrorFactory_UnauthorizedError(t *testing.T) {
 	factory := NewErrorFactory("test-service")
 	cause := errors.New("invalid token")
@@ -122,7 +122,7 @@ func TestErrorFactory_UnauthorizedError(t *testing.T) {
 	}
 }
 
-// TestErrorFactory_ForbiddenError 测试禁止访问错误
+// TestErrorFactory_ForbiddenError tests the forbidden-access error
 func TestErrorFactory_ForbiddenError(t *testing.T) {
 	factory := NewErrorFactory("test-service")
 	cause := errors.New("insufficient permissions")
@@ -151,7 +151,7 @@ func TestErrorFactory_ForbiddenError(t *testing.T) {
 	}
 }
 
-// TestErrorFactory_ConflictError 测试冲突错误
+// TestErrorFactory_ConflictError tests the conflict error
 func TestErrorFactory_ConflictError(t *testing.T) {
 	factory := NewErrorFactory("test-service")
 	cause := errors.New("duplicate key")
@@ -180,7 +180,7 @@ func TestErrorFactory_ConflictError(t *testing.T) {
 	}
 }
 
-// TestErrorFactory_New_NilCause 测试创建错误时cause为nil
+// TestErrorFactory_New_NilCause tests creating an error with a nil cause
 func TestErrorFactory_New_NilCause(t *testing.T) {
 	factory := NewErrorFactory("test-service")
 
@@ -195,7 +195,7 @@ func TestErrorFactory_New_NilCause(t *testing.T) {
 	}
 }
 
-// TestErrorFactory_New_UnknownCode 测试创建未知错误码的错误
+// TestErrorFactory_New_UnknownCode tests creating an error with an unknown code
 func TestErrorFactory_New_UnknownCode(t *testing.T) {
 	factory := NewErrorFactory("test-service")
 	unknownCode := ErrorCode("UNKNOWN_ERROR")
@@ -206,7 +206,7 @@ func TestErrorFactory_New_UnknownCode(t *testing.T) {
 		t.Fatal("New returned nil for unknown code")
 	}
 
-	// 验证使用默认配置
+	// Verify that the default config is used
 	if err.Code != unknownCode {
 		t.Errorf("Expected code %s, got %s", unknownCode, err.Code)
 	}
@@ -220,20 +220,20 @@ func TestErrorFactory_New_UnknownCode(t *testing.T) {
 	}
 }
 
-// TestErrorFactory_Wrap_AlreadyAppError 测试包装已经是AppError的错误
+// TestErrorFactory_Wrap_AlreadyAppError tests wrapping an error that is already an AppError
 func TestErrorFactory_Wrap_AlreadyAppError(t *testing.T) {
 	factory := NewErrorFactory("test-service")
 	originalErr := factory.New(ErrCodeDatabaseError, "db-query", errors.New("SQL error"))
 
 	wrappedErr := factory.Wrap(originalErr, "wrap-operation")
 
-	// 应该返回同一个AppError实例
+	// It should return the same AppError instance
 	if wrappedErr != originalErr {
 		t.Error("Wrap should return the same AppError instance")
 	}
 }
 
-// TestInferErrorCode 测试错误码推断逻辑
+// TestInferErrorCode tests the error code inference logic
 func TestInferErrorCode(t *testing.T) {
 	factory := NewErrorFactory("test-service")
 
@@ -275,7 +275,7 @@ func TestInferErrorCode(t *testing.T) {
 	}
 }
 
-// TestContainsAny 测试字符串包含检查
+// TestContainsAny tests the substring-contains check
 func TestContainsAny(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -304,7 +304,7 @@ func TestContainsAny(t *testing.T) {
 	}
 }
 
-// TestGlobalNewf 测试全局Newf函数
+// TestGlobalNewf tests the global Newf function
 func TestGlobalNewf(t *testing.T) {
 	cause := errors.New("original error")
 	err := Newf(ErrCodeInternal, "test-op", cause, "Error: %s", "test")
@@ -319,7 +319,7 @@ func TestGlobalNewf(t *testing.T) {
 	}
 }
 
-// TestErrorFactory_New_WithAllFields 测试创建包含所有字段的错误
+// TestErrorFactory_New_WithAllFields tests creating an error that contains all fields
 func TestErrorFactory_New_WithAllFields(t *testing.T) {
 	factory := NewErrorFactory("test-service")
 	factory.traceGenerator = &MockTraceGenerator{traceID: "fixed-trace-id"}
@@ -327,7 +327,7 @@ func TestErrorFactory_New_WithAllFields(t *testing.T) {
 	cause := errors.New("cause error")
 	err := factory.New(ErrCodeDatabaseError, "db-operation", cause)
 
-	// 验证所有字段都正确设置
+	// Verify that all fields are set correctly
 	if err.Code != ErrCodeDatabaseError {
 		t.Error("Code not set correctly")
 	}
