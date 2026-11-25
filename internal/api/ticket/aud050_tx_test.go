@@ -12,7 +12,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// aud050TxEnv 组装配有 DB 的工单服务：多步写走真事务（AUD-050）。
+// aud050TxEnv assembles a DB-backed ticket service: multi-step writes go
+// through a real transaction (AUD-050).
 func aud050TxEnv(t *testing.T) (*Service, *svc.ServiceContext) {
 	t.Helper()
 	db := newTicketTestDB(t)
@@ -24,9 +25,11 @@ func aud050TxEnv(t *testing.T) (*Service, *svc.ServiceContext) {
 	return NewService(svcCtx), svcCtx
 }
 
-// 带备注的流转两写（备注 + 状态）同事务：第二步（状态更新）失败时，第一
-// 步已落库的备注必须随事务回滚——「有备注无状态变更」的半提交中间态不得
-// 出现（AUD-050 回归）。
+// A transition with a note is a two-write operation (note + status) inside
+// one transaction: when the second step (status update) fails, the note
+// already landed in the database by the first step must roll back with the
+// transaction — the half-committed "note without status change" state must
+// never appear (AUD-050 regression).
 func TestAud050_TransitionNoteRollsBackWithStatus(t *testing.T) {
 	s, svcCtx := aud050TxEnv(t)
 	ctx := context.Background()
@@ -35,13 +38,13 @@ func TestAud050_TransitionNoteRollsBackWithStatus(t *testing.T) {
 	require.NoError(t, err)
 	idStr := fmt.Sprint(resp.Id)
 
-	// 注入状态更新失败（仅 Update 链，不影响备注 Create）。
+	// Inject a status-update failure (only the Update chain; note Create is unaffected).
 	failV9Updates(svcCtx.DB)
 
 	_, err = s.Transition(ctx, &TransitionRequest{ID: idStr, Status: "in_progress", Note: "aud050-note"})
 	require.Error(t, err)
 
-	// 回滚面：状态未变、备注未落库。
+	// Rollback surface: status unchanged, note not landed in the database.
 	ticket, err := svcCtx.TicketModel.FindOne(ctx, uint(resp.Id))
 	require.NoError(t, err)
 	assert.Equal(t, dbenum.TicketStatusOpen, ticket.Status, "状态更新失败应整体回滚")
@@ -50,7 +53,8 @@ func TestAud050_TransitionNoteRollsBackWithStatus(t *testing.T) {
 	assert.Empty(t, comments, "已写入的备注应随回滚消失")
 }
 
-// 无注入时带备注流转两写整体提交（对照）。
+// Without injection the two writes of a note-carrying transition commit as a
+// whole (control case).
 func TestAud050_TransitionNoteCommitsAtomically(t *testing.T) {
 	s, svcCtx := aud050TxEnv(t)
 	ctx := context.Background()

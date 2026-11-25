@@ -21,8 +21,10 @@ type Service struct {
 	svcCtx *svc.ServiceContext
 }
 
-// auditTicket 是工单域敏感写路径的统一留痕（AUD-049）：创建/更新/删除/
-// 状态流转/评论/bug 关联共用事件类型，成功/失败/denied 差异只在 outcome。
+// auditTicket is the unified audit trail for sensitive write paths in the
+// ticket domain (AUD-049): create/update/delete/status-transition/comment/
+// bug-link share one event type, and success/failure/denied differ only in
+// the outcome.
 func (s *Service) auditTicket(ctx context.Context, event audit.AuditEventType, state, action, resourceID string, extra map[string]interface{}) {
 	details := map[string]interface{}{"action": action}
 	for k, v := range extra {
@@ -35,16 +37,19 @@ func (s *Service) auditTicket(ctx context.Context, event audit.AuditEventType, s
 	audit.LogWrite(s.svcCtx.AuditService, ctx, event, state, actor, "ticket", resourceID, details)
 }
 
-// ticketActorID 是写留痕的资源 ID 形态（工单 id → 字符串）。
+// ticketActorID is the resource-ID shape used by write auditing (ticket id → string).
 func ticketActorID(id uint) string { return fmt.Sprint(id) }
 
-// withTicketTransaction 在当前作用域连接（dbctx.Resolve）上开事务并把 tx
-// 注入 ctx：包内 model 方法经 dbctx.Resolve(ctx, m.db) 自动落到事务连接
-// （与 page 域 withPageTransaction 同范式，AUD-050 多步写包事务）。
+// withTicketTransaction opens a transaction on the current scope connection
+// (dbctx.Resolve) and injects the tx into ctx: model methods in this package
+// resolve through dbctx.Resolve(ctx, m.db) and automatically land on the
+// transaction connection (same paradigm as the page domain's
+// withPageTransaction; AUD-050 wraps multi-step writes in a transaction).
 func (s *Service) withTicketTransaction(ctx context.Context, fn func(context.Context) error) error {
 	if s.svcCtx == nil || s.svcCtx.DB == nil {
-		// 测试装配常只给 model 不给 DB：退化为直连双写（无原子性兜底）；
-		// 生产装配恒带 DB，多步写走真事务。
+		// Test wiring often provides only the model without a DB: degrade to
+		// direct double-write (no atomicity fallback); production wiring
+		// always carries a DB, and multi-step writes use a real transaction.
 		return fn(ctx)
 	}
 	db := dbctx.Resolve(ctx, s.svcCtx.DB)
@@ -57,9 +62,11 @@ func NewService(svcCtx *svc.ServiceContext) *Service {
 	return &Service{svcCtx: svcCtx}
 }
 
-// requireTicketScope 单条工单行级作用域校验（对齐 task 的 requireTaskScope）：
-// 列表与创建已按请求 scope 过滤/归属（#21），但按 id 的单条读/写/评论/关联
-// 此前只认 id，可跨 game/env 越权。错误不回显目标行作用域。
+// requireTicketScope performs the row-level scope check for a single ticket
+// (aligned with task's requireTaskScope): list and create already filter/
+// attribute by the request scope (#21), but id-keyed single-row read/write/
+// comment/link previously trusted only the id and could cross game/env
+// boundaries. The error does not echo the target row's scope.
 func requireTicketScope(ctx context.Context, ticket *model.Ticket) error {
 	scope := svc.GameScopeFromContext(ctx)
 	if ticket == nil || ((scope.GameID != "" || scope.Env != "") && !svc.ScopeMatches(ctx, ticket.GameID, ticket.Env)) {
@@ -68,7 +75,8 @@ func requireTicketScope(ctx context.Context, ticket *model.Ticket) error {
 	return nil
 }
 
-// ticketForScope 取单条工单并做行级作用域校验，按 id 的单条操作共用。
+// ticketForScope fetches a single ticket and runs the row-level scope check;
+// all id-keyed single-row operations share it.
 func (s *Service) ticketForScope(ctx context.Context, id uint) (*model.Ticket, error) {
 	ticket, err := s.svcCtx.TicketModel.FindOne(ctx, id)
 	if err != nil {
@@ -89,8 +97,9 @@ func (s *Service) List(ctx context.Context, req *ListRequest) (*ListResponse, er
 		Category:          strings.TrimSpace(req.Category),
 		Priority:          strings.TrimSpace(req.Priority),
 		Assignee:          strings.TrimSpace(req.Assignee),
-		// #21：scope 由 GameDBMiddleware 按 X-Game-ID/X-Env（顶栏）解析，
-		// 请求参数里的 gameId/env 不再作为查询依据（页面已移除游戏/环境过滤）。
+		// #21: scope is resolved by GameDBMiddleware from X-Game-ID/X-Env
+		// (top bar); gameId/env in the request parameters are no longer used
+		// as query criteria (the page has dropped the game/env filter).
 		GameID: svc.ResolveGameID(ctx, strings.TrimSpace(req.GameID)),
 		Env:    svc.ResolveEnv(ctx, strings.TrimSpace(req.Env)),
 	}
@@ -120,8 +129,9 @@ func (s *Service) Create(ctx context.Context, req *CreateRequest) (*CreateRespon
 		return nil, err
 	}
 
-	// #21：工单归属跟随请求 scope（顶栏）；body 里的 gameId/env 仅在无 scope
-	// 的直调方（玩家侧 SDK 走独立路由）场景下作为兜底。
+	// #21: ticket ownership follows the request scope (top bar); gameId/env
+	// in the body only serve as a fallback for direct callers without a
+	// scope (the player-side SDK goes through a separate route).
 	ticket.GameID = svc.ResolveGameID(ctx, ticket.GameID)
 	ticket.Env = svc.ResolveEnv(ctx, ticket.Env)
 
@@ -234,8 +244,9 @@ func (s *Service) Delete(ctx context.Context, req *DeleteRequest) error {
 	if err != nil {
 		return err
 	}
-	// 删除保持幂等契约（不存在=成功，handler 层钉住 200）；行存在但跨
-	// scope 才拒绝（AUD-COV-001 P1 行级越权补齐）。
+	// Delete keeps the idempotent contract (not-found = success, the handler
+	// layer pins 200); rejection only when the row exists but is out of
+	// scope (AUD-COV-001 P1 row-level privilege gap close-out).
 	ticket, err := s.svcCtx.TicketModel.FindOne(ctx, id)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -284,8 +295,10 @@ func (s *Service) Transition(ctx context.Context, req *TransitionRequest) (*Tran
 			updates["rated_at"] = nil
 		}
 	}
-	// AUD-050：状态备注与状态更新同事务——备注落库后状态更新失败会留下
-	// 「有备注无状态变更」的半提交中间态，回滚保证两写同生同灭。
+	// AUD-050: the status note and the status update share one transaction —
+	// if the status update fails after the note has landed in the database, a
+	// half-committed "note without status change" state would remain; rollback
+	// guarantees the two writes succeed or fail together.
 	if err := s.withTicketTransaction(ctx, func(txCtx context.Context) error {
 		if note := strings.TrimSpace(req.Note); note != "" {
 			comment := addComment(commentAuthor(txCtx), fmt.Sprintf("[状态变更] %s", note), id)

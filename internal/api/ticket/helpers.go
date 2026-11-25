@@ -42,7 +42,7 @@ func buildTicketDTO(ticket *model.Ticket) Ticket {
 		GameId:   ticket.GameID,
 		Env:      ticket.Env,
 		Source:   ticket.Source,
-		// 玩家上下文（game-support P1）
+		// Player context (game-support P1)
 		ServerId:    ticket.ServerID,
 		PlayerLevel: ticket.PlayerLevel,
 		DeviceOS:    ticket.DeviceOS,
@@ -174,7 +174,7 @@ func sanitizeTicketFields(req *CreateRequest) (*model.Ticket, error) {
 		GameID:   strings.TrimSpace(req.GameId),
 		Env:      strings.TrimSpace(req.Env),
 		Source:   "api",
-		// 玩家上下文（game-support P1）
+		// Player context (game-support P1)
 		ServerID:    strings.TrimSpace(req.ServerId),
 		PlayerLevel: sanitizePlayerLevel(req.PlayerLevel),
 		DeviceOS:    strings.TrimSpace(req.DeviceOS),

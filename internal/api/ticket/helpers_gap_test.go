@@ -9,7 +9,8 @@ import (
 	"github.com/cuihairu/croupier/internal/dbenum"
 )
 
-// 工单 ID 解析与创建字段消毒：非法输入 400，空白 trim，默认 status=open/source=api。
+// Ticket ID parsing and create-field sanitization: illegal input is a 400,
+// whitespace is trimmed, and the defaults are status=open / source=api.
 
 func TestParseTicketID(t *testing.T) {
 	id, err := parseTicketID("42")
@@ -30,17 +31,17 @@ func TestParseTicketID(t *testing.T) {
 }
 
 func TestSanitizeTicketFields_Validation(t *testing.T) {
-	// 标题空。
+	// Title empty.
 	_, err := sanitizeTicketFields(&CreateRequest{Content: "c", Category: "bug"})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "标题")
 
-	// 内容空。
+	// Content empty.
 	_, err = sanitizeTicketFields(&CreateRequest{Title: "  t  ", Category: "bug"})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "内容")
 
-	// 分类空（全空白也算空）。
+	// Category empty (all-whitespace counts as empty).
 	_, err = sanitizeTicketFields(&CreateRequest{Title: "t", Content: "c", Category: "   "})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "分类")
@@ -59,7 +60,7 @@ func TestSanitizeTicketFields_HappyPathAndTrim(t *testing.T) {
 		GameId:      " demo ",
 		Env:         " prod ",
 		ServerId:    " s1 ",
-		PlayerLevel: 999999, // 超上限 clamp 到 10000
+		PlayerLevel: 999999, // above the cap, clamped to 10000
 		DeviceOS:    "iOS",
 		Language:    "zh-CN",
 	})

@@ -23,14 +23,15 @@ type Ticket struct {
 	GameId   string   `json:"gameId"`
 	Env      string   `json:"env"`
 	Source   string   `json:"source"`
-	// 玩家上下文（game-support P1；见 docs/research/game-support-systems.md）
+	// Player context (game-support P1; see docs/research/game-support-systems.md)
 	ServerId    string                 `json:"serverId,omitempty"`
 	PlayerLevel int                    `json:"playerLevel,omitempty"`
 	DeviceOS    string                 `json:"deviceOs,omitempty"`
 	DeviceModel string                 `json:"deviceModel,omitempty"`
 	Language    string                 `json:"language,omitempty"`
 	Extra       map[string]interface{} `json:"extra,omitempty"`
-	// CSAT 满意度评分（1-5，0=未评；仅已解决/已关闭后可提交）
+	// CSAT satisfaction rating (1-5, 0 = unrated; only submittable once
+	// resolved/closed)
 	Rating    int    `json:"rating,omitempty"`
 	RatedBy   string `json:"ratedBy,omitempty"`
 	CreatedAt string `json:"createdAt"`
@@ -61,7 +62,7 @@ type TicketCreateRequest struct {
 	GameId   string   `json:"gameId"`
 	Env      string   `json:"env"`
 	Assignee string   `json:"assignee"`
-	// 玩家上下文（game-support P1）
+	// Player context (game-support P1)
 	ServerId    string                 `json:"serverId"`
 	PlayerLevel int                    `json:"playerLevel"`
 	DeviceOS    string                 `json:"deviceOs"`

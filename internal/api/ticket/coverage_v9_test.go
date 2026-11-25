@@ -17,7 +17,8 @@ import (
 	"gorm.io/gorm"
 )
 
-// newV9TicketService 构建带全部模型的 service（Bug/Admin/Message 按需注入）。
+// newV9TicketService builds a service with all models (Bug/Admin/Message
+// injected on demand).
 func newV9TicketService(t *testing.T, withAllModels bool) (*Service, *gorm.DB) {
 	t.Helper()
 	db := newTicketTestDB(t)
@@ -30,7 +31,8 @@ func newV9TicketService(t *testing.T, withAllModels bool) (*Service, *gorm.DB) {
 	return NewService(svcCtx), db
 }
 
-// createV9Ticket 通过 service 创建一张工单并返回其 ID 字符串。
+// createV9Ticket creates a ticket through the service and returns its ID as
+// a string.
 func createV9Ticket(t *testing.T, s *Service) string {
 	t.Helper()
 	resp, err := s.Create(context.Background(), &CreateRequest{
@@ -40,14 +42,14 @@ func createV9Ticket(t *testing.T, s *Service) string {
 	return fmt.Sprint(resp.Id)
 }
 
-// failV9Updates 令所有 UPDATE 失败。
+// failV9Updates makes every UPDATE fail.
 func failV9Updates(db *gorm.DB) {
 	_ = db.Callback().Update().Before("gorm:update").Register("v9_fail_update", func(tx *gorm.DB) {
 		_ = tx.AddError(errors.New("forced update failure"))
 	})
 }
 
-// failV9QueriesOnDest 令 Dest 匹配的查询失败。
+// failV9QueriesOnDest makes queries whose Dest matches fail.
 func failV9QueriesOnDest(db *gorm.DB, match func(tx *gorm.DB) bool) {
 	_ = db.Callback().Query().Before("gorm:query").Register("v9_fail_query", func(tx *gorm.DB) {
 		if match(tx) {
@@ -56,7 +58,8 @@ func failV9QueriesOnDest(db *gorm.DB, match func(tx *gorm.DB) bool) {
 	})
 }
 
-// failV9QueryAfterUpdate 在第一条 UPDATE 之后令后续查询失败（覆盖更新后回读分支）。
+// failV9QueryAfterUpdate makes subsequent queries fail after the first UPDATE
+// (covers the post-update re-read branch).
 func failV9QueryAfterUpdate(db *gorm.DB) {
 	var flagged atomic.Bool
 	_ = db.Callback().Update().Before("gorm:update").Register("v9_flag_update", func(tx *gorm.DB) {
@@ -69,7 +72,8 @@ func failV9QueryAfterUpdate(db *gorm.DB) {
 	})
 }
 
-// failV9QueryAfterCreate 在第一条 INSERT 之后令后续查询失败（覆盖创建后回读分支）。
+// failV9QueryAfterCreate makes subsequent queries fail after the first INSERT
+// (covers the post-create re-read branch).
 func failV9QueryAfterCreate(db *gorm.DB) {
 	var flagged atomic.Bool
 	_ = db.Callback().Create().Before("gorm:create").Register("v9_flag_create", func(tx *gorm.DB) {
@@ -136,12 +140,13 @@ func TestServiceListStatusFilterAndErrorV9(t *testing.T) {
 	s, db := newV9TicketService(t, false)
 	_ = createV9Ticket(t, s)
 
-	// 非法状态过滤值 → -1（model 层 Status<0 表示不过滤，返回全部行）。
+	// Illegal status filter value → -1 (at the model layer Status<0 means
+	// no filtering, returning all rows).
 	resp, err := s.List(context.Background(), &ListRequest{Page: 1, PageSize: 10, Status: "bogus"})
 	require.NoError(t, err)
 	assert.Len(t, resp.Items, 1)
 
-	// 合法但无匹配的状态 → 空列表。
+	// Valid but non-matching status → empty list.
 	resp, err = s.List(context.Background(), &ListRequest{Page: 1, PageSize: 10, Status: "closed"})
 	require.NoError(t, err)
 	assert.Empty(t, resp.Items)
@@ -250,7 +255,7 @@ func TestServiceCreateCommentErrorsV9(t *testing.T) {
 	t.Run("find_after_create_fails", func(t *testing.T) {
 		s, db := newV9TicketService(t, false)
 		id := createV9Ticket(t, s)
-		// CreateComment 无 UPDATE，须在评论 INSERT 之后令查询失败。
+		// CreateComment has no UPDATE, so make queries fail after the comment INSERT.
 		failV9QueryAfterCreate(db)
 
 		_, err := s.CreateComment(context.Background(), &CreateCommentRequest{
@@ -262,7 +267,7 @@ func TestServiceCreateCommentErrorsV9(t *testing.T) {
 	t.Run("list_comments_fails", func(t *testing.T) {
 		s, db := newV9TicketService(t, false)
 		id := createV9Ticket(t, s)
-		// 仅令 ticket_comments 的查询失败，工单查询与评论写入正常。
+		// Only fail ticket_comments queries; ticket queries and comment writes stay healthy.
 		failV9QueriesOnDest(db, func(tx *gorm.DB) bool {
 			_, ok := tx.Statement.Dest.(*[]model.TicketComment)
 			return ok
@@ -317,19 +322,19 @@ func TestServiceConvertToBugErrorsV9(t *testing.T) {
 }
 
 func TestHelpersEdgeBranchesV9(t *testing.T) {
-	// 非法 JSON 的 extra → nil。
+	// extra with invalid JSON → nil.
 	assert.Nil(t, decodeTicketExtra(model.JSON("not-json")))
 
-	// 玩家等级边界收敛。
+	// Player level boundary convergence.
 	assert.Equal(t, 0, sanitizePlayerLevel(-1))
 	assert.Equal(t, 0, sanitizePlayerLevel(0))
 	assert.Equal(t, 10000, sanitizePlayerLevel(10001))
 	assert.Equal(t, 42, sanitizePlayerLevel(42))
 
-	// 无法序列化的 extra → nil。
+	// Non-serializable extra → nil.
 	assert.Nil(t, encodeTicketExtra(map[string]interface{}{"ch": make(chan int)}))
 
-	// 截断分支。
+	// Truncation branch.
 	assert.Equal(t, "abcd", truncate("abcd", 10))
 	assert.Equal(t, "ab…", truncate("abcdef", 3))
 }
@@ -338,10 +343,10 @@ func TestSendMessageEdgeBranchesV9(t *testing.T) {
 	s, _ := newV9TicketService(t, true)
 	ctx := context.Background()
 
-	// 收件人为空白 → 直接返回。
+	// Blank recipient → return immediately.
 	s.sendMessage(ctx, "   ", "ticket.updated", "t", "c", map[string]interface{}{"k": "v"})
 
-	// data 无法编码 → 直接返回。
+	// data cannot be encoded → return immediately.
 	s.sendMessage(ctx, "alice", "ticket.updated", "t", "c",
 		map[string]interface{}{"ch": make(chan int)})
 }

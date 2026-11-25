@@ -13,9 +13,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestList_ScopeHeaderOverridesQueryParams 复刻 #21 的核心诉求：
-// 页面去掉游戏/环境过滤后，列表归属由顶栏 scope（GameDBMiddleware 注入）
-// 决定，请求参数里的 gameId/env 不再作为查询依据。
+// TestList_ScopeHeaderOverridesQueryParams reproduces the core requirement
+// of #21: after the page dropped the game/env filter, list ownership is
+// decided by the top-bar scope (injected by GameDBMiddleware), and gameId/env
+// in the request parameters are no longer used as query criteria.
 func TestList_ScopeHeaderOverridesQueryParams(t *testing.T) {
 	db := newTicketTestDB(t)
 	handler := newTicketHandler(db)
@@ -39,8 +40,9 @@ func TestList_ScopeHeaderOverridesQueryParams(t *testing.T) {
 	}
 }
 
-// TestCreate_StampScopeFromContext：新建工单归属跟随请求 scope，
-// body 里的 gameId/env 不再被信任（scoped 组下中间件已鉴权）。
+// TestCreate_StampScopeFromContext: a newly created ticket's ownership
+// follows the request scope, and gameId/env in the body are no longer
+// trusted (under a scoped group the middleware has already authenticated).
 func TestCreate_StampScopeFromContext(t *testing.T) {
 	db := newTicketTestDB(t)
 	handler := newTicketHandler(db)
@@ -58,8 +60,9 @@ func TestCreate_StampScopeFromContext(t *testing.T) {
 	assert.Equal(t, "prod", created.Env)
 }
 
-// TestFilterOptions_ServerAggregatesUnderScope：分类/处理人过滤选项由服务端
-// 聚合提供——distinct 全集 + 计数、剔除空值、按 scope 过滤（#21 ②）。
+// TestFilterOptions_ServerAggregatesUnderScope: the category/assignee
+// filter options are aggregated and provided by the server — the distinct
+// full set plus counts, empties excluded, filtered by scope (#21 item 2).
 func TestFilterOptions_ServerAggregatesUnderScope(t *testing.T) {
 	db := newTicketTestDB(t)
 	handler := newTicketHandler(db)
@@ -67,7 +70,7 @@ func TestFilterOptions_ServerAggregatesUnderScope(t *testing.T) {
 	m := model.NewTicketModel(db)
 	require.NoError(t, m.Create(context.Background(), &model.Ticket{Title: "T1", Category: "bug", Assignee: "alice", GameID: "game-a", Env: "prod"}))
 	require.NoError(t, m.Create(context.Background(), &model.Ticket{Title: "T2", Category: "bug", Assignee: "bob", GameID: "game-a", Env: "prod"}))
-	// 空分类/空处理人不应成为下拉选项
+	// An empty category / empty assignee must not become a dropdown option
 	require.NoError(t, m.Create(context.Background(), &model.Ticket{Title: "T3", Category: "billing", GameID: "game-a", Env: "prod"}))
 	require.NoError(t, m.Create(context.Background(), &model.Ticket{Title: "T4", Category: "other-game", Assignee: "carol", GameID: "game-b", Env: "dev"}))
 
@@ -90,10 +93,13 @@ func TestFilterOptions_ServerAggregatesUnderScope(t *testing.T) {
 	}, resp.Assignees)
 }
 
-// TestFilterOptions_AssigneesErrorSurfaced：分类聚合成功、处理人聚合失败时
-// service.go 的第二错误分支（ListAssignees err → nil, err）必须透传而非
-// 返回半截 options。通过 DropColumn("assignee") 模拟存量老库缺列形态：
-// category 查询不受影响，assignee 查询确定性报错（与迁移漏配事故同构）。
+// TestFilterOptions_AssigneesErrorSurfaced: when the category aggregation
+// succeeds but the assignee aggregation fails, the second error branch of
+// service.go (ListAssignees err → nil, err) must be propagated rather than
+// returning a half-built options set. DropColumn("assignee") simulates the
+// missing-column shape of a pre-existing old database: the category query is
+// unaffected while the assignee query fails deterministically (isomorphic to
+// the migration-misconfiguration incident).
 func TestFilterOptions_AssigneesErrorSurfaced(t *testing.T) {
 	db := newTicketTestDB(t)
 	handler := newTicketHandler(db)
@@ -109,9 +115,11 @@ func TestFilterOptions_AssigneesErrorSurfaced(t *testing.T) {
 	assertTicketErrorShape(t, rec)
 }
 
-// TestFilterOptions_CategoriesErrorSurfaced：分类聚合失败时 service.go 的
-// 第一错误分支（ListCategories err → nil, err）短路返回——处理人聚合不得
-// 被执行，下拉也不得返回空壳 options（#21 ② 契约：选项要么真实，要么报错）。
+// TestFilterOptions_CategoriesErrorSurfaced: when the category aggregation
+// fails, the first error branch of service.go (ListCategories err → nil, err)
+// short-circuits and returns — the assignee aggregation must not execute, and
+// the dropdown must not return hollow options (#21 item 2 contract: options
+// are either real or an error is raised).
 func TestFilterOptions_CategoriesErrorSurfaced(t *testing.T) {
 	db := newTicketTestDB(t)
 	handler := newTicketHandler(db)
@@ -128,8 +136,9 @@ func TestFilterOptions_CategoriesErrorSurfaced(t *testing.T) {
 	assert.NotContains(t, rec.Body.String(), `"categories"`)
 }
 
-// TestFilterOptions_EmptyScopeStillReturnsShape：无 scope（直调方兼容路径）
-// 时返回全量聚合与空数组而非 null。
+// TestFilterOptions_EmptyScopeStillReturnsShape: with no scope (the direct-
+// caller compatibility path) the response still returns the full aggregation
+// with empty arrays rather than null.
 func TestFilterOptions_EmptyScopeStillReturnsShape(t *testing.T) {
 	db := newTicketTestDB(t)
 	handler := newTicketHandler(db)

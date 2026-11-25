@@ -13,14 +13,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// aud049TicketCtx 携带操作者用户名 + 匹配 scope 的成功路径上下文。
+// aud049TicketCtx carries the actor username plus a scope-matching context
+// for the success path.
 func aud049TicketCtx(gameID, env, username string) context.Context {
 	ctx := ticketScopeCtx(gameID, env)
 	return context.WithValue(ctx, "username", username)
 }
 
-// aud049TicketEnv 组装带审计内存存储的工单服务（AUD-049），附一条 bug 行
-// 供关联用例使用。
+// aud049TicketEnv assembles a ticket service with an in-memory audit store
+// (AUD-049), plus a bug row for the link cases.
 func aud049TicketEnv(t *testing.T) (*Service, *audit.InMemoryAuditStore, uint) {
 	t.Helper()
 	db := newTicketTestDB(t)
@@ -35,8 +36,9 @@ func aud049TicketEnv(t *testing.T) (*Service, *audit.InMemoryAuditStore, uint) {
 	return NewService(svcCtx), store, bug.ID
 }
 
-// aud049TicketRecords 取同事件类型的全部留痕。注意 InMemoryAuditStore.List
-// 底层是 map（遍历顺序随机），断言一律按 outcome 子集过滤，不依赖顺序。
+// aud049TicketRecords fetches all records of one event type. Note that
+// InMemoryAuditStore.List is map-backed (iteration order is random), so
+// assertions always filter by an outcome subset and never rely on order.
 func aud049TicketRecords(t *testing.T, store *audit.InMemoryAuditStore, event audit.AuditEventType) []*audit.AuditRecord {
 	t.Helper()
 	records, _, err := store.List(audit.AuditFilter{EventType: []audit.AuditEventType{event}}, audit.AuditPage{Page: 1, PageSize: 50})
@@ -54,8 +56,9 @@ func aud049ByOutcome(records []*audit.AuditRecord, outcome string) []*audit.Audi
 	return out
 }
 
-// 创建/更新/删除/流转/评论/bug 关联成功留痕；跨 scope 的写操作落 denied
-// 且与 success 共用同一事件类型（差异只在 outcome）。
+// Create/update/delete/transition/comment/bug-link all land success records;
+// cross-scope writes land denied and share the same event type as success
+// (the only difference is the outcome).
 func TestAud049_TicketWriteAudit(t *testing.T) {
 	s, store, bugID := aud049TicketEnv(t)
 	okCtx := aud049TicketCtx("game-a", "prod", "aud049er")
@@ -77,7 +80,7 @@ func TestAud049_TicketWriteAudit(t *testing.T) {
 	assert.Equal(t, "aud049-ticket", creates[0].Details["title"])
 	assert.Equal(t, "game-a", creates[0].Details["gameId"])
 
-	// 跨 scope 更新/流转/评论 → denied。
+	// Cross-scope update/transition/comment → denied.
 	_, err = s.Update(foreign, &UpdateRequest{ID: idStr, Title: "越权改"})
 	require.Error(t, err)
 	_, err = s.Transition(foreign, &TransitionRequest{ID: idStr, Status: "in_progress"})
@@ -85,7 +88,8 @@ func TestAud049_TicketWriteAudit(t *testing.T) {
 	_, err = s.CreateComment(foreign, &CreateCommentRequest{TicketID: idStr, Content: "sneak"})
 	require.Error(t, err)
 
-	// 同 scope：更新与流转成功，success 流转的 "to" 记录落库后的枚举状态。
+	// Same scope: update and transition succeed; the success transition's
+	// "to" record carries the enum status after landing in the database.
 	_, err = s.Update(okCtx, &UpdateRequest{ID: idStr, Title: "aud049-renamed"})
 	require.NoError(t, err)
 	_, err = s.Transition(okCtx, &TransitionRequest{ID: idStr, Status: "in_progress"})

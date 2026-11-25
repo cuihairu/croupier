@@ -14,9 +14,12 @@ import (
 	"gorm.io/gorm"
 )
 
-// 单条工单行级作用域守卫回归（AUD-COV-001 P1：Get/Update/Delete/Transition/
-// 评论/bug 关联按 id 直查直改可跨 game/env 越权；列表与创建在 #21 已按
-// scope 过滤/归属，此处补齐单条面）。作用域经 WithGameScope 模拟注入。
+// Regression for the row-level scope guard on a single ticket (AUD-COV-001
+// P1: Get/Update/Delete/Transition/comments/bug-link read and mutate
+// directly by id and could cross game/env boundaries; list and create were
+// already filtered/attributed by scope in #21, so this covers the
+// single-row surface). The scope is simulated by injecting it via
+// WithGameScope.
 func ticketScopeCtx(gameID, env string) context.Context {
 	return svc.WithGameScope(context.Background(), svc.GameScope{GameID: gameID, Env: env})
 }
@@ -75,7 +78,7 @@ func TestTicketUpdateDeleteRejectForeignScope(t *testing.T) {
 	err = s.Delete(ticketScopeCtx("game-a", "stage"), &DeleteRequest{ID: strID})
 	assertPermissionDenied(t, err)
 
-	// 行未被删除/篡改
+	// The row was neither deleted nor tampered with
 	got, err := s.Get(ticketScopeCtx("game-a", "prod"), &GetRequest{ID: strID})
 	require.NoError(t, err)
 	assert.Equal(t, "scope-probe", got.Ticket.Title)
