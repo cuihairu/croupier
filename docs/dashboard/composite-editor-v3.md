@@ -105,6 +105,10 @@ A section whose bound contract declares a non-object root (`array`, a bare scala
 
 Two sections of one contract (same schema) on a composite page, or the dual preview, each get their own field-id namespace: labels, error text, and descriptions bind to the instance they belong to instead of the first match in the DOM, and re-rendering one instance does not renumber the other. See the [PageSpec protocol](../architecture/pagespec-protocol.md#per-instance-field-ids-sui-027).
 
+## Form width and responsive layout (SUI-028)
+
+Field `width` in a section's form presentation is a 12-column protocol value; the renderer multiplies it by two for antd's 24-column grid (`width: 6` shows as a half-row field). Without an explicit width, the standard type-derived layout applies (`layout: grid` uses a half row); `width: 0` and out-of-range legacy values are treated as unset. Narrow screens (<768px) give every field a full row; from 768px fields take at least half a row and from 992px the full declared span. Group containers and long-text fields stay readable and operable across both sizes, while input, validation, and submit behavior are unchanged. See the [PageSpec protocol](../architecture/pagespec-protocol.md#form-width-and-responsive-layout-sui-028).
+
 ## Known boundaries
 
 - No new widget implementations landed in SUI-020: `DateRange` and `RichText` remain declared-only and silently fall back to the type default; `Code`/`JSON` remain plain textarea strings and do not parse or validate content. Capability hints are informational only and do not change submission values.

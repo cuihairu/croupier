@@ -539,6 +539,10 @@ wire 契约见 [PageSpec 协议规范](../architecture/pagespec-protocol.md)「�
 
 组合页上同一契约的两个区块（同 schema）或双预览各自拥有独立字段 id 命名空间：label、错误文本与说明关联所属实例，而不是 DOM 中第一个同 id 控件；重渲染某个实例不会改掉另一实例的编号。见 [PageSpec 协议](../architecture/pagespec-protocol.md#每实例字段-idsui-027)。
 
+## 表单宽度与响应式布局（SUI-028）
+
+区块表单呈现里的字段 `width` 是 12 栏协议值，渲染器乘 2 映射到 antd 24 栏（`width: 6` 显示为半行字段）。未显式声明宽度时走类型派生标准布局（`layout: grid` 为半行）；历史 `width: 0` 与越界值按未设置处理。窄屏（<768px）所有字段独占整行；768px 起字段至少半行，992px 起恢复完整声明跨度。分组容器与长文本字段在两种视口下都可读可操作，输入、校验与提交行为不变。见 [PageSpec 协议](../architecture/pagespec-protocol.md#表单宽度与响应式布局sui-028)。
+
 ## 9. 已知边界
 
 - SUI-020 未新增任何 widget 实现：`DateRange` 与 `RichText` 仍仅声明、未实现，静默回退到类型默认控件；`Code`/`JSON` 仍是普通 textarea 字符串，不解析也不校验内容。能力提示仅为提示信息，不改变提交值。

@@ -183,6 +183,12 @@ Boundaries: the JSON editor covers declared non-object roots only — a `degrade
 
 The renderer generates every field control's id, `label htmlFor`, and error/description `aria` linkage from the rjsf `idPrefix` (`{prefix}_{path}`, default `root`). Two same-schema forms mounted on one page (a composite page with two sections of one contract, or the dual preview) would otherwise produce identical ids and cross-associate labels, errors, and descriptions between instances. `SchemaFormRenderer` allocates the prefix per live instance: the first instance keeps the default `root` (existing `#root_*` page selectors and tests stay valid), concurrent instances claim `root-2`/`root-3`…, and an unmounted instance releases its prefix so a serial re-render reclaims `root` instead of drifting. The prefix is claimed once per instance lifetime (`useRef`) and is stable across re-renders of the same instance; only a remount may change it.
 
+### Form width and responsive layout (SUI-028)
+
+`FormFieldSpec.width` is expressed in a 12-column protocol grid (valid range 1–12); the renderer converts an explicitly declared width to an Ant Design 24-column `Col span` by multiplying by two (`width: 6` → `ant-col-12`). The conversion applies only to this protocol field: `formContext.colSpan` (set to 12 by `layout: grid`) is already an antd column count and stays unchanged, as does the type-derived default (full row for a lone field, `object`/`array`/textarea, or fewer than two fields; half row otherwise). Historical values of `0` (unset) or out-of-range (`>12`, negative) are ignored and fall back to that same precedence — no migration or silent rescaling of old configurations; such configs render with the standard layout until an admin edits them in Page Studio.
+
+Every template column also carries responsive spans: `xs=24` (all fields take a full row below 768px), `md=max(12, ceil(span/2))` (at least half a row from 768px), `lg=span` (full declared width from 992px). Full-row spans (24) stay 24 at every breakpoint to prevent overflow. Groups and long-text fields remain readable and operable in both viewports; field input, validation, and submit bindings are unchanged. Browser coverage runs against the mock operation page at desktop and 375px widths.
+
 ### Display-vs-call parameter boundary (SUI-045)
 
 The form an operator sees and the request that is finally sent are two different objects, joined by three orthogonal responsibilities:
