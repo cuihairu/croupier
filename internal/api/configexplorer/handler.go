@@ -85,7 +85,7 @@ func (h *Handler) Read(c *gin.Context) {
 	response.Success(c, file)
 }
 
-// Write handles PUT /config-explorer/file（应急编辑）.
+// Write handles PUT /config-explorer/file (emergency edit).
 func (h *Handler) Write(c *gin.Context) {
 	var req WriteRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
