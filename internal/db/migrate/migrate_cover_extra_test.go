@@ -13,24 +13,24 @@ import (
 	"gorm.io/gorm"
 )
 
-// expectMigratedMySQL 模拟一个「已迁移到 21、无 pending」的 MySQL：
-// 会话锁获取成功、版本表存在、goose 无待应用迁移。
+// expectMigratedMySQL simulates a MySQL that has "migrated to 21, nothing pending":
+// session lock acquired, version table exists, goose has no pending migrations.
 func expectMigratedMySQL(mock sqlmock.Sqlmock) {
 	mock.ExpectQuery("SELECT GET_LOCK").
 		WithArgs(mysqlMigrationLockName).
 		WillReturnRows(sqlmock.NewRows([]string{"l"}).AddRow(int64(1)))
-	// ensureUpToDate 的版本表探测（COUNT）
+	// ensureUpToDate version table probe (COUNT)
 	mock.ExpectQuery("information_schema.tables").
 		WillReturnRows(sqlmock.NewRows([]string{"c"}).AddRow(1))
-	// goose HasPending：TableExists 探测（EXISTS）
+	// goose HasPending: TableExists probe (EXISTS)
 	mock.ExpectQuery("information_schema.tables").
 		WillReturnRows(sqlmock.NewRows([]string{"e"}).AddRow(true))
-	// goose HasPending：ListMigrations（1 与 21 均 applied → 无 pending、无缺失）
+	// goose HasPending: ListMigrations (both 1 and 21 applied → nothing pending, nothing missing)
 	mock.ExpectQuery(regexp.QuoteMeta("SELECT version_id, is_applied from goose_db_version ORDER BY id DESC")).
 		WillReturnRows(sqlmock.NewRows([]string{"version_id", "is_applied"}).
 			AddRow(int64(21), true).
 			AddRow(int64(1), true))
-	// CurrentVersion 的版本表探测（COUNT）
+	// CurrentVersion version table probe (COUNT)
 	mock.ExpectQuery("information_schema.tables").
 		WillReturnRows(sqlmock.NewRows([]string{"c"}).AddRow(1))
 }
@@ -50,8 +50,8 @@ func newMySQLTestDB(t *testing.T) (*gorm.DB, sqlmock.Sqlmock) {
 	return db, mock
 }
 
-// Up 成功但 COALESCE(MAX(version_id),0) 返回 NULL → ok=false →
-// "no recorded version after Up"。
+// Up succeeds but COALESCE(MAX(version_id),0) returns NULL → ok=false →
+// "no recorded version after Up".
 func TestEnsureUpToDate_NoRecordedVersionAfterUp(t *testing.T) {
 	db, mock := newMySQLTestDB(t)
 	expectMigratedMySQL(mock)
@@ -64,7 +64,7 @@ func TestEnsureUpToDate_NoRecordedVersionAfterUp(t *testing.T) {
 	assert.ErrorContains(t, err, "no recorded version after Up")
 }
 
-// Up 成功但版本读取返回不可转 int64 的值 → CurrentVersion 报错。
+// Up succeeds but the version read returns a value that cannot convert to int64 → CurrentVersion errors.
 func TestEnsureUpToDate_CurrentVersionReadErrorAfterUp(t *testing.T) {
 	db, mock := newMySQLTestDB(t)
 	expectMigratedMySQL(mock)

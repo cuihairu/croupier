@@ -24,14 +24,16 @@ func bindingResolver(bindings map[string]string) func(context.Context, string, s
 	}
 }
 
-// TestGameDB_UsesAuthorizedBindingName: 自定义名/旧名/前缀变更——binding 名
-// 与 NameForGame 重算结果不同（自定义物理名、旧前缀或前缀变更后的重算差异）
-// 时，路由必须以 authorized binding.database_name 为准，绝不重算开库。
+// TestGameDB_UsesAuthorizedBindingName: custom name/legacy name/prefix change —
+// when the binding name differs from the NameForGame recompute result (custom
+// physical name, legacy prefix, or a recomputed name after a prefix change),
+// routing must follow the authorized binding.database_name and never recompute
+// to open a database.
 func TestGameDB_UsesAuthorizedBindingName(t *testing.T) {
 	custom := "custom_physical_db"
 	r, metaDB := newTestRouter(t, Config{
 		ResolveDatabaseName: bindingResolver(map[string]string{
-			"demo\x00prod": custom, // 与 DefaultGameDBName("demo","prod")="game_demo_prod" 完全不同
+			"demo\x00prod": custom, // entirely different from DefaultGameDBName("demo","prod")="game_demo_prod"
 		}),
 		NameForGame: DefaultGameDBName,
 	})
@@ -58,8 +60,9 @@ func TestGameDB_UsesAuthorizedBindingName(t *testing.T) {
 	}
 }
 
-// TestGameDB_MissingBindingErrors: 已有绑定缺失——不得静默重算开库（ARCH-006
-// 消除前缀重算）。绑定不存在即路由错误，Open/Ensure 一律不执行。
+// TestGameDB_MissingBindingErrors: missing binding — must not silently recompute
+// and open a database (ARCH-006 removes prefix recomputation). An absent binding
+// is a routing error; Open/Ensure never run.
 func TestGameDB_MissingBindingErrors(t *testing.T) {
 	r, metaDB := newTestRouter(t, Config{
 		ResolveDatabaseName: bindingResolver(map[string]string{}),
@@ -82,9 +85,10 @@ func TestGameDB_MissingBindingErrors(t *testing.T) {
 	}
 }
 
-// TestGameDB_LegacyBindingRoutes: 旧名——存量 binding 存的是当年重算出的
-// canonical 名（"game_demo_prod"），切换为 binding-真值后仍按该名开库，
-// 不迁移数据、不新建改名库。
+// TestGameDB_LegacyBindingRoutes: legacy name — a pre-existing binding stores
+// the canonical name recomputed at the time ("game_demo_prod"); after switching
+// to binding-as-truth, still open by that name — no data migration, no renamed
+// database created.
 func TestGameDB_LegacyBindingRoutes(t *testing.T) {
 	legacy := DefaultGameDBName("demo", "prod") // "game_demo_prod"
 	r, metaDB := newTestRouter(t, Config{
@@ -108,11 +112,12 @@ func TestGameDB_LegacyBindingRoutes(t *testing.T) {
 	}
 }
 
-// TestGameDB_UnderscoreCollisionDisambiguated: 下划线碰撞——两 scope 的重算
-// 名相同（"game_a_b_c"），但各自 binding 名不同；按 binding 真值路由即各开
-// 各库，绝无撞 key/开错库。
+// TestGameDB_UnderscoreCollisionDisambiguated: underscore collision — two scopes
+// recompute to the same name ("game_a_b_c") but have distinct binding names;
+// routing by binding truth opens each scope's own database, with no key
+// collision and never the wrong database.
 func TestGameDB_UnderscoreCollisionDisambiguated(t *testing.T) {
-	// 两个 scope 的 DefaultGameDBName 碰撞（sanitize 后同为 game_a_b_c）。
+	// The two scopes' DefaultGameDBName collide (both sanitize to game_a_b_c).
 	if DefaultGameDBName("a_b", "c") != DefaultGameDBName("a", "b_c") {
 		t.Fatal("fixture requires colliding recomputed names")
 	}
@@ -148,8 +153,9 @@ func TestGameDB_UnderscoreCollisionDisambiguated(t *testing.T) {
 	}
 }
 
-// TestGameDB_ConcurrentFirstOpenSingleflight: 并发首次开库——同一 scope 并发
-// GameDB 调用在 binding-真值路径下仍只开一次库（singleflight 去重）。
+// TestGameDB_ConcurrentFirstOpenSingleflight: concurrent first open — concurrent
+// GameDB calls for the same scope still open the database exactly once on the
+// binding-truth path (singleflight dedup).
 func TestGameDB_ConcurrentFirstOpenSingleflight(t *testing.T) {
 	r, metaDB := newTestRouter(t, Config{
 		ResolveDatabaseName: bindingResolver(map[string]string{
@@ -187,8 +193,9 @@ func TestGameDB_ConcurrentFirstOpenSingleflight(t *testing.T) {
 	}
 }
 
-// TestGameDB_ResolveErrorPropagates: binding 查询本身出错（meta DB 故障）时
-// 错误带上下文上抛，不静默降级为重算。
+// TestGameDB_ResolveErrorPropagates: when the binding lookup itself fails (meta DB
+// failure), the error propagates with context instead of silently degrading to
+// recomputation.
 func TestGameDB_ResolveErrorPropagates(t *testing.T) {
 	boom := errors.New("meta db down")
 	r, metaDB := newTestRouter(t, Config{
@@ -204,9 +211,10 @@ func TestGameDB_ResolveErrorPropagates(t *testing.T) {
 	}
 }
 
-// TestForget_AfterBindingDeleted: EnvDelete 先删 game_envs 行再调 Forget——
-// binding 已缺失时 Forget 仍须按记录的 scope 找到并关闭连接（不能靠重算名，
-// 否则泄漏/错关）。
+// TestForget_AfterBindingDeleted: EnvDelete deletes the game_envs row first,
+// then calls Forget — with the binding already gone, Forget must still locate and
+// close the connection by the remembered scope (it cannot rely on a recomputed
+// name, otherwise connections leak or the wrong one closes).
 func TestForget_AfterBindingDeleted(t *testing.T) {
 	bindings := map[string]string{"demo\x00prod": "custom_db_name"}
 	r, metaDB := newTestRouter(t, Config{
@@ -218,7 +226,7 @@ func TestForget_AfterBindingDeleted(t *testing.T) {
 	if _, err := r.GameDB(context.Background(), "demo", "prod"); err != nil {
 		t.Fatalf("GameDB: %v", err)
 	}
-	// 模拟 EnvDelete 顺序：binding 行先被删除。
+	// Simulate the EnvDelete order: the binding row is deleted first.
 	delete(bindings, "demo\x00prod")
 
 	if err := r.Forget("demo", "prod"); err != nil {
@@ -229,8 +237,8 @@ func TestForget_AfterBindingDeleted(t *testing.T) {
 	}
 }
 
-// TestForgetGame_ByTrackedScope: ForgetGame 按缓存的 gameID 匹配，与 binding
-// 是否还在无关。
+// TestForgetGame_ByTrackedScope: ForgetGame matches on the cached gameID,
+// independent of whether the binding still exists.
 func TestForgetGame_ByTrackedScope(t *testing.T) {
 	bindings := map[string]string{
 		"demo\x00prod":  "game_demo_prod",

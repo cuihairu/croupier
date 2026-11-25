@@ -5,8 +5,8 @@ import (
 )
 
 func TestWithDBNilContext(t *testing.T) {
-	// ctx 为 nil 时不 panic，回落 Background
-	got := WithDB(nil, nil) //nolint:staticcheck // 刻意传 nil Context：验证 nil 健壮性是本用例本体
+	// No panic when ctx is nil; fall back to Background
+	got := WithDB(nil, nil) //nolint:staticcheck // deliberately pass a nil Context: nil robustness is the very point of this test
 	if got == nil {
 		t.Fatal("WithDB(nil, nil) returned nil context")
 	}

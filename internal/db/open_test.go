@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-// TestOpen_PostgreSQL 测试 PostgreSQL 连接
+// TestOpen_PostgreSQL tests the PostgreSQL connection
 func TestOpen_PostgreSQL(t *testing.T) {
 	tests := []struct {
 		name string
@@ -28,24 +28,24 @@ func TestOpen_PostgreSQL(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// 注意：这个测试不会真正连接，只是验证代码路径
-			// 在实际环境中需要数据库
+			// Note: this test does not actually connect; it only verifies the code path.
+			// A real environment would require a database.
 			db, err := Open(tt.dsn)
 
-			// 由于没有实际的数据库，我们只验证没有 panic
+			// Without a real database, we only verify there is no panic
 			_ = db
 			_ = err
 
-			// 如果有错误，应该是连接错误，而不是解析错误
+			// If there is an error, it should be a connection error, not a parse error
 			if err != nil {
-				// 期望连接失败（没有数据库）
+				// Expect the connection to fail (no database)
 				t.Logf("Expected connection failure: %v", err)
 			}
 		})
 	}
 }
 
-// TestOpen_SQLite 测试 SQLite 连接
+// TestOpen_SQLite tests the SQLite connection
 func TestOpen_SQLite(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -65,7 +65,7 @@ func TestOpen_SQLite(t *testing.T) {
 		{
 			name:    "sqlite:/// 前缀 - 转换为 file:",
 			dsn:     "sqlite:///tmp/test.db",
-			wantErr: true, // sqlite:/// 前缀会被转换为 file:///tmp/test.db，但文件不存在会报错
+			wantErr: true, // the sqlite:/// prefix is converted to file:///tmp/test.db, which errors because the file does not exist
 		},
 		{
 			name:    "相对路径",
@@ -83,13 +83,13 @@ func TestOpen_SQLite(t *testing.T) {
 			}
 
 			if err == nil && db != nil {
-				// 关闭数据库
+				// Close the database
 				sqlDB, _ := db.DB()
 				if sqlDB != nil {
 					_ = sqlDB.Close()
 				}
 
-				// 清理测试文件
+				// Clean up the test file
 				if tt.dsn != ":memory:" && tt.dsn != "file::memory:" {
 					cleanPath := tt.dsn
 					if len(cleanPath) > 5 && cleanPath[:5] == "file:" {
@@ -105,13 +105,13 @@ func TestOpen_SQLite(t *testing.T) {
 	}
 }
 
-// TestOpen_EmptyDSN 测试空 DSN
+// TestOpen_EmptyDSN tests an empty DSN
 func TestOpen_EmptyDSN(t *testing.T) {
-	// 保存当前目录
+	// Save the current directory
 	origDir, _ := os.Getwd()
 	defer func() { _ = os.Chdir(origDir) }()
 
-	// 创建临时目录
+	// Create a temporary directory
 	tempDir := t.TempDir()
 	_ = os.Chdir(tempDir)
 
@@ -124,25 +124,25 @@ func TestOpen_EmptyDSN(t *testing.T) {
 		t.Fatal("Open() should return non-nil db")
 	}
 
-	// 验证 data 目录被创建
+	// Verify the data directory was created
 	if _, err := os.Stat("data"); os.IsNotExist(err) {
 		t.Error("data directory should be created")
 	}
 
-	// 关闭数据库
+	// Close the database
 	sqlDB, _ := db.DB()
 	if sqlDB != nil {
 		_ = sqlDB.Close()
 	}
 }
 
-// TestOpen_DefaultPath 测试默认路径
+// TestOpen_DefaultPath tests the default path
 func TestOpen_DefaultPath(t *testing.T) {
-	// 保存当前目录
+	// Save the current directory
 	origDir, _ := os.Getwd()
 	defer func() { _ = os.Chdir(origDir) }()
 
-	// 创建临时目录
+	// Create a temporary directory
 	tempDir := t.TempDir()
 	_ = os.Chdir(tempDir)
 
@@ -157,14 +157,14 @@ func TestOpen_DefaultPath(t *testing.T) {
 		}
 	}()
 
-	// 验证数据库文件路径
+	// Verify the database file path
 	expectedPath := filepath.Join("data", "croupier.db")
 	if _, err := os.Stat(expectedPath); os.IsNotExist(err) {
 		t.Logf("Database file may not exist yet: %v", err)
 	}
 }
 
-// TestOpen_SQLiteURI 测试 SQLite URI 格式
+// TestOpen_SQLiteURI tests SQLite URI formats
 func TestOpen_SQLiteURI(t *testing.T) {
 	tests := []struct {
 		name string
@@ -188,7 +188,7 @@ func TestOpen_SQLiteURI(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			db, err := Open(tt.dsn)
 
-			// 不期望有错误（SQLite 可以创建内存数据库）
+			// No error is expected (SQLite can create in-memory databases)
 			if err != nil {
 				t.Logf("Open() error = %v (may be expected)", err)
 			}
@@ -204,17 +204,17 @@ func TestOpen_SQLiteURI(t *testing.T) {
 	}
 }
 
-// TestOpen_DataDirectoryCreation 测试 data 目录创建
+// TestOpen_DataDirectoryCreation tests creation of the data directory
 func TestOpen_DataDirectoryCreation(t *testing.T) {
-	// 保存当前目录
+	// Save the current directory
 	origDir, _ := os.Getwd()
 	defer func() { _ = os.Chdir(origDir) }()
 
-	// 创建临时目录
+	// Create a temporary directory
 	tempDir := t.TempDir()
 	_ = os.Chdir(tempDir)
 
-	// 确保 data 目录不存在
+	// Ensure the data directory does not exist
 	_, err := os.Stat("data")
 	if !os.IsNotExist(err) {
 		_ = os.RemoveAll("data")
@@ -231,7 +231,7 @@ func TestOpen_DataDirectoryCreation(t *testing.T) {
 		}
 	}()
 
-	// 验证目录被创建
+	// Verify the directory was created
 	info, err := os.Stat("data")
 	if err != nil {
 		t.Fatalf("Failed to stat data directory: %v", err)
@@ -242,13 +242,13 @@ func TestOpen_DataDirectoryCreation(t *testing.T) {
 	}
 }
 
-// TestOpen_MultipleEmptyDSN 测试多次空 DSN 调用
+// TestOpen_MultipleEmptyDSN tests multiple empty-DSN calls
 func TestOpen_MultipleEmptyDSN(t *testing.T) {
-	// 保存当前目录
+	// Save the current directory
 	origDir, _ := os.Getwd()
 	defer func() { _ = os.Chdir(origDir) }()
 
-	// 创建临时目录
+	// Create a temporary directory
 	tempDir := t.TempDir()
 	_ = os.Chdir(tempDir)
 
@@ -267,7 +267,7 @@ func TestOpen_MultipleEmptyDSN(t *testing.T) {
 	}
 }
 
-// TestOpen_SQLitePrefixConversion 测试 SQLite 前缀转换
+// TestOpen_SQLitePrefixConversion tests SQLite prefix conversion
 func TestOpen_SQLitePrefixConversion(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -301,7 +301,7 @@ func TestOpen_SQLitePrefixConversion(t *testing.T) {
 				}
 			}
 
-			// 清理
+			// Clean up
 			cleanPath := tt.input
 			if len(cleanPath) > 11 && cleanPath[:11] == "sqlite:///" {
 				cleanPath = cleanPath[11:]
@@ -314,18 +314,18 @@ func TestOpen_SQLitePrefixConversion(t *testing.T) {
 	}
 }
 
-// BenchmarkOpen_PostgreSQLString 性能基准测试
+// BenchmarkOpen_PostgreSQLString performance benchmark
 func BenchmarkOpen_PostgreSQLString(b *testing.B) {
 	dsn := "postgres://user:pass@localhost:5432/test?sslmode=disable"
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		// 只测试字符串解析，不实际连接
+		// Only measures string parsing, no actual connection
 		_ = len(dsn) > 10 && (dsn[:10] == "postgres://" || dsn[:13] == "postgresql://")
 	}
 }
 
-// BenchmarkOpen_SQLiteMemory 性能基准测试
+// BenchmarkOpen_SQLiteMemory performance benchmark
 func BenchmarkOpen_SQLiteMemory(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

@@ -292,7 +292,7 @@ func TestEnsureUpToDate_LegacyDatabaseBridgesOnceThenCatchesUp(t *testing.T) {
 	if err != nil {
 		t.Fatalf("second ensureUpToDate: %v", err)
 	}
-	// 与 MinimumRequiredVersion 同步：新增迁移时两者一起变
+	// Kept in sync with MinimumRequiredVersion: both change together when migrations are added
 	if version != MinimumRequiredVersion {
 		t.Fatalf("version = %d, want %d", version, MinimumRequiredVersion)
 	}

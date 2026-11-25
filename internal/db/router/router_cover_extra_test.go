@@ -15,7 +15,7 @@ import (
 	"gorm.io/gorm/schema"
 )
 
-// ---- 坏 Close 的 driver：让 *sql.DB.Close() 返回错误 ----
+// ---- a driver with a failing Close: makes *sql.DB.Close() return an error ----
 
 type badCloseDriver struct{}
 
@@ -51,7 +51,7 @@ func (badCloseDialector) BindVarTo(clause.Writer, *gorm.Statement, interface{}) 
 func (badCloseDialector) QuoteTo(clause.Writer, string)                         {}
 func (badCloseDialector) Explain(sql string, vars ...interface{}) string        { return "" }
 
-// openBadCloseDB 返回一个底层连接 Close 报错的 gorm.DB。
+// openBadCloseDB returns a gorm.DB whose underlying connection errors on Close.
 func openBadCloseDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	registerOnce.Do(func() { sql.Register("badclose-driver", badCloseDriver{}) })
@@ -60,7 +60,7 @@ func openBadCloseDB(t *testing.T) *gorm.DB {
 		t.Fatalf("open badclose: %v", err)
 	}
 	t.Cleanup(func() { _ = sqlDB.Close() })
-	// 建立一个真实连接使其进入空闲池，Close 时触发 driver 错误。
+	// Establish a real connection so it enters the idle pool, triggering the driver error on Close.
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := sqlDB.PingContext(ctx); err != nil {
@@ -113,8 +113,9 @@ func TestForgetGame_PropagatesConnCloseError(t *testing.T) {
 	}
 }
 
-// GameDB 慢路径 publish 时缓存已被并发 opener 填充：必须优先复用已有
-// 连接并关闭新打开的，避免泄漏。
+// On the GameDB slow path the cache has already been populated by a concurrent
+// opener at publish time: the existing connection must be reused preferentially
+// and the freshly opened one closed, to avoid a leak.
 func TestGameDB_PublishRacePrefersExistingEntry(t *testing.T) {
 	r, metaDB := newTestRouter(t, Config{})
 	defer func() { _ = openSQLiteClose(metaDB) }()
@@ -124,7 +125,7 @@ func TestGameDB_PublishRacePrefersExistingEntry(t *testing.T) {
 	existing := openSQLiteDB(t, filepath.Join(tmp, "existing.db"))
 
 	r.cfg.Open = func(driverName, dsn string) (*gorm.DB, error) {
-		// 模拟另一个 opener 在本次 open 期间发布了缓存条目。
+		// Simulate another opener publishing a cache entry during this open.
 		r.mu.Lock()
 		r.cache[dbName] = existing
 		r.mu.Unlock()

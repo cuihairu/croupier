@@ -1,15 +1,20 @@
 package router
 
-// router.go 补测：Stats 的冒泡排序交换臂（注入乱序时长）、recordFirstOpen
-// 的环形覆写臂（窗口满 1024）、Forget 的未命中 continue 臂、openGameDB 的
-// ensure/open 阶段取消臂（取消上下文与 EnsureDatabase 内取消父上下文）、
-// ping 失败臂（关闭底层 sql.DB 使 PingContext 报错）。
+// router.go supplementary tests: the Stats bubble-sort swap arm (inject
+// out-of-order durations), the recordFirstOpen ring overwrite arm (window full
+// at 1024), the miss-continue arm of Forget, the ensure/open phase
+// cancellation arms of openGameDB (cancel the context up front and cancel the
+// parent context inside EnsureDatabase), and the ping failure arm (close the
+// underlying sql.DB so PingContext errors).
 //
-// 诚实跳过：Stats 的 P95 下标钳位（338——313 空守卫保证 len>=1，且
-// int(0.95*len) < len 恒成立，钳位不可达）；openGameDB 的 migrate 阶段
-// 取消臂（500）——唯一确定性取消源是预算超时，若预算在 ping 期间到期，
-// PingContext 先感知 ctx 取消并报 ping 错（495），ping 成功与
-// check("migrate") 之间的取消窗口为零宽竞态，无法确定性注入。
+// Honestly skipped: the P95 index clamp in Stats (338 — the 313 empty guard
+// ensures len>=1, and int(0.95*len) < len always holds, so the clamp is
+// unreachable); the migrate-phase cancellation arm of openGameDB (500) — the
+// only deterministic cancellation source is budget expiry, and if the budget
+// expires during ping, PingContext notices the ctx cancellation first and
+// reports a ping error (495); the cancellation window between ping success and
+// check("migrate") is a zero-width race that cannot be injected
+// deterministically.
 
 import (
 	"context"
@@ -22,7 +27,7 @@ import (
 
 func TestRouterStatsBubbleSortSwapArm(t *testing.T) {
 	r := &Router{}
-	// 乱序时长：冒泡排序必须交换才会命中 332 交换臂。
+	// Out-of-order durations: the bubble sort must swap to hit the 332 swap arm.
 	r.openDurations = []time.Duration{3 * time.Second, 1 * time.Second, 2 * time.Second}
 	s := r.Stats()
 	require.Equal(t, 3, s.Window)
@@ -36,7 +41,7 @@ func TestRouterRecordFirstOpenRingOverwrite(t *testing.T) {
 	r.openDurations = make([]time.Duration, maxOpenStatsWindow)
 	r.recordFirstOpen(7 * time.Second)
 	require.Len(t, r.openDurations, maxOpenStatsWindow)
-	// 环形右移后最新样本落在末位（copy 覆写臂命中）。
+	// After the ring rotation the newest sample lands at the last slot (copy overwrite arm hit).
 	require.Equal(t, 7*time.Second, r.openDurations[maxOpenStatsWindow-1])
 	require.Equal(t, time.Duration(0), r.openDurations[0])
 }
@@ -46,7 +51,7 @@ func TestRouterForgetNonMatchingContinue(t *testing.T) {
 		cache:    map[string]*gorm.DB{"g1_prod": nil},
 		gameOfDB: map[string]scopeKey{"g1_prod": {gameID: "g1", env: "prod"}},
 	}
-	// 目标 scope 与缓存条目不同 → 循环 continue（410），无匹配返回 nil。
+	// Target scope differs from the cache entry → the loop continues (410); no match returns nil.
 	require.NoError(t, r.Forget("g2", "prod"))
 }
 
@@ -66,8 +71,9 @@ func TestOpenGameDBCancelledAtOpen(t *testing.T) {
 		DSNForDatabase: func(metaDSN, dbName string) string {
 			return dbName
 		},
-		// 在 ensure 阶段内取消父上下文 → 派生的预算子上下文随之取消 →
-		// check("open") 感知取消（479）。
+		// Cancel the parent context inside the ensure phase → the derived budget
+		// child context is cancelled with it → check("open") notices the
+		// cancellation (479).
 		EnsureDatabase: func(ctx context.Context, driver, metaDSN, dbName string) (string, error) {
 			cancel()
 			return "dsn", nil

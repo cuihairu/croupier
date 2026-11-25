@@ -19,7 +19,7 @@ import (
 	"gorm.io/gorm/schema"
 )
 
-// ---- dialectOf 变体补全 ----
+// ---- dialectOf variant coverage ----
 
 func TestDialectOfVariants(t *testing.T) {
 	assert.Equal(t, "mysql", dialectOf("mariadb"))
@@ -29,14 +29,14 @@ func TestDialectOfVariants(t *testing.T) {
 	assert.Equal(t, "", dialectOf("oracle"))
 }
 
-// ---- EnsureUpToDate 错误分支 ----
+// ---- EnsureUpToDate error branches ----
 
 func TestEnsureUpToDateNilDB(t *testing.T) {
 	_, err := EnsureUpToDate(context.Background(), nil, ScopeMeta, nil)
 	assert.ErrorContains(t, err, "nil gorm DB")
 }
 
-// ---- ensureUpToDate 失败路径（sqlite 真库） ----
+// ---- ensureUpToDate failure paths (real sqlite database) ----
 
 func TestEnsureUpToDateVersionBelowRequired(t *testing.T) {
 	db := openTestDB(t)
@@ -45,7 +45,7 @@ func TestEnsureUpToDateVersionBelowRequired(t *testing.T) {
 		"0002_b.sql": "-- +goose Up\nSELECT 1;\n\n-- +goose Down\nSELECT 1;\n",
 	})
 	_, err := ensureUpToDate(context.Background(), db, fsys, ScopeSingle, nil)
-	// 仅两个迁移 → 版本 2 < MinimumRequiredVersion(15)
+	// Only two migrations → version 2 < MinimumRequiredVersion(15)
 	assert.ErrorContains(t, err, "below required")
 }
 
@@ -68,7 +68,7 @@ func TestEnsureUpToDateMigrationFailure(t *testing.T) {
 	assert.ErrorContains(t, err, "up")
 }
 
-// ---- CurrentVersion 分支 ----
+// ---- CurrentVersion branches ----
 
 func TestCurrentVersionZeroRowMeansNeverMigrated(t *testing.T) {
 	db := openTestDB(t)
@@ -89,7 +89,7 @@ func TestCurrentVersionZeroRowMeansNeverMigrated(t *testing.T) {
 	assert.Equal(t, int64(7), version)
 }
 
-// ---- acquireSessionLock / versionTableExists 的 mysql/pg/mssql 分支（sqlmock） ----
+// ---- acquireSessionLock / versionTableExists mysql/pg/mssql branches (sqlmock) ----
 
 func TestAcquireSessionLockMySQL(t *testing.T) {
 	sqlDB, mock, err := sqlmock.New()
@@ -135,7 +135,7 @@ func TestAcquireSessionLockDialFailure(t *testing.T) {
 	sqlDB, _, err := sqlmock.New()
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = sqlDB.Close() })
-	_ = sqlDB.Close() // 提前关闭让 Conn(ctx) 失败
+	_ = sqlDB.Close() // close early so Conn(ctx) fails
 
 	_, err = acquireSessionLock(context.Background(), sqlDB, "postgres")
 	assert.ErrorContains(t, err, "dial lock connection")
@@ -161,7 +161,7 @@ func TestVersionTableExistsDialects(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, exists)
 
-	// 探测失败
+	// Probe failure
 	mock.ExpectQuery(regexp.QuoteMeta(
 		"SELECT COUNT(1) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'goose_db_version'")).
 		WillReturnError(errors.New("boom"))
@@ -169,16 +169,16 @@ func TestVersionTableExistsDialects(t *testing.T) {
 	assert.ErrorContains(t, err, "probe version table")
 }
 
-// EnsureUpToDate 公共入口：sqlite 方言 + 内嵌 migrations 子目录。
+// EnsureUpToDate public entry point: sqlite dialect + embedded migrations subdirectory.
 func TestEnsureUpToDateEmbeddedBelowRequired(t *testing.T) {
 	db := openTestDB(t)
 	_, err := EnsureUpToDate(context.Background(), db, ScopeSingle,
 		func(*gorm.DB) error { return db.Exec("SELECT 1").Error })
-	// 0001 是唯一内嵌 SQL 迁移 → 版本 1 < 15（Go 迁移由 svc 层注册）
+	// 0001 is the only embedded SQL migration → version 1 < 15 (Go migrations are registered at the svc layer)
 	assert.ErrorContains(t, err, "below required")
 }
 
-// ctx 取消分支：GET_LOCK 永不授权 → 循环内 ctx 超时退出。
+// ctx cancellation branch: GET_LOCK never grants → the loop exits on ctx timeout.
 func TestAcquireSessionLockContextCancelled(t *testing.T) {
 	sqlDB, mock, err := sqlmock.New()
 	require.NoError(t, err)
@@ -196,7 +196,7 @@ func TestAcquireSessionLockContextCancelled(t *testing.T) {
 	assert.ErrorIs(t, err, context.DeadlineExceeded)
 }
 
-// 竞争超时分支：60s 内始终拿不到锁 → 失败（用 ctx 提前取消等价覆盖）。
+// Contention timeout branch: the lock is never acquired within 60s → failure (covered equivalently by cancelling ctx early).
 func TestVersionTableExistsMSSQL(t *testing.T) {
 	sqlDB, mock, err := sqlmock.New()
 	require.NoError(t, err)
@@ -210,10 +210,10 @@ func TestVersionTableExistsMSSQL(t *testing.T) {
 	assert.True(t, exists)
 }
 
-// ---- acquireSessionLock：各方言加锁查询失败 ----
+// ---- acquireSessionLock: per-dialect lock query failures ----
 
 func TestAcquireSessionLockQueryErrors(t *testing.T) {
-	// mysql：GET_LOCK 查询失败
+	// mysql: GET_LOCK query failure
 	sqlDB, mock, err := sqlmock.New()
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = sqlDB.Close() })
@@ -222,7 +222,7 @@ func TestAcquireSessionLockQueryErrors(t *testing.T) {
 	assert.ErrorContains(t, err, "acquire session lock")
 	assert.NoError(t, mock.ExpectationsWereMet())
 
-	// postgres：advisory lock 查询失败
+	// postgres: advisory lock query failure
 	sqlDB2, mock2, err := sqlmock.New()
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = sqlDB2.Close() })
@@ -230,7 +230,7 @@ func TestAcquireSessionLockQueryErrors(t *testing.T) {
 	_, err = acquireSessionLock(context.Background(), sqlDB2, "postgres")
 	assert.ErrorContains(t, err, "acquire session lock")
 
-	// mssql：sp_getapplock 失败
+	// mssql: sp_getapplock failure
 	sqlDB3, mock3, err := sqlmock.New()
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = sqlDB3.Close() })
@@ -238,13 +238,13 @@ func TestAcquireSessionLockQueryErrors(t *testing.T) {
 	_, err = acquireSessionLock(context.Background(), sqlDB3, "mssql")
 	assert.ErrorContains(t, err, "acquire session lock")
 
-	// 未知方言：直接空释放（no-op）
+	// unknown dialect: return an empty release (no-op)
 	release, err := acquireSessionLock(context.Background(), sqlDB3, "unknown")
 	require.NoError(t, err)
 	release()
 }
 
-// ---- EnsureUpToDate：不支持方言 / 底层 unwrap 失败 / 锁失败 ----
+// ---- EnsureUpToDate: unsupported dialect / underlying unwrap failure / lock failure ----
 
 func TestEnsureUpToDateUnsupportedDialect(t *testing.T) {
 	db := &gorm.DB{Config: &gorm.Config{Dialector: fakeDialector{name: "oracle"}}}
@@ -253,7 +253,7 @@ func TestEnsureUpToDateUnsupportedDialect(t *testing.T) {
 }
 
 func TestEnsureUpToDateUnwrapFailure(t *testing.T) {
-	// 未 open 的 gorm.DB：db.DB() 失败
+	// gorm.DB that was never opened: db.DB() fails
 	db := &gorm.DB{Config: &gorm.Config{Dialector: fakeDialector{name: "sqlite"}}}
 	_, err := ensureUpToDate(context.Background(), db, nil, ScopeSingle, nil)
 	assert.Error(t, err)
@@ -265,7 +265,7 @@ func TestEnsureUpToDateSessionLockFailure(t *testing.T) {
 
 	db, err := gorm.Open(mysql.New(mysql.Config{Conn: sqlDB, SkipInitializeWithVersion: true}), &gorm.Config{})
 	require.NoError(t, err)
-	_ = sqlDB.Close() // open 成功后再关闭：Conn 失败 → 锁获取失败
+	_ = sqlDB.Close() // close after open succeeds: Conn fails → lock acquisition fails
 
 	_, err = EnsureUpToDate(context.Background(), db, ScopeMeta, nil)
 	assert.ErrorContains(t, err, "dial lock connection")
@@ -279,7 +279,7 @@ func TestEnsureUpToDateVersionProbeFailure(t *testing.T) {
 	mock.ExpectQuery("SELECT GET_LOCK").
 		WithArgs(mysqlMigrationLockName).
 		WillReturnRows(sqlmock.NewRows([]string{"l"}).AddRow(int64(1)))
-	// 版本表探测失败
+	// version table probe failure
 	mock.ExpectQuery("information_schema.tables").WillReturnError(errors.New("probe boom"))
 	mock.ExpectExec("SELECT RELEASE_LOCK").WillReturnResult(sqlmock.NewResult(0, 0))
 
@@ -290,7 +290,7 @@ func TestEnsureUpToDateVersionProbeFailure(t *testing.T) {
 	assert.ErrorContains(t, err, "probe version table")
 }
 
-// fakeDialector 只服务于 Dialector.Name() 探测。
+// fakeDialector only serves Dialector.Name() probing.
 type fakeDialector struct{ name string }
 
 func (f fakeDialector) Name() string { return f.name }
@@ -307,7 +307,7 @@ func (fakeDialector) BindVarTo(writer clause.Writer, stmt *gorm.Statement, v int
 func (fakeDialector) QuoteTo(writer clause.Writer, str string)                            {}
 func (fakeDialector) Explain(sql string, vars ...interface{}) string                      { return "" }
 
-// ---- CurrentVersion：读取版本失败 ----
+// ---- CurrentVersion: version read failure ----
 
 func TestCurrentVersionReadError(t *testing.T) {
 	sqlDB, mock, err := sqlmock.New()
@@ -324,7 +324,7 @@ func TestCurrentVersionReadError(t *testing.T) {
 	assert.False(t, ok)
 }
 
-// ---- ensureUpToDate：goose provider 与版本读取边界 ----
+// ---- ensureUpToDate: goose provider and version-read boundaries ----
 
 type failingFS struct{}
 
@@ -342,7 +342,7 @@ func TestEnsureUpToDateNoMigrationsFound(t *testing.T) {
 	db, err := gorm.Open(gsqlite.Open("file::memory:"), &gorm.Config{})
 	require.NoError(t, err)
 
-	// 目录内没有任何迁移：goose provider 直接拒绝，不静默通过
+	// no migrations at all in the directory: the goose provider rejects outright instead of passing silently
 	fsys := fstest.MapFS{"readme.txt": &fstest.MapFile{Data: []byte("not a migration")}}
 	_, err = ensureUpToDate(context.Background(), db, fsys, ScopeSingle, nil)
 	assert.ErrorContains(t, err, "no migrations found")

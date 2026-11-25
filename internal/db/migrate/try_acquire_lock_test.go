@@ -9,9 +9,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// tryAcquireLock 的 default 兜底分支：acquireSessionLock 外层 switch 已把
-// 方言过滤为 mysql/postgres/mssql，生产路径不可达——直接以未知方言驱动，
-// 且该分支不触碰 conn（nil 安全）。
+// The default fallback branch of tryAcquireLock: the outer switch in
+// acquireSessionLock already filters dialects to mysql/postgres/mssql, so this
+// branch is unreachable in production — drive it directly with an unknown
+// dialect; the branch never touches conn (nil-safe).
 func TestTryAcquireLock_UnknownDialect(t *testing.T) {
 	ok, err := tryAcquireLock(context.Background(), nil, "oracle")
 	require.NoError(t, err)

@@ -15,11 +15,15 @@ import (
 // was winning the race; the re-check must return that entry instead of opening
 // a duplicate connection.
 //
-// 该交错窗口内产品代码自身无挂起点（fast-path RUnlock 与 re-check RLock 之间
-// 是同步代码），真实并发不可构造；历史上用「主线程持写锁泊车 caller + 填充者
-// TryLock 自旋」24 轮相位对齐编排 probabilistic 触发，全量负载下会整轮落空
-// （覆盖率抖动根源）。现按「时序分支用注入点」以 gameDBInflightHook 在回调
-// 入口同步注入竞争条目，单轮即确定性覆盖。
+// The product code itself has no suspension point inside this interleaving window
+// (the stretch between the fast-path RUnlock and the re-check RLock is synchronous),
+// so the real concurrency cannot construct it; historically a 24-round phase-aligned
+// orchestration of "park a caller on the main thread holding the write lock + filler
+// spinning on TryLock" triggered it only probabilistically, and under full-suite
+// load entire rounds missed (the root cause of coverage flapping). Following the
+// "timing branches get an injection point" approach, gameDBInflightHook now
+// synchronously injects the racing entry at the callback entry, covering the branch
+// deterministically in a single round.
 func TestGameDB_InflightRecheckPrefersRepublishedEntry(t *testing.T) {
 	tmp := t.TempDir()
 	dbName := DefaultGameDBName("recheck", "prod")
@@ -37,7 +41,8 @@ func TestGameDB_InflightRecheckPrefersRepublishedEntry(t *testing.T) {
 		return openSQLiteDB(t, filepath.Join(tmp, "fresh.db")), nil
 	}
 
-	// 回调入口同步发布竞争条目：re-check 必须复用它，leader 不得再 open。
+	// Synchronously publish the racing entry at the callback entry: the re-check must reuse it,
+	// and the leader must not open again.
 	gameDBInflightHook = func() {
 		r.mu.Lock()
 		if _, dup := r.cache[dbName]; !dup {

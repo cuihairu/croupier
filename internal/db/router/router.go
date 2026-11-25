@@ -28,10 +28,12 @@ import (
 // this to the shared open logic in internal/svc; tests can inject fakes.
 type DatabaseOpener func(driver, dsn string) (*gorm.DB, error)
 
-// gameDBInflightHook 是 GameDB singleflight 回调入口的测试接缝，产品代码
-// 恒为 nil。唯一用途：让测试在「leader 赢得 Do 竞争」与「缓存 re-check」
-// 之间同步注入竞争条目，确定性覆盖 re-check 分支（该窗口内产品代码自身
-// 无挂起点，真实交错不可构造）。用后必须在 t.Cleanup 复位。
+// gameDBInflightHook is the test seam at the GameDB singleflight callback entry;
+// product code always leaves it nil. Its only purpose is to let tests
+// synchronously inject a racing entry between "the leader winning the Do race"
+// and "the cache re-check", covering the re-check branch deterministically
+// (the product code itself has no suspension point inside that window, so the
+// real interleaving cannot be constructed). Must be reset in t.Cleanup after use.
 var gameDBInflightHook func()
 
 // GameDBCloseLateHook is the test seam for the ARCH-009 late-Open close. Product
@@ -232,9 +234,11 @@ func (r *Router) GameDB(ctx context.Context, gameID, env string) (*gorm.DB, erro
 	// completes even if an individual caller cancels its wait — singleflight
 	// coalescing semantics. The caller's ctx only gates how long it waits.
 	resultCh := r.inflight.DoChan(dbName, func() (interface{}, error) {
-		// 测试接缝（产品恒 nil）：在回调入口同步注入「等待窗口内他人抢先
-		// 发布」的交错，使下方 re-check 分支可确定性覆盖——替代已退役的
-		// 锁泊车/TryLock 自旋相位对齐编排（时序分支用注入点）。
+		// Test seam (always nil in product): synchronously inject the
+		// "someone else publishes first during the wait window" interleaving at
+		// the callback entry so the re-check branch below is covered
+		// deterministically — replacing the retired lock-parking/TryLock-spin
+		// phase-aligned orchestration (timing branches get injection points).
 		if gameDBInflightHook != nil {
 			gameDBInflightHook()
 		}

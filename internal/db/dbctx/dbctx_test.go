@@ -54,10 +54,10 @@ func TestResolve_NilClearsOverride(t *testing.T) {
 // TestGet_NilContext ensures the helpers are nil-context safe so middleware
 // and model code never panic on a missing context.
 func TestGet_NilContext(t *testing.T) {
-	if got := Get(nil); got != nil { //nolint:staticcheck // 刻意传 nil Context：验证不 panic
+	if got := Get(nil); got != nil { //nolint:staticcheck // deliberately pass a nil Context: verify no panic
 		t.Error("Get(nil) must return nil, not panic")
 	}
-	if got := Resolve(nil, nil); got != nil { //nolint:staticcheck // 同上
+	if got := Resolve(nil, nil); got != nil { //nolint:staticcheck // same as above
 		t.Error("Resolve(nil, nil) must return nil, not panic")
 	}
 }

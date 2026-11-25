@@ -228,7 +228,7 @@ func TestArch010Probe(t *testing.T) {
 
 	// Capacity conclusion: database/sql keeps up to MaxIdleConns (default 2)
 	// idle per pool; the server quota bounds how many pools fit at steady
-	// state. This is the observable "回收阈值与容量结论" for ARCH-010.
+	// state. This is the observable "reclamation threshold and capacity conclusion" for ARCH-010.
 	idlePerPool := int64(2)
 	reserved := maxConns * 5 / 100
 	if reserved < 3 {
