@@ -24,11 +24,15 @@ func NewService(svcCtx *svc.ServiceContext) *Service {
 }
 
 // List returns the list of messages for the current user.
-// 读侧可见范围（incident-reports §6 + 插件机制 §5.1）：管理员全量；普通
-// 用户可见 = 直收（含定向给本人的 leader 分片）∪ 兜底组无归属广播（scope
-// 无 categories，不落空）∪ 自己可见类别（leader 或 audience）的 scope 通
-// 知。scope 过滤在 Go 侧做（JSON 列无跨方言查询先例），故受众路径整窗拉
-// 取后再分页，total 以过滤后为准。Detail/Read 沿既有归属校验不动。
+// Receiving-side visibility scope (incident-reports §6 + plugin mechanism
+// §5.1): admins see everything; ordinary users can see = direct receipts
+// (including leader slices addressed to them) ∪ fallback-group broadcasts
+// without ownership (scope without categories, never a void) ∪ scope
+// notifications of their visible categories (leader or audience). The scope
+// filter runs on the Go side (no cross-dialect query precedent for JSON
+// columns), so the audience path pulls the whole window first and pages after;
+// total is counted post-filter. Detail/Read keep the existing ownership
+// validation unchanged.
 func (s *Service) List(ctx context.Context, username string, req *MessagesListRequest) (*MessagesListResponse, error) {
 	if s.svcCtx.MessageModel == nil {
 		return &MessagesListResponse{Items: []MessageItem{}, Total: 0, Page: req.Page, PageSize: req.PageSize}, nil
@@ -43,11 +47,14 @@ func (s *Service) List(ctx context.Context, username string, req *MessagesListRe
 
 	isAdmin, visibleSlugs := s.resolveVisibility(ctx, username)
 	if isAdmin {
-		opts.To = "" // 管理员全量
+		opts.To = "" // admin sees everything
 	} else if username != "" {
-		// 非管理员：整窗拉回（直收 + 兜底组 + 通知源类别消息），Go 过滤后
-		// 再分页——JSON scope 无法跨方言下推 SQL。username 为空沿用既有
-		// 不过滤行为（测试直连场景；生产路由经鉴权中间件必有登录名）。
+		// Non-admin: pull the whole window back (direct + fallback group +
+		// notification-source-category messages), filter in Go, then page —
+		// JSON scope cannot be pushed down to SQL across dialects. An empty
+		// username keeps the existing no-filter behavior (test direct-connect
+		// scenario; production routes go through the auth middleware, so a
+		// login name is always present).
 		opts.To = ""
 		opts.Recipients = []string{username, outlet.DefaultStationRecipient}
 		opts.IncludeSource = "incident_report"
@@ -61,8 +68,10 @@ func (s *Service) List(ctx context.Context, username string, req *MessagesListRe
 	}
 
 	if !isAdmin && username != "" {
-		// scope 受众过滤后重算分页与总数；SQL 已按 id DESC，序保持。
-		// 分页参数用请求原值（opts 已被整窗拉取覆盖）。
+		// Recompute pagination and totals after the scope-audience filter; SQL
+		// already ordered by id DESC, so the order is preserved. Pagination
+		// uses the request's original values (opts was overwritten by the
+		// whole-window fetch).
 		filtered := make([]model.Message, 0, len(messages))
 		for i := range messages {
 			if messageVisibleTo(&messages[i], username, visibleSlugs) {
@@ -86,7 +95,7 @@ func (s *Service) List(ctx context.Context, username string, req *MessagesListRe
 			end = len(filtered)
 		}
 		messages = filtered[start:end]
-		opts.Page, opts.PageSize = req.Page, req.PageSize // 响应回显保持请求原值
+		opts.Page, opts.PageSize = req.Page, req.PageSize // echo back the request's original values
 	}
 
 	items := make([]map[string]interface{}, 0, len(messages))
@@ -102,14 +111,16 @@ func (s *Service) List(ctx context.Context, username string, req *MessagesListRe
 	}, nil
 }
 
-// visibilityFetchCap 受众路径整窗拉取上限（GM 站内信量级很小；超过上限的
-// 尾部行不可见属已知边界，量级上来再改存储侧过滤）。
+// visibilityFetchCap is the whole-window fetch cap for the audience path (GM
+// in-app message volume is tiny; tail rows beyond the cap being invisible is a
+// known boundary — move filtering to the storage side if the volume grows).
 const visibilityFetchCap = 1000
 
-// resolveVisibility 判定当前用户是否管理员与其可见类别 slug 集（leader ∪
-// audience.users ∪ audience.roles∩用户角色）。依赖缺失（无 AdminModel/无
-// DB/无登录态）一律降级为「非管理员 + 空类别集」，行为等同既有按收件人
-// 过滤。
+// resolveVisibility determines whether the current user is an admin and their
+// set of visible category slugs (leader ∪ audience.users ∪ audience.roles∩
+// user roles). Missing dependencies (no AdminModel / no DB / no login state)
+// always degrade to "non-admin + empty category set", equivalent to the
+// existing filter-by-recipient behavior.
 func (s *Service) resolveVisibility(ctx context.Context, username string) (bool, map[string]bool) {
 	roleNames := map[string]bool{}
 	if s.svcCtx.AdminModel != nil {
@@ -137,8 +148,9 @@ func (s *Service) resolveVisibility(ctx context.Context, username string) (bool,
 	return false, slugs
 }
 
-// categoryVisibleToUser 类别对用户是否可见：leader 或 audience 命中（users
-// 直配或 roles 与用户角色相交）。
+// categoryVisibleToUser reports whether a category is visible to a user: the
+// leader or an audience hit (users directly listed, or roles intersecting the
+// user's roles).
 func categoryVisibleToUser(cat model.IncidentCategory, username string, roleNames map[string]bool) bool {
 	if strings.TrimSpace(cat.Leader) != "" && cat.Leader == username {
 		return true
@@ -166,9 +178,12 @@ func categoryVisibleToUser(cat model.IncidentCategory, username string, roleName
 	return false
 }
 
-// messageVisibleTo 单条消息对非管理员用户是否可见：直收恒可见；scope 无
-// categories 的兜底组广播可见（不落空）；scope 有 categories 的按受众集
-// 相交判定（其他收件人的无 scope 行不可见，点对点消息保持私密）。
+// messageVisibleTo reports whether one message is visible to a non-admin
+// user: direct receipts are always visible; fallback-group broadcasts whose
+// scope has no categories are visible (never a void); when the scope has
+// categories, visibility is decided by intersection with the audience set
+// (rows without scope addressed to other recipients stay invisible, so
+// point-to-point messages remain private).
 func messageVisibleTo(msg *model.Message, username string, slugs map[string]bool) bool {
 	if msg.To == username {
 		return true
@@ -185,7 +200,8 @@ func messageVisibleTo(msg *model.Message, username string, slugs map[string]bool
 	return false
 }
 
-// messageScopeCategories 解析消息 scope 的 categories（解析失败视为无）。
+// messageScopeCategories parses the categories of a message's scope (a parse
+// failure is treated as none).
 func messageScopeCategories(msg *model.Message) []string {
 	if len(msg.Scope) == 0 {
 		return nil
@@ -329,9 +345,10 @@ func (s *Service) Stream(ctx context.Context, username string, req *StreamMessag
 }
 
 func buildMessageItemResponse(msg *model.Message) *MessageItem {
-	// 设计债清理：normalizeMessageItems 对每个输入元素无条件 append 一项，
-	// 输出长度恒等于输入长度；这里传入单元素 slice，items 恒有且仅有 1 项，
-	// 原 len(items)==0 分支不可达已删除。
+	// Design-debt cleanup: normalizeMessageItems unconditionally appends one
+	// item per input element, so output length always equals input length;
+	// we pass a single-element slice, so items always has exactly 1 item and
+	// the original len(items)==0 branch was unreachable and has been removed.
 	items := normalizeMessageItems([]map[string]interface{}{utils.BuildMessageDTO(msg)})
 	return &items[0]
 }
@@ -375,9 +392,11 @@ func parseMessageStatusFilter(value string) dbenum.MessageStatus {
 	return parsed
 }
 
-// Broadcast 管理员群发站内信：展开受众（all=全员 / role=按角色 /
-// users=指定用户名列表）后批量落库，复用单发的校验规则。当前后台用户
-// 量级（几十~几百）同步展开即可；量大再异步化。
+// Broadcast: admins send in-app messages in bulk — expand the audience
+// (all = everyone / role = by role / users = a list of named usernames) and
+// land the rows in batches, reusing the single-send validation rules. At the
+// current back-office user scale (tens to a few hundreds), synchronous
+// expansion is enough; go async when the volume grows.
 func (s *Service) Broadcast(ctx context.Context, req *BroadcastRequest) (*BroadcastResponse, error) {
 	if s.svcCtx.MessageModel == nil || s.svcCtx.AdminModel == nil {
 		return nil, errors.New("消息服务未初始化")

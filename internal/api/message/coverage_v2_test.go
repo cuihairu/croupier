@@ -91,7 +91,8 @@ func TestHandler_Read_V2(t *testing.T) {
 	db := newMessageTestDB(t)
 	handler := newMessageHandler(db)
 
-	// Seed a message first（模型层直种，发送权限见 BUG-026）
+	// Seed a message first (seeded directly at the model layer; see BUG-026 for
+	// send permission)
 	sent := seedMessage(t, db, "u", "notice", "read-test")
 
 	// Read the message
@@ -141,7 +142,7 @@ func TestHandler_Get_Alias_V2(t *testing.T) {
 	db := newMessageTestDB(t)
 	handler := newMessageHandler(db)
 
-	// Seed a message（模型层直种）
+	// Seed a message (seeded directly at the model layer)
 	sent := seedMessage(t, db, "u", "notice", "get-alias")
 
 	// Get via alias
@@ -202,7 +203,8 @@ func TestService_Send_EmptyTo_V2(t *testing.T) {
 func TestService_Send_InvalidType_V2(t *testing.T) {
 	t.Parallel()
 
-	// 合法发送 + admin 登录态（BUG-026 后 Send 仅 admin 可用）
+	// Legitimate send plus an admin login state (after BUG-026, Send is
+	// admin-only)
 	handler := newMessageHandlerWithAdmin(t)
 
 	// Note: ValidateMessageType may accept any string type,
@@ -223,7 +225,7 @@ func TestHandler_List_WithFilters_V2(t *testing.T) {
 	db := newMessageTestDB(t)
 	handler := newMessageHandler(db)
 
-	// Seed messages（模型层直种）
+	// Seed messages (seeded directly at the model layer)
 	seedMessage(t, db, "u1", "notice", "a")
 	seedMessage(t, db, "u1", "alert", "b")
 
@@ -303,7 +305,7 @@ func jsonStr(v interface{}) string {
 	return string(b)
 }
 
-// ---- Broadcast（管理员群发）----
+// ---- Broadcast (admin broadcast) ----
 
 func newBroadcastFixture(t *testing.T) *Service {
 	t.Helper()
@@ -317,7 +319,8 @@ func newBroadcastFixture(t *testing.T) *Service {
 	})
 }
 
-// Broadcast 受众三态：全员/按角色/指定用户；含存在性校验与去重。
+// Broadcast's three audience modes: everyone/by role/named users; including
+// existence validation and deduplication.
 func TestService_BroadcastAudiences(t *testing.T) {
 	s := newBroadcastFixture(t)
 	ctx := context.Background()
@@ -330,7 +333,7 @@ func TestService_BroadcastAudiences(t *testing.T) {
 	require.NoError(t, s.svcCtx.DB.Where("username = ?", "u1").First(&u1).Error)
 	require.NoError(t, s.svcCtx.AdminModel.AssignRole(ctx, u1.ID, role.ID))
 
-	// 1) users 指定（重复名去重）
+	// 1) named users (duplicate names deduplicated)
 	resp, err := s.Broadcast(ctx, &BroadcastRequest{
 		Audience: "users", Usernames: []string{"u1", "u2", "u1"},
 		Type: "system", Title: "点名", Content: "hi",
@@ -338,34 +341,34 @@ func TestService_BroadcastAudiences(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 2, resp.Sent)
 
-	// 2) 不存在的用户拒绝
+	// 2) nonexistent users are rejected
 	_, err = s.Broadcast(ctx, &BroadcastRequest{
 		Audience: "users", Usernames: []string{"ghost"},
 		Type: "system", Title: "x", Content: "y",
 	})
 	require.ErrorContains(t, err, "ghost")
 
-	// 3) role 受众
+	// 3) role audience
 	resp, err = s.Broadcast(ctx, &BroadcastRequest{
 		Audience: "role", Role: "ops", Type: "system", Title: "运营通知", Content: "hi",
 	})
 	require.NoError(t, err)
 	assert.Equal(t, 1, resp.Sent)
 
-	// 4) all（本库仅 2 个活跃管理员）
+	// 4) all (this database has only 2 active admins)
 	resp, err = s.Broadcast(ctx, &BroadcastRequest{
 		Audience: "all", Type: "system", Title: "全员", Content: "hi",
 	})
 	require.NoError(t, err)
 	assert.Equal(t, 2, resp.Sent)
 
-	// 5) 非法受众 / role 缺失
+	// 5) invalid audience / missing role
 	_, err = s.Broadcast(ctx, &BroadcastRequest{Audience: "bogus", Type: "s", Title: "t", Content: "c"})
 	assert.ErrorContains(t, err, "all、role 或 users")
 	_, err = s.Broadcast(ctx, &BroadcastRequest{Audience: "role", Type: "s", Title: "t", Content: "c"})
 	assert.Error(t, err)
 
-	// 6) 落库核验：u1 收到 users+role+all 三条
+	// 6) database verification: u1 received three messages (users+role+all)
 	var count int64
 	require.NoError(t, s.svcCtx.DB.Model(&model.Message{}).
 		Where("recipient = ?", "u1").Count(&count).Error)

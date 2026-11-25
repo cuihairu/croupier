@@ -28,7 +28,8 @@ func newGapfixService(t *testing.T) *Service {
 	return NewService(&svc.ServiceContext{MessageModel: model.NewMessageModel(db), AdminModel: adminModel})
 }
 
-// Data 不可 JSON 序列化 → EncodeData 失败 → Broadcast 报 400 语义错误。
+// Data that cannot be JSON serialized -> EncodeData fails -> Broadcast reports
+// a 400-class semantic error.
 func TestBroadcastUnserializableData(t *testing.T) {
 	s := newGapfixService(t)
 	_, err := s.Broadcast(context.Background(), &BroadcastRequest{
@@ -42,7 +43,8 @@ func TestBroadcastUnserializableData(t *testing.T) {
 	assert.Contains(t, err.Error(), "序列化消息数据失败")
 }
 
-// SSE 事件序列化失败（注入缝隙）→ 静默跳过本帧，不写响应不 panic。
+// SSE event serialization fails (via the injection seam) -> the frame is
+// skipped silently, with no response write and no panic.
 func TestSendMessagesEventMarshalError(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	h := NewHandler(NewService(&svc.ServiceContext{}), config.SSEConfig{})

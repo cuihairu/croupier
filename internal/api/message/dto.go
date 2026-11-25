@@ -35,7 +35,8 @@ type MessageSendRequest struct {
 
 type MessageSendResponse = MessageItem
 
-// BroadcastRequest 管理员群发站内信：受众=全员/按角色/指定用户列表。
+// BroadcastRequest is an admin bulk in-app message broadcast: the audience is
+// all users / by role / an explicit user list.
 type BroadcastRequest struct {
 	Audience  string      `json:"audience"` // all | role | users
 	Role      string      `json:"role,omitempty"`

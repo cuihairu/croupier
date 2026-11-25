@@ -1,6 +1,7 @@
-// 补齐 message 包剩余可覆盖分支（group C）：
-// handler.UnreadCount 的 ShouldBindQuery 失败分支。请求 DTO 是空结构体，
-// form 映射无法失败，须以 Validator 注入强制校验失败（同 console 包先例）。
+// Closing out the remaining coverable branches of package message (group C):
+// the ShouldBindQuery failure branch of handler.UnreadCount. The request DTO is
+// an empty struct, so form mapping cannot fail and a forced validation failure
+// is needed via Validator injection (same precedent as package console).
 package message
 
 import (

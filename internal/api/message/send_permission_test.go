@@ -9,9 +9,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// BUG-026 回归：站内信「发送」（点对点单发）此前没有任何权限校验，任何登录
-// 用户都能给任意账号投递消息。修复后与群发（Broadcast）同门槛——仅 admin
-// 角色；收件侧（List/Read/UnreadCount）对所有登录用户保持开放。
+// BUG-026 regression: in-app message "sending" (point-to-point single send)
+// previously had no permission check at all, so any logged-in user could
+// deliver a message to an arbitrary account. After the fix it shares the same
+// gate as broadcast (Broadcast) — the admin role only; the receiving side
+// (List/Read/UnreadCount) stays open to every logged-in user.
 func TestHandler_Send_RequiresAdminRole(t *testing.T) {
 	h, _ := newBroadcastAuthFixture(t)
 	r := gin.New()
@@ -20,20 +22,21 @@ func TestHandler_Send_RequiresAdminRole(t *testing.T) {
 
 	body := `{"to":"alice","type":"system","title":"点对点","content":"仅管理员可发"}`
 
-	// 未认证 → 403
+	// unauthenticated → 403
 	w := broadcastReq(r, http.MethodPost, "/messages", body, "")
 	assert.Equal(t, http.StatusForbidden, w.Code, w.Body.String())
 
-	// 非 admin 角色（ops）→ 403
+	// non-admin role (ops) → 403
 	w = broadcastReq(r, http.MethodPost, "/messages", body, "alice")
 	assert.Equal(t, http.StatusForbidden, w.Code, w.Body.String())
 
-	// admin → 200 且消息真实落库（接收人可见）
+	// admin → 200 and the message really lands in the database (visible to the recipient)
 	w = broadcastReq(r, http.MethodPost, "/messages", body, "boss")
 	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
 	assert.Contains(t, w.Body.String(), `"to":"alice"`)
 
-	// 收件侧不受影响：普通用户仍能读自己的收件箱
+	// Receiving side unaffected: ordinary users can still read their own
+	// inbox.
 	w = broadcastReq(r, http.MethodGet, "/messages", "", "alice")
 	assert.Equal(t, http.StatusOK, w.Code, w.Body.String())
 	assert.Contains(t, w.Body.String(), `"to":"alice"`)

@@ -16,9 +16,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// 端到端回归：创建未读 → 标记已读 → 列表 status 正确翻转。
-// 此前 BuildMessageDTO 把 dbenum 整型枚举原样放入 map，stringValue 断言
-// string 失败导致列表 status 恒为空串——已读在 UI 永远显示未读。
+// End-to-end regression: create unread → mark read → the list status flips
+// correctly. Previously BuildMessageDTO put the raw dbenum integer enum into
+// the map, so the stringValue assertion against a string failed and the list
+// status was always an empty string — read messages stayed unread in the UI.
 func TestReadLifecycleE2E(t *testing.T) {
 	db := newMessageTestDB(t)
 	svcCtx := &svc.ServiceContext{MessageModel: model.NewMessageModel(db)}

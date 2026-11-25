@@ -19,7 +19,8 @@ import (
 	"gorm.io/gorm"
 )
 
-// 群发夹具：boss=admin 角色，alice=ops 角色；两张表都在内存库中。
+// Broadcast fixture: boss has the admin role, alice has the ops role; both
+// tables live in an in-memory database.
 func newBroadcastAuthFixture(t *testing.T) (*Handler, *gin.Engine) {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
@@ -67,11 +68,11 @@ func broadcastReq(r *gin.Engine, method, path, body, username string) *httptest.
 func TestHandler_Broadcast_Auth(t *testing.T) {
 	_, r := newBroadcastAuthFixture(t)
 
-	// 未认证 → 403
+	// Unauthenticated -> 403
 	w := broadcastReq(r, http.MethodPost, "/messages/broadcast", `{}`, "")
 	assert.Equal(t, http.StatusForbidden, w.Code, w.Body.String())
 
-	// 非 admin 角色 → 403
+	// A non-admin role -> 403
 	w = broadcastReq(r, http.MethodPost, "/messages/broadcast", `{"type":"system","title":"t","content":"c","audience":"users","usernames":["alice"]}`, "alice")
 	assert.Equal(t, http.StatusForbidden, w.Code, w.Body.String())
 }
@@ -79,27 +80,27 @@ func TestHandler_Broadcast_Auth(t *testing.T) {
 func TestHandler_Broadcast_Admin(t *testing.T) {
 	_, r := newBroadcastAuthFixture(t)
 
-	// admin 指定用户群发 → 200 且计数正确
+	// Admin broadcasting to named users -> 200 with the right count
 	body := `{"type":"system","title":"停服通知","content":"今晚维护","audience":"users","usernames":["alice","boss"]}`
 	w := broadcastReq(r, http.MethodPost, "/messages/broadcast", body, "boss")
 	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
 	assert.Contains(t, w.Body.String(), `"sent":2`)
 
-	// audience=all → 全员（boss+alice）
+	// audience=all -> everyone (boss+alice)
 	w = broadcastReq(r, http.MethodPost, "/messages/broadcast", `{"type":"system","title":"全员","content":"c","audience":"all"}`, "boss")
 	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
 	assert.Contains(t, w.Body.String(), `"sent":2`)
 
-	// audience=role → 按角色
+	// audience=role -> by role
 	w = broadcastReq(r, http.MethodPost, "/messages/broadcast", `{"type":"system","title":"按角色","content":"c","audience":"role","role":"ops"}`, "boss")
 	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
 	assert.Contains(t, w.Body.String(), `"sent":1`)
 
-	// 非法 body → 400
+	// Malformed body -> 400
 	w = broadcastReq(r, http.MethodPost, "/messages/broadcast", `{bad`, "boss")
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 
-	// 标题为空 / 内容为空 / 类型为空 → 错误
+	// Empty title / empty content / empty type -> error
 	for _, b := range []string{
 		`{"type":"system","title":"","content":"c","audience":"users","usernames":["alice"]}`,
 		`{"type":"system","title":"t","content":"","audience":"users","usernames":["alice"]}`,
@@ -115,15 +116,15 @@ func TestHandler_Broadcast_Admin(t *testing.T) {
 func TestHandler_UnreadCount_StatusFilter(t *testing.T) {
 	_, r := newBroadcastAuthFixture(t)
 
-	// 先群发一条给 alice，制造未读
+	// First broadcast one message to alice to create an unread
 	w := broadcastReq(r, http.MethodPost, "/messages/broadcast", `{"type":"system","title":"t","content":"c","audience":"users","usernames":["alice"]}`, "boss")
 	require.Equal(t, http.StatusOK, w.Code)
 
-	// 无 status → 全部未读计数（含全部状态分支）
+	// No status -> count all unread (covers the every-status branch)
 	w = broadcastReq(r, http.MethodGet, "/messages/unread-count", "", "alice")
 	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
 
-	// status=unread / bogus / 大小写 → parseMessageStatusFilter 各分支
+	// status=unread / bogus / mixed case -> each branch of parseMessageStatusFilter
 	for _, q := range []string{"?status=unread", "?status=READ", "?status=bogus", "?status="} {
 		w = broadcastReq(r, http.MethodGet, "/messages/unread-count"+q, "", "alice")
 		assert.Equal(t, http.StatusOK, w.Code, q)
@@ -133,22 +134,23 @@ func TestHandler_UnreadCount_StatusFilter(t *testing.T) {
 func TestHandler_List_Branches(t *testing.T) {
 	_, r := newBroadcastAuthFixture(t)
 
-	// 正常 List（带 status/大小写/非法值 → parseMessageStatusFilter 分支）
+	// Normal List (with status/mixed case/invalid value ->
+	// parseMessageStatusFilter branches)
 	for _, q := range []string{"", "?status=unread", "?status=READ", "?status=bogus", "?page=1&pageSize=5"} {
 		w := broadcastReq(r, http.MethodGet, "/messages"+q, "", "alice")
 		assert.Equal(t, http.StatusOK, w.Code, q)
 	}
 
-	// page=abc → Bug4 修复后 400（bind 错误分支）
+	// page=abc -> 400 after the Bug4 fix (bind error branch)
 	w := broadcastReq(r, http.MethodGet, "/messages?page=abc", "", "alice")
 	assert.Equal(t, http.StatusBadRequest, w.Code, w.Body.String())
 
-	// unread-count 无 int 字段，任意 query 都合法 → 200
+	// unread-count has no int fields, so any query is legal -> 200
 	w = broadcastReq(r, http.MethodGet, "/messages/unread-count?page=abc", "", "alice")
 	assert.Equal(t, http.StatusOK, w.Code, w.Body.String())
 }
 
-// DB 故障注入 → List/UnreadCount 的 service 错误分支
+// DB failure injection -> the service error branches of List/UnreadCount
 func TestHandler_DBError_Branches(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})

@@ -49,10 +49,12 @@ func (h *Handler) List(c *gin.Context) {
 
 // Send handles the request to send a message
 //
-// 发送（含点对点单发）是后台运营能力，与群发同门槛：仅 admin 角色可调用。
-// 此前这里没有任何权限校验，任何登录用户都能给任意账号投递站内信
-// （docs/BUGS.md BUG-026）。收件侧（List/Detail/Read/UnreadCount/Stream）
-// 保持所有登录用户可用。
+// Sending (including point-to-point single send) is a back-office operation
+// capability, at the same gate as broadcast: only the admin role may call it.
+// Previously there was no permission check at all here, so any logged-in user
+// could deliver in-app messages to an arbitrary account (docs/BUGS.md BUG-026).
+// The receiving side (List/Detail/Read/UnreadCount/Stream) stays available to
+// every logged-in user.
 func (h *Handler) Send(c *gin.Context) {
 	if !isBroadcaster(c, h) {
 		response.Forbidden(c, "仅管理员可发送站内消息")
@@ -75,7 +77,7 @@ func (h *Handler) Send(c *gin.Context) {
 // Detail handles the request to get message details
 func (h *Handler) Detail(c *gin.Context) {
 	var req MessageDetailRequest
-	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
+	_ = c.ShouldBindUri(&req) // all uri fields are strings without required: binding cannot fail, keep fill-in semantics
 
 	resp, err := h.service.Detail(c.Request.Context(), currentUsername(c), &req)
 	if err != nil {
@@ -88,7 +90,7 @@ func (h *Handler) Detail(c *gin.Context) {
 // Read handles the request to mark a message as read
 func (h *Handler) Read(c *gin.Context) {
 	var req MessageReadRequest
-	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
+	_ = c.ShouldBindUri(&req) // all uri fields are strings without required: binding cannot fail, keep fill-in semantics
 
 	resp, err := h.service.Read(c.Request.Context(), currentUsername(c), &req)
 	if err != nil {
@@ -145,9 +147,10 @@ func (h *Handler) Stream(c *gin.Context) {
 	}
 }
 
-// marshalMessagesEvent 是 SSE 消息事件序列化的可注入缝隙（生产实现为
-// json.Marshal）。事件载荷来自 JSON 往返产物，marshal 失败分支仅能通过
-// 测试注入触达。
+// marshalMessagesEvent is the injectable seam for SSE message event
+// serialization (the production implementation is json.Marshal). Event
+// payloads come from a JSON round-trip, so the marshal-failure branch can only
+// be reached via test injection.
 var marshalMessagesEvent = json.Marshal
 
 func (h *Handler) sendMessagesEvent(c *gin.Context, username string) {
@@ -169,8 +172,8 @@ func (h *Handler) Get(c *gin.Context) {
 	h.Detail(c)
 }
 
-// Broadcast serves POST /messages/broadcast：管理员群发站内信
-// （全员/按角色/指定用户）。仅 admin 角色可调用。
+// Broadcast serves POST /messages/broadcast: admins broadcast in-app
+// messages (everyone / by role / named users). Only the admin role may call it.
 func (h *Handler) Broadcast(c *gin.Context) {
 	if !isBroadcaster(c, h) {
 		response.Forbidden(c, "仅管理员可群发消息")
@@ -189,8 +192,9 @@ func (h *Handler) Broadcast(c *gin.Context) {
 	response.Success(c, resp)
 }
 
-// isBroadcaster 校验当前用户具有 admin 角色（发送是后台运营能力：
-// 群发 Broadcast 与点对点单发 Send 同门槛，普通用户只有收件语义）。
+// isBroadcaster verifies the current user has the admin role (sending is a
+// back-office operation capability: broadcast and point-to-point single send
+// share the same gate, ordinary users only have receiving semantics).
 func isBroadcaster(c *gin.Context, h *Handler) bool {
 	admin, roles, err := utils.LoadCurrentAdmin(c.Request.Context(), h.service.svcCtx)
 	if err != nil {

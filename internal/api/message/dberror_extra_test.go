@@ -1,6 +1,7 @@
-// 覆盖目标：Send/Broadcast 的 EncodeData 与 Create 错误、Read 的 MarkRead
-// 与二次 FindOne 错误、Stream 的 Recent 错误、Broadcast 受众解析错误与
-// 分页第二页、SSE ticker 循环与 sendMessagesEvent 错误分支。
+// Coverage targets: the EncodeData and Create errors of Send/Broadcast, the
+// MarkRead and second FindOne errors of Read, the Recent error of Stream, the
+// Broadcast audience-resolution errors and pagination second page, and the SSE
+// ticker loop plus sendMessagesEvent error branches.
 package message
 
 import (
@@ -86,7 +87,8 @@ func TestService_Read_SecondFindOneError(t *testing.T) {
 	msg := &model.Message{To: "u1", Type: "notice", Content: "c"}
 	require.NoError(t, svcCtx.MessageModel.Create(context.Background(), msg))
 
-	// 第 1 次 query（FindOne）成功，第 2 次（MarkRead 后的回读）失败。
+	// The 1st query (FindOne) succeeds; the 2nd (the read-back after MarkRead)
+	// fails.
 	var queries atomic.Int32
 	injectMessageCallback(t, db, "query", func(tx *gorm.DB) {
 		if queries.Add(1) >= 2 {
@@ -173,7 +175,8 @@ func TestService_Broadcast_AllUsernamesListError(t *testing.T) {
 	assert.Contains(t, err.Error(), "forced admin list failure")
 }
 
-// seedBulkAdmins 直插 501 个 active admin（绕过 bcrypt），全部挂 role。
+// seedBulkAdmins inserts 501 active admins directly (bypassing bcrypt), all
+// attached to the role.
 func seedBulkAdmins(t *testing.T, db *gorm.DB, roleName string) {
 	t.Helper()
 	role := &model.Role{Name: roleName}
@@ -238,7 +241,7 @@ func TestHandler_Stream_TickerThenShutdown(t *testing.T) {
 		h.Stream(c)
 	}()
 
-	// 等 1 个 ticker 周期（初始事件 + tick 事件），再断开连接。
+	// Wait one ticker period (initial event + tick event), then disconnect.
 	time.Sleep(1500 * time.Millisecond)
 	cancel()
 
@@ -263,7 +266,7 @@ func TestSendMessagesEvent_ServiceError(t *testing.T) {
 	assert.Empty(t, w.Body.String(), "service 错误时不应写出 SSE 数据")
 }
 
-// 未授权路径（无 username）在 Stream 中短路。
+// The unauthorized path (no username) short-circuits inside Stream.
 func TestHandler_Stream_Unauthorized(t *testing.T) {
 	h := newMessageHandler(newMessageTestDB(t))
 	c, w := newMessageRequest(http.MethodGet, "/messages/stream", "")

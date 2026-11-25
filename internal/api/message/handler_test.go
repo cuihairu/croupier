@@ -38,9 +38,10 @@ func newMessageHandler(db *gorm.DB) *Handler {
 	return NewHandler(NewService(svcCtx), config.SSEConfig{})
 }
 
-// newMessageHandlerWithAdmin 在 newMessageHandler 基础上接入 AdminModel
-// 并落一个 admin 角色账号 "boss"——BUG-026 后发送侧（Send）仅 admin 可用，
-// 发送主流程用例用它构造有权限的登录态。
+// newMessageHandlerWithAdmin builds on newMessageHandler by wiring in
+// AdminModel and landing an admin-role account "boss" — after BUG-026 the
+// send side (Send) is admin-only, so main-path send tests use it to build a
+// permitted login state.
 func newMessageHandlerWithAdmin(t *testing.T) *Handler {
 	t.Helper()
 	db := newMessageTestDB(t)
@@ -56,16 +57,17 @@ func newMessageHandlerWithAdmin(t *testing.T) *Handler {
 	return NewHandler(NewService(svcCtx), config.SSEConfig{})
 }
 
-// withReqUsername 把登录名写进 request context（isBroadcaster →
-// LoadCurrentAdmin 从 request context 读 username，与 gin context 的
-// c.Set("username", ...) 是两条通道）。
+// withReqUsername writes the login name into the request context (isBroadcaster
+// → LoadCurrentAdmin reads username from the request context — a separate
+// channel from the gin context's c.Set("username", ...)).
 func withReqUsername(ctx *gin.Context, username string) {
 	ctx.Request = ctx.Request.WithContext(
 		context.WithValue(ctx.Request.Context(), "username", username))
 }
 
-// seedMessage 经模型层直接落一条未读消息：收件侧用例不应依赖发送 API
-// （BUG-026 后 Send 仅 admin 可用，无登录态的 handler.Send 做种子会 403）。
+// seedMessage lands an unread message directly through the model layer:
+// receiving-side tests must not rely on the send API (after BUG-026 Send is
+// admin-only, so an unauthenticated handler.Send would return 403 when seeding).
 func seedMessage(t *testing.T, db *gorm.DB, to, msgType, content string) *model.Message {
 	t.Helper()
 	msg := &model.Message{
@@ -113,7 +115,8 @@ func TestHandler_SendAndDetail_RoundTrip(t *testing.T) {
 
 	sendCtx, sendRec := newMessageRequest(http.MethodPost, "/api/v1/messages",
 		`{"to":"user-1","type":"notice","title":"Hello","content":"Welcome aboard","data":{"x":1}}`)
-	// 发送侧需 admin 登录态（BUG-026）：isBroadcaster 读 request context
+	// The send side needs an admin login state (BUG-026): isBroadcaster reads
+	// the request context.
 	withReqUsername(sendCtx, "boss")
 	handler.Send(sendCtx)
 	require.Equal(t, http.StatusOK, sendRec.Code, sendRec.Body.String())
@@ -143,8 +146,9 @@ func TestHandler_SendAndDetail_RoundTrip(t *testing.T) {
 }
 
 func TestHandler_Send_MissingFields_BadRequest(t *testing.T) {
-	// 用 admin 登录态隔离出「参数校验」这一层（无登录态会先被
-	// BUG-026 权限门禁 403，测不到校验逻辑）
+	// Isolate the "parameter validation" layer with an admin login state
+	// (without one the BUG-026 permission gate returns 403 first, and the
+	// validation logic is never reached)
 	handler := newMessageHandlerWithAdmin(t)
 
 	tests := []struct {
@@ -206,7 +210,7 @@ func TestHandler_UnreadCount_Success(t *testing.T) {
 	db := newMessageTestDB(t)
 	handler := newMessageHandler(db)
 
-	// Seed an unread message（模型层直种，发送权限见 BUG-026）。
+	// Seed an unread message (seeded directly at the model layer; send permission per BUG-026).
 	seedMessage(t, db, "u", "notice", "c")
 
 	ctx, rec := newMessageRequest(http.MethodGet, "/api/v1/messages/unread-count", "")
@@ -222,7 +226,7 @@ func TestHandler_Stream_Success(t *testing.T) {
 	db := newMessageTestDB(t)
 	handler := newMessageHandler(db)
 
-	// Seed a message so the stream has content（模型层直种）。
+	// Seed a message so the stream has content (seeded directly at the model layer).
 	seedMessage(t, db, "u", "notice", "streamed")
 
 	gin.SetMode(gin.TestMode)

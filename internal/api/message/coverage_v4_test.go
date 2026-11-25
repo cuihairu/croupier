@@ -123,7 +123,8 @@ func TestService_Read_WrongUsername_V4(t *testing.T) {
 	db := newMessageTestDB(t)
 	handler := newMessageHandler(db)
 
-	// Seed a message to user "owner"（模型层直种，发送权限见 BUG-026）
+	// Seed a message to user "owner" (seeded directly at the model layer; see
+	// BUG-026 for send permission)
 	sent := seedMessage(t, db, "owner", "notice", "private")
 
 	// Try to read as different user
@@ -141,7 +142,7 @@ func TestService_Detail_WrongUsername_V4(t *testing.T) {
 	db := newMessageTestDB(t)
 	handler := newMessageHandler(db)
 
-	// Seed message to "owner"（模型层直种）
+	// Seed message to "owner" (seeded directly at the model layer)
 	sent := seedMessage(t, db, "owner", "notice", "secret")
 
 	// Try to access as different user
@@ -219,7 +220,7 @@ func TestHandler_Stream_WithMessages_V4(t *testing.T) {
 	db := newMessageTestDB(t)
 	handler := newMessageHandler(db)
 
-	// Seed a message（模型层直种）
+	// Seed a message (seeded directly at the model layer)
 	seedMessage(t, db, "stream-user", "notice", "stream-content")
 
 	gin.SetMode(gin.TestMode)
