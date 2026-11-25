@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-// TestCodeError_Error 测试 Error 方法
+// TestCodeError_Error tests the Error method
 func TestCodeError_Error(t *testing.T) {
 	err := NewBadRequest("invalid input")
 	if err.Error() != "invalid input" {
@@ -13,7 +13,7 @@ func TestCodeError_Error(t *testing.T) {
 	}
 }
 
-// TestNewBadRequest 测试创建 BadRequest 错误
+// TestNewBadRequest tests creating a BadRequest error
 func TestNewBadRequest(t *testing.T) {
 	err := NewBadRequest("invalid request")
 	if err.Code != http.StatusBadRequest {
@@ -41,7 +41,7 @@ func TestNewBadRequestWithDetails(t *testing.T) {
 	}
 }
 
-// TestNewUnauthorized 测试创建 Unauthorized 错误
+// TestNewUnauthorized tests creating an Unauthorized error
 func TestNewUnauthorized(t *testing.T) {
 	err := NewUnauthorized("authentication required")
 	if err.Code != http.StatusUnauthorized {
@@ -52,7 +52,7 @@ func TestNewUnauthorized(t *testing.T) {
 	}
 }
 
-// TestNewForbidden 测试创建 Forbidden 错误
+// TestNewForbidden tests creating a Forbidden error
 func TestNewForbidden(t *testing.T) {
 	err := NewForbidden("access denied")
 	if err.Code != http.StatusForbidden {
@@ -63,7 +63,7 @@ func TestNewForbidden(t *testing.T) {
 	}
 }
 
-// TestNewNotFound 测试创建 NotFound 错误
+// TestNewNotFound tests creating a NotFound error
 func TestNewNotFound(t *testing.T) {
 	err := NewNotFound("resource not found")
 	if err.Code != http.StatusNotFound {
@@ -74,7 +74,7 @@ func TestNewNotFound(t *testing.T) {
 	}
 }
 
-// TestNewConflict 测试创建 Conflict 错误
+// TestNewConflict tests creating a Conflict error
 func TestNewConflict(t *testing.T) {
 	err := NewConflict("resource already exists")
 	if err.Code != http.StatusConflict {
@@ -102,7 +102,7 @@ func TestNewConflictWithDetails(t *testing.T) {
 	}
 }
 
-// TestNewValidationError 测试创建 ValidationError 错误
+// TestNewValidationError tests creating a ValidationError error
 func TestNewValidationError(t *testing.T) {
 	err := NewValidationError("validation failed")
 	if err.Code != http.StatusUnprocessableEntity {
@@ -113,7 +113,7 @@ func TestNewValidationError(t *testing.T) {
 	}
 }
 
-// TestNewInternalError 测试创建 InternalError 错误
+// TestNewInternalError tests creating an InternalError error
 func TestNewInternalError(t *testing.T) {
 	err := NewInternalError("something went wrong")
 	if err.Code != http.StatusInternalServerError {
@@ -124,7 +124,7 @@ func TestNewInternalError(t *testing.T) {
 	}
 }
 
-// TestCodeError_ErrorCode 测试 ErrorCode 方法
+// TestCodeError_ErrorCode tests the ErrorCode method
 func TestCodeError_ErrorCode(t *testing.T) {
 	tests := []struct {
 		name           string
@@ -150,7 +150,7 @@ func TestCodeError_ErrorCode(t *testing.T) {
 		})
 	}
 
-	// 测试未知错误码
+	// Test an unknown error code
 	t.Run("UnknownCode", func(t *testing.T) {
 		err := &CodeError{Code: 999, Message: "test"}
 		if err.ErrorCode() != "" {
@@ -159,7 +159,7 @@ func TestCodeError_ErrorCode(t *testing.T) {
 	})
 }
 
-// TestCodeError_Data 测试 Data 方法
+// TestCodeError_Data tests the Data method
 func TestCodeError_Data(t *testing.T) {
 	err := NewNotFound("user not found")
 	code, data := err.Data()
@@ -197,7 +197,7 @@ func TestCodeError_Data_WithDetails(t *testing.T) {
 	}
 }
 
-// TestNewValidationErrorWithDetails 测试带详细信息的验证错误
+// TestNewValidationErrorWithDetails tests a validation error with details
 func TestNewValidationErrorWithDetails(t *testing.T) {
 	details := map[string]string{
 		"email":    "invalid format",
@@ -228,7 +228,7 @@ func TestNewValidationErrorWithDetails(t *testing.T) {
 	}
 }
 
-// TestValidationError_Error 测试 ValidationError 的 Error 方法
+// TestValidationError_Error tests the Error method of ValidationError
 func TestValidationError_Error(t *testing.T) {
 	details := map[string]string{
 		"field1": "error1",
@@ -247,14 +247,15 @@ func TestValidationError_Error(t *testing.T) {
 	expected := "validation failed: map[field1:error1 field2:error2]"
 
 	if errStr != expected {
-		// Go map 的字符串表示可能不稳定，所以我们只检查关键部分
+		// The string representation of a Go map may be unstable, so we only
+		// check the essential parts
 		if len(errStr) < len("validation failed: ") {
 			t.Errorf("Error() returned too short string: got %s", errStr)
 		}
 	}
 }
 
-// TestValidationError_Data 测试 ValidationError 的 Data 方法
+// TestValidationError_Data tests the Data method of ValidationError
 func TestValidationError_Data(t *testing.T) {
 	details := map[string]string{
 		"email": "required",
@@ -292,7 +293,7 @@ func TestValidationError_Data(t *testing.T) {
 	}
 }
 
-// TestCodeError_EmptyMessage 测试空消息
+// TestCodeError_EmptyMessage tests an empty message
 func TestCodeError_EmptyMessage(t *testing.T) {
 	err := NewBadRequest("")
 	if err.Error() != "" {
@@ -300,7 +301,7 @@ func TestCodeError_EmptyMessage(t *testing.T) {
 	}
 }
 
-// TestCodeError_UnicodeMessage 测试 Unicode 消息
+// TestCodeError_UnicodeMessage tests a Unicode message
 func TestCodeError_UnicodeMessage(t *testing.T) {
 	message := "错误信息 🔥"
 	err := NewBadRequest(message)
@@ -309,17 +310,18 @@ func TestCodeError_UnicodeMessage(t *testing.T) {
 	}
 }
 
-// TestCodeError_ImplementsError 测试实现 error 接口
+// TestCodeError_ImplementsError tests implementing the error interface
 func TestCodeError_ImplementsError(t *testing.T) {
 	err := NewBadRequest("test")
 	if err == nil {
 		t.Error("CodeError should implement error interface")
 	}
 
-	_ = err.Error() // 应该能够调用 Error 方法
+	_ = err.Error() // should be able to call the Error method
 }
 
-// TestValidationError_ImplementsError 测试 ValidationError 实现 error 接口
+// TestValidationError_ImplementsError tests that ValidationError implements
+// the error interface
 func TestValidationError_ImplementsError(t *testing.T) {
 	details := map[string]string{"field": "error"}
 	var err = NewValidationErrorWithDetails("test", details)
@@ -327,10 +329,10 @@ func TestValidationError_ImplementsError(t *testing.T) {
 		t.Error("ValidationError should implement error interface")
 	}
 
-	_ = err.Error() // 应该能够调用 Error 方法
+	_ = err.Error() // should be able to call the Error method
 }
 
-// TestNewErrorWithDifferentCodes 测试不同的错误码
+// TestNewErrorWithDifferentCodes tests different error codes
 func TestNewErrorWithDifferentCodes(t *testing.T) {
 	errors := []struct {
 		err      *CodeError
@@ -352,14 +354,14 @@ func TestNewErrorWithDifferentCodes(t *testing.T) {
 	}
 }
 
-// BenchmarkNewError 性能基准测试
+// BenchmarkNewError is a performance benchmark
 func BenchmarkNewError(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		_ = NewBadRequest("test error message")
 	}
 }
 
-// BenchmarkErrorCode 性能基准测试
+// BenchmarkErrorCode is a performance benchmark
 func BenchmarkErrorCode(b *testing.B) {
 	err := NewBadRequest("test")
 	b.ResetTimer()
@@ -368,7 +370,7 @@ func BenchmarkErrorCode(b *testing.B) {
 	}
 }
 
-// BenchmarkErrorData 性能基准测试
+// BenchmarkErrorData is a performance benchmark
 func BenchmarkErrorData(b *testing.B) {
 	err := NewBadRequest("test")
 	b.ResetTimer()
@@ -377,7 +379,7 @@ func BenchmarkErrorData(b *testing.B) {
 	}
 }
 
-// TestNewNotImplemented 测试创建 NotImplemented 错误
+// TestNewNotImplemented tests creating a NotImplemented error
 func TestNewNotImplemented(t *testing.T) {
 	err := NewNotImplemented("feature not yet implemented")
 	if err.Code != http.StatusNotImplemented {
@@ -388,8 +390,9 @@ func TestNewNotImplemented(t *testing.T) {
 	}
 }
 
-// TestNewBadRequestWithCode 测试带稳定业务错误码的 400 构造（生产调用方：
-// approval stepup OTP 的 otp_invalid）。
+// TestNewBadRequestWithCode tests the 400 constructor carrying a stable
+// business error code (production caller: the approval stepup OTP's
+// otp_invalid).
 func TestNewBadRequestWithCode(t *testing.T) {
 	details := map[string]any{"attemptsLeft": 2}
 	err := NewBadRequestWithCode("otp_invalid", "动态验证码错误或已过期", details)

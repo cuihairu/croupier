@@ -1,11 +1,13 @@
 package response
 
-// AUD-047 回归：未知错误统一 opaque 500。
+// AUD-047 regression: unknown errors uniformly return an opaque 500.
 //
-// 根因：Error 兜底分支把 err.Error() 原文回传客户端——GORM/驱动错误会
-// 泄漏 SQL 片段、表名、方言错误码等内部细节。修复：兜底只回稳定文案 +
-// correlationId（details 结构化 + message 提示），原文经 slog 进服务端
-// 日志，凭追踪号回查。
+// Root cause: the Error fallback branch returned the err.Error() text
+// verbatim to the client — GORM/driver errors would leak SQL fragments,
+// table names, dialect error codes and other internal details. Fix: the
+// fallback returns only a stable message plus correlationId (structured
+// details + a message hint); the original text goes to server logs via
+// slog, traceable by correlation ID.
 
 import (
 	"encoding/hex"
@@ -20,7 +22,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// aud047Fire 以指定错误打一次走 Error 兜底的请求。
+// aud047Fire issues one request against the Error fallback with the given error.
 func aud047Fire(t *testing.T, err error) *httptest.ResponseRecorder {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
@@ -35,19 +37,21 @@ func aud047Fire(t *testing.T, err error) *httptest.ResponseRecorder {
 }
 
 func TestAud047_UnknownErrorOpaque(t *testing.T) {
-	// 典型泄漏源：驱动错误原文含表名/方言细节
+	// Typical leak source: the raw driver error contains table names and
+	// dialect details
 	raw := `pq: relation "game_demo_prod.players" does not exist, seq scan on players_pkey`
 	w := aud047Fire(t, fmt.Errorf("%s", raw))
 
 	require.Equal(t, http.StatusInternalServerError, w.Code)
 	body := w.Body.String()
 	assert.Contains(t, body, `"error":"internal_error"`)
-	// 原文任何片段不得出现（"relation" 无法用于断言——correlationId 自身
-	// 含该子串，泄漏判据落在表名/方言前缀上）
+	// No fragment of the raw text may appear ("relation" cannot be used
+	// for the assertion — correlationId itself contains that substring,
+	// so the leak criteria land on table names and dialect prefixes)
 	assert.NotContains(t, body, "game_demo_prod")
 	assert.NotContains(t, body, "players_pkey")
 	assert.NotContains(t, body, "pq:")
-	// 追踪号在 details 结构化字段
+	// The correlation ID lives in the structured details field
 	var payload struct {
 		Error   string `json:"error"`
 		Message string `json:"message"`

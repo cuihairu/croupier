@@ -7,10 +7,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// 回归（OPEN-ISSUES #5）：无 form/json tag 的结构体上，gin ShouldBindQuery
-// 按字段名精确匹配（大小写敏感），前端 lowerCamelCase query key 从未绑定
-// 成功；且 string-only 结构 ShouldBindQuery 恒成功，旧代码的反射 fallback
-// 永不执行——resource-catalog 的 category/query 过滤因此静默失效。
+// Regression (OPEN-ISSUES #5): on structs without form/json tags, gin's
+// ShouldBindQuery matches by exact field name (case-sensitive), so frontend
+// lowerCamelCase query keys were never bound successfully; and for
+// string-only structs ShouldBindQuery always succeeds, so the old reflection
+// fallback never ran — the resource-catalog category/query filters were
+// therefore silently ineffective.
 
 type untaggedDTO struct {
 	GameID   string

@@ -311,9 +311,10 @@ func TestError_GenericError(t *testing.T) {
 
 func TestError_NilError(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	// AUD-047：nil error 不再 panic——统一落 opaque 500 兜底（旧实现
-	// 兜底分支直接解引用 err.Error() 崩掉请求；「don't pass nil」的约定
-	// 随 opaque 化作废，任何未知/异常错误都走同一稳定契约）。
+	// AUD-047: a nil error no longer panics — it falls back to an opaque 500
+	// (the old fallback branch dereferenced err.Error() and crashed the request;
+	// the "don't pass nil" convention dies with the opaque fallback, so every
+	// unknown or unexpected error follows one stable contract).
 	router := gin.New()
 	router.GET("/test", func(c *gin.Context) {
 		Error(c, nil)
@@ -327,7 +328,8 @@ func TestError_NilError(t *testing.T) {
 	assert.Contains(t, w.Body.String(), "internal_error")
 }
 
-// Bug4 修复验证：query 数值转换失败（strconv.NumError）应返回 400 而非 500
+// Bug4 fix verification: a query numeric conversion failure (strconv.NumError)
+// must return 400, not 500.
 func TestError_StrconvNumError_BadRequest(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
@@ -343,8 +345,9 @@ func TestError_StrconvNumError_BadRequest(t *testing.T) {
 	assert.Contains(t, w.Body.String(), "bad_request")
 }
 
-// AppError（平台层 typed error）应按码表 HTTPStatusCode 透出（如
-// SERVICE_UNAVAILABLE→503）而非落 500 internal_error 兜底；error 码转 snake_case。
+// An AppError (platform-level typed error) must be surfaced with the code
+// table's HTTPStatusCode (e.g. SERVICE_UNAVAILABLE -> 503) instead of falling
+// back to a 500 internal_error; the error code is converted to snake_case.
 func TestError_AppError_StatusCodeMapping(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
@@ -364,7 +367,8 @@ func TestError_AppError_StatusCodeMapping(t *testing.T) {
 	assert.Contains(t, body, `"operation":"invoke"`)
 }
 
-// 包装过的 AppError（fmt.Errorf %w）也必须命中映射：invoke 链路多处包装后上抛。
+// A wrapped AppError (fmt.Errorf %w) must also hit the mapping: the invoke
+// chain wraps and rethrows in several places.
 func TestError_WrappedAppError_StatusCodeMapping(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()

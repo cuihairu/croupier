@@ -13,13 +13,17 @@ import (
 // BindQueryCompat binds GET query parameters using form tags first and json tags as fallback.
 // This keeps refactored handlers working even when DTOs only define json tags.
 //
-// 反射兜底始终执行（不只是 ShouldBindQuery 出错时）：gin 的 ShouldBindQuery
-// 对无 form tag 字段按**字段名精确匹配**（大小写敏感），而 query 契约是
-// lowerCamelCase——无 tag 结构体（如 resourcecatalog.ListRequest）的小写
-// 参数从未绑定成功，且 string-only 结构 ShouldBindQuery 恒成功、旧代码的
-// 反射 fallback 永远不会执行，过滤参数静默丢失（OPEN-ISSUES #5 实证）。
+// The reflection fallback always runs (not only when ShouldBindQuery fails):
+// gin's ShouldBindQuery matches **fields by exact field name**
+// (case-sensitive) for fields without a form tag, while the query contract is
+// lowerCamelCase — lowercase parameters of untagged structs (e.g.
+// resourcecatalog.ListRequest) were never bound successfully, and
+// ShouldBindQuery always succeeds for string-only structs, so the old
+// reflection fallback never ran and filter parameters were silently lost
+// (OPEN-ISSUES #5 evidence).
 func BindQueryCompat(c *gin.Context, req interface{}) error {
-	// 绑定错误不提前返回：反射兜底补齐 gin 没绑上的字段后再统一校验。
+	// Do not return early on a binding error: the reflection fallback fills in
+	// the fields gin did not bind before validating everything together.
 	_ = c.ShouldBindQuery(req)
 
 	rv := reflect.ValueOf(req)
@@ -54,11 +58,14 @@ func BindQueryCompat(c *gin.Context, req interface{}) error {
 			continue
 		}
 
-		// 无 tag 兜底：query key 契约是 lowerCamelCase，而 gin 对无 tag
-		// 字段按字段名精确匹配（大小写敏感），前端小写参数从未绑定成功
-		// （OPEN-ISSUES #5）。lcFirst 命中 Env/Category 这类，全小写命中
-		// ID→id 这类；Go 缩写风格字段（GameID）与契约键（gameId）大小写
-		// 分布不同、字符串变换推不出来，最后按大小写不敏感兜底。
+		// Untagged fallback: the query key contract is lowerCamelCase, while
+		// gin matches untagged fields by exact field name (case-sensitive),
+		// so lowercase frontend parameters were never bound successfully
+		// (OPEN-ISSUES #5). lcFirst catches names like Env/Category,
+		// all-lowercase catches ID→id; Go abbreviation-style fields (GameID)
+		// differ in case distribution from the contract key (gameId) in a way
+		// no string transform can infer, so it finally falls back to a
+		// case-insensitive match.
 		bound := false
 		for _, candidate := range []string{lcFirst(field.Name), strings.ToLower(field.Name)} {
 			if values, ok := query[candidate]; ok && len(values) > 0 {

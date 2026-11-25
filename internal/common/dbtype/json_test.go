@@ -83,12 +83,12 @@ func TestJSONUnmarshalJSON(t *testing.T) {
 	require.NoError(t, j.UnmarshalJSON([]byte(`{"x":1}`)))
 	assert.Equal(t, `{"x":1}`, j.String())
 
-	// RawMessage 语义：解析阶段不校验，原文透传。
+	// RawMessage semantics: parsing does not validate, the raw text passes through.
 	var k JSON
 	require.NoError(t, k.UnmarshalJSON([]byte(`{invalid`)))
 	assert.Equal(t, `{invalid`, k.String())
 
-	// 嵌入结构体后经 encoding/json 往返仍保持原文。
+	// After embedding in a struct, an encoding/json round trip still keeps the raw text.
 	type wrapper struct {
 		Payload JSON `json:"payload"`
 	}

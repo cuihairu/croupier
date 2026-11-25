@@ -5,7 +5,7 @@ import (
 	"net/http"
 )
 
-// CodeError 带错误码的错误
+// CodeError is an error carrying an error code
 type CodeError struct {
 	Code    int            `json:"code"`
 	Message string         `json:"message"`
@@ -20,7 +20,7 @@ func (e *CodeError) Error() string {
 	return e.Message
 }
 
-// Data 返回错误的 HTTP 状态码和响应体
+// Data returns the HTTP status code and the response body of the error
 func (e *CodeError) Data() (int, interface{}) {
 	payload := map[string]interface{}{
 		"error":   e.ErrorCode(),
@@ -32,7 +32,7 @@ func (e *CodeError) Data() (int, interface{}) {
 	return e.Code, payload
 }
 
-// ErrorCode 返回错误码字符串
+// ErrorCode returns the error code string
 func (e *CodeError) ErrorCode() string {
 	if e.StableCode != "" {
 		return e.StableCode
@@ -40,7 +40,7 @@ func (e *CodeError) ErrorCode() string {
 	return errorCodeMap[e.Code]
 }
 
-// 错误码映射
+// error-code mapping
 var errorCodeMap = map[int]string{
 	http.StatusBadRequest:          "bad_request",
 	http.StatusUnauthorized:        "unauthorized",
@@ -54,7 +54,7 @@ var errorCodeMap = map[int]string{
 	http.StatusTooManyRequests:     "rate_limited",
 }
 
-// 预定义错误构造函数
+// predefined error constructors
 func NewBadRequest(message string) *CodeError {
 	return &CodeError{
 		Code:    http.StatusBadRequest,
@@ -113,7 +113,8 @@ func NewNotFound(message string) *CodeError {
 	}
 }
 
-// NewTooManyRequests 限流命中（按 token 分桶的对外 REST 鉴权层）。
+// NewTooManyRequests reports a rate-limit hit (the external REST auth layer
+// that buckets by token).
 func NewTooManyRequests(message string) *CodeError {
 	return &CodeError{
 		Code:       http.StatusTooManyRequests,
@@ -169,7 +170,7 @@ func NewNotImplemented(message string) *CodeError {
 	}
 }
 
-// NewValidationErrorWithDetails 带详细信息的验证错误
+// NewValidationErrorWithDetails returns a validation error carrying details
 func NewValidationErrorWithDetails(message string, details map[string]string) error {
 	return &ValidationError{
 		CodeError: CodeError{
@@ -180,7 +181,7 @@ func NewValidationErrorWithDetails(message string, details map[string]string) er
 	}
 }
 
-// ValidationError 验证错误（包含详细字段信息）
+// ValidationError is a validation error (with detailed field information)
 type ValidationError struct {
 	CodeError
 	Details map[string]string `json:"details"`

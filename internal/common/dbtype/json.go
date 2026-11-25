@@ -1,6 +1,7 @@
-// Package dbtype 提供方言感知的数据库列类型。叶子包：仅依赖 gorm，
-// 禁止 import 任何 internal/ 业务包（model 与 platform/registry 之间
-// 存在依赖环风险，两者都必须能用本类型）。
+// Package dbtype provides dialect-aware database column types. Leaf package:
+// depends only on gorm; importing any internal/ business package is forbidden
+// (there is a dependency-cycle risk between model and platform/registry, and
+// both must be able to use these types).
 package dbtype
 
 import (
@@ -16,12 +17,15 @@ import (
 	"gorm.io/gorm/schema"
 )
 
-// JSON 是 datatypes.JSON 的方言感知替代：语义逐方法对齐（Value 空值返回
-// nil、Scan nil 写 "null"、MarshalJSON 输出原文而非 base64），唯一差异是
-// GormDBDataType 补齐 sqlserver 分支——datatypes.JSON 对未知方言返回空
-// 字符串，gorm sqlserver 驱动随即回落到字面量 `json`，而 SQL Server 没有
-// 原生 JSON 类型，AutoMigrate 建表直接报 Cannot find data type json。
-// sqlserver 下 JSON 文档以 nvarchar(max) 存储（UTF-16，无损）。
+// JSON is a dialect-aware replacement for datatypes.JSON: the semantics are
+// aligned method by method (Value returns nil for empty values, Scan of nil
+// writes "null", MarshalJSON outputs the raw document instead of base64). The
+// only difference is that GormDBDataType fills in the sqlserver branch —
+// datatypes.JSON returns an empty string for unknown dialects, after which the
+// gorm sqlserver driver falls back to the literal `json`; SQL Server has no
+// native JSON type, so AutoMigrate table creation fails outright with Cannot
+// find data type json. Under sqlserver, JSON documents are stored as
+// nvarchar(max) (UTF-16, lossless).
 type JSON json.RawMessage
 
 // Value implements driver.Valuer.
@@ -63,9 +67,10 @@ func (j JSON) MarshalJSON() ([]byte, error) {
 	return json.RawMessage(j).MarshalJSON()
 }
 
-// unmarshalRawMessage 是 json.RawMessage.UnmarshalJSON 的测试缝隙：
-// 非空接收者恒返回 nil error，UnmarshalJSON 的错误分支真实调用不可达，
-// 仅测试可通过替换本变量注入故障验证错误透传。
+// unmarshalRawMessage is the test seam for json.RawMessage.UnmarshalJSON:
+// a non-nil receiver always returns a nil error, so the error branch of
+// UnmarshalJSON is unreachable through real calls; only tests can inject a
+// failure via this variable to verify error propagation.
 var unmarshalRawMessage = func(m *json.RawMessage, b []byte) error {
 	return m.UnmarshalJSON(b)
 }

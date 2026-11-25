@@ -5,8 +5,10 @@ import (
 	"testing"
 )
 
-// NewForbiddenWithCode 此前 0%：带稳定业务码的 403 构造器（契约字段
-// StableCode 供前端按 error 码分支，避免依赖本地化 message）。
+// NewForbiddenWithCode previously had 0% coverage: the 403 constructor
+// carrying a stable business code (the contract field StableCode lets the
+// frontend branch on the error code instead of relying on the localized
+// message).
 func TestNewForbiddenWithCode(t *testing.T) {
 	details := map[string]any{"requiredScope": "ops:write"}
 	err := NewForbiddenWithCode("approval_required", "需要审批", details)

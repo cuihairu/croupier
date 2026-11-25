@@ -28,7 +28,7 @@ func Created(c *gin.Context, data interface{}) {
 	c.JSON(http.StatusCreated, data)
 }
 
-// Accepted 以 202 Accepted 返回异步任务受理结果。
+// Accepted returns an async task acceptance result with 202 Accepted.
 func Accepted(c *gin.Context, data interface{}) {
 	c.JSON(http.StatusAccepted, data)
 }
@@ -65,8 +65,9 @@ func Error(c *gin.Context, err error) {
 		BadRequest(c, err.Error())
 		return
 	}
-	// query/uri 数值转换失败（?page=abc 之类）是客户端输入错误，
-	// 应按契约返回 400 而非 500（历史上落入 internal_error 兜底）。
+	// Numeric conversion failures for query/uri parameters (e.g. ?page=abc)
+	// are client input errors and must return 400 per the contract rather
+	// than 500 (historically they fell into the internal_error fallback).
 	var numErr *strconv.NumError
 	if errors.As(err, &numErr) {
 		BadRequest(c, err.Error())
@@ -87,8 +88,10 @@ func Error(c *gin.Context, err error) {
 		})
 		return
 	}
-	// 平台层 AppError（dispatcher/registry 等）：码表自带 HTTPStatusCode
-	// （SERVICE_UNAVAILABLE→503、NOT_FOUND→404…），按契约透出而非落 500 兜底。
+	// Platform-layer AppError (dispatcher/registry etc.): its code table
+	// carries its own HTTPStatusCode (SERVICE_UNAVAILABLE→503,
+	// NOT_FOUND→404, ...); surface it per the contract instead of falling
+	// through to the 500 fallback.
 	var appErr *apperrors.AppError
 	if errors.As(err, &appErr) {
 		message := appErr.Message
@@ -109,9 +112,12 @@ func Error(c *gin.Context, err error) {
 		})
 		return
 	}
-	// AUD-047：未知错误统一 opaque 500。err.Error() 可能携带 GORM/驱动
-	// 细节（SQL 片段、表名、方言错误码、内网拓扑），不回传客户端；原文
-	// 经 slog 进服务端日志，响应只带稳定文案 + 追踪号，运维凭追踪号回查。
+	// AUD-047: unknown errors uniformly return an opaque 500. err.Error()
+	// may carry GORM/driver details (SQL fragments, table names, dialect
+	// error codes, internal network topology) and is not returned to the
+	// client; the original text goes to server logs via slog, and the
+	// response only carries a stable message plus a correlation ID that
+	// ops can trace back.
 	corr := correlationID()
 	slog.ErrorContext(requestCtx(c), "unhandled internal error",
 		"correlationId", corr,
@@ -124,8 +130,9 @@ func Error(c *gin.Context, err error) {
 	})
 }
 
-// correlationID 生成短随机追踪号（16 hex 字符）。crypto/rand 失败时退到
-// 纳秒时间戳——可读性一致，仍满足「日志 ↔ 响应可关联」的用途。
+// correlationID generates a short random correlation ID (16 hex characters).
+// If crypto/rand fails it falls back to a nanosecond timestamp — the same
+// readable shape, still satisfying the "logs ↔ response correlation" purpose.
 func correlationID() string {
 	var b [8]byte
 	if _, err := crand.Read(b[:]); err != nil {
@@ -134,8 +141,9 @@ func correlationID() string {
 	return hex.EncodeToString(b[:])
 }
 
-// requestCtx 取 gin 请求上下文；Request 未装配（部分单测形态）时退回
-// Background，避免日志行本身 panic。
+// requestCtx fetches the gin request context; when Request is not wired up
+// (some unit test shapes), it falls back to Background so the log line itself
+// does not panic.
 func requestCtx(c *gin.Context) context.Context {
 	if c.Request != nil && c.Request.Context() != nil {
 		return c.Request.Context()

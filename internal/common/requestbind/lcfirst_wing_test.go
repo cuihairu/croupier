@@ -1,5 +1,6 @@
-// 覆盖率巡检第十八轮（wt-api）：query.go lcFirst 空串早退翼
-// （107-108）收口——空 tag 名不进 rune 切片、原样返回。
+// Coverage sweep round 18 (wt-api): closing out the lcFirst empty-string early
+// return wing in query.go (107-108) — an empty tag name does not enter the
+// rune slice and is returned as-is.
 package requestbind
 
 import (

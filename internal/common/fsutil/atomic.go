@@ -5,11 +5,14 @@ import (
 	"path/filepath"
 )
 
-// WriteFileAtomic 写文件采用「同目录临时文件 + rename」原子替换。
+// WriteFileAtomic writes files using atomic replacement via a temp file in the
+// same directory plus rename.
 //
-// 直接 os.WriteFile 会以 truncate 方式打开已存在文件；若旧文件属主与
-// 当前进程不同（例如容器曾被 root 身份写入过），打开即 EACCES。rename
-// 只要求目录可写，同时保证读者永远不会观察到半截内容。
+// A direct os.WriteFile opens an existing file in truncate mode; if the old
+// file's owner differs from the current process (for example the container was
+// once written to as root), the open itself fails with EACCES. rename only
+// requires the directory to be writable, while also guaranteeing that readers
+// never observe partial content.
 func WriteFileAtomic(path string, data []byte, perm os.FileMode) error {
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
@@ -20,7 +23,7 @@ func WriteFileAtomic(path string, data []byte, perm os.FileMode) error {
 		return err
 	}
 	tmpName := tmp.Name()
-	defer os.Remove(tmpName) //nolint:errcheck // rename 成功后清理失败无影响
+	defer os.Remove(tmpName) //nolint:errcheck // a cleanup failure after a successful rename has no effect
 	if _, err := tmp.Write(data); err != nil {
 		_ = tmp.Close()
 		return err

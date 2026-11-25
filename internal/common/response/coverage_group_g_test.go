@@ -12,7 +12,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// AppError.Message 为空时，Error 用 err.Error() 兜底，避免透出空 message。
+// When AppError.Message is empty, Error falls back to err.Error() so an empty
+// message is not surfaced.
 func TestErrorAppEmptyMessageFallsBackToErrorTextG(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	appErr := &errors.AppError{

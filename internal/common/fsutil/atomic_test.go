@@ -53,7 +53,7 @@ func TestWriteFileAtomicReplacesForeignOwnedFile(t *testing.T) {
 	if perm := info.Mode().Perm(); perm != 0o644 {
 		t.Fatalf("perm = %o, want 644", perm)
 	}
-	// 目录里不应残留临时文件
+	// No temp files should be left behind in the directory
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		t.Fatalf("readdir: %v", err)
@@ -93,7 +93,8 @@ func TestWriteFileAtomicPreservesOwnerWhenPossible(t *testing.T) {
 		t.Fatalf("stat: %v", err)
 	}
 	if st, ok := info.Sys().(*syscall.Stat_t); ok && st.Uid != 1000 {
-		// rename 语义：替换后属主变为进程用户。此测试记录该行为而非失败。
+		// rename semantics: after replacement the owner becomes the process
+		// user. This test records that behavior rather than failing.
 		t.Logf("owner changed to %d after rename (expected rename semantics)", st.Uid)
 	}
 }

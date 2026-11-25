@@ -1,8 +1,9 @@
 package errorx
 
-// errors.go 补测：NewTooManyRequests 构造（429 + 固定 rate_limited 码）。
+// Supplementary tests for errors.go: NewTooManyRequests construction (429 +
+// fixed rate_limited code).
 //
-// 无诚实跳过：纯构造函数。
+// No honest-skip case: this is a pure constructor.
 
 import (
 	"net/http"

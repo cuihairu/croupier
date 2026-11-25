@@ -9,9 +9,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// json.RawMessage.UnmarshalJSON 对非空接收者恒返回 nil error（原文透传，
-// 解析阶段不校验），UnmarshalJSON 的错误分支仅在缝隙注入故障时可达。
-// 验证错误被原样透传且接收者保持原值不被覆盖。
+// json.RawMessage.UnmarshalJSON always returns a nil error for a non-empty
+// receiver (raw bytes pass through; no validation happens at parse time), so
+// the error branch of UnmarshalJSON is only reachable when a failure is
+// injected through the seam. Verifies that the error is propagated verbatim
+// and the receiver keeps its original value instead of being overwritten.
 func TestJSONUnmarshalJSON_RawMessageErrorSeam(t *testing.T) {
 	orig := unmarshalRawMessage
 	unmarshalRawMessage = func(*json.RawMessage, []byte) error {

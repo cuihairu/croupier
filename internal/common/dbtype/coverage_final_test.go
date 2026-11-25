@@ -5,10 +5,11 @@ import (
 	"testing"
 )
 
-// UnmarshalJSON 直接透传给 json.RawMessage.UnmarshalJSON；在 Go 1.26 中该方法
-// 对非 nil 接收器永不报错（仅 append 原始字节），因此 json.go:69-71 的错误
-// 分支是防御性死代码，无法通过任何输入触发。以下测试固化该行为边界：
-// 任意字节（含非法 JSON）都原样保留。
+// UnmarshalJSON passes straight through to json.RawMessage.UnmarshalJSON; in
+// Go 1.26 that method never errors on a non-nil receiver (it only appends the
+// raw bytes), so the error branch at json.go:69-71 is defensive dead code that
+// no input can trigger. The following test pins this behavioral boundary:
+// arbitrary bytes (including invalid JSON) are preserved as-is.
 func TestJSONUnmarshalJSONPreservesArbitraryBytes(t *testing.T) {
 	cases := []string{`{"a":1}`, `not json at all`, `123`, `["x"`}
 	for _, raw := range cases {

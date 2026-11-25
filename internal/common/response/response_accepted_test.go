@@ -1,8 +1,9 @@
 package response
 
-// response.go 补测：Accepted 构造（202 异步受理响应）。
+// Supplementary tests for response.go: Accepted construction (202 async
+// acceptance response).
 //
-// 无诚实跳过：单分支构造。
+// No honest-skip case: single-branch constructor.
 
 import (
 	"encoding/json"
