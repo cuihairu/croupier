@@ -12,7 +12,7 @@ import (
 // form_hints.go：x-ui-* hints 派生 + 类型缺省控件（与前端 schemaHints.ts 对齐）
 
 func TestBuildFormFieldsHints(t *testing.T) {
-	fields := buildFormFields(spec.JSONSchema(`{
+	fields := deriveFormFieldsForTest(t, spec.JSONSchema(`{
 		"type":"object",
 		"properties":{
 			"playerId":{"type":"string","x-widget":"Select","x-label":"玩家ID",
@@ -26,7 +26,7 @@ func TestBuildFormFieldsHints(t *testing.T) {
 			"locked":{"type":"boolean","x-disabled":true},
 			"payload":{"type":"string","x-widget":"NoSuchWidget"}
 		}
-	}`), "zh-CN")
+	}`))
 
 	byKey := map[string]spec.FormFieldSpec{}
 	for _, f := range fields {
@@ -34,9 +34,8 @@ func TestBuildFormFieldsHints(t *testing.T) {
 	}
 
 	channel := byKey["channel"]
-	// 无 x-label → humanize 兜底；选项标签在 EnumOptions
-	require.NotNil(t, channel.Label)
-	assert.Equal(t, "Channel", channel.Label["zh-CN"])
+	// SUI-025：派生不再下发 humanize label 兜底（渲染端 F5 兜底负责显示）
+	assert.Nil(t, channel.Label)
 	assert.Equal(t, spec.FormWidgetSelect, channel.Widget)
 	require.Len(t, channel.EnumOptions, 2)
 	assert.Equal(t, "邮件", channel.EnumOptions[0].Label["zh-CN"])
@@ -74,7 +73,7 @@ func TestBuildFormFieldsHints(t *testing.T) {
 // TestBuildFormFieldsFieldSemantics：D5 x-field-role / x-field-unit 派生
 // FormFieldSpec.Role/Unit；非法 role 静默忽略；unit 裸串与对象形态都归一。
 func TestBuildFormFieldsFieldSemantics(t *testing.T) {
-	fields := buildFormFields(spec.JSONSchema(`{
+	fields := deriveFormFieldsForTest(t, spec.JSONSchema(`{
 		"type":"object",
 		"properties":{
 			"playerId":{"type":"string","x-field-role":"identity"},
@@ -84,7 +83,7 @@ func TestBuildFormFieldsFieldSemantics(t *testing.T) {
 			"perfalse":{"type":"number","x-field-per-target":false},
 			"perbad":{"type":"number","x-field-per-target":"yes"}
 		}
-	}`), "zh-CN")
+	}`))
 
 	byKey := map[string]spec.FormFieldSpec{}
 	for _, f := range fields {
@@ -114,14 +113,14 @@ func TestBuildFormFieldsFieldSemantics(t *testing.T) {
 }
 
 func TestBuildFormFieldsHintOrder(t *testing.T) {
-	fields := buildFormFields(spec.JSONSchema(`{
+	fields := deriveFormFieldsForTest(t, spec.JSONSchema(`{
 		"type":"object",
 		"properties":{
 			"alpha":{"type":"string"},
 			"beta":{"type":"string","x-order":1},
 			"gamma":{"type":"string","x-order":5}
 		}
-	}`), "zh-CN")
+	}`))
 	require.Len(t, fields, 3)
 	assert.Equal(t, "beta", fields[0].Key, "x-order=1 最先")
 	assert.Equal(t, "gamma", fields[1].Key, "x-order=5 其次")
@@ -154,7 +153,7 @@ func TestHintConditionDepthAndValidation(t *testing.T) {
 
 // U4：x-options-source 服务端派生（与前端 asRemoteOptions 行为对齐）。
 func TestBuildFormFieldsRemoteOptions(t *testing.T) {
-	fields := buildFormFields(spec.JSONSchema(`{
+	fields := deriveFormFieldsForTest(t, spec.JSONSchema(`{
 		"type":"object",
 		"properties":{
 			"playerId":{"type":"string","x-widget":"Select",
@@ -169,7 +168,7 @@ func TestBuildFormFieldsRemoteOptions(t *testing.T) {
 			"broken":{"type":"string","x-options-source":{"labelPath":"/items/*/id"}},
 			"notObject":{"type":"string","x-options-source":"oops"}
 		}
-	}`), "zh-CN")
+	}`))
 
 	byKey := map[string]spec.FormFieldSpec{}
 	for _, f := range fields {

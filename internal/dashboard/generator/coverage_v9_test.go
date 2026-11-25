@@ -184,19 +184,34 @@ func TestGenerateOperationPageResourceTermTitleV9(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestBuildFormFieldsEnumSelectV9(t *testing.T) {
-	fields := buildFormFields(spec.JSONSchema(`{
+	// SUI-025：无任何 hints 时不产出 fields（渲染端兜底合成标准表单）
+	plain := deriveFormPresentation(spec.JSONSchema(`{
 		"type":"object",
 		"properties":{
 			"status":{"type":"string","enum":["active","banned"]},
 			"note":{"type":"string","title":"备注"}
 		}
-	}`), "zh-CN")
+	}`))
+	assert.False(t, plain.hasHints)
+	assert.Nil(t, plain.fields)
+	assert.Equal(t, spec.FormLayoutVertical, plain.layout)
+
+	// 有 hint 即产出全部顶层字段（声明序 tiebreak：status 在前）；
+	// enum → Select 走类型缺省控件，title 字段不覆盖 label（渲染端读 schema.title）
+	fields := deriveFormFieldsForTest(t, spec.JSONSchema(`{
+		"type":"object",
+		"properties":{
+			"status":{"type":"string","enum":["active","banned"]},
+			"note":{"type":"string","title":"备注","x-label":"备注"}
+		}
+	}`))
 	require.Len(t, fields, 2)
-	// 无 x-order 时保持 key 字母序：note < status
-	assert.Equal(t, "note", fields[0].Key)
+	assert.Equal(t, "status", fields[0].Key)
 	assert.Nil(t, fields[0].Label)
-	assert.Equal(t, "status", fields[1].Key)
-	assert.Equal(t, spec.FormWidgetSelect, fields[1].Widget)
+	assert.Equal(t, spec.FormWidgetSelect, fields[0].Widget)
+	assert.Equal(t, "note", fields[1].Key)
+	require.NotNil(t, fields[1].Label)
+	assert.Equal(t, "备注", fields[1].Label["zh-CN"])
 }
 
 // ---------------------------------------------------------------------------

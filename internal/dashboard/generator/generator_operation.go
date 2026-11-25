@@ -1,7 +1,6 @@
 package generator
 
 import (
-	"sort"
 	"strings"
 
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
@@ -149,112 +148,16 @@ func buildFormPresentation(op spec.OperationSpec, opts GenerateOptions) *spec.Fo
 		// 一个可操作的表单（单 JSON 文本字段），而不是渲染为空的废页。
 		return payloadOnlyFormPresentation()
 	}
+	// SUI-025：与调试页同源默认派生（声明序字段、控件、分组、layout hints；
+	// 无 hints 时只给纵向 layout，渲染端兜底合成标准表单）。
+	derived := deriveFormPresentation(fn.InputSchema)
 	fp := spec.DefaultFormPresentation(fn.InputSchema)
-	// 自动生成字段展示信息（如果 schema 中没有 title）
-	fp.Fields = buildFormFields(fn.InputSchema, opts.DefaultLocale)
+	fp.Layout = derived.layout
+	if derived.hasHints {
+		fp.Fields = derived.fields
+		fp.Groups = derived.groups
+	}
 	return fp
-}
-
-// buildFormFields 从 JSON Schema 自动生成 FormFieldSpec 列表。
-// 每个顶层字段都产出条目（保证 ui:order 完整，与前端 derivePresentationSpec
-// 一致）：x-ui-* hints 优先，其次按类型推导缺省控件；label 兜底链
-// x-label > schema.title > humanize。
-func buildFormFields(schema spec.JSONSchema, locale string) []spec.FormFieldSpec {
-	if len(schema) == 0 {
-		return nil
-	}
-	root := parseJSONObject(jsonRaw(schema))
-	if schemaTypeFromObject(root) != "object" {
-		return nil
-	}
-	properties := objectProperty(root, "properties")
-	if len(properties) == 0 {
-		return nil
-	}
-	keys := sortedRawMapKeys(properties)
-	fields := make([]spec.FormFieldSpec, 0, len(keys))
-	for _, key := range keys {
-		prop := parseJSONObject(properties[key])
-		field := spec.FormFieldSpec{Key: key}
-
-		if widget := hintWidget(rawString(prop["x-widget"])); widget != "" {
-			field.Widget = widget
-		}
-		if label := hintLocalized(prop["x-label"]); label != nil {
-			field.Label = label
-		}
-		if placeholder := hintLocalized(prop["x-placeholder"]); placeholder != nil {
-			field.Placeholder = placeholder
-		}
-		if description := hintLocalized(prop["x-description"]); description != nil {
-			field.Description = description
-		}
-		if role := hintFieldRole(rawString(prop["x-field-role"])); role != "" {
-			field.Role = role
-		}
-		if unit := hintLocalized(prop["x-field-unit"]); unit != nil {
-			field.Unit = unit
-		}
-		if hintFieldPerTarget(prop["x-field-per-target"]) {
-			field.PerTarget = true
-		}
-		if width := rawInt(prop["x-width"]); width >= 1 && width <= 12 {
-			field.Width = width
-		}
-		if _, ok := prop["x-order"]; ok {
-			field.Order = rawInt(prop["x-order"])
-		}
-		if disabled := rawBool(prop["x-disabled"]); disabled != nil {
-			field.Disabled = disabled
-		}
-		if condition := hintCondition(prop["x-visible-when"]); condition != nil {
-			field.VisibleWhen = condition
-		}
-		if enumOptions := hintEnumOptions(prop["x-enum-options"]); len(enumOptions) > 0 {
-			field.EnumOptions = enumOptions
-		}
-		// F9：远程选项源派生（发布页与调试页一致消费；widget 名仍由
-		// x-widget 决定，不在此强制 Select——与前端推导路径对齐）
-		if remote := hintRemoteOptions(prop["x-options-source"]); remote != nil {
-			field.RemoteOptions = remote
-		}
-		if widgetProps := hintWidgetProps(prop["x-widget-props"]); len(widgetProps) > 0 {
-			field.WidgetProps = widgetProps
-		}
-
-		// x-widget 缺省时按类型推导缺省控件
-		if field.Widget == "" {
-			field.Widget = defaultWidgetForSchema(prop)
-		}
-
-		// label 兜底：x-label 缺省且 schema 无 title 时用 humanize，
-		// 有 title 时不重复下发（渲染端直接读 schema.title）
-		if field.Label == nil && rawString(prop["title"]) == "" {
-			field.Label = spec.LocalizedText{
-				locale: fallbackLabel(key),
-			}
-		}
-		// string 输入的 placeholder 兜底（与历史行为一致）
-		if field.Placeholder == nil && schemaTypeFromObject(prop) == "string" &&
-			(field.Widget == "" || field.Widget == spec.FormWidgetInput) {
-			field.Placeholder = spec.LocalizedText{
-				locale: "请输入" + fallbackLabel(key),
-			}
-		}
-		fields = append(fields, field)
-	}
-	// x-order 排序：未声明者按 key 序排后（与前端 MAX_SAFE_INTEGER 兜底一致）
-	sort.SliceStable(fields, func(i, j int) bool {
-		return orderSortKey(fields[i]) < orderSortKey(fields[j])
-	})
-	return fields
-}
-
-func orderSortKey(field spec.FormFieldSpec) int {
-	if field.Order != 0 {
-		return field.Order
-	}
-	return int(^uint(0) >> 1)
 }
 
 func executionModeForOperation(op spec.OperationSpec) spec.PageExecutionMode {

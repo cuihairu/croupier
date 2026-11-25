@@ -75,7 +75,7 @@ func TestRawBoolNonBoolPayloadV10(t *testing.T) {
 
 func TestBuildFormFieldsDescriptionAndWidgetPropsV10(t *testing.T) {
 	schema := spec.JSONSchema(`{"type":"object","properties":{"f":{"type":"string","x-description":{"zh-CN":"备注说明"},"x-widget-props":{"precision":2}}}}`)
-	fields := buildFormFields(schema, "zh-CN")
+	fields := deriveFormFieldsForTest(t, schema)
 	require.Len(t, fields, 1)
 	require.NotNil(t, fields[0].Description)
 	assert.Equal(t, "备注说明", fields[0].Description["zh-CN"])
@@ -109,8 +109,9 @@ func TestResourceBindingNoSelectorsV10(t *testing.T) {
 
 func TestBuildActionFormPresentationStripsTargetFieldV10(t *testing.T) {
 	contract := &model.FunctionContract{
-		FunctionID:  "demo.ban",
-		InputSchema: model.JSON(`{"type":"object","properties":{"id":{"type":"string"},"reason":{"type":"string"}}}`),
+		FunctionID: "demo.ban",
+		InputSchema: model.JSON(`{"type":"object","properties":` +
+			`{"id":{"type":"string","x-widget":"Input"},"reason":{"type":"string","x-widget":"Input"}}}`),
 	}
 	semantics := &model.CapabilitySemantics{IdentityField: "id"}
 	form := buildActionFormPresentation(contract, semantics, resourceActionSemantic{IdentityInput: "reason"})

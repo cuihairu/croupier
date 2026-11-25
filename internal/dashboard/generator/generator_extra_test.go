@@ -279,11 +279,13 @@ func TestExtraQualityHelpers(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestExtraBuildFormFields(t *testing.T) {
-	assert.Nil(t, buildFormFields(nil, "zh-CN"))
-	assert.Nil(t, buildFormFields(spec.JSONSchema(`{"type":"string"}`), "zh-CN"))
-	assert.Nil(t, buildFormFields(spec.JSONSchema(`{"type":"object"}`), "zh-CN"))
+	// SUI-025：无 hints 时 fields 不产出（无配置 = 标准纵向表单，渲染端兜底）
+	assert.False(t, deriveFormPresentation(nil).hasHints)
+	assert.Nil(t, deriveFormPresentation(spec.JSONSchema(`{"type":"string"}`)).fields)
+	assert.Nil(t, deriveFormPresentation(spec.JSONSchema(`{"type":"object"}`)).fields)
 
-	fields := buildFormFields(spec.JSONSchema(`{
+	// SUI-025：仅 extra 带 hint 即产出全部顶层字段；类型缺省控件按 schema 推导
+	fields := deriveFormFieldsForTest(t, spec.JSONSchema(`{
 		"type":"object",
 		"required":["nickname"],
 		"properties":{
@@ -292,24 +294,29 @@ func TestExtraBuildFormFields(t *testing.T) {
 			"signature":{"type":"string","maxLength":200},
 			"level":{"type":"integer"},
 			"muted":{"type":"boolean"},
-			"region":{"type":"string","enum":["cn","us"]}
+			"region":{"type":"string","enum":["cn","us"]},
+			"extra":{"type":"string","x-label":"Extra"}
 		}
-	}`), "zh-CN")
+	}`))
 
 	byKey := map[string]spec.FormFieldSpec{}
 	for _, f := range fields {
 		byKey[f.Key] = f
 	}
 	// 有 title 的字段也产出条目（保证 ui:order 完整），但不覆盖 label——
-	// 渲染端直接读 schema.title
+	// 渲染端直接读 schema.title；派生不再下发 humanize/placeholder 兜底
+	// （SUI-025：label 显示走渲染端 F5 兜底链）
 	require.Contains(t, byKey, "nickname")
 	assert.Nil(t, byKey["nickname"].Label, "titled fields keep their schema title")
+	assert.Nil(t, byKey["nickname"].Placeholder, "placeholder fallback removed in SUI-025")
 	assert.Equal(t, spec.FormWidgetTextArea, byKey["bio"].Widget)
 	assert.Equal(t, spec.FormWidgetTextArea, byKey["signature"].Widget)
 	assert.Equal(t, spec.FormWidgetNumber, byKey["level"].Widget)
 	assert.Equal(t, spec.FormWidgetSwitch, byKey["muted"].Widget)
 	assert.Equal(t, spec.FormWidgetSelect, byKey["region"].Widget)
-	assert.NotEmpty(t, byKey["level"].Label["zh-CN"])
+	assert.Nil(t, byKey["level"].Label, "humanize label fallback removed in SUI-025")
+	require.NotNil(t, byKey["extra"].Label)
+	assert.Equal(t, "Extra", byKey["extra"].Label["zh-CN"])
 }
 
 // ---------------------------------------------------------------------------
@@ -360,19 +367,20 @@ func TestExtraSchemaTypeFromObject_FeedsWidgetDerivation(t *testing.T) {
 		"required":["nickname"],
 		"properties":{
 			"nickname":{"type":["string","null"],"title":"昵称"},
-			"level":{"type":"integer","nullable":true}
+			"level":{"type":"integer","nullable":true},
+			"extra":{"type":"string","x-label":"Extra"}
 		}
 	}`)
-	fields := buildFormFields(nullable, "zh-CN")
+	fields := deriveFormFieldsForTest(t, nullable)
 	byKey := map[string]spec.FormFieldSpec{}
 	for _, f := range fields {
 		byKey[f.Key] = f
 	}
-	// 可空 string 无 x-widget/format：不强制 widget（渲染端按主类型派生 Input），
-	// 但 placeholder 兜底必须命中——它走 schemaTypeFromObject(prop)=="string"，
-	// SUI-009 前对 type 数组返回 "" 会静默丢失 placeholder。
+	// 可空 string 无 x-widget/format：不强制 widget（渲染端按主类型派生 Input）。
+	// SUI-025 移除派生期 placeholder 兜底（原走 schemaTypeFromObject(prop)=="string"），
+	// 占位符只在 x-placeholder 显式声明时下发。
 	assert.Equal(t, spec.FormWidget(""), byKey["nickname"].Widget)
-	assert.NotNil(t, byKey["nickname"].Placeholder, "可空 string 的 placeholder 兜底须生效")
+	assert.Nil(t, byKey["nickname"].Placeholder, "placeholder fallback removed in SUI-025")
 	assert.Equal(t, spec.FormWidgetNumber, byKey["level"].Widget,
 		"3.0 nullable integer 应派生 number 控件")
 }

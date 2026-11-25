@@ -31,6 +31,7 @@ import type {
 import { currentUiLocale } from '@/utils/uiLocale';
 import { localizedText } from '@/utils/localizedText';
 import { humanizeFieldKey } from '@/utils/humanize';
+import { deriveDefaultPresentationSpec } from '@/utils/schemaHints';
 import { primarySchemaType } from '@/utils/schemaDialect';
 import { matchesCondition } from '@/components/PageRenderer/sectionCondition';
 import {
@@ -268,7 +269,10 @@ function widgetToRjsf(widget?: FormWidget, schema?: JSONSchema): string | undefi
     case 'Switch':
       return 'checkbox';
     case 'DatePicker':
-      return 'date';
+      // format:date-time 解析到 date-time 覆盖控件（DateTimeWidget，带显式
+      // 偏移序列化）；format:date 解析 date。类型缺省派生（SUI-025）把两种
+      // format 都派生成 DatePicker hint，靠这里按 schema format 分派。
+      return schema?.format === 'date-time' ? 'date-time' : 'date';
     case 'TimePicker':
       return 'time';
     case 'Color':
@@ -722,6 +726,25 @@ export function deriveRuntimeSchema(
   return { schema, uiSchema, formContext, hiddenKeys: [...hiddenFields] };
 }
 
+/**
+ * SUI-025：spec 未携带 fields（无配置 = 标准纵向表单）时按 jsonSchema 兜底
+ * 合成字段（含类型缺省控件），渲染、初值种子与提交投影共用同一有效 spec——
+ * 调试页与发布页对同一 schema 的无配置形态表现一致。layout/groups 仅在 spec
+ * 未声明时回填（发布 spec 的 layout 恒有值；派生 groups 只在 hints 存在时
+ * 产出，届时 fields 已存在，不会走到兜底）。
+ */
+function effectivePresentationSpec(spec: FormPresentationSpec): FormPresentationSpec {
+  if (spec.fields?.length) return spec;
+  const derived = deriveDefaultPresentationSpec(spec.jsonSchema);
+  if (!derived.fields?.length) return spec;
+  return {
+    ...spec,
+    layout: spec.layout ?? derived.layout,
+    fields: derived.fields,
+    groups: spec.groups ?? derived.groups,
+  };
+}
+
 const SchemaFormRenderer = forwardRef<SchemaFormRendererHandle, SchemaFormRendererProps>(
   (
     {
@@ -742,9 +765,10 @@ const SchemaFormRenderer = forwardRef<SchemaFormRendererHandle, SchemaFormRender
       () => JSON.stringify(normalizeFormValues(initialValues || {})),
       [initialValues],
     );
+    const effectiveSpec = useMemo(() => effectivePresentationSpec(spec), [spec]);
     const seededInitial = useMemo(
-      () => applySpecDefaults(spec, normalizeFormValues(initialValues || {})),
-      [spec, initialValues],
+      () => applySpecDefaults(effectiveSpec, normalizeFormValues(initialValues || {})),
+      [effectiveSpec, initialValues],
     );
     const currentValuesRef = useRef<FormValues>(seededInitial);
     const [formValues, setFormValues] = useState<FormValues>(seededInitial);
@@ -770,7 +794,7 @@ const SchemaFormRenderer = forwardRef<SchemaFormRendererHandle, SchemaFormRender
     }, []);
 
     const { schema, uiSchema, formContext } = useMemo(() => {
-      const derived = deriveRuntimeSchema(spec, formValues);
+      const derived = deriveRuntimeSchema(effectiveSpec, formValues);
       if (hideSubmit || readonly) {
         derived.uiSchema['ui:submitButtonOptions'] = {
           ...(derived.uiSchema['ui:submitButtonOptions'] || {}),
@@ -780,10 +804,10 @@ const SchemaFormRenderer = forwardRef<SchemaFormRendererHandle, SchemaFormRender
       return derived;
       // localeTick 入参：语言切换 tick 触发派生重算（currentLocale() 在纯函数内读取）
       // eslint-disable-next-line react-hooks/exhaustive-deps -- localeTick 是刻意的失效触发器
-    }, [formValues, hideSubmit, readonly, spec, localeTick]);
+    }, [formValues, hideSubmit, readonly, effectiveSpec, localeTick]);
     // handler 引用稳定（见下方 rjsf 注释），spec 经 ref 读取当前值
-    const specRef = useRef(spec);
-    specRef.current = spec;
+    const specRef = useRef(effectiveSpec);
+    specRef.current = effectiveSpec;
 
     useImperativeHandle(ref, () => ({
       submit: () => {
@@ -829,11 +853,11 @@ const SchemaFormRenderer = forwardRef<SchemaFormRendererHandle, SchemaFormRender
     // 2.2：spec 内容变化时复位错误边界（换函数/换页面不残留上一次的崩溃态）
     const boundaryKey = useMemo(() => {
       try {
-        return JSON.stringify(spec);
+        return JSON.stringify(effectiveSpec);
       } catch {
         return `spec-${Date.now()}`;
       }
-    }, [spec]);
+    }, [effectiveSpec]);
 
     // D4：外部字段错误按 RJSF ErrorSchema 注入——字段自身的错误键是 __errors，
     // 但 @rjsf/utils 的 ErrorSchema 类型只声明了嵌套结构，运行时约定需断言收敛

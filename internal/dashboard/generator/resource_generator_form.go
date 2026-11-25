@@ -13,10 +13,16 @@ func buildFormFromContract(contract *model.FunctionContract) *spec.FormPresentat
 		return nil
 	}
 	schema := spec.JSONSchema(contract.InputSchema)
+	// 与 operation/task/report 页同一默认派生（SUI-025，deriveFormPresentation）：
+	// hints（x-ui-*）+ 类型缺省控件 + 分组/layout hints，保证同一函数在各页型
+	// 表单与调试页表现一致。
+	derived := deriveFormPresentation(schema)
 	form := spec.DefaultFormPresentation(schema)
-	// 与 operation/task/report 页同一字段派生：hints（x-ui-*）+ 类型缺省控件，
-	// 保证同一函数在各页型表单表现一致。
-	form.Fields = buildFormFields(schema, "zh-CN")
+	form.Layout = derived.layout
+	if derived.hasHints {
+		form.Fields = derived.fields
+		form.Groups = derived.groups
+	}
 	return form
 }
 

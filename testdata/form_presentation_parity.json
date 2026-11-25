@@ -1,0 +1,143 @@
+{
+  "_comment": "SUI-025 共享预期结果：Go 生成器（internal/dashboard/generator deriveFormPresentation）与 Web 调试页（web/src/utils/schemaHints.ts derivePresentationSpec）默认表单派生的同源契约。两侧测试读取本文件逐 case 断言一致，覆盖顶层字段顺序（声明序 + x-order）、控件（x-widget 与类型缺省）、分组（声明 + 自动）、layout hints；无 hints 时不产出 fields（无配置 = 标准纵向表单，由渲染端兜底合成）。fields 数组顺序即断言顺序；裸字符串 hints 两侧同样归一为 {zh-CN, en-US} 双语展开。",
+  "cases": [
+    {
+      "name": "hints-groups-layout",
+      "description": "声明序 + x-order 提升、x-widget/类型缺省控件、声明分组与空组丢弃、inline layout、嵌套指针字段仅在有 hints 时产出。",
+      "schema": {
+        "type": "object",
+        "x-ui-layout": "inline",
+        "x-ui-groups": [
+          { "key": "basic", "title": "Basic", "collapsible": true },
+          { "key": "advanced", "title": "Advanced" },
+          { "key": "empty", "title": "Unused" }
+        ],
+        "properties": {
+          "name": { "type": "string", "x-label": "Name", "x-placeholder": "Type a name" },
+          "level": { "type": "integer", "enum": [1, 2], "x-enum-options": [ { "value": "1", "label": "Low" }, { "value": "2", "label": "High" } ] },
+          "archived": { "type": "boolean" },
+          "nickname": { "type": "string", "x-order": -1, "x-group": "advanced" },
+          "memo": { "type": "string", "maxLength": 200, "x-description": "Free text" },
+          "startAt": { "type": "string", "format": "date" },
+          "tags": { "type": "array", "items": { "type": "string" } },
+          "roles": { "type": "array", "items": { "type": "string", "enum": ["a", "b"] } },
+          "address": {
+            "type": "object",
+            "properties": {
+              "city": { "type": "string", "x-width": 6, "x-group": "basic" },
+              "zip": { "type": "string" }
+            }
+          },
+          "quantity": { "type": "integer", "x-widget": "Slider", "x-width": 4, "x-group": "basic" },
+          "mode": { "type": "string", "x-widget": "Radio", "x-label": { "zh-CN": "模式", "en-US": "Mode" } }
+        }
+      },
+      "expected": {
+        "layout": "inline",
+        "fields": [
+          { "key": "nickname", "order": -1 },
+          { "key": "name", "label": { "zh-CN": "Name", "en-US": "Name" }, "placeholder": { "zh-CN": "Type a name", "en-US": "Type a name" } },
+          { "key": "level", "widget": "InputNumber", "enumOptions": [ { "value": "1", "label": { "zh-CN": "Low", "en-US": "Low" } }, { "value": "2", "label": { "zh-CN": "High", "en-US": "High" } } ] },
+          { "key": "archived", "widget": "Switch" },
+          { "key": "memo", "widget": "TextArea", "description": { "zh-CN": "Free text", "en-US": "Free text" } },
+          { "key": "startAt", "widget": "DatePicker" },
+          { "key": "tags" },
+          { "key": "roles", "widget": "MultiSelect" },
+          { "key": "address" },
+          { "key": "/address/city", "width": 6 },
+          { "key": "quantity", "widget": "Slider", "width": 4 },
+          { "key": "mode", "widget": "Radio", "label": { "zh-CN": "模式", "en-US": "Mode" } }
+        ],
+        "groups": [
+          { "key": "basic", "title": { "zh-CN": "Basic", "en-US": "Basic" }, "collapsible": true, "fields": ["/address/city", "quantity"] },
+          { "key": "advanced", "title": { "zh-CN": "Advanced", "en-US": "Advanced" }, "fields": ["nickname"] }
+        ]
+      }
+    },
+    {
+      "name": "order-tiebreak-widget-override",
+      "description": "x-order 排序与声明序 tiebreak、非法 x-widget 回退、显式 x-widget 覆盖类型缺省、自动分组标题人性化（仅 zh-CN 单 key）。",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "alpha": { "type": "string" },
+          "beta": { "type": "integer", "x-order": 2 },
+          "gamma": { "type": "boolean", "x-order": 1, "x-group": "extraInfo" },
+          "delta": { "type": "string", "x-widget": "Nope" },
+          "epsilon": { "type": "number", "x-widget": "Input" }
+        }
+      },
+      "expected": {
+        "layout": "vertical",
+        "fields": [
+          { "key": "gamma", "widget": "Switch", "order": 1 },
+          { "key": "beta", "widget": "InputNumber", "order": 2 },
+          { "key": "alpha" },
+          { "key": "delta" },
+          { "key": "epsilon", "widget": "Input" }
+        ],
+        "groups": [
+          { "key": "extraInfo", "title": { "zh-CN": "Extra Info" }, "fields": ["gamma"] }
+        ]
+      }
+    },
+    {
+      "name": "minimal-hint-type-defaults",
+      "description": "仅一个字段带 hint 即产出全部顶层字段；类型缺省控件全覆盖（date/time/maxLength/array-enum/enum），无 hints 的嵌套字段不产出；派生不再下发占位符/标签兜底（渲染端 F5 兜底负责）。",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "title": { "type": "string" },
+          "count": { "type": "integer" },
+          "flag": { "type": "boolean" },
+          "when": { "type": "string", "format": "date-time" },
+          "clock": { "type": "string", "format": "time" },
+          "kind": { "type": "string", "enum": ["x", "y"] },
+          "note": { "type": "string", "maxLength": 300 },
+          "tags": { "type": "array", "items": { "type": "string" } },
+          "code": { "type": "string", "x-widget": "Code", "x-placeholder": "JSON" },
+          "shape": { "type": "object", "properties": { "w": { "type": "number" } } }
+        }
+      },
+      "expected": {
+        "layout": "vertical",
+        "fields": [
+          { "key": "title" },
+          { "key": "count", "widget": "InputNumber" },
+          { "key": "flag", "widget": "Switch" },
+          { "key": "when", "widget": "DatePicker" },
+          { "key": "clock", "widget": "TimePicker" },
+          { "key": "kind", "widget": "Select" },
+          { "key": "note", "widget": "TextArea" },
+          { "key": "tags" },
+          { "key": "code", "widget": "Code", "placeholder": { "zh-CN": "JSON", "en-US": "JSON" } },
+          { "key": "shape" }
+        ]
+      }
+    },
+    {
+      "name": "plain-no-hints",
+      "description": "无任何 hints：无配置 = 标准纵向表单——不产出 fields/groups，仅 layout（渲染端兜底派生标准字段）。",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "zeta": { "type": "string" },
+          "alpha": { "type": "integer" }
+        }
+      },
+      "expected": { "layout": "vertical" }
+    },
+    {
+      "name": "non-object-schema",
+      "description": "根非 object：无字段产出，标准纵向。",
+      "schema": { "type": "string" },
+      "expected": { "layout": "vertical" }
+    },
+    {
+      "name": "object-without-properties",
+      "description": "object 但无 properties：无字段产出，标准纵向。",
+      "schema": { "type": "object" },
+      "expected": { "layout": "vertical" }
+    }
+  ]
+}

@@ -68,7 +68,12 @@ function isPlainObject(value: unknown): value is SchemaNode {
 }
 
 function asLocalizedText(value: unknown): LocalizedText | undefined {
-  if (typeof value === 'string') return normalizeLocalizedText(value);
+  // 裸字符串按平台契约双语展开（zh-CN/en-US），与 Go 生成器 hintLocalized 同规
+  // （SUI-025 共享预期结果 fixture 断言两侧一致）。
+  if (typeof value === 'string') {
+    const text = value.trim();
+    return text ? { 'zh-CN': text, 'en-US': text } : undefined;
+  }
   if (isPlainObject(value)) return normalizeLocalizedText(value as Record<string, string>);
   return undefined;
 }
@@ -177,6 +182,55 @@ function asRemoteOptions(value: unknown): RemoteOptionsSpec | undefined {
   return spec;
 }
 
+function schemaPrimaryType(node: SchemaNode): string {
+  const raw = node['type'];
+  if (typeof raw === 'string') return raw;
+  if (Array.isArray(raw)) {
+    // 数组形态需全为 string（与 Go schemaTypeFromObject 同规），取首个非 null
+    if (!raw.every((item) => typeof item === 'string')) return '';
+    const first = (raw as string[]).find((item) => item !== 'null');
+    return first ?? 'null';
+  }
+  return '';
+}
+
+function nodeHasEnum(value: JSONValue | undefined): boolean {
+  return Array.isArray(value) && value.length > 0;
+}
+
+/**
+ * 类型缺省控件（x-widget 缺省时），与 Go 生成器 defaultWidgetForSchema 同表：
+ * integer/number→InputNumber、boolean→Switch、string 按格式/长度→DatePicker/
+ * TimePicker/TextArea、数组项 enum→MultiSelect、enum→Select、其余交给渲染端
+ * 默认。类型缺省不算 hint（不翻转 deriveLeaf 的 included）。
+ */
+function typeDefaultWidgetForSchema(schema: SchemaNode): FormWidget | undefined {
+  switch (schemaPrimaryType(schema)) {
+    case 'integer':
+    case 'number':
+      return 'InputNumber';
+    case 'boolean':
+      return 'Switch';
+    case 'string': {
+      const format = typeof schema.format === 'string' ? schema.format : '';
+      if (format === 'date' || format === 'date-time') return 'DatePicker';
+      if (format === 'time') return 'TimePicker';
+      const maxLength = typeof schema.maxLength === 'number' && Number.isFinite(schema.maxLength) ? schema.maxLength : 0;
+      if (format === 'textarea' || maxLength > 120) return 'TextArea';
+      break;
+    }
+    case 'array': {
+      const items = isPlainObject(schema['items']) ? schema['items'] : null;
+      if (items && nodeHasEnum(items['enum'])) return 'MultiSelect';
+      break;
+    }
+    default:
+      break;
+  }
+  if (nodeHasEnum(schema['enum'])) return 'Select';
+  return undefined;
+}
+
 interface FieldDerived {
   field: FormFieldSpec;
   /** 有任一可用 hint（含 x-group）才进入 fields 输出 */
@@ -259,6 +313,12 @@ function deriveLeaf(key: string, schema: SchemaNode): FieldDerived {
 
   const group = asGroupKey(schema['x-group']);
   if (group) included = true;
+
+  // SUI-025：x-widget 缺省时按类型补缺省控件（不算 hint，不翻转 included）
+  if (!field.widget) {
+    const typeDefault = typeDefaultWidgetForSchema(schema);
+    if (typeDefault) field.widget = typeDefault;
+  }
   return { field, included, group };
 }
 
@@ -346,13 +406,8 @@ function deriveGroups(root: SchemaNode, ordered: FieldDerived[]): FormGroupSpec[
  * 无任何 hints 时等价于历史行为：{ jsonSchema, layout: 'vertical' }；
  * 存在任一 hint 时 fields 收录全部顶层字段（保证 ui:order 完整）。
  */
-export function derivePresentationSpec(schema?: JSONSchema | null): FormPresentationSpec {
-  const root = isPlainObject(schema) ? schema : {};
-  const properties = isPlainObject(root.properties) ? root.properties : {};
-
-  const collected: FieldDerived[] = [];
-  collectFields(properties, collected);
-  const ordered = collected
+function sortCollectedFields(collected: FieldDerived[]): FieldDerived[] {
+  return collected
     .map((item, index) => ({ item, index }))
     .sort((a, b) => {
       const orderA = a.item.field.order ?? Number.MAX_SAFE_INTEGER;
@@ -360,6 +415,15 @@ export function derivePresentationSpec(schema?: JSONSchema | null): FormPresenta
       return orderA === orderB ? a.index - b.index : orderA - orderB;
     })
     .map(({ item }) => item);
+}
+
+export function derivePresentationSpec(schema?: JSONSchema | null): FormPresentationSpec {
+  const root = isPlainObject(schema) ? schema : {};
+  const properties = isPlainObject(root.properties) ? root.properties : {};
+
+  const collected: FieldDerived[] = [];
+  collectFields(properties, collected);
+  const ordered = sortCollectedFields(collected);
 
   const layout = asLayout(root['x-ui-layout']) ?? 'vertical';
   const groups = deriveGroups(root, ordered);
@@ -371,5 +435,23 @@ export function derivePresentationSpec(schema?: JSONSchema | null): FormPresenta
     spec.fields = ordered.map(({ field }) => field);
     if (groups.length) spec.groups = groups;
   }
+  return spec;
+}
+
+/**
+ * SUI-025：默认派生（无配置时的标准纵向表单）。与 derivePresentationSpec 的
+ * 区别仅在 fields 兜底：即使无任何 hints 也产出全部顶层字段（带类型缺省
+ * 控件），供渲染端在 spec 未携带 fields 时合成标准表单——与 Go 生成器发布页
+ * （deriveFormPresentation + DefaultFormPresentation）表现一致。嵌套字段仍
+ * 仅在有 hints 时产出；Go 侧同源契约见 testdata/form_presentation_parity.json。
+ */
+export function deriveDefaultPresentationSpec(schema?: JSONSchema | null): FormPresentationSpec {
+  const spec = derivePresentationSpec(schema);
+  const root = isPlainObject(schema) ? schema : {};
+  const properties = isPlainObject(root.properties) ? root.properties : {};
+  if (spec.fields || !Object.keys(properties).length) return spec;
+  const collected: FieldDerived[] = [];
+  collectFields(properties, collected);
+  spec.fields = sortCollectedFields(collected).map(({ field }) => field);
   return spec;
 }

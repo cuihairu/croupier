@@ -34,7 +34,7 @@ describe('derivePresentationSpec', () => {
     expect(spec.fields).toHaveLength(1);
     const field = spec.fields![0];
     expect(field.widget).toBe('Select');
-    expect(field.label).toEqual({ 'zh-CN': '玩家' });
+    expect(field.label).toEqual({ 'zh-CN': '玩家', 'en-US': '玩家' });
     expect(field.placeholder).toEqual({ 'zh-CN': '选择玩家', 'en-US': 'Pick a player' });
   });
 
@@ -130,9 +130,9 @@ describe('derivePresentationSpec', () => {
       }),
     );
     expect(spec.fields!.map((f) => f.key)).toEqual(['address', '/address/city']);
-    expect(spec.fields![0].label).toEqual({ 'zh-CN': '地址' });
+    expect(spec.fields![0].label).toEqual({ 'zh-CN': '地址', 'en-US': '地址' });
     // 容器仍是裸 key（不参与 ui:order），子字段以 JSON Pointer 追加
-    expect(spec.fields![1].label).toEqual({ 'zh-CN': '城市' });
+    expect(spec.fields![1].label).toEqual({ 'zh-CN': '城市', 'en-US': '城市' });
   });
 
   it('分组：声明组收集成员，未声明 key 自动补组并人性化标题，空声明组被剪除', () => {
@@ -251,7 +251,7 @@ describe('derivePresentationSpec', () => {
     expect(byKey.address).toBeDefined();
     expect(byKey.flat).toBeDefined();
     // 对象子字段：仅携带 hints 的进入 fields，指针形态定位
-    expect(byKey['/address/street']!.label).toEqual({ 'zh-CN': '街道' });
+    expect(byKey['/address/street']!.label).toEqual({ 'zh-CN': '街道', 'en-US': '街道' });
     expect(byKey['/address/plain']).toBeUndefined();
     // 数组项字段：`-` 段指向 items 子属性
     expect(byKey['/tags/-/label']!.widget).toBe('Select');
@@ -505,7 +505,7 @@ describe('derivePresentationSpec hints 边界（追加）', () => {
     expect(spec.fields!.find((f) => f.key === 'lo')!.order).toBe(1.5);
     const hi = spec.fields!.find((f) => f.key === 'hi')!;
     expect(hi.width).toBe(12);
-    expect(hi.description).toEqual({ 'zh-CN': '说明文案' });
+    expect(hi.description).toEqual({ 'zh-CN': '说明文案', 'en-US': '说明文案' });
     expect(spec.fields!.find((f) => f.key === 'frac')!.width).toBeUndefined();
   });
 
@@ -556,7 +556,7 @@ describe('derivePresentationSpec hints 边界（追加）', () => {
     );
     expect(spec.groups).toHaveLength(2);
     const g1 = spec.groups!.find((g) => g.key === 'g1')!;
-    expect(g1.title).toEqual({ 'zh-CN': '标题' });
+    expect(g1.title).toEqual({ 'zh-CN': '标题', 'en-US': '标题' });
     expect(g1.collapsible).toBe(true);
     expect(g1.collapsed).toBe(true);
     expect(g1.fields).toEqual(['a']);
@@ -593,7 +593,7 @@ describe('derivePresentationSpec hints 边界（追加）', () => {
     expect(byKey.playerId.role).toBe('identity');
     expect(byKey.coins.role).toBe('amount');
     // 裸字符串 unit 归一到默认语言单 key（与 x-label 等既有 hint 同约定）
-    expect(byKey.coins.unit).toEqual({ 'zh-CN': '金币' });
+    expect(byKey.coins.unit).toEqual({ 'zh-CN': '金币', 'en-US': '金币' });
     expect(byKey.rate.unit).toEqual({ 'zh-CN': '倍', 'en-US': 'x' });
     expect(byKey.bad.role).toBeUndefined();
     expect(byKey.bad.unit).toBeUndefined();

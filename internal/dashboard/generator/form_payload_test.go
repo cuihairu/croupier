@@ -56,11 +56,11 @@ func TestBuildFormPresentation_PayloadOnlyForMissingSchema(t *testing.T) {
 }
 
 // Functions with a real schema are unaffected by the fallback: fields are built
-// by buildFormFields from the actual schema.
+// by deriveFormPresentation from the actual schema (hints required; SUI-025).
 func TestBuildFormPresentation_RealSchemaUnchanged(t *testing.T) {
 	fn := spec.FunctionSpec{
 		ID:          "players.player.create",
-		InputSchema: spec.JSONSchema(`{"type":"object","properties":{"name":{"type":"string"}},"required":["name"]}`),
+		InputSchema: spec.JSONSchema(`{"type":"object","properties":{"name":{"type":"string","x-label":"Name"}},"required":["name"]}`),
 	}
 	fp := buildFormPresentation(spec.OperationSpec{FunctionID: fn.ID}, GenerateOptions{
 		Functions: map[string]spec.FunctionSpec{fn.ID: fn},
