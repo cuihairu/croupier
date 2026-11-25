@@ -1,8 +1,9 @@
-// 覆盖率巡检第十九轮（wt-api）：service.go PasswordReset 的善后
-// Update 错误翼（354-355）收口——重置密码后清除 must_change_password/
-// password_expires_at 标记时存储故障须上抛（调用方能区分「密码已换但
-// 标记未清」与全部成功）。注入：map 目标列 UPDATE 拦截回调
-// （UpdatePassword 走列名 Update、不带 map，不受影响）。
+// Coverage inspection round 19 (wt-api): close out the follow-up Update error
+// wing (354-355) of PasswordReset in service.go — a storage failure while clearing
+// the must_change_password/password_expires_at flags must be surfaced so callers can
+// tell "password changed but flags not cleared" apart from full success. Injection:
+// a map-target-column UPDATE intercept callback (UpdatePassword uses column-name
+// Update without a map, so it is unaffected).
 package admin
 
 import (
@@ -35,8 +36,8 @@ func TestService_PasswordReset_ClearUpdateErrorWing(t *testing.T) {
 	}
 	require.NoError(t, svcCtx.AdminModel.Create(ctx, flagged, "initialPass123"))
 
-	// 只拦「善后 Update」的 map 写（must_change_password 列）；
-	// UpdatePassword 的 password_hash 列名写法照常放行
+	// Intercept only the map-based "cleanup Update" (must_change_password column);
+	// the column-name Update of UpdatePassword for password_hash passes through
 	require.NoError(t, db.Callback().Update().Before("gorm:update").
 		Register("test_r19_fail_pwreset_clear", func(tx *gorm.DB) {
 			if m, ok := tx.Statement.Dest.(map[string]interface{}); ok {
@@ -55,8 +56,8 @@ func TestService_PasswordReset_ClearUpdateErrorWing(t *testing.T) {
 	})
 	require.Error(t, err, "善后标记清除失败须上抛")
 
-	// 密码本体已换（UpdatePassword 先于善后执行成功），
-	// 标记保持原样——不假装干净
+	// The password itself was already swapped (UpdatePassword ran and succeeded
+	// before the cleanup), so the flags stay as they were — do not pretend clean
 	var row model.Admin
 	require.NoError(t, db.Where("username = ?", "pwresetflagged").First(&row).Error)
 	require.NoError(t, bcrypt.CompareHashAndPassword([]byte(row.PasswordHash), []byte("resetPass123")),

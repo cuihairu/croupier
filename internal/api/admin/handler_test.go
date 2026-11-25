@@ -479,11 +479,11 @@ func setupAdminHandlerTest(t *testing.T) (*Handler, *gorm.DB) {
 
 	// Create admin
 	admin := &model.Admin{Username: "testadmin", Nickname: "Test Admin", Status: 1}
-	err = adminModel.Create(nil, admin, "password123") //nolint:staticcheck // 刻意 nil context：model 层不消费 ctx
+	err = adminModel.Create(nil, admin, "password123") //nolint:staticcheck // intentionally nil context: the model layer does not consume ctx
 	require.NoError(t, err)
 
 	role := &model.Role{Name: "admin"}
-	err = roleModel.Create(nil, role) //nolint:staticcheck // 刻意 nil context：model 层不消费 ctx
+	err = roleModel.Create(nil, role) //nolint:staticcheck // intentionally nil context: the model layer does not consume ctx
 	require.NoError(t, err)
 
 	err = adminModel.AssignRole(context.TODO(), admin.ID, role.ID)

@@ -796,7 +796,8 @@ func TestService_Delete_NotFound(t *testing.T) {
 	assert.Error(t, err)
 }
 
-// writeBootstrapAdminsConfig 在临时目录写入 admins.json，模拟部署的自举配置。
+// writeBootstrapAdminsConfig writes admins.json into a temp directory to mimic the
+// deployment's bootstrap configuration.
 func writeBootstrapAdminsConfig(t *testing.T, usernames ...string) *svc.AdminManager {
 	t.Helper()
 	configDir := t.TempDir()
@@ -810,7 +811,7 @@ func writeBootstrapAdminsConfig(t *testing.T, usernames ...string) *svc.AdminMan
 	for _, name := range usernames {
 		entries = append(entries, bootstrapAdmin{
 			Username: name,
-			// bcrypt("MyPass123") 形态即可，IsBootstrapAdmin 只看用户名集合
+			// bcrypt("MyPass123") shaped value is enough; IsBootstrapAdmin only looks at the username set
 			Password: "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy",
 			Roles:    []string{"admin"},
 			Status:   1,
@@ -825,7 +826,7 @@ func writeBootstrapAdminsConfig(t *testing.T, usernames ...string) *svc.AdminMan
 	return am
 }
 
-// BUG-028：引导管理员（admins.json 声明的自举账号）不可删除。
+// BUG-028: bootstrap admins (accounts declared in admins.json) cannot be deleted.
 func TestService_Delete_BootstrapAdminForbidden(t *testing.T) {
 	db := setupTestDB(t)
 	seedTestPermissions(t, db)
@@ -850,19 +851,21 @@ func TestService_Delete_BootstrapAdminForbidden(t *testing.T) {
 	assert.Equal(t, errorx.NewForbidden("").Code, codeErr.Code)
 	assert.Contains(t, codeErr.Message, "不可删除")
 
-	// 删除被拒后账号必须原样保留（事务内拒绝，不产生半删状态）
+	// After the deletion is rejected the account must remain intact (rejected inside the
+	// transaction, so no half-deleted state is produced)
 	adminModel := model.NewAdminModel(db)
 	found, findErr := adminModel.FindOne(context.Background(), adminID)
 	assert.NoError(t, findErr)
 	assert.Equal(t, "rootadmin", found.Username)
 }
 
-// BUG-028 对照：非引导账号的删除不受保护，行为保持不变。
+// BUG-028 control case: deleting a non-bootstrap account is not protected; behavior is unchanged.
 func TestService_Delete_NonBootstrapAdminAllowed(t *testing.T) {
 	db := setupTestDB(t)
 	seedTestPermissions(t, db)
 
-	// 自举配置只声明 rootadmin；testadmin 不在其中，删除应照常成功
+	// The bootstrap config declares only rootadmin; testadmin is not among them, so
+	// deletion should succeed as usual
 	bootstrapManager := writeBootstrapAdminsConfig(t, "rootadmin")
 	svcCtx := setupTestServiceContext(t, db)
 	svcCtx.AdminManager = bootstrapManager
@@ -883,7 +886,8 @@ func TestService_Delete_NonBootstrapAdminAllowed(t *testing.T) {
 	assert.Error(t, findErr)
 }
 
-// BUG-028：Admin 列表/详情视图必须携带 bootstrap 标记，前端据此隐藏删除入口。
+// BUG-028: the Admin list/detail views must carry the bootstrap flag, which the
+// frontend uses to hide the delete entry.
 func TestService_List_BootstrapFlag(t *testing.T) {
 	db := setupTestDB(t)
 	seedTestPermissions(t, db)

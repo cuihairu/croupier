@@ -48,7 +48,7 @@ func (h *Handler) Create(c *gin.Context) {
 // Get handles the request to get admin details
 func (h *Handler) Get(c *gin.Context) {
 	var req GetRequest
-	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
+	_ = c.ShouldBindUri(&req) // uri fields are plain strings, so binding never fails
 
 	resp, err := h.service.Get(c.Request.Context(), &req)
 	if err != nil {
@@ -61,7 +61,7 @@ func (h *Handler) Get(c *gin.Context) {
 // Update handles the request to update an admin
 func (h *Handler) Update(c *gin.Context) {
 	var req UpdateRequest
-	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
+	_ = c.ShouldBindUri(&req) // uri fields are plain strings, so binding never fails
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, err)
 		return
@@ -78,7 +78,7 @@ func (h *Handler) Update(c *gin.Context) {
 // Delete handles the request to delete an admin
 func (h *Handler) Delete(c *gin.Context) {
 	var req DeleteRequest
-	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
+	_ = c.ShouldBindUri(&req) // uri fields are plain strings, so binding never fails
 
 	if err := h.service.Delete(c.Request.Context(), &req); err != nil {
 		response.Error(c, err)
@@ -90,7 +90,7 @@ func (h *Handler) Delete(c *gin.Context) {
 // PasswordReset handles the request to reset an admin's password
 func (h *Handler) PasswordReset(c *gin.Context) {
 	var req PasswordResetRequest
-	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
+	_ = c.ShouldBindUri(&req) // uri fields are plain strings, so binding never fails
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, err)
 		return
@@ -106,7 +106,7 @@ func (h *Handler) PasswordReset(c *gin.Context) {
 // GetGames handles the request to get admin game scopes
 func (h *Handler) GetGames(c *gin.Context) {
 	var req GetGamesRequest
-	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
+	_ = c.ShouldBindUri(&req) // uri fields are plain strings, so binding never fails
 
 	resp, err := h.service.GetGames(c.Request.Context(), &req)
 	if err != nil {
@@ -119,7 +119,7 @@ func (h *Handler) GetGames(c *gin.Context) {
 // UpdateGames handles the request to update admin game scopes
 func (h *Handler) UpdateGames(c *gin.Context) {
 	var req UpdateGamesRequest
-	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
+	_ = c.ShouldBindUri(&req) // uri fields are plain strings, so binding never fails
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, err)
 		return

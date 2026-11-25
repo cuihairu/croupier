@@ -104,7 +104,7 @@ func (s *Service) Create(ctx context.Context, req *CreateRequest) (*CreateRespon
 			Status:             model.StatusEnabled,
 			MustChangePassword: req.MustChangePassword,
 		}
-		// 密码有效期：天数 >0 时落绝对截止时间（OPEN-ISSUES #20）
+		// Password expiry: days > 0 lands an absolute deadline (OPEN-ISSUES #20)
 		if req.PasswordExpiresDays > 0 {
 			expiresAt := time.Now().UTC().Add(time.Duration(req.PasswordExpiresDays) * 24 * time.Hour)
 			admin.PasswordExpiresAt = &expiresAt
@@ -204,7 +204,7 @@ func (s *Service) Update(ctx context.Context, req *UpdateRequest) (*UpdateRespon
 			if err := adminModel.Update(ctx, adminID, updates); err != nil {
 				return err
 			}
-			// 禁用账号即吊销所有已签发 token
+			// Disabling an account revokes all issued tokens
 			if req.Status == model.StatusDisabled {
 				if err := adminModel.BumpTokenVersion(ctx, adminID); err != nil {
 					return err
@@ -280,10 +280,12 @@ func (s *Service) Delete(ctx context.Context, req *DeleteRequest) error {
 		}
 		existing = adminRecord
 
-		// 引导管理员（configs/admins.json 等自举配置声明的账号）不可删除：
-		// 它们是部署的自举凭证，删除会立即打断登录链（重启虽会补种，但已属
-		// 破坏性操作）。需要停用时走禁用（status=0，自动吊销已签发 token），
-		// 之后可随时解封。（BUG-028）
+		// Bootstrap admins (accounts declared by bootstrap config such as
+		// configs/admins.json) must not be deleted: they are the deployment's
+		// bootstrap credentials, and deleting one immediately breaks the login
+		// chain (a restart would re-seed it, but that is already destructive).
+		// To take one out of service, disable it instead (status=0, which auto-revokes
+		// issued tokens); it can be re-enabled at any time. (BUG-028)
 		if s.isBootstrapAdmin(adminRecord.Username) {
 			return errorx.NewForbidden("引导管理员不可删除，可改为禁用")
 		}
@@ -345,8 +347,8 @@ func (s *Service) PasswordReset(ctx context.Context, req *PasswordResetRequest) 
 		return err
 	}
 
-	// 管理员重置后的新密码视为干净状态：清除「登录后必须改密」与有效期
-	// 标记（OPEN-ISSUES #20）。
+	// A password set by an admin reset is treated as clean: clear the
+	// "must change after login" and expiry flags (OPEN-ISSUES #20).
 	if err := s.svcCtx.AdminModel.Update(ctx, adminID, map[string]interface{}{
 		"must_change_password": false,
 		"password_expires_at":  nil,
@@ -354,7 +356,7 @@ func (s *Service) PasswordReset(ctx context.Context, req *PasswordResetRequest) 
 		return err
 	}
 
-	// 密码变更即吊销该账号所有已签发 token
+	// A password change revokes all tokens issued for this account
 	if err := s.svcCtx.AdminModel.BumpTokenVersion(ctx, adminID); err != nil {
 		return err
 	}
@@ -570,7 +572,8 @@ func (s *Service) loadAdminRoleNames(ctx context.Context, adminIDs []uint) (map[
 	return roleMap, nil
 }
 
-// parseAdminID 复用 utils.ParseUintID 的统一实现（空值/非法/零值校验与文案口径一致）。
+// parseAdminID reuses the shared utils.ParseUintID implementation (empty/invalid/
+// zero-value validation and message wording stay consistent with it).
 func parseAdminID(id string) (uint, error) {
 	return utils.ParseUintID(id, "管理员ID")
 }
@@ -594,16 +597,17 @@ func buildAdminResponse(admin *model.Admin, roleNames []string) Admin {
 	return view
 }
 
-// isBootstrapAdmin 当前用户名是否为引导配置（admins.json/users.json）声明的
-// 自举账号。AdminManager 未接线（测试夹具）时一律视为否。
+// isBootstrapAdmin reports whether the username is a bootstrap account declared by
+// the bootstrap config (admins.json/users.json). When AdminManager is not wired in
+// (test fixtures), it is always treated as false.
 func (s *Service) isBootstrapAdmin(username string) bool {
 	return s != nil && s.svcCtx != nil &&
 		s.svcCtx.AdminManager != nil &&
 		s.svcCtx.AdminManager.IsBootstrapAdmin(username)
 }
 
-// buildAdminView 在基础映射上补 bootstrap 标记——前端据此隐藏「删除」入口
-// 并展示「引导」标识（BUG-028）。
+// buildAdminView adds the bootstrap flag on top of the base mapping — the frontend
+// uses it to hide the "delete" entry and show the "bootstrap" badge (BUG-028).
 func (s *Service) buildAdminView(admin *model.Admin, roleNames []string) Admin {
 	view := buildAdminResponse(admin, roleNames)
 	view.Bootstrap = s.isBootstrapAdmin(admin.Username)

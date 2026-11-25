@@ -1,9 +1,10 @@
 // Package admin provides DTOs for admin API operations.
 package admin
 
-// 管理员账号状态取值（对齐 internal/model 的 StatusEnabled/StatusDisabled）。
-// Update 请求用 AdminStatusUnchanged 作为「不修改状态」的哨兵：JSON 里 Go 的
-// int 零值与 StatusDisabled 撞值，无法省略，只能用 -1 显式表达「不改」。
+// AdminStatusUnchanged is the "leave status untouched" sentinel used by Update
+// requests. Go's zero value for int collides with StatusDisabled in JSON and
+// cannot be omitted, so -1 is the only way to express "do not change".
+// Status values align with StatusEnabled/StatusDisabled in internal/model.
 const (
 	AdminStatusUnchanged = -1
 )
@@ -17,11 +18,14 @@ type Admin struct {
 	Phone    string   `json:"phone"`
 	Roles    []string `json:"roles"`
 	Status   int      `json:"status"` // model.StatusEnabled(1)/StatusDisabled(0)
-	// bootstrap 标记该账号是否为引导配置（admins.json/users.json）声明的
-	// 自举账号：不可删除（后端 Delete 拒绝），可禁用。前端据此隐藏删除入口。
+	// Bootstrap marks whether the account is a bootstrap account declared by the
+	// bootstrap configuration (admins.json/users.json): it cannot be deleted
+	// (the backend Delete refuses) but can be disabled. The frontend uses this to
+	// hide the delete entry point.
 	Bootstrap bool `json:"bootstrap"`
-	// 密码策略（OPEN-ISSUES #20）：mustChangePassword=下次登录必须改密；
-	// passwordExpiresAt 为密码有效期截止（RFC3339，空=长期有效）。
+	// Password policy (OPEN-ISSUES #20): mustChangePassword means the password
+	// must be changed at next login; passwordExpiresAt is the expiry deadline
+	// (RFC3339, empty = valid indefinitely).
 	MustChangePassword bool   `json:"mustChangePassword"`
 	PasswordExpiresAt  string `json:"passwordExpiresAt,omitempty"`
 	CreatedAt          string `json:"createdAt"`
@@ -36,10 +40,12 @@ type AdminCreateRequest struct {
 	Email    string   `json:"email"`
 	Phone    string   `json:"phone"`
 	Roles    []string `json:"roles"`
-	// MustChangePassword 创建后首次登录是否必须修改密码（OPEN-ISSUES #20）。
+	// MustChangePassword controls whether the password must be changed at first
+	// login after creation (OPEN-ISSUES #20).
 	MustChangePassword bool `json:"mustChangePassword"`
-	// PasswordExpiresDays 密码有效天数；0/缺省=长期有效。落库为绝对截止
-	// 时间 password_expires_at。
+	// PasswordExpiresDays is the password lifetime in days; 0/omitted means valid
+	// indefinitely. It is landed in the database as the absolute deadline column
+	// password_expires_at.
 	PasswordExpiresDays int `json:"passwordExpiresDays"`
 }
 
@@ -109,7 +115,7 @@ type AdminUpdateRequest struct {
 	Email    string   `json:"email"`
 	Phone    string   `json:"phone"`
 	Roles    []string `json:"roles"`
-	Status   int      `json:"status"` // model.StatusEnabled/StatusDisabled；AdminStatusUnchanged 表示不修改
+	Status   int      `json:"status"` // model.StatusEnabled/StatusDisabled; AdminStatusUnchanged means leave it unchanged
 }
 
 // AdminUpdateResponse represents the response after updating an admin.

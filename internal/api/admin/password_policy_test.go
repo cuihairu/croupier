@@ -10,11 +10,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// OPEN-ISSUES #20 回归：创建管理员时的密码策略——
-// ① mustChangePassword=true 落库并在响应视图透出；
-// ② passwordExpiresDays 换算为绝对截止时间 password_expires_at；
-// ③ 缺省（0/不标记）保持干净状态；
-// ④ 管理员重置密码清除两个标记（新密码视为干净状态）。
+// OPEN-ISSUES #20 regression: password policy when creating an admin —
+// ① mustChangePassword=true is landed in the database and surfaced in the response view;
+// ② passwordExpiresDays is converted into an absolute deadline password_expires_at;
+// ③ defaults (0 / not flagged) keep a clean state;
+// ④ an admin password reset clears both flags (the new password is considered clean).
 
 func TestService_Create_PasswordPolicy(t *testing.T) {
 	db := setupTestDB(t)
@@ -34,13 +34,13 @@ func TestService_Create_PasswordPolicy(t *testing.T) {
 	assert.True(t, resp.MustChangePassword, "响应视图应透出 mustChangePassword")
 	assert.NotEmpty(t, resp.PasswordExpiresAt, "响应视图应透出密码有效期截止")
 
-	// 响应里的截止时间应落在 now+90d ±1h（换算边界容差）
+	// The deadline in the response should fall within now+90d +/-1h (conversion boundary tolerance)
 	expiresAt, err := time.Parse(time.RFC3339, resp.PasswordExpiresAt)
 	require.NoError(t, err)
 	want := time.Now().Add(90 * 24 * time.Hour)
 	assert.WithinDuration(t, want, expiresAt, time.Hour)
 
-	// 落库断言：读回原始行
+	// Persistence assertion: read the raw row back
 	var row model.Admin
 	require.NoError(t, db.Where("username = ?", "policyadmin").First(&row).Error)
 	assert.True(t, row.MustChangePassword)
