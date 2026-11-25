@@ -103,6 +103,21 @@ interface RemoteOptionsSpec {
 
 校验只有一份规则源：`ValidatePublishablePageShape` 追加 `spec.ValidateFormPresentations`（覆盖发布、accept-and-publish、回滚预检与提案校验），`ValidatePageSpecInScope` 在保存/预览路径追加同一函数；前端 `web/src/utils/formValidation.ts` 复用 `web/src/utils/fieldPath.ts` 与 `web/src/utils/widgetCapabilities.ts`，在 `savePageDraft` 与 `CompositeEditor.save()` 前拦截非法配置，使其根本不到服务端。错误沿用既有 `{field, message}` details 契约。回归用例包含一份完全合法、仍可发布的 PageSpec。
 
+### 日期时间值序列化（SUI-022）
+
+日期类表单字段提交的是日历值，不是折算到 UTC 的瞬时值。antd 主题内置 `DateWidget` 用 `toISOString()` 序列化 `date-time`——picker 所在的本地偏移被丢弃，换成 UTC `Z` 结尾；清空时透传 `null`，而 null 会滞留在 rjsf v6 的 `formData`（只有 `undefined` 才移除键），随后撞上 AJV `type: string`。`@rjsf/core` 的 `TimeWidget`（antd 主题未提供 time widget）用 `${value}:00` 字符串拼接产值，对 antd TimePicker 的 Dayjs 值会产出非法串。因此渲染器在 `web/src/components/SchemaFormRenderer/widgets.tsx` 按 rjsf widgetMap 的注册名覆盖三个实现：`DateWidget` / `DateTimeWidget` / `TimeWidget`；一次注册同时覆盖两条路径——`format` 缺省路径（`format: date` / `date-time` / `time` 解析到同名 registry key）与显式 `x-widget` 路径（`DatePicker` → `date`、`TimePicker` → `time`，经 `widgetToRjsf`）。
+
+序列化契约（`web/src/utils/datetime.ts`）：
+
+- `date` → 本地日历日期 `YYYY-MM-DD`（无时间、无偏移）；
+- `date-time` → 带显式本地偏移的 RFC3339 `YYYY-MM-DDTHH:mm:ssZ`（dayjs 的 `Z` token 输出 `±HH:MM`，如 `2026-01-31T08:30:45+08:00`）；与旧 `toISOString()` 形态的差异是保留操作者的墙钟与偏移，瞬时值本身不变、可无损换算（按 UTC 设计的消费方解析后是同一时刻），精度到秒；
+- `time` → `HH:mm:ss`；
+- 清空提交 `undefined`，键从提交值移除——SchemaFormRenderer 归一层在折叠 `formData` 前过滤 `undefined` 条目（旧行为是滞留 `null` 折回 payload）。
+
+显示种子（`initialValues` / `defaultValue` / 上次提交值）进入 picker 前在同一模块归一：不带时区指示的 naive 串（DB 风格 `2026-01-01T08:00:00`）按本地墙钟解析，绝不被静默平移；携带 `Z`/偏移的种子保持瞬时值（dayjs 默认语义）——非 UTC 浏览器时区下显示的日历日可能是相邻一天，这是文档化行为（保持瞬时，而非原日历日），由按进程时区守卫的用例断言。`normalizeDateTimeSeed` 是未来改动种子解释的唯一挂钩点。time 种子只接受 `HH:mm`/`HH:mm:ss`；越界值显示为空，不静默进位。
+
+边界：序列化契约跟随 widget，而非独立选项——`format: date-time` 字段配 `x-widget: DatePicker` 会提交纯日期形态（`TimePicker` 反之）；按 UTC 设计的消费方解析后得到同一瞬时；非 UTC 时区下带 `Z`/偏移种子的跨日显示是有意行为；`DateRange` 仍仅声明（SUI-020）。验证：真实 rjsf 引擎 e2e（`datetime-widgets.test.tsx`）在 UTC 与非 UTC 进程时区下经实际 RJSF 提交路径断言提交串与清空行为。
+
 可见性条件是受限表达式，不能读 row/详情数据或调用函数：
 
 ```ts

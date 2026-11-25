@@ -103,6 +103,21 @@ Save and publish validate every `FormPresentationSpec` carried by the PageSpec �
 
 Enforcement is one rule source: `spec.ValidateFormPresentations` is appended by `ValidatePublishablePageShape` (publish, accept-and-publish, rollback preflight, proposal validation) and by `ValidatePageSpecInScope` on the save/preview path; the client reuses `web/src/utils/fieldPath.ts` and `web/src/utils/widgetCapabilities.ts` in `web/src/utils/formValidation.ts` before `savePageDraft` and `CompositeEditor.save()` so invalid configuration never reaches the server. Errors use the existing `{field, message}` details contract. Regression tests include a fully valid fixture that still publishes.
 
+### Date and time value serialization (SUI-022)
+
+Date-type form fields submit calendar values, not UTC-folded instants. The antd theme's built-in `DateWidget` serialized `date-time` with `toISOString()` — the picker's local offset was discarded in favor of a UTC `Z` suffix — and passed `null` through on clear, which survives rjsf v6 `formData` (only `undefined` removes a key) and then fails AJV `type: string`. `@rjsf/core`'s `TimeWidget` (the antd theme ships none) builds the value by string concatenation `${value}:00`, which mangles the antd TimePicker's Dayjs values. The renderer therefore registers three overrides under the rjsf widgetMap registry keys `DateWidget` / `DateTimeWidget` / `TimeWidget` in `web/src/components/SchemaFormRenderer/widgets.tsx`; one registration covers both the `format`-default path (`format: date` / `date-time` / `time` resolve to the same-named registry key) and the explicit `x-widget` path (`DatePicker` → `date`, `TimePicker` → `time` via `widgetToRjsf`).
+
+Serialization contract (`web/src/utils/datetime.ts`):
+
+- `date` → local calendar date `YYYY-MM-DD` (no time, no offset);
+- `date-time` → RFC3339 with an explicit local offset, `YYYY-MM-DDTHH:mm:ssZ` (dayjs's `Z` token emits `±HH:MM`, e.g. `2026-01-31T08:30:45+08:00`); unlike the previous `toISOString()` form the operator's wall clock and offset are preserved, the instant itself is unchanged and losslessly convertible (UTC consumers parse the same moment), precision to seconds;
+- `time` → `HH:mm:ss`;
+- clearing a value submits `undefined` and the key is removed from the payload — the SchemaFormRenderer normalize layer filters `undefined` entries before folding `formData` (previously a stale `null` leaked back into payloads).
+
+Display seeds (`initialValues` / `defaultValue` / previously submitted values) are normalized in the same module before reaching a picker: naive strings without a timezone designator (DB-style `2026-01-01T08:00:00`) parse as local wall clock and are never silently shifted, while `Z`/offset seeds keep the instant (dayjs default semantics) — in a non-UTC browser timezone the displayed calendar day may be an adjacent day; that is documented behavior (keeping the instant, not the original calendar day), asserted by TZ-guarded tests. `normalizeDateTimeSeed` is the single hook point if seed interpretation ever changes. Time seeds accept `HH:mm`/`HH:mm:ss` only; out-of-range values render empty rather than rolling over.
+
+Boundaries: the serialization contract follows the widget, not a separate option — `x-widget: DatePicker` on a `format: date-time` field submits the date-only form (and vice versa for `TimePicker`); UTC consumers get an identical instant after parsing; cross-day display of `Z`/offset seeds in non-UTC timezones is intentional; `DateRange` remains declared-only (SUI-020). Verification: real rjsf engine e2e (`datetime-widgets.test.tsx`) asserts submitted strings and clear behavior through the actual RJSF submit path under both UTC and non-UTC process timezones.
+
 Visibility conditions are restricted expressions: they cannot read row/detail data or call functions:
 
 ```ts

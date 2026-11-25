@@ -515,6 +515,10 @@ wire 契约见 [PageSpec 协议规范](../architecture/pagespec-protocol.md)「�
 
 保存请求发出前，浏览器先跑与服务端保存/发布一致的表单呈现规则（`web/src/utils/formValidation.ts`）：页面上的每个表单（资源创建/更新/行操作表单、operation/task 表单、报表查询表单、每个组合页区块表单）都检查字段标识能否在 schema 中解析（裸 key 或 JSON Pointer，SUI-019）、key 重复、分组 key/字段冲突、控件非法或与 schema 类型不兼容（SUI-020 能力表）、宽度越界（0–12）。非法配置被拦截并给出逐条定位消息（如 `resource.createForm.fields[2].width: …`）；完全合法的页面照常保存与发布。服务端保持单一规则源（`spec.ValidateFormPresentations`），提案、发布、回滚预检与 validate 端点报告同一套错误码。见 [PageSpec 协议](../architecture/pagespec-protocol.md#表单呈现配置校验sui-021)。
 
+## 日期时间值序列化（SUI-022）
+
+组合页区块表单里的日期类字段提交的是操作者选择的值，不是折算到 UTC 的瞬时值：`date` 提交本地日历日期 `YYYY-MM-DD`，`date-time` 提交带显式本地偏移的 RFC3339（`2026-01-31T08:30:45+08:00`），`time` 提交 `HH:mm:ss`，清空则把键从提交值中彻底移除（旧行为是滞留 `null` 进请求、随后撞 schema 校验）。antd 主题内置日期控件丢弃本地偏移、core 的 time 控件拼坏 Dayjs 值，因此 SchemaFormRenderer 注册三个覆盖实现（`DateWidget`/`DateTimeWidget`/`TimeWidget`），`format: date/date-time/time` 缺省路径与 `x-widget: DatePicker/TimePicker` 路径都解析到它们。种子（默认值、上次提交值）：naive DB 风格串按本地墙钟显示，`Z`/偏移串保持瞬时值。完整序列化契约与边界见 [PageSpec 协议](../architecture/pagespec-protocol.md#日期时间值序列化sui-022)（契约跟随 widget 选择：`format: date-time` 字段配 `x-widget: DatePicker` 会提交纯日期形态）。
+
 ## 9. 已知边界
 
 - SUI-020 未新增任何 widget 实现：`DateRange` 与 `RichText` 仍仅声明、未实现，静默回退到类型默认控件；`Code`/`JSON` 仍是普通 textarea 字符串，不解析也不校验内容。能力提示仅为提示信息，不改变提交值。

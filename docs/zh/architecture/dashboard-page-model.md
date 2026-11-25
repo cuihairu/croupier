@@ -518,6 +518,8 @@ PageSpec 必须与组件库解耦。未来更换表单或图表库时只替换 r
 
 **表单呈现配置校验（SUI-021）**：保存与发布都校验页面上的每个 `FormPresentationSpec`——字段标识必须能在表单 schema 中解析（裸 key 或 JSON Pointer，SUI-019）、分组 key/字段唯一且无跨组冲突、控件必须是受控枚举且与字段 schema 类型兼容（SUI-020 能力表；仅声明的 `DateRange`/`RichText` 豁免）、宽度必须为 0 或 1–12。服务端只有一份规则源（`spec.ValidateFormPresentations`），同时被 `ValidatePublishablePageShape`（发布链）与 `ValidatePageSpecInScope`（保存/预览）追加；浏览器端在保存前经 `web/src/utils/formValidation.ts` 跑同一套规则，非法表单配置根本不会离开编辑器。错误是定位到具体表单条目的 `{field, message}` details（如 `resource.createForm.fields[2].width`）；完全合法的存量 PageSpec 仍可发布。
 
+**日期时间值序列化（SUI-022）**：日期类表单字段提交日历值，不是折算到 UTC 的瞬时值。自定义 `DateWidget`/`DateTimeWidget`/`TimeWidget` 覆盖（rjsf widgetMap 注册名，一次注册同时覆盖 `format` 缺省路径与 `x-widget` 路径）使 `date` 提交本地 `YYYY-MM-DD`、`date-time` 提交带显式本地偏移的 RFC3339（`2026-01-31T08:30:45+08:00`——保留操作者墙钟，瞬时值不变、可无损换算）、`time` 提交 `HH:mm:ss`，清空则把键从提交值移除（`undefined`，绝不再是滞留 `null`）。显示种子：naive DB 风格串按本地墙钟解析，`Z`/偏移串保持瞬时值（非 UTC 时区的跨日显示为文档化行为）。wire 契约与边界见 [PageSpec 协议](./pagespec-protocol.md#日期时间值序列化sui-022)。
+
 JSON Schema 是函数输入/输出的持久化标准；表单展示由 `FormPresentationSpec` 表达，协议定义见 [PageSpec 协议规范](./pagespec-protocol.md)，渲染链路与唯一 runtime 约束见 ProComponents 页面生成与运行时。
 
 `FormPresentationSpec` 只负责表单展示，不改变 FunctionContract payload；保存和发布都必须经过服务端结构校验，校验失败必须报错并要求管理员修复。表单 runtime 固定为 `@rjsf/antd + @rjsf/validator-ajv8`，项目内禁止并行保留第二套表单运行时。
