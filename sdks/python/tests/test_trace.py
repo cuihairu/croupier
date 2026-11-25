@@ -1,4 +1,4 @@
-"""OTel trace 传播辅助（一期）：context JSON 提取语义。"""
+"""OTel trace propagation helpers (phase 1): context JSON extraction semantics."""
 
 import json
 

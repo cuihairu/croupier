@@ -241,10 +241,11 @@ class TestInboundRequests:
         transport.connect()
 
         peer.push(protocol.MSG_INVOKE_REQUEST, 9, b"boom")
-        # BUG-038 修复后契约：失败也要答 Agent（对齐 Go inboundWorker）——
-        # handler 异常回兜底空 body 响应帧（错误 payload 由
-        # CroupierClient._handle_inbound_invoke 语义层封装），对端不再
-        # 干等到超时；transport 存活可继续服务后续请求。
+        # BUG-038 fixed contract: a failure must still answer the Agent
+        # (matching the Go inboundWorker) — a handler exception replies with
+        # a fallback empty-body response frame (the error payload is wrapped
+        # by CroupierClient._handle_inbound_invoke), so the peer no longer
+        # waits until timeout; a live transport keeps serving later requests.
         resp = peer.wait_response(9, timeout=0.5)
         assert resp is not None
         resp_msg_id, resp_body = resp
@@ -307,8 +308,9 @@ class TestReaderLoopRobustness:
         transport.connect()
         thread = transport._reader_thread
 
-        # 让一个请求保持 pending（peer 静默），随后注入致命 reader 错误，
-        # 断言 AUD-018 清理不变量：连接不可用、在途调用及时失败、可重连。
+        # Hold one request pending (peer stays silent), then inject a fatal
+        # reader error; assert the AUD-018 cleanup invariants: the connection
+        # is unusable, the in-flight call fails promptly, reconnection works.
         silent = [True]
 
         def handler(msg_id, req_id, body):
@@ -325,7 +327,7 @@ class TestReaderLoopRobustness:
 
         ct = threading.Thread(target=caller)
         ct.start()
-        peer.wait_requests(1)  # 在途请求已被 peer 消费（返回 None 保持 pending）
+        peer.wait_requests(1)  # in-flight request consumed by the peer (returns None to stay pending)
 
         with mock.patch.object(
             protocol, "parse_message", side_effect=RuntimeError("corrupted state")
@@ -334,7 +336,8 @@ class TestReaderLoopRobustness:
             thread.join(timeout=3)
 
         assert not thread.is_alive()
-        # AUD-018：不再虚假 connected —— 此前 fatal reader 错误后仍报已连接。
+        # AUD-018: no longer falsely connected — a fatal reader error used to
+        # still report a connected transport.
         assert transport.is_connected() is False
 
         ct.join(timeout=3)
@@ -342,7 +345,7 @@ class TestReaderLoopRobustness:
         assert "reader terminated" in str(outcome["err"])
         assert transport._pending == {}
 
-        # AUD-018：重连不被虚假 connected 阻断。
+        # AUD-018: reconnection is no longer blocked by a false "connected".
         silent[0] = False
         transport.connect()
         assert transport.is_connected() is True
@@ -353,9 +356,10 @@ class TestReaderLoopRobustness:
         transport.close()
 
     def test_reader_oversize_frame_disconnects_and_fails_pending(self, peer):
-        """AUD-018：超长帧（超过 32MB 上限）令 reader 抛 ValueError，必须
-        与连接丢失同等清理——此前 connected/running 仍为 true 且 pending
-        未收到错误，重连被阻断。"""
+        """AUD-018: an oversize frame (beyond the 32MB limit) makes the reader
+        raise ValueError; it must clean up like a lost connection — previously
+        connected/running stayed true, pending never saw an error, and
+        reconnection was blocked."""
         transport = TCPTransport(address=peer.addr(), timeout_ms=3000)
         transport.connect()
         thread = transport._reader_thread
@@ -373,8 +377,9 @@ class TestReaderLoopRobustness:
         ct.start()
         peer.wait_requests(1)
 
-        # 只写 4 字节裸长度前缀（33MB > 32MB 上限），让 _read_frame 抛
-        # ValueError（push_raw 会再套一层前缀，须直发 sendall）。
+        # write only the bare 4-byte length prefix (33MB > the 32MB limit) so
+        # _read_frame raises ValueError (push_raw would prepend another
+        # prefix, so send this via a direct sendall).
         peer._latest_conn().sendall(struct.pack(">I", 33 * 1024 * 1024))
         thread.join(timeout=3)
 
@@ -385,7 +390,8 @@ class TestReaderLoopRobustness:
         assert "reader terminated" in str(outcome["err"])
         assert transport._pending == {}
 
-        # 重连后数据面可用（默认 handler 响应空 body）。
+        # after reconnecting the data plane is usable (the default handler
+        # replies with an empty body).
         peer.handle_message = lambda msg_id, req_id, body: b""
         transport.connect()
         assert transport.is_connected() is True
@@ -428,7 +434,8 @@ def _tls_call_with_retry(server: FakePeer, **transport_kwargs) -> tuple[TCPTrans
             resp_msg_id, _ = transport.call(protocol.MSG_INVOKE_REQUEST, b"secure-ping")
             return transport, resp_msg_id
         except (TimeoutError, ConnectionError, OSError) as exc:
-            # 竞态的两种表现：帧被静默吞掉（超时）或 reader 判定连接丢失
+            # two ways the race shows up: the frame is silently swallowed
+            # (timeout) or the reader decides the connection was lost
             last_exc = exc
             transport.close()
     raise AssertionError(f"TLS roundtrip kept failing: {last_exc!r}")

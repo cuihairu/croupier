@@ -1,4 +1,4 @@
-"""F：控制面 manifest 上传——_maybe_register_capabilities 行为验证。"""
+"""F: control-plane manifest upload — behavior of _maybe_register_capabilities."""
 
 import gzip
 import json
@@ -21,7 +21,8 @@ def server_socket():
 
 
 def _serve_once(server_socket_, captured: dict) -> None:
-    """读一帧请求并回确认帧（4 字节长度 + 8 字节头 + body）。"""
+    """Read one request frame and reply with a confirmation frame
+    (4-byte length + 8-byte header + body)."""
     conn, _ = server_socket_.accept()
     try:
         header = conn.recv(4)
@@ -32,12 +33,12 @@ def _serve_once(server_socket_, captured: dict) -> None:
             if not chunk:
                 break
             frame += chunk
-        # 8 字节头：version(1) + msg_id(3) + request_id(4)
+        # 8-byte header: version(1) + msg_id(3) + request_id(4)
         assert frame[0] == 1
         msg_id = int.from_bytes(frame[1:4], "big")
         assert msg_id == MSG_REGISTER_CAPABILITIES_REQ
         body = frame[8:]
-        # field 1 provider（tag 0x0A + len + bytes）在前，跳过
+        # field 1 provider (tag 0x0A + length + bytes) comes first; skip it
         assert body[0] == 0x0A
         idx = 1
         provider_len = 0
@@ -50,7 +51,7 @@ def _serve_once(server_socket_, captured: dict) -> None:
                 break
             shift += 7
         idx += provider_len
-        # field 2 manifest_json_gz（tag 0x12 + varint 长度 + gz bytes）
+        # field 2 manifest_json_gz (tag 0x12 + varint length + gz bytes)
         assert body[idx] == 0x12
         idx += 1
         manifest_len = 0
@@ -64,7 +65,7 @@ def _serve_once(server_socket_, captured: dict) -> None:
             shift += 7
         manifest = json.loads(gzip.decompress(body[idx : idx + manifest_len]))
         captured.update(manifest)
-        # 回空响应帧
+        # reply with an empty response frame
         resp_frame = bytes([1]) + msg_id.to_bytes(3, "big") + (0).to_bytes(4, "big")
         conn.sendall(struct.pack(">I", len(resp_frame)) + resp_frame)
     finally:
@@ -96,12 +97,13 @@ def test_manifest_uploaded_to_control_plane():
 def test_no_control_addr_is_noop():
     client = CroupierClient(ClientConfig())
     client.register_function(FunctionDescriptor(id="f"), lambda m, p: b"ok")
-    # 不应抛错
+    # must not raise
     client._maybe_register_capabilities()
 
 
 def test_inbound_workers_serial_mode_exposed_on_transport():
-    """单线程游戏服兼容：inbound_workers=1 应透传到 TCPTransport（串行车道）。"""
+    """Single-threaded game-server compatibility: inbound_workers=1 must pass
+    through to TCPTransport (a serialized lane)."""
     from unittest import mock
 
     from croupier import ClientConfig, CroupierClient
@@ -125,6 +127,6 @@ def test_inbound_workers_serial_mode_exposed_on_transport():
         try:
             client.connect()
         except Exception:
-            pass  # 连接失败不影响参数透传断言
+            pass  # connection failure does not affect the pass-through assertion
 
     assert captured.get("inbound_workers") == 1
