@@ -1,6 +1,7 @@
-// 覆盖目标：sendGauge 各类型分支、platformCollector.Collect 的 DB 正常路径、
-// checkDatabaseHealth 的 Exec 失败分支、collectRegistryStats 的 nil session 分支、
-// summarizeOpsState 的 MQ.Lengths 分支。
+// Coverage targets: the type branches of sendGauge, the DB happy path of
+// platformCollector.Collect, the Exec failure branch of checkDatabaseHealth, the
+// nil-session branch of collectRegistryStats, and the MQ.Lengths branch of
+// summarizeOpsState.
 package monitoring
 
 import (
@@ -125,7 +126,8 @@ func TestCheckDatabaseHealth_ExecError(t *testing.T) {
 
 func TestCollectRegistryStats_SkipsNilSession(t *testing.T) {
 	store := registry.NewStore()
-	// 直接向内部 map 注入 nil session，覆盖防御性 continue 分支
+	// Inject a nil session straight into the internal map to cover the
+	// defensive continue branch
 	store.Mu().Lock()
 	store.AgentsUnsafe()["nil-agent"] = nil
 	store.Mu().Unlock()
@@ -137,7 +139,8 @@ func TestCollectRegistryStats_SkipsNilSession(t *testing.T) {
 }
 
 func TestSummarizeOpsState_MQLengths(t *testing.T) {
-	// 使用独立临时目录，避免污染包内 ops_state.json 固件
+	// Use a dedicated temp dir so the package's ops_state.json fixture is not
+	// polluted
 	opsStore := svc.NewOpsStateStore(t.TempDir())
 	_, err := opsStore.Update(func(state *svc.OpsState) {
 		state.MQ.Lengths = map[string]int{"events": 3, "payments": 5}

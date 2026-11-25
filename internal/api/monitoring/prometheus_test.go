@@ -12,8 +12,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// buildTestRouter 按生产形态组装 engine：开关决定是否挂载端点，
-// AuthMiddleware 决定是否免认证。
+// buildTestRouter assembles the engine the way production does: the flag decides
+// whether the endpoint is mounted, and AuthMiddleware decides whether it is
+// exempt from authentication.
 func buildTestRouter(t *testing.T, promEnabled bool) *gin.Engine {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
@@ -48,7 +49,7 @@ func TestPrometheusEndpoint_EnabledReturnsExposition(t *testing.T) {
 
 	body := w.Body.String()
 	assert.Contains(t, w.Header().Get("Content-Type"), "text/plain")
-	// Go runtime 指标 + 平台指标同场暴露
+	// Go runtime metrics and platform metrics are exposed side by side
 	assert.Contains(t, body, "go_goroutines")
 	assert.Contains(t, body, "croupier_db_up")
 	assert.Contains(t, body, "croupier_agents_total")
@@ -66,12 +67,13 @@ func TestPrometheusEndpoint_CustomPath(t *testing.T) {
 	r.Use(svc.NewAuthMiddleware(serverCtx))
 	r.GET(cfg.Telemetry.Prometheus.PrometheusPath(), gin.WrapH(NewPrometheusHandler(serverCtx)))
 
-	// 自定义路径可达（无 Authorization 头仍 200，证明白名单生效）
+	// The custom path is reachable (still 200 without an Authorization header,
+	// proving the whitelist is in effect)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, httptest.NewRequest("GET", "/ops/prom", nil))
 	assert.Equal(t, 200, w.Code)
 
-	// 默认路径不存在
+	// The default path does not exist
 	w2 := httptest.NewRecorder()
 	r.ServeHTTP(w2, httptest.NewRequest("GET", "/metrics/prometheus", nil))
 	assert.NotEqual(t, 200, w2.Code)

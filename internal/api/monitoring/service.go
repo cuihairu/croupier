@@ -37,11 +37,13 @@ func (s *Service) Healthz(ctx context.Context, req *HealthzRequest) (*HealthzRes
 	}, nil
 }
 
-// Ready 就绪探针判定（ARCH-004）：存活探针（/healthz）之外的就绪面——
-// 数据库/注册表/运维状态之外叠加集群要求：cluster.enabled 时协调库
-// （成员注册+租约）或互联监听不可用 → not_ready（HTTP 503，由 Handler
-// 映射）；显式 allowStandaloneDegrade 才允许启动期降级为 standalone
-// （降级状态在 Cluster 组件可观测）。
+// Ready is the readiness probe verdict (ARCH-004): the readiness face beyond
+// the liveness probe (/healthz) — on top of database/registry/ops state it adds
+// the cluster requirement: when cluster.enabled, an unavailable coordination
+// store (member registration + lease) or interconnect listener → not_ready
+// (HTTP 503, mapped by the Handler); only an explicit allowStandaloneDegrade
+// permits degrading to standalone during startup (the degraded state is
+// observable in the Cluster component).
 func (s *Service) Ready(ctx context.Context, req *ReadyRequest) (*ReadyResponse, error) {
 	dbStatus := checkDatabaseHealth(ctx, s.svcCtx)
 	registryStatus, _ := collectRegistryStats(s.svcCtx.RegistryStore)
@@ -74,7 +76,8 @@ func (s *Service) Ready(ctx context.Context, req *ReadyRequest) (*ReadyResponse,
 	}, nil
 }
 
-// dbReadinessReason 数据库组件的不可用原因（稳定短语 + 驱动/错误细节）。
+// dbReadinessReason explains why the database component is unavailable (stable
+// phrase plus driver/error detail).
 func dbReadinessReason(dbStatus map[string]interface{}) string {
 	reason := "database unavailable"
 	if driver, _ := dbStatus["driver"].(string); driver != "" {
@@ -235,13 +238,18 @@ func componentHealthy(status map[string]interface{}) bool {
 	return false
 }
 
-// clusterReadinessStatus 计算集群就绪组件状态（ARCH-004）：
-//   - ClusterReadiness 为 nil（未启用集群）→ 无集群要求，视为就绪；
-//   - 已加入（成员注册成功）→ 租约健康 && 互联监听绑定成功才就绪，
-//     任一项不可用 → 503（「要求集群」语义，允许降级不豁免运行期故障）；
-//   - 未加入（启动期协调库/注册不可用）→ 显式 allowStandaloneDegrade
-//     才视为就绪（受认可 standalone 降级，降级状态在组件可观测），
-//     否则 503（要求集群但不可服务）。
+// clusterReadinessStatus computes the cluster readiness component state
+// (ARCH-004):
+//   - ClusterReadiness is nil (cluster not enabled) → no cluster requirement,
+//     treated as ready;
+//   - joined (member registration succeeded) → ready only when the lease is
+//     healthy AND the interconnect listener bound successfully; either one
+//     unavailable → 503 ("cluster required" semantics — permitting degrade does
+//     not excuse runtime failures);
+//   - not joined (coordination store/registration unavailable at startup) →
+//     ready only with an explicit allowStandaloneDegrade (a sanctioned
+//     standalone degrade, observable in the component state), otherwise 503
+//     (cluster required but cannot serve).
 func clusterReadinessStatus(svcCtx *svc.ServiceContext) (bool, []string, MonitoringComponentStatus) {
 	comp := MonitoringComponentStatus{"ok": false, "required": false}
 	if svcCtx == nil {
@@ -281,7 +289,8 @@ func clusterReadinessStatus(svcCtx *svc.ServiceContext) (bool, []string, Monitor
 		comp["degraded"] = snap.Degraded
 	}
 	if svcCtx.Config.Cluster.AllowStandaloneDegrade {
-		// 显式允许 standalone 降级：受认可模式，就绪（降级事实在 comp）。
+		// Standalone degrade explicitly permitted: sanctioned mode, ready
+		// (the degrade fact lives in comp).
 		comp["ok"] = true
 		return true, nil, comp
 	}

@@ -1,7 +1,8 @@
-// Package monitoring 的 Prometheus exposition：把既有 JSON /metrics 端点
-// 的同一套数据源（DB ping、registry 统计）以标准 exposition 格式暴露，
-// 不新增口径。默认关闭（telemetry.prometheus.enabled），开启后无需部署
-// OTel Collector 即可被 Prometheus 抓取。
+// Prometheus exposition for package monitoring: the same data sources already
+// backing the JSON /metrics endpoint (DB ping, registry stats) are exposed in
+// the standard exposition format, without introducing a new metric convention.
+// Disabled by default (telemetry.prometheus.enabled); once enabled, Prometheus
+// can scrape it without deploying an OTel Collector.
 package monitoring
 
 import (
@@ -15,8 +16,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-// platformCollector 采集平台基础指标。Describe 派发到各指标的 Desc；
-// Collect 请求时实时计算（与 JSON /metrics 端点同源同频，无后台任务）。
+// platformCollector gathers base platform metrics. Describe dispatches to each
+// metric's Desc; Collect computes on demand at scrape time (same sources and
+// cadence as the JSON /metrics endpoint, no background tasks).
 type platformCollector struct {
 	dbUp        *prometheus.Desc
 	dbLatency   *prometheus.Desc
@@ -46,13 +48,15 @@ func (c *platformCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- c.funcsReg
 }
 
-// collectDBStatusFn 是 Collect 的 DB 状态来源缝隙（生产实现为
-// checkDatabaseHealth，其 latencyMs 恒为 int64；float64 分支仅在注入时可触达）。
+// collectDBStatusFn is the seam for Collect's DB status source (production uses
+// checkDatabaseHealth, whose latencyMs is always int64; the float64 branch is
+// only reachable via injection).
 var collectDBStatusFn = checkDatabaseHealth
 
 func (c *platformCollector) Collect(ch chan<- prometheus.Metric) {
-	// bare-background-ok: prometheus.Collector 接口签名固定无 ctx 入参，
-	// 抓取侧无请求 ctx 可派生；自限 5s 超时（CR-FIX-22 豁免清单）。
+	// bare-background-ok: the prometheus.Collector interface has a fixed
+	// signature with no ctx parameter, so the scrape side offers no request ctx
+	// to derive from; cap ourselves with a 5s timeout (CR-FIX-22 exemption list).
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -85,8 +89,8 @@ func sendGauge(ch chan<- prometheus.Metric, desc *prometheus.Desc, v interface{}
 	}
 }
 
-// NewPrometheusHandler 构造 exposition handler：独立 registry，含 Go
-// runtime/process 指标与平台 collector。
+// NewPrometheusHandler builds the exposition handler: a dedicated registry
+// holding the Go runtime/process metrics plus the platform collector.
 func NewPrometheusHandler(svcCtx *svc.ServiceContext) http.Handler {
 	registry := prometheus.NewRegistry()
 	registry.MustRegister(

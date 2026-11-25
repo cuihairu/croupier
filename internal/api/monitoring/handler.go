@@ -8,8 +8,9 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// serviceAPI 是 Handler 对 Service 的最小接口缝隙：Service 三个方法恒返回
-// nil error，err != nil 分支仅在测试注入故障实现时可触达。
+// serviceAPI is the minimal interface seam between Handler and Service: the
+// three Service methods always return a nil error, so the err != nil branch is
+// only reachable by injecting a failing implementation in tests.
 type serviceAPI interface {
 	Healthz(ctx context.Context, req *HealthzRequest) (*HealthzResponse, error)
 	Ready(ctx context.Context, req *ReadyRequest) (*ReadyResponse, error)
@@ -36,9 +37,10 @@ func (h *Handler) Healthz(c *gin.Context) {
 	response.Success(c, resp)
 }
 
-// Ready 处理就绪探针（/readyz）：就绪 200，未就绪 503。
-// 健康探针契约（API response contract §4）允许探针端点直接写状态码与
-// 最小负载——本端点按探针语义输出 status/reasons，不走业务信封。
+// Ready handles the readiness probe (/readyz): 200 when ready, 503 when not.
+// The health probe contract (API response contract §4) lets probe endpoints
+// write status codes and a minimal payload directly — this endpoint emits
+// status/reasons with probe semantics instead of the business envelope.
 func (h *Handler) Ready(c *gin.Context) {
 	var req ReadyRequest
 	resp, err := h.service.Ready(c.Request.Context(), &req)

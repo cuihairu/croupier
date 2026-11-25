@@ -21,11 +21,12 @@ type HealthzResponse struct {
 	Components    MonitoringComponents `json:"components"`
 }
 
-// ReadyRequest readiness probe request。
+// ReadyRequest is the readiness probe request.
 type ReadyRequest struct{}
 
-// ReadyResponse 就绪探针响应（/readyz）。健康探针契约允许最小负载；
-// 这里额外带 reasons 供运维定位（503 时列出不可用组件原因）。
+// ReadyResponse is the readiness probe response (/readyz). The health probe
+// contract permits a minimal payload; this additionally carries reasons for
+// ops triage (listing the unavailable components when returning 503).
 type ReadyResponse struct {
 	Status    string                    `json:"status"` // ok | not_ready
 	Timestamp string                    `json:"timestamp"`

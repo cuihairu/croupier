@@ -34,7 +34,8 @@ func newReadinessTestSvcCtx(t *testing.T, clusterRequired bool) *svc.ServiceCont
 	return svcCtx
 }
 
-// TestClusterReadinessStatus 各集群就绪分支（ARCH-004 判定真值源）。
+// TestClusterReadinessStatus each cluster-readiness branch (the source of truth
+// for ARCH-004 decisions).
 func TestClusterReadinessStatus(t *testing.T) {
 	cases := []struct {
 		name       string
@@ -140,8 +141,9 @@ func TestClusterReadinessStatus(t *testing.T) {
 	}
 }
 
-// TestService_Ready_ClusterRequiredDegradedNoKnob 服务级端到端：组件健康
-// 但集群要求未满足（未降级许可）→ not_ready。
+// TestService_Ready_ClusterRequiredDegradedNoKnob service-level end to end:
+// components healthy but the cluster requirement is unmet (no degrade
+// grant) -> not_ready.
 func TestService_Ready_ClusterRequiredDegradedNoKnob(t *testing.T) {
 	svcCtx := newReadinessTestSvcCtx(t, true)
 	svcCtx.ClusterReadiness.SetJoined(false)
@@ -165,8 +167,8 @@ func TestService_Ready_ClusterRequiredDegradedNoKnob(t *testing.T) {
 	}
 }
 
-// TestService_Ready_ClusterHealthyAndDegradedWithKnob 全组件健康 + 集群
-// 健康 → ok；显式降级许可下 standalone → ok。
+// TestService_Ready_ClusterHealthyAndDegradedWithKnob all components healthy
+// + cluster healthy -> ok; with an explicit degrade grant, standalone -> ok.
 func TestService_Ready_ClusterHealthyAndDegradedWithKnob(t *testing.T) {
 	svcCtx := newReadinessTestSvcCtx(t, true)
 	svcCtx.ClusterReadiness.SetJoined(true)
@@ -182,7 +184,7 @@ func TestService_Ready_ClusterHealthyAndDegradedWithKnob(t *testing.T) {
 		t.Fatalf("healthy cluster status = %q, want ok (reasons=%v)", resp.Status, resp.Reasons)
 	}
 
-	// 显式降级许可：standalone 也 ok。
+	// Explicit degrade grant: standalone is ok too.
 	svcCtx.Config.Cluster.AllowStandaloneDegrade = true
 	svcCtx.ClusterReadiness.SetJoined(false)
 	svcCtx.ClusterReadiness.RecordDegrade("register: connection refused")
@@ -195,7 +197,7 @@ func TestService_Ready_ClusterHealthyAndDegradedWithKnob(t *testing.T) {
 	}
 }
 
-// TestHandler_Ready_StatusMapping HTTP 层：ok → 200；not_ready → 503。
+// TestHandler_Ready_StatusMapping HTTP layer: ok -> 200; not_ready -> 503.
 func TestHandler_Ready_StatusMapping(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	svcCtx := newReadinessTestSvcCtx(t, true)
