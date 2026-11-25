@@ -89,6 +89,10 @@ Date-type form fields inside composite section forms submit what the operator pi
 
 Enum dropdown labels in section forms attach to values, never positions: numeric and boolean enum values (including `false`) get their declared labels, reordered `x-enum-options`/`enumOptions` declarations render in schema `enum` order, and values without a declared label fall back to the raw value string. Labels never change the submitted enum value — selecting an option by its visible label submits the raw value (the enum label chain is the GUX-017 one: schema hints resolve into `ui:options.enumNames` for the fixed rjsf runtime). See the [PageSpec protocol](../architecture/pagespec-protocol.md#enum-label-association-sui-023).
 
+## Form copy follows the current locale (SUI-024)
+
+Section form copy — field titles, descriptions, placeholders, group titles, enum labels, the submit button — renders in the operator's current language and falls back through one unified chain (current locale → zh/en cross-fallback → the explicit fallback). Switching language without a page reload swaps the visible copy in place (the renderer listens for the locale-change broadcast); values already typed into the form survive the switch. See the [PageSpec protocol](../architecture/pagespec-protocol.md#form-copy-follows-the-current-locale-sui-024).
+
 ## Known boundaries
 
 - No new widget implementations landed in SUI-020: `DateRange` and `RichText` remain declared-only and silently fall back to the type default; `Code`/`JSON` remain plain textarea strings and do not parse or validate content. Capability hints are informational only and do not change submission values.

@@ -129,6 +129,14 @@ Enum dropdown labels attach to values, never to positions. The GUX-017 rendering
 
 Without a schema `enum` the `fields` path falls back to declaration order (legacy contract, unchanged behavior).
 
+### Form copy follows the current locale (SUI-024)
+
+All form presentation copy — field titles, descriptions, placeholders, group titles, enum dropdown labels, and the submit-button text — renders in the platform's current locale. The previously hardcoded `zh-CN` locale argument in the renderer's presentation paths is replaced by a single locale source (`web/src/utils/uiLocale.ts` `currentUiLocale()`): umi runtime returns the current platform locale, and any non-umi context falls back to `zh-CN`. The unified fallback chain is unchanged (`localizedText`: current locale → zh/en cross-fallback → legacy short keys → any non-empty → the explicit fallback argument, e.g. the field key for a missing label, the raw enum value for a missing label entry).
+
+Locale switching without page reload (umi `setLocale(lang, false)`) broadcasts a window `languagechange` event; the SchemaFormRenderer subscribes and recomputes the derived schema/uiSchema so visible copy switches live. Filled data is **not** reset by a locale switch: the renderer's form state is the live value mirror, a re-derivation only changes presentation metadata, and the initialValues reseed logic is keyed on the initialValues JSON (untouched by locale). The default reload-style switch reloads the whole page and does not involve this mechanism.
+
+Boundaries: copy declared with only `zh-CN` renders the zh text in an en UI (cross-fallback, no invented translations); static schema-embedded copy (`title`/`description` written directly into `jsonSchema` by the generator) is served as-is — locale-following applies to the presentation layer (`FormPresentationSpec` labels, placeholders, group titles, enum hints) that sits on top of it; templates that embed their own copy follow the platform locale through the same chain elsewhere.
+
 Visibility conditions are restricted expressions: they cannot read row/detail data or call functions:
 
 ```ts

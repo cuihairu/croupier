@@ -129,6 +129,14 @@ interface RemoteOptionsSpec {
 
 无 schema `enum` 时 `fields` 路径按声明顺序兜底（旧契约，行为不变）。
 
+### 表单文案跟随当前语言（SUI-024）
+
+表单呈现文案——字段名称、说明、占位、分组标题、枚举下拉标签、提交按钮文字——全部跟随平台当前 locale 渲染。渲染器呈现路径中原先硬编码的 `zh-CN` locale 实参替换为单一 locale 来源（`web/src/utils/uiLocale.ts` 的 `currentUiLocale()`）：umi 运行时内返回当前平台 locale，非 umi 上下文（单测替身/异常）回退 `zh-CN`。统一回退链不变（`localizedText`：当前 locale → zh/en 互备 → 遗留短 key → 任一非空 → 显式 fallback 实参，如缺标签时的字段 key、缺枚举标签时的原始值）。
+
+不刷新页面的语言切换（umi `setLocale(lang, false)`）经 window `languagechange` 事件广播；SchemaFormRenderer 订阅该事件并重算派生 schema/uiSchema，可见文案实时换语言。切换语言**不会重置已填写数据**：渲染器的表单态就是实时值镜像，重算只改呈现元数据；initialValues 回种逻辑以 initialValues JSON 为键（与 locale 无关）。默认的刷新式切换整页重载，不经过本机制。
+
+边界：只声明 `zh-CN` 的文案在 en 界面渲染 zh 文本（互备回退，不伪造翻译）；生成器直接写进 `jsonSchema` 的静态 `title`/`description` 原样输出——跟随 locale 的是叠加其上的呈现层（`FormPresentationSpec` 的 label、placeholder、分组标题、枚举 hints）；自带文案的页面模板经同一回退链在各自渲染处跟随平台 locale。
+
 可见性条件是受限表达式，不能读 row/详情数据或调用函数：
 
 ```ts

@@ -522,6 +522,8 @@ PageSpec 必须与组件库解耦。未来更换表单或图表库时只替换 r
 
 **枚举标签按值关联（SUI-023）**：枚举下拉标签按值关联，绝不按位置关联。GUX-017 链路（`x-enum-options`/`enumOptions` → `ui:options.enumNames`）不变，但标签现在按 `String(value)` 与 schema `enum` 匹配：数值与布尔值（含 `false`）正常关联，重排的选项声明按 `enum` 顺序渲染，无匹配标签的值回退原始值字符串，输出 `enumNames` 与 `enum` 同长同序。标签绝不重写 `schema.enum`——提交路径 e2e 断言 payload 携带原始枚举值。见 [PageSpec 协议](./pagespec-protocol.md#枚举标签按值关联sui-023)。
 
+**表单文案跟随当前语言（SUI-024）**：字段名称、说明、占位、分组标题、枚举标签、提交按钮文字统一经单一 locale 来源（`web/src/utils/uiLocale.ts` 的 `currentUiLocale()`；非 umi 上下文回退 `zh-CN`）与 `localizedText` 统一回退链（当前 locale → zh/en 互备 → 遗留短 key → 显式 fallback，如字段 key）渲染为平台当前语言。不刷新页面的语言切换（`languagechange` 事件广播）就地重算派生 schema/uiSchema；已填写数据不重置——渲染器表单态就是实时值镜像，initialValues 回种以 initialValues JSON 为键、与 locale 无关。见 [PageSpec 协议](./pagespec-protocol.md#表单文案跟随当前语言sui-024)。
+
 JSON Schema 是函数输入/输出的持久化标准；表单展示由 `FormPresentationSpec` 表达，协议定义见 [PageSpec 协议规范](./pagespec-protocol.md)，渲染链路与唯一 runtime 约束见 ProComponents 页面生成与运行时。
 
 `FormPresentationSpec` 只负责表单展示，不改变 FunctionContract payload；保存和发布都必须经过服务端结构校验，校验失败必须报错并要求管理员修复。表单 runtime 固定为 `@rjsf/antd + @rjsf/validator-ajv8`，项目内禁止并行保留第二套表单运行时。
