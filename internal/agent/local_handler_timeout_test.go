@@ -16,34 +16,39 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// providerCallDeadline：metadata timeout_ms clamp 与默认值语义。
+// providerCallDeadline: metadata timeout_ms clamping and default semantics.
 func TestProviderCallDeadlineSemantics(t *testing.T) {
 	h := NewLocalHandler(nil, "/tmp", "agent-1", nil)
 
-	// 默认 15s（对齐 Server 派发层，替代旧硬编码 10s）
+	// default 15s (aligned with the Server dispatch layer, replacing the old
+	// hardcoded 10s)
 	assert.Equal(t, 15*time.Second, h.providerCallDeadline(nil))
 	assert.Equal(t, 15*time.Second, h.providerCallDeadline(map[string]string{"timeoutMs": "garbage"}))
 
-	// 请求声明是权威预算：声明即生效（不被默认值收紧）
+	// the request declaration is the authoritative budget: declared values
+	// take effect (never tightened by the default)
 	assert.Equal(t, 3*time.Second, h.providerCallDeadline(map[string]string{"timeoutMs": "3000"}))
-	// 低于 1s 提到 1s；高于 60s 截到 60s（同步通道硬顶）
+	// below 1s is raised to 1s; above 60s is capped at 60s (synchronous channel
+	// hard ceiling)
 	assert.Equal(t, time.Second, h.providerCallDeadline(map[string]string{"timeoutMs": "50"}))
 	assert.Equal(t, 60*time.Second, h.providerCallDeadline(map[string]string{"timeoutMs": "999999"}))
 
-	// 配置默认只作用于无声明的请求；声明值可高于配置默认
+	// the configured default only applies to requests with no declaration; a
+	// declared value may exceed the configured default
 	h.SetProviderCallTimeout(2 * time.Second)
 	assert.Equal(t, 2*time.Second, h.providerCallDeadline(nil))
 	assert.Equal(t, 1500*time.Millisecond, h.providerCallDeadline(map[string]string{"timeoutMs": "1500"}))
 	assert.Equal(t, 30*time.Second, h.providerCallDeadline(map[string]string{"timeoutMs": "30000"}))
 
-	// 非法配置回落默认；超上限截断
+	// invalid config falls back to the default; over the cap is truncated
 	h.SetProviderCallTimeout(-1)
 	assert.Equal(t, 15*time.Second, h.providerCallDeadline(nil))
 	h.SetProviderCallTimeout(5 * time.Minute)
 	assert.Equal(t, 60*time.Second, h.providerCallDeadline(nil))
 }
 
-// 端到端：慢 provider 在 metadata 声明的预算内未完成 → 调用方拿到超时错误。
+// End to end: a slow provider that does not finish within the budget declared
+// in metadata → the caller gets a timeout error.
 func TestHandleInvokeRespectsMetadataTimeout(t *testing.T) {
 	listener, err := NewTCPLocalListener(&TCPLocalListenerConfig{Address: "127.0.0.1:0"}, nil, nil)
 	require.NoError(t, err)
@@ -60,7 +65,7 @@ func TestHandleInvokeRespectsMetadataTimeout(t *testing.T) {
 			if msgID == protocol.MsgInvokeRequest {
 				req := &sdkv1.InvokeRequest{}
 				require.NoError(t, proto.Unmarshal(body, req))
-				// 慢于声明的 1200ms 预算
+				// slower than the declared 1200ms budget
 				time.Sleep(2500 * time.Millisecond)
 				return proto.Marshal(&sdkv1.InvokeResponse{Payload: []byte(`{}`)})
 			}
@@ -82,13 +87,15 @@ func TestHandleInvokeRespectsMetadataTimeout(t *testing.T) {
 	require.True(t, ok)
 	require.NotNil(t, session.Conn())
 
-	// 生产装配形态：session 连接回调把函数注册进 local store（与
-	// app.go SetOnConnect 相同），pickInstance 才能路由到该函数。
+	// production wiring shape: the session connect callback registers functions
+	// into the local store (same as app.go SetOnConnect) so pickInstance can
+	// route to the function.
 	store := agentlocal.NewLocalStore()
 	listener.SetOnConnect(func(sess *ProviderSession) {
 		store.Register(sess.SessionID, sess.ServiceID, sess.Conn().RemoteAddr(), sess.Version, sess.Functions, nil)
 	})
-	// 重新握手触发 onConnect（上面的注册发生在 SetOnConnect 之前）
+	// re-handshake triggers onConnect (the registration above happened before
+	// SetOnConnect)
 	conn2, err := net.Dial("tcp", listener.Addr())
 	require.NoError(t, err)
 	provider2 := tcptr.NewMuxConn(conn2, nil, transportcore.HandlerFunc(
@@ -107,7 +114,8 @@ func TestHandleInvokeRespectsMetadataTimeout(t *testing.T) {
 	h := NewLocalHandler(store, "/tmp", "agent-1", nil)
 	h.SetProviderSessionStore(listener.SessionStore())
 
-	// 1) 声明 1200ms 预算，provider 睡 2.5s → 必须在预算内超时
+	// 1) a declared 1200ms budget with the provider sleeping 2.5s → must time
+	// out within the budget
 	invokeBody, err := proto.Marshal(&sdkv1.InvokeRequest{
 		FunctionId: "slow.fn",
 		Payload:    []byte(`{}`),
@@ -122,7 +130,8 @@ func TestHandleInvokeRespectsMetadataTimeout(t *testing.T) {
 	assert.Less(t, elapsed, 2300*time.Millisecond, "应在声明的 ~1.2s 预算内失败")
 	assert.GreaterOrEqual(t, elapsed, 1100*time.Millisecond, "不应早于预算误伤")
 
-	// 2) 不声明预算 → 走默认 15s，provider 2.5s 正常返回成功
+	// 2) no declared budget → the default 15s applies, the provider's 2.5s
+	// completes successfully
 	invokeBody2, err := proto.Marshal(&sdkv1.InvokeRequest{
 		FunctionId: "slow.fn",
 		Payload:    []byte(`{}`),

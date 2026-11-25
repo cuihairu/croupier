@@ -1,5 +1,6 @@
-// handleProviderConnect 实例元数据回归：用户多 KV 并入注册 metadata，
-// 保留键冲突丢弃并在 response warnings 告警，空键跳过。
+// handleProviderConnect instance metadata regression: user-supplied KV pairs
+// merge into the registration metadata; reserved-key conflicts are dropped and
+// warned about in the response warnings, and blank keys are skipped.
 package agent
 
 import (
@@ -54,7 +55,7 @@ func TestLocalHandler_HandleProviderConnect_UserMetadataMerged(t *testing.T) {
 	md := instances[0].Metadata
 	assert.Equal(t, "s1", md["serverId"])
 	assert.Equal(t, "game-7c4d", md["pod"])
-	// 平台固定键仍在（SDK 信息照常上报）
+	// Platform fixed keys still present (SDK info reported as usual)
 	assert.Equal(t, "go", md["sdkLanguage"])
 	assert.Equal(t, "dev", md["env"])
 }
@@ -73,9 +74,9 @@ func TestLocalHandler_HandleProviderConnect_ReservedKeyDroppedWithWarning(t *tes
 			{Id: "fn.echo"},
 		},
 		Metadata: map[string]string{
-			"sdkLanguage": "rust", // 撞保留键：必须丢弃并告警，不得覆盖平台值
+			"sdkLanguage": "rust", // hits a reserved key: must be dropped with a warning, never overwriting the platform value
 			"serverId":    "s2",
-			"":            "blank-key", // 空键：静默跳过
+			"":            "blank-key", // blank key: silently skipped
 		},
 	}
 	data, err := proto.Marshal(req)

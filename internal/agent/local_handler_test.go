@@ -146,7 +146,8 @@ func (m *mockTaskEventReporter) types() []string {
 	return append([]string(nil), m.eventTypes...)
 }
 
-// callCount 返回加锁的调用计数（异步 TaskRunner 写、测试读）。
+// callCount returns the locked call count (written by the async TaskRunner,
+// read by the test).
 func (m *mockTaskEventReporter) callCount() int {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -1089,8 +1090,9 @@ func TestLocalHandler_PickInstance_StaleFallback(t *testing.T) {
 		logger: slog.Default(),
 	}
 
-	// Register 恒写新鲜 LastSeen，测试通过把健康窗口注入为负值，让所有
-	// 实例都判为 stale，覆盖「降级：返回第一个实例」分支。
+	// Register always writes a fresh LastSeen, so the test injects a negative
+	// health window to mark every instance stale, covering the "degradation:
+	// return the first instance" branch.
 	orig := instanceHealthyWindow
 	instanceHealthyWindow = -time.Second
 	defer func() { instanceHealthyWindow = orig }()
@@ -1428,8 +1430,9 @@ func TestLocalHandler_HandleProviderHeartbeat_EmptySessionID(t *testing.T) {
 
 // --- Tests for handleProviderDrain with empty session ID ---
 
-// 空 session_id 现在是合法的节点级 drain-all（ARCH-016：不再要求 session_id；
-// 无会话可 drain 时同样成功返回，ACK 语义为「在途归零或宽限到点」）。
+// An empty session_id is now a valid node-level drain-all (ARCH-016: no
+// longer requires session_id; it returns success even with no sessions to
+// drain, with the ACK meaning "in-flight reaches zero or grace elapses").
 func TestLocalHandler_HandleProviderDrain_EmptySessionID(t *testing.T) {
 	store := agentlocal.NewLocalStore()
 	handler := NewLocalHandler(store, "/tmp", "agent-1", nil)

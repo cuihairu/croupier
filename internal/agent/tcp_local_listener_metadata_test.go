@@ -1,7 +1,9 @@
-// TCP provider 连接路径的实例元数据回归：ProviderConnectRequest.metadata 必须进
-// 入 ProviderSession.Metadata 并在 onConnect 注册时并入 agentlocal 实例元数据。
-// 线上曾在此路径整段丢失——handleConnect 解析了请求却没取 metadata，onConnect
-// 只回填平台键，server 侧 sdk-stats 对 TCP provider 一律 meta=None。
+// Instance metadata regression for the TCP provider connection path:
+// ProviderConnectRequest.metadata must reach ProviderSession.Metadata and be
+// folded into the agentlocal instance metadata at onConnect registration.
+// Production once lost this whole segment on this path — handleConnect parsed
+// the request but never read metadata, onConnect only refilled platform keys,
+// and server-side sdk-stats reported meta=None for every TCP provider.
 package agent
 
 import (
@@ -47,8 +49,8 @@ func TestTCPProviderConnectCarriesUserMetadata(t *testing.T) {
 		Metadata: map[string]string{
 			"serverId":    "s1",
 			"pod":         "claude-e2e",
-			"sdkLanguage": "evil",  // 保留键，必须丢弃
-			"":            "blank", // 空键，必须跳过
+			"sdkLanguage": "evil",  // reserved key, must be dropped
+			"":            "blank", // blank key, must be skipped
 		},
 	})
 	require.NoError(t, err)
@@ -69,7 +71,7 @@ func TestTCPProviderConnectCarriesUserMetadata(t *testing.T) {
 		t.Fatal("onConnect never fired")
 	}
 
-	// 会话存储里的实例同样携带用户元数据。
+	// The instance in the session store also carries the user metadata.
 	sess, ok := listener.SessionStore().GetByServiceID("meta-provider")
 	require.True(t, ok)
 	assert.Equal(t, "s1", sess.Metadata["serverId"])
@@ -83,7 +85,8 @@ func TestTCPProviderConnectCarriesUserMetadata(t *testing.T) {
 	assert.True(t, reservedFlagged, "response warnings should flag reserved key, got %v", resp.GetWarnings())
 }
 
-// onConnect 侧注册元数据 = 平台固定键 + 会话携带的用户 KV（保留键已在解析时剥离）。
+// onConnect-side registration metadata = fixed platform keys + the user KVs
+// carried on the session (reserved keys already stripped at parse).
 func TestMergeProviderInstanceMetadata(t *testing.T) {
 	sess := &ProviderSession{
 		SDKLanguage: "go",
@@ -102,7 +105,8 @@ func TestMergeProviderInstanceMetadata(t *testing.T) {
 		"pod":         "p1",
 	}, got)
 
-	// 无用户元数据不 panic，平台键齐全（等价旧行为）。
+	// No user metadata, no panic; platform keys all present (equivalent to the
+	// old behavior).
 	bare := MergeProviderInstanceMetadata(&ProviderSession{}, "g", "e")
 	assert.Equal(t, map[string]string{
 		"sdkLanguage": "", "sdkVersion": "", "sdkName": "", "gameId": "g", "env": "e",

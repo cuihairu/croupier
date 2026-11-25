@@ -591,10 +591,12 @@ func TestConvertProtoFunctions(t *testing.T) {
 	})
 }
 
-// newKeepaliveTestProvider 建立一条经本地网关的真实 TCP 会话（provider 端
-// handler 可控），返回 (store, session)。provider 端通过 agent 侧握手入池，
-// 语义与生产一致。（keepalive 实现已迁 agents/sidecar；该 helper 依赖网关
-// 监听器，留此供 internal 侧路由/会话类用例复用。）
+// newKeepaliveTestProvider establishes a real TCP session through the local
+// gateway (with a controllable provider-side handler) and returns
+// (store, session). The provider side joins the pool via the agent-side
+// handshake, matching production semantics. (The keepalive implementation has
+// moved to agents/sidecar; this helper depends on the gateway listener and is
+// kept here for reuse by internal-side routing/session test cases.)
 func newKeepaliveTestProvider(t *testing.T, serviceID string, handler func(msgID uint32, body []byte) ([]byte, error)) (*ProviderSessionStore, *ProviderSession) {
 	t.Helper()
 	listener, err := NewTCPLocalListener(&TCPLocalListenerConfig{Address: "127.0.0.1:0"}, nil, nil)

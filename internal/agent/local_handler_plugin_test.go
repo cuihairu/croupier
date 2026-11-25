@@ -84,7 +84,8 @@ func TestLocalHandler_HandleInvokePluginFunction(t *testing.T) {
 		pfm := &mockPluginFunctionManager{isPluginFunc: false}
 		handler.SetPluginFunctionManager(pfm)
 
-		// 未注册实例 → 走既有 pickInstance 失败路径，而非插件派发。
+		// Unregistered instance → goes through the existing pickInstance failure path
+		// rather than plugin dispatch.
 		_, err := invoke(t, handler, "game.func")
 		if err == nil {
 			t.Fatal("unregistered function must fail routing")

@@ -1,8 +1,10 @@
-// Provider 握手鉴权回归（CR-FIX-11）：requireProviderAuth 开启后，
-// 无 token/错 token 的 ProviderConnectRequest 必须被拒（连接关闭、不注册
-// 会话）；token 正确时注册成功且 authToken 不落会话元数据（保留键防泄漏）。
-// 未开启强制时 token 完全忽略。两条连接路径（TCP 监听 handleConnect 与
-// mux 路径 handleProviderConnect）都钉死。
+// Provider handshake auth regression (CR-FIX-11): once requireProviderAuth is
+// on, a ProviderConnectRequest with no token or a wrong token must be rejected
+// (connection closed, no session registered); with the correct token,
+// registration succeeds and authToken does not land in session metadata
+// (reserved key, leak prevention). Without enforcement the token is ignored
+// entirely. Both connection paths (TCP listener handleConnect and the mux path
+// handleProviderConnect) are pinned.
 package agent
 
 import (
@@ -22,7 +24,8 @@ import (
 	"github.com/cuihairu/croupier/pkg/protocol"
 )
 
-// newAuthTestListener 起一个开了强制鉴权的本地监听，返回连接工具。
+// newAuthTestListener starts a local listener with enforced auth and returns a
+// connect helper.
 func newAuthTestListener(t *testing.T, requireAuth bool, token string) (*TCPLocalListener, func(t *testing.T) *providerSide) {
 	t.Helper()
 	listener, err := NewTCPLocalListener(&TCPLocalListenerConfig{
@@ -53,7 +56,7 @@ func newAuthTestListener(t *testing.T, requireAuth bool, token string) (*TCPLoca
 	return listener, connect
 }
 
-// providerSide 封装测试 Provider 侧连接。
+// providerSide wraps the test-side Provider connection.
 type providerSide struct {
 	conn      *tcptr.MuxConn
 	ctx       context.Context
@@ -118,27 +121,28 @@ func TestProviderAuth_ListenerAcceptsCorrectTokenAndDropsItFromMetadata(t *testi
 	p := connect(t)
 	require.NoError(t, p.connectRequest(t, "secret"))
 	sess := p.waitConnected(t)
-	// authToken 是保留键：鉴权后必须丢弃，绝不入会话元数据（防泄漏到
-	// SDK 分发页）；用户键原样保留。
+	// authToken is a reserved key: it must be dropped after auth and must never
+	// enter session metadata (preventing leakage to the SDK distribution page);
+	// user keys are preserved verbatim.
 	assert.NotContains(t, sess.Metadata, "authToken")
 	assert.NotContains(t, sess.Metadata, agentlocalReservedAuthKeyForTest())
 	assert.Equal(t, "s1", sess.Metadata["serverId"])
-	// 会话存储里同样没有。
+	// The session store has it equally absent.
 	if stored, ok := listener.SessionStore().GetBySessionID(sess.SessionID); ok {
 		assert.NotContains(t, stored.Metadata, "authToken")
 	}
 }
 
 func TestProviderAuth_ListenerIgnoresTokenWhenNotRequired(t *testing.T) {
-	// 未开启强制：无 token（以及任意 token）不影响注册。
+	// enforcement off: no token (or any token) does not affect registration.
 	_, connect := newAuthTestListener(t, false, "")
 	p := connect(t)
 	require.NoError(t, p.connectRequest(t, ""))
 	p.waitConnected(t)
 }
 
-// agentlocalReservedAuthKeyForTest 返回保留键名，断言保留键清单含
-// authToken（防清单回退）。
+// agentlocalReservedAuthKeyForTest returns the reserved key name and asserts
+// the reserved-key list contains authToken (guarding against list regression).
 func agentlocalReservedAuthKeyForTest() string {
 	const key = "authToken"
 	if _, ok := agentlocal.ReservedMetadataKeys[key]; !ok {
@@ -147,7 +151,7 @@ func agentlocalReservedAuthKeyForTest() string {
 	return key
 }
 
-// mux 路径：LocalHandler.handleProviderConnect 同规则。
+// mux path: LocalHandler.handleProviderConnect under the same rules.
 func TestProviderAuth_MuxPathRejectsMissingToken(t *testing.T) {
 	h := NewLocalHandler(nil, "", "agent-1", nil)
 	h.SetProviderAuth(true, "secret")
@@ -191,7 +195,8 @@ func TestProviderAuth_MuxPathIgnoresTokenWhenNotRequired(t *testing.T) {
 	require.NoError(t, err, "auth off: handshake without token must succeed")
 }
 
-// fail-closed：require=true 且 token 为空（配置错误）→ 全部拒绝。
+// fail-closed: require=true with an empty token (configuration error) → reject
+// everything.
 func TestProviderAuth_FailClosedOnEmptyConfiguredToken(t *testing.T) {
 	err := checkProviderAuth(true, "", "anything")
 	require.Error(t, err)

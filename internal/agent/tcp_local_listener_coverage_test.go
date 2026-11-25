@@ -9,7 +9,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Serve 在 accept 超时窗口内收到 ctx 取消时应返回 ctx.Err()。
+// Serve should return ctx.Err() when ctx is cancelled during the accept
+// timeout window.
 func TestTCPLocalListener_ServeReturnsContextErrorAfterCancelDuringAcceptTimeout(t *testing.T) {
 	listener, err := NewTCPLocalListener(&TCPLocalListenerConfig{Address: "127.0.0.1:0"}, nil, nil)
 	require.NoError(t, err)
@@ -19,7 +20,8 @@ func TestTCPLocalListener_ServeReturnsContextErrorAfterCancelDuringAcceptTimeout
 	done := make(chan error, 1)
 	go func() { done <- listener.Serve(ctx) }()
 
-	// accept deadline 为 1s：在 1s~2s 窗口内取消，下一轮超时即命中 ctx.Done。
+	// the accept deadline is 1s: cancelling within the 1s~2s window makes the
+	// next timeout round hit ctx.Done.
 	time.Sleep(1100 * time.Millisecond)
 	cancel()
 
@@ -31,9 +33,11 @@ func TestTCPLocalListener_ServeReturnsContextErrorAfterCancelDuringAcceptTimeout
 	}
 }
 
-// config 为 nil 且环境变量为空时应回落到默认本地地址。只验地址解析、不实际
-// 绑定——构造函数会立即 net.Listen，本机跑着部署的 agent（占用 19091）时
-// 绑定必失败，与被测的默认值逻辑无关。
+// With a nil config and an empty env var, fall back to the default local
+// address. Only address resolution is verified, no actual binding — the
+// constructor calls net.Listen immediately, and when a deployed agent is
+// running on this machine (holding 19091) the bind would necessarily fail,
+// unrelated to the default-value logic under test.
 func TestTCPLocalListener_NilConfigDefaultsAddressWhenEnvEmpty(t *testing.T) {
 	t.Setenv("CROUPIER_AGENT_LOCAL_ADDR", "")
 	assert.Equal(t, "127.0.0.1:19091", resolveLocalListenerAddress(nil).Address)

@@ -23,9 +23,11 @@ func (h *LocalHandler) handleProviderConnect(ctx context.Context, data []byte) (
 		return nil, fmt.Errorf("service_id is required")
 	}
 
-	// 握手鉴权（CR-FIX-11）：在会话注册之前校验，拒绝即返回错误不注册
-	// 会话（fail-closed）。token 提取必须在元数据合并之前——合并会丢弃
-	// 保留键（含 authToken）。require=false 时 token 完全忽略。
+	// Handshake auth (CR-FIX-11): validated before the session is registered; on
+	// rejection return an error and register no session (fail-closed). Token
+	// extraction must happen before metadata merging — merging drops
+	// reserved keys (including authToken). When require=false the token is
+	// ignored entirely.
 	h.mu.RLock()
 	authRequire := h.providerAuthRequired
 	authToken := h.providerAuthToken
@@ -35,9 +37,10 @@ func (h *LocalHandler) handleProviderConnect(ctx context.Context, data []byte) (
 		return nil, err
 	}
 
-	// 校验 SDK 的 game_id/env 是否与 Agent 配置一致（作用域规范 §14：
-	// provider 必须上报 scope 且与 agent 一致——无空值兼容，空值即
-	// mismatch；agent 侧 scope 由启动校验保证非空）。
+	// Verify the SDK's game_id/env against the Agent config (scope spec §14:
+	// the provider must report a scope matching the agent — there is no
+	// empty-value tolerance, empty is a mismatch; the agent-side scope is
+	// guaranteed non-empty by startup validation).
 	h.mu.RLock()
 	expectedGameID := h.expectedGameID
 	expectedEnv := h.expectedEnv
@@ -97,10 +100,13 @@ func (h *LocalHandler) handleProviderConnect(ctx context.Context, data []byte) (
 				Permission:        fn.GetPermission(),
 			})
 		}
-		// 提取元数据（参考 Nacos metadata）：固定字段为平台保留键，用户在
-		// ProviderConnectRequest.metadata 里声明的多 KV 实例元数据（serverId
-		// 等）原样并入——保留键冲突丢弃并告警，防止覆盖平台语义。
-		// 与 TCP provider 路径共用 MergeUserProviderMetadata，语义一致。
+		// Extract metadata (modeled on Nacos metadata): the fixed fields are
+		// platform reserved keys, and the user-declared multi-KV instance
+		// metadata (serverId, etc.) in ProviderConnectRequest.metadata is
+		// merged in verbatim — reserved-key conflicts are dropped with a
+		// warning, preventing platform semantics from being overwritten.
+		// Shares MergeUserProviderMetadata with the TCP provider path, so the
+		// semantics are identical.
 		metadata, metaWarnings := MergeUserProviderMetadata(map[string]string{
 			"sdkLanguage":      req.SdkLanguage,
 			"sdkVersion":       req.SdkVersion,
@@ -169,8 +175,9 @@ func (h *LocalHandler) handleProviderHeartbeat(ctx context.Context, data []byte)
 
 // handleProviderDrain handles ProviderDrainRequest (server-initiated drain of
 // one session or the whole node). Empty session_id drains all sessions.
-// undrain 由 reason == protocol.ProviderDrainReasonUndrain 哨兵表达。ACK 仅
-// 在 drain 完成（在途归零）或宽限到点后返回。
+// undrain is expressed by the reason == protocol.ProviderDrainReasonUndrain
+// sentinel. The ACK is only returned once drain completes (in-flight reaches
+// zero) or the grace period elapses.
 func (h *LocalHandler) handleProviderDrain(ctx context.Context, data []byte) ([]byte, error) {
 	req := &sdkv1.ProviderDrainRequest{}
 	if err := proto.Unmarshal(data, req); err != nil {
@@ -194,19 +201,26 @@ func (h *LocalHandler) handleProviderDrain(ctx context.Context, data []byte) ([]
 	return proto.Marshal(resp)
 }
 
-// DrainProviderSession 是 agent 侧 provider drain 的共享实现：server 发起的
-// 节点级/单会话 drain（handleProviderDrain）与 SDK 发起的自 drain（sidecar
-// handleDrain）都经此；两者共享同一 ProviderSessionStore（internal/app/agent
-// 的装配：SetProviderSessionStore 与 sidecar listener 同实例）。
+// DrainProviderSession is the shared agent-side implementation of provider
+// drain: both the server-initiated node-level/single-session drain
+// (handleProviderDrain) and the SDK-initiated self drain (sidecar
+// handleDrain) go through it; the two share the same ProviderSessionStore
+// (the internal/app/agent wiring: SetProviderSessionStore and the sidecar
+// listener are the same instance).
 //
-// 语义（wire contract §drain）：
-//   - drain：目标会话标记 draining（callProvider 不再给新业务请求选路），
-//     并同步从 agentlocal 实例表摘除（legacy 地址拨号 fallback 不再路由），
-//     随后等待目标会话在途归零或宽限窗到点；等待不取消任何在途执行。
-//   - undrain：仅清除 draining 标记；agentlocal 实例表不回填（provider 需
-//     重新注册或心跳刷新函数——如实边界）。
+// Semantics (wire contract §drain):
+//   - drain: mark the target session draining (callProvider no longer routes
+//     new business requests to it), and synchronously remove it from the
+//     agentlocal instance table (the legacy address dial fallback no longer
+//     routes there), then wait for the target session's in-flight count to
+//     reach zero or the grace window to elapse; waiting cancels no in-flight
+//     execution.
+//   - undrain: only clear the draining flag; the agentlocal instance table is
+//     not repopulated (the provider must re-register or refresh its functions
+//     via heartbeat — honest boundary).
 //
-// sessionID 为空表示作用于全部会话（节点级）。返回目标会话数。
+// An empty sessionID applies to all sessions (node level). Returns the number
+// of target sessions.
 func (h *LocalHandler) DrainProviderSession(ctx context.Context, sessionID string, undrain bool, grace time.Duration) (int, error) {
 	if grace <= 0 {
 		grace = defaultDrainGrace
@@ -223,8 +237,9 @@ func (h *LocalHandler) DrainProviderSession(ctx context.Context, sessionID strin
 		}
 	}
 
-	// providerSessions 未装配（测试/退化装配）或目标会话未命中时，退化到
-	// agentlocal 摘除（旧语义），保证 handleProviderDrain 仍能清掉实例表。
+	// When providerSessions is not wired (tests / degraded wiring) or no target
+	// session is hit, degrade to agentlocal removal (the old semantics) so that
+	// handleProviderDrain can still clear the instance table.
 	if len(targets) == 0 && h.store != nil {
 		h.store.RemoveProvider(sessionID)
 	}
@@ -234,9 +249,10 @@ func (h *LocalHandler) DrainProviderSession(ctx context.Context, sessionID strin
 		if undrain {
 			continue
 		}
-		// 摘除 agentlocal 实例：pickInstance/callLocalProvider 的 legacy
-		// 地址拨号不再路由到该会话；会话级函数路由由 callProvider 的
-		// draining 跳过兜底。
+		// Remove the agentlocal instance: the legacy address dial from
+		// pickInstance/callLocalProvider no longer routes to this session;
+		// session-level function routing is backstopped by callProvider's
+		// draining skip.
 		if h.store != nil {
 			h.store.RemoveProvider(sess.SessionID)
 		}
@@ -246,13 +262,18 @@ func (h *LocalHandler) DrainProviderSession(ctx context.Context, sessionID strin
 		return len(targets), nil
 	}
 
-	// 等待在途归零或宽限到点。不取消在途执行；超窗返回，让仍在跑的任务
-	// 经 ARCH-015 D3 收敛（unknown/终态事件），不因 drain 强杀。
-	// R30-09：除会话在途外，还须等待「已 ACK 但尚未进入 Provider RPC」的
-	// 任务（TaskRunner.Count()>0）。该窗口内在途计数为 0，drain 若只查
-	// inflight 会立即 ACK 并摘 agentlocal，随后 executeTask→handleInvoke
-	// 的 pickInstance 报未注册——任务被截断。等待 Count 归零（或宽限到点）
-	// 让已接受任务完成，且任务延续路径已绕过 pickInstance（见 handleInvoke）。
+	// Wait for in-flight to reach zero or the grace to elapse. In-flight
+	// executions are not cancelled; on expiry we return and let tasks still
+	// running converge via ARCH-015 D3 (unknown/terminal events), rather than
+	// being force-killed by drain.
+	// R30-09: beyond session in-flight, we must also wait for tasks that are
+	// "ACKed but not yet entered the Provider RPC" (TaskRunner.Count()>0).
+	// Within that window the in-flight count is 0, so a drain that only checks
+	// inflight would ACK immediately and remove agentlocal, after which
+	// pickInstance in executeTask→handleInvoke would report not-registered —
+	// truncating the task. Waiting for Count to reach zero (or the grace to
+	// elapse) lets accepted tasks finish, and the task continuation path has
+	// already bypassed pickInstance (see handleInvoke).
 	deadline := time.NewTimer(grace)
 	defer deadline.Stop()
 	ticker := time.NewTicker(drainPollInterval)

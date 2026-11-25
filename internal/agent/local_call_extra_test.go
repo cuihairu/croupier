@@ -1,5 +1,6 @@
-// 覆盖目标：agent callProvider 无会话时回落 callLocalProvider（0%），
-// 连接失败地址的错误分支；mustMarshal 的 marshal 失败不可达路径旁路。
+// Coverage targets: agent callProvider falling back to callLocalProvider when no
+// session exists (0%), the connection-failed address error branch; and the bypass
+// of the unreachable marshal failure path in mustMarshal.
 package agent
 
 import (
@@ -15,7 +16,7 @@ import (
 func TestCallProvider_FallbackAddr_Unreachable(t *testing.T) {
 	handler := NewLocalHandler(nil, t.TempDir(), "agent-test", nil)
 
-	// 无 provider session + 不可达回退地址 → 连接错误
+	// No provider session + unreachable fallback address -> connection error.
 	_, err := handler.callProvider(context.Background(), "fn.none", nil, "127.0.0.1:1", 0x10, []byte("{}"))
 	require.Error(t, err)
 }

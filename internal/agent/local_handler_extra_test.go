@@ -1,16 +1,20 @@
 package agent
 
-// local_handler 补测：四个 ops 入口的全部臂（unmarshal 失败 / ops 未装配 /
-// 成功 / ops 失败透传——UpdateProcess 与 SetSchedulePause 的失败臂经内嵌
-// mockOpsServer 的覆写桩注入）、handleRequest 对四个 ops 消息的派发臂、
-// callProvider 的无会话回落拨号臂、Conn 为空与函数不匹配的跳过臂、任务延续
-// 无会话的显式失败臂、callLocalProvider 的 outboundTLS 配置注入臂、
-// handleProviderDrain 的 RetryAfterMs 宽限臂与取消错误包装臂、
-// DrainProviderSession 的宽限兜底臂、listener 侧 handleDrain 的握手会话
-// 回退臂与共享 handler 错误透传臂、provider_keepalive 构造。
+// local_handler supplementary tests: every arm of the four ops entry points
+// (unmarshal failure / ops not wired / success / ops failure pass-through —
+// the UpdateProcess and SetSchedulePause failure arms are injected via
+// override stubs embedded in mockOpsServer), handleRequest's dispatch arms for
+// the four ops messages, callProvider's no-session fallback dial arm, the
+// skip arms for nil Conn and function mismatch, the explicit failure arm for
+// task continuation without a session, callLocalProvider's outboundTLS config
+// injection arm, handleProviderDrain's RetryAfterMs grace arm and cancelled
+// error wrapping arm, DrainProviderSession's grace fallback arm, the
+// listener-side handleDrain handshake-session fallback arm and shared handler
+// error pass-through arm, and the provider_keepalive constructor.
 //
-// 诚实跳过：无——全部臂在现有桩件（net.Pipe 会话 / mockOpsServer /
-// 不可达地址拨号）下确定性可达。
+// Honest skips: none — every arm is deterministically reachable with the
+// existing fixtures (net.Pipe sessions / mockOpsServer / unreachable-address
+// dials).
 
 import (
 	"context"
@@ -30,7 +34,7 @@ import (
 	"github.com/cuihairu/croupier/pkg/protocol"
 )
 
-// reqBytes 序列化请求体（失败即测试失败）。
+// reqBytes serializes a request body (failure fails the test).
 func reqBytes(t *testing.T, msg proto.Message) []byte {
 	t.Helper()
 	data, err := proto.Marshal(msg)
@@ -38,8 +42,9 @@ func reqBytes(t *testing.T, msg proto.Message) []byte {
 	return data
 }
 
-// updateProcessErrOps / schedulePauseErrOps：mockOpsServer 固定成功，覆写
-// 对应方法注入错误，驱动 handler 的 ops 失败透传臂。
+// updateProcessErrOps / schedulePauseErrOps: mockOpsServer is fixed to
+// succeed; override the corresponding method to inject errors and drive the
+// handler's ops failure pass-through arm.
 type updateProcessErrOps struct{ mockOpsServer }
 
 func (m *updateProcessErrOps) UpdateProcess(context.Context, *opsv1.UpdateProcessRequest) (*opsv1.UpdateProcessResponse, error) {
@@ -55,22 +60,22 @@ func (m *schedulePauseErrOps) SetSchedulePause(context.Context, *opsv1.ScheduleP
 func TestOpsUpdateProcessArms(t *testing.T) {
 	h := NewLocalHandler(agentlocal.NewLocalStore(), t.TempDir(), "agent-ops", nil)
 
-	// unmarshal 失败
+	// unmarshal failure
 	_, err := h.handleUpdateProcess(context.Background(), []byte{0xff, 0xff, 0xff})
 	require.ErrorContains(t, err, "unmarshal UpdateProcessRequest")
 
-	// ops 未装配
+	// ops not wired
 	_, err = h.handleUpdateProcess(context.Background(), nil)
 	require.ErrorContains(t, err, "ops server not configured")
 
-	// 成功
+	// success
 	h.SetOpsServer(&mockOpsServer{})
 	resp, err := h.handleUpdateProcess(context.Background(), reqBytes(t,
 		&opsv1.UpdateProcessRequest{ProcessName: "game", StagedPath: "/tmp/new", ExpectedSha256: "abc"}))
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 
-	// ops 失败透传
+	// ops failure pass-through
 	h.SetOpsServer(&updateProcessErrOps{})
 	_, err = h.handleUpdateProcess(context.Background(),
 		reqBytes(t, &opsv1.UpdateProcessRequest{ProcessName: "game"}))
@@ -106,7 +111,7 @@ func TestOpsPushFileArms(t *testing.T) {
 	_, err := h.handlePushFile(context.Background(), []byte{0xff, 0xff, 0xff})
 	require.ErrorContains(t, err, "unmarshal PushFileRequest")
 
-	// 成功（PushFileResponse.Success=true）
+	// success (PushFileResponse.Success=true)
 	h.SetOpsServer(&mockOpsServer{})
 	resp, err := h.handlePushFile(context.Background(), reqBytes(t, &opsv1.PushFileRequest{}))
 	require.NoError(t, err)
@@ -114,7 +119,7 @@ func TestOpsPushFileArms(t *testing.T) {
 	require.NoError(t, proto.Unmarshal(resp, out))
 	require.True(t, out.Success)
 
-	// ops 失败透传
+	// ops failure pass-through
 	h.SetOpsServer(&mockOpsServer{pushFileErr: errors.New("disk full")})
 	_, err = h.handlePushFile(context.Background(), reqBytes(t, &opsv1.PushFileRequest{}))
 	require.ErrorContains(t, err, "push file")
@@ -124,15 +129,15 @@ func TestOpsPushFileArms(t *testing.T) {
 func TestOpsGetSupervisorLogArms(t *testing.T) {
 	h := NewLocalHandler(agentlocal.NewLocalStore(), t.TempDir(), "agent-ops", nil)
 
-	// 空 body 跳过 unmarshal，直接命中 ops 未装配
+	// empty body skips unmarshal and hits ops-not-wired directly
 	_, err := h.handleGetSupervisorLog(context.Background(), nil)
 	require.ErrorContains(t, err, "ops server not configured")
 
-	// 非空坏 body 的 unmarshal 失败臂
+	// unmarshal failure arm with a non-empty bad body
 	_, err = h.handleGetSupervisorLog(context.Background(), []byte{0xff})
 	require.ErrorContains(t, err, "unmarshal GetSupervisorLogRequest")
 
-	// 成功
+	// success
 	h.SetOpsServer(&mockOpsServer{supLogResp: &opsv1.GetSupervisorLogResponse{Content: []byte("log line")}})
 	resp, err := h.handleGetSupervisorLog(context.Background(),
 		reqBytes(t, &opsv1.GetSupervisorLogRequest{MaxBytes: 128}))
@@ -141,14 +146,14 @@ func TestOpsGetSupervisorLogArms(t *testing.T) {
 	require.NoError(t, proto.Unmarshal(resp, out))
 	require.Equal(t, "log line", string(out.Content))
 
-	// ops 失败透传
+	// ops failure pass-through
 	h.SetOpsServer(&mockOpsServer{supLogErr: errors.New("log rotated")})
 	_, err = h.handleGetSupervisorLog(context.Background(),
 		reqBytes(t, &opsv1.GetSupervisorLogRequest{MaxBytes: 128}))
 	require.ErrorContains(t, err, "get supervisor log")
 }
 
-// handleRequest 对四个 ops 消息的派发臂。
+// handleRequest's dispatch arms for the four ops messages.
 func TestDispatchOpsMessageCases(t *testing.T) {
 	h := NewLocalHandler(agentlocal.NewLocalStore(), t.TempDir(), "agent-dispatch", nil)
 	h.SetOpsServer(&mockOpsServer{supLogResp: &opsv1.GetSupervisorLogResponse{}})
@@ -174,7 +179,8 @@ func TestDispatchOpsMessageCases(t *testing.T) {
 	}
 }
 
-// 无会话存储时 callProvider 回落 legacy 拨号；空地址立即拨号失败。
+// With no session store, callProvider falls back to the legacy dial; an empty
+// address fails the dial immediately.
 func TestCallProviderFallsBackToLocalDial(t *testing.T) {
 	h := NewLocalHandler(agentlocal.NewLocalStore(), t.TempDir(), "agent-fallback", nil)
 	_, err := h.callProvider(context.Background(), "fn.x", nil, "",
@@ -182,8 +188,9 @@ func TestCallProviderFallsBackToLocalDial(t *testing.T) {
 	require.Error(t, err)
 }
 
-// callProvider 跳过 Conn 为空的会话与函数不匹配的会话，随后回落 legacy
-// 地址拨号（127.0.0.1:1 连接拒绝）。
+// callProvider skips sessions with a nil Conn and sessions whose function does
+// not match, then falls back to the legacy address dial (127.0.0.1:1
+// connection refused).
 func TestCallProviderSkipsUnusableSessions(t *testing.T) {
 	handler, store := newDrainTestHandler(t)
 
@@ -201,18 +208,20 @@ func TestCallProviderSkipsUnusableSessions(t *testing.T) {
 	require.Error(t, err)
 }
 
-// 任务延续且无会话命中、fallbackAddr 为空 → 显式失败，不得拿空地址拨号。
+// Task continuation with no session hit and an empty fallbackAddr → explicit
+// failure; it must not dial an empty address.
 func TestCallProviderTaskContinuationWithoutSession(t *testing.T) {
-	handler, _ := newDrainTestHandler(t) // 会话存储存在但为空
+	handler, _ := newDrainTestHandler(t) // session store exists but is empty
 	_, err := handler.callProvider(context.Background(), "fn.y",
 		map[string]string{"taskId": "t1"}, "", protocol.MsgInvokeRequest, []byte("x"))
 	require.ErrorContains(t, err, "no provider session for task continuation")
 }
 
-// handleInvoke 的任务延续路径（addr 留空交给 callProvider 会话路由）：无
-// 会话命中时错误经「invoke local provider: 」包装透传。
+// handleInvoke's task continuation path (addr left empty, session routing
+// delegated to callProvider): with no session hit the error is wrapped and
+// passed through as "invoke local provider: ".
 func TestInvokeTaskContinuationWrapsSessionMiss(t *testing.T) {
-	handler, _ := newDrainTestHandler(t) // 会话存储存在但为空
+	handler, _ := newDrainTestHandler(t) // session store exists but is empty
 	_, err := handler.Handle(context.Background(), protocol.MsgInvokeRequest, 1,
 		reqBytes(t, &sdkv1.InvokeRequest{
 			FunctionId: "fn.z",
@@ -222,8 +231,9 @@ func TestInvokeTaskContinuationWrapsSessionMiss(t *testing.T) {
 	require.ErrorContains(t, err, "no provider session for task continuation")
 }
 
-// SetTLSConfig 注入的 outboundTLS 配置须传入拨号配置：缺失证书文件在
-// NewClient 的证书加载处失败，证明 tlsCfg 分支被执行。
+// The outboundTLS config injected by SetTLSConfig must reach the dial config:
+// a missing certificate file fails during certificate loading in NewClient,
+// proving the tlsCfg branch is executed.
 func TestCallLocalProviderAppliesTLSConfig(t *testing.T) {
 	h := NewLocalHandler(agentlocal.NewLocalStore(), t.TempDir(), "agent-tls", nil)
 	dir := t.TempDir()
@@ -236,12 +246,14 @@ func TestCallLocalProviderAppliesTLSConfig(t *testing.T) {
 	})
 	_, err := h.callLocalProvider(context.Background(), "127.0.0.1:1",
 		protocol.MsgInvokeRequest, []byte("x"))
-	// CA 读取先于证书对加载失败——错误自 create tls config 透传，即证明
-	// tlsCfg 分支已执行并注入了证书路径。
+	// CA read fails before the certificate pair loads — the error passes
+	// through from create tls config, proving the tlsCfg branch ran and the
+	// certificate paths were injected.
 	require.ErrorContains(t, err, "create tls config")
 }
 
-// RetryAfterMs>0 覆盖默认宽限；无目标会话时立即 ACK。
+// RetryAfterMs>0 overrides the default grace; with no target session, ACK
+// immediately.
 func TestHandleProviderDrainRetryAfterGrace(t *testing.T) {
 	handler, _ := newDrainTestHandler(t)
 	resp, err := handler.handleProviderDrain(context.Background(),
@@ -250,8 +262,8 @@ func TestHandleProviderDrainRetryAfterGrace(t *testing.T) {
 	require.NotNil(t, resp)
 }
 
-// 在途未归零且 ctx 已取消：DrainProviderSession 返回 ctx.Err()，
-// handleProviderDrain 包装透传。
+// In-flight not yet zero and ctx already cancelled: DrainProviderSession
+// returns ctx.Err(), and handleProviderDrain wraps and passes it through.
 func TestHandleProviderDrainCancelledWait(t *testing.T) {
 	handler, store := newDrainTestHandler(t)
 	sess := newEchoSession(t, "drain-busy", "svc-busy", "fn.busy", nil, nil)
@@ -266,7 +278,8 @@ func TestHandleProviderDrainCancelledWait(t *testing.T) {
 	require.ErrorContains(t, err, "context canceled")
 }
 
-// 宽限 <=0 → 回落默认宽限；空存储无目标，直接返回。
+// Grace <= 0 → fall back to the default grace; an empty store has no target,
+// so return directly.
 func TestDrainProviderSessionDefaultsGrace(t *testing.T) {
 	handler, _ := newDrainTestHandler(t)
 	n, err := handler.DrainProviderSession(context.Background(), "", false, 0)
@@ -279,8 +292,9 @@ func TestProviderKeepaliveConstructor(t *testing.T) {
 	require.NotNil(t, ka)
 }
 
-// listener 侧 handleDrain：请求省略 session_id 时回退到握手绑定的会话 id；
-// 未装配共享 LocalHandler 时仅应答。
+// Listener-side handleDrain: when the request omits session_id, fall back to
+// the session id bound at handshake; with no shared LocalHandler wired, just
+// reply.
 func TestListenerDrainStateFallback(t *testing.T) {
 	listener, err := NewTCPLocalListener(
 		&TCPLocalListenerConfig{Address: "127.0.0.1:0"}, NewProviderSessionStore(), nil)
@@ -294,8 +308,9 @@ func TestListenerDrainStateFallback(t *testing.T) {
 	require.NotNil(t, resp)
 }
 
-// listener 侧 drain 命中共享 LocalHandler：在途未归零且 ctx 已取消时错误
-// 透传给 SDK 连接。
+// Listener-side drain reaching the shared LocalHandler: with in-flight not yet
+// zero and ctx already cancelled, the error is passed through to the SDK
+// connection.
 func TestListenerDrainReturnsSharedHandlerError(t *testing.T) {
 	handler, store := newDrainTestHandler(t)
 	sess := newEchoSession(t, "drain-l", "svc-l", "fn.l", nil, nil)

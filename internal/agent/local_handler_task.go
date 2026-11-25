@@ -63,9 +63,10 @@ func (h *LocalHandler) executeTask(ctx context.Context, req *sdkv1.InvokeRequest
 		recordSpanResult(span, err)
 		return nil, err
 	}
-	// respBytes 由 handleInvoke 返回，其内部所有成功路径的返回值均为
-	// proto.Marshal 的产物（合法 InvokeResponse wire 字节），再 Unmarshal
-	// 恒成功，error 分支不可达，已删除。
+	// respBytes comes back from handleInvoke, whose success paths all return
+	// proto.Marshal output (valid InvokeResponse wire bytes); unmarshaling it
+	// again always succeeds, the error branch was unreachable and has been
+	// deleted.
 	resp := &sdkv1.InvokeResponse{}
 	_ = proto.Unmarshal(respBytes, resp)
 	if len(resp.GetPayload()) == 0 {

@@ -174,7 +174,7 @@ func (h *LocalHandler) handleUpdateProcess(ctx context.Context, data []byte) ([]
 }
 
 // handleSchedulePause suspends or resumes a managed process's schedule firing
-// (§10.2 暂停与恢复，暂停对象=调度).
+// (§10.2 suspend and resume; the suspend target = the schedule).
 func (h *LocalHandler) handleSchedulePause(ctx context.Context, data []byte) ([]byte, error) {
 	req := &opsv1.SchedulePauseRequest{}
 	if err := proto.Unmarshal(data, req); err != nil {
@@ -255,7 +255,8 @@ func (h *LocalHandler) handleListServices(ctx context.Context, data []byte) ([]b
 	return ops.ListServicesJSON(ctx, data)
 }
 
-// handleListCronJobs handles ListCronJobsRequest（Agent 所在主机的定时任务）。
+// handleListCronJobs handles ListCronJobsRequest (cron jobs on the agent's
+// host).
 func (h *LocalHandler) handleListCronJobs(ctx context.Context, _ []byte) ([]byte, error) {
 	h.mu.RLock()
 	ops := h.opsServer
@@ -267,7 +268,8 @@ func (h *LocalHandler) handleListCronJobs(ctx context.Context, _ []byte) ([]byte
 	return ops.ListCronJobsJSON(ctx)
 }
 
-// handleGetSupervisorLog handles GetSupervisorLogRequest（回源读 agent 本地轮转日志）。
+// handleGetSupervisorLog handles GetSupervisorLogRequest (reading the agent's
+// local rotating log at the source).
 func (h *LocalHandler) handleGetSupervisorLog(ctx context.Context, data []byte) ([]byte, error) {
 	req := &opsv1.GetSupervisorLogRequest{}
 	if len(data) > 0 {

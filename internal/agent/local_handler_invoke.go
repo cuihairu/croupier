@@ -64,20 +64,24 @@ func (h *LocalHandler) handleInvoke(ctx context.Context, data []byte) ([]byte, e
 		return out, err
 	}
 
-	// R30-09：任务延续（drain 前已 ACK 的 StartTask）不得被 drain 的
-	// agentlocal 摘除截断。drain 只清 agentlocal 实例表，不清会话存储；
-	// callProvider 会按会话存储选路。因此任务延续跳过 pickInstance
-	//（其读 agentlocal，drain 后必然报未注册），直接走会话路由。新业务
-	// 请求（无 taskId）仍走 pickInstance 的 agentlocal 快照。
+	// R30-09: task continuation (a StartTask already ACKed before drain) must
+	// not be truncated by drain removing agentlocal. Drain only clears the
+	// agentlocal instance table, not the session store; callProvider routes
+	// by the session store. So task continuation skips pickInstance (which
+	// reads agentlocal and would certainly report not-registered after drain)
+	// and goes straight to session routing. New business requests (no taskId)
+	// still go through pickInstance's agentlocal snapshot.
 	addr := ""
 	isTaskContinuation := req.GetMetadata()["taskId"] != ""
 	h.mu.RLock()
 	haveSessions := h.providerSessions != nil
 	h.mu.RUnlock()
 	if isTaskContinuation && haveSessions {
-		// 路由交给 callProvider：它按 serviceId/函数匹配会话存储，任务
-		// 延续在 draining 会话上放行；无会话命中则回落 legacy 拨号
-		//（fallbackAddr 空 → 明确失败，不误报为未注册的 5xx）。
+		// Routing is delegated to callProvider: it matches the session store
+		// by serviceId/function, and lets task continuation through on
+		// draining sessions; with no session hit it falls back to the legacy
+		// dial (empty fallbackAddr → explicit failure, not misreported as a
+		// not-registered 5xx).
 	} else {
 		var err error
 		addr, err = h.pickInstance(functionID, req.GetMetadata())
@@ -91,8 +95,9 @@ func (h *LocalHandler) handleInvoke(ctx context.Context, data []byte) ([]byte, e
 	callCtx, cancel := context.WithTimeout(ctx, h.providerCallDeadline(req.GetMetadata()))
 	defer cancel()
 
-	// req 是函数开头 proto.Unmarshal 的产物，字段值必为合法 wire 形态，
-	// 再 Marshal 恒成功，error 分支不可达，已删除。
+	// req is the product of the proto.Unmarshal at the top of the function, so its
+	// field values are always valid wire form; marshaling it again always
+	// succeeds, the error branch was unreachable and has been deleted.
 	reqBytes, _ := proto.Marshal(req)
 
 	respBytes, err := h.callProvider(callCtx, functionID, req.GetMetadata(), addr, protocol.MsgInvokeRequest, reqBytes)
@@ -123,10 +128,12 @@ func (h *LocalHandler) callProvider(ctx context.Context, functionID string, meta
 	sessions := h.providerSessions
 	h.mu.RUnlock()
 	if sessions != nil {
-		// 任务延续（drain 前已接受的 StartTask）不得被 drain 截断：其
-		// provider 调用仍允许落在 draining 会话上，在途计数照常增减，
-		// drain 等待窗内可见。新业务请求（无 taskId）则按 contract 跳过
-		// draining 会话、全部候选 drain 时显式拒绝。
+		// Task continuation (a StartTask already accepted before drain) must not be
+		// truncated by drain: its provider call is still allowed to land on a
+		// draining session, with in-flight counting incrementing/decrementing as
+		// usual and visible within the drain wait window. New business requests
+		// (no taskId) instead skip draining sessions per contract, and are
+		// explicitly rejected when all candidates are draining.
 		isTaskContinuation := metadata["taskId"] != ""
 		serviceID := metadata["serviceId"]
 		if serviceID != "" {
@@ -156,11 +163,13 @@ func (h *LocalHandler) callProvider(ctx context.Context, functionID string, meta
 		if allDrainingService != "" {
 			return nil, providerDrainingError(allDrainingService)
 		}
-		// R30-09：任务延续在 drain 后已无会话/agentlocal 可选（会话存储
-		// 仍存在但无函数匹配，或 serviceId 未命中）。fallbackAddr 空即
-		// 任务延续路径跳过 pickInstance 后未选到地址——此时必须明确失败，
-		// 不能拿空地址去拨号。新业务请求若未命中会话，仍有 pickInstance
-		// 给的 addr 可回落。
+		// R30-09: task continuation has no session/agentlocal left to choose after
+		// drain (the session store still exists but no function matches, or the
+		// serviceId missed). An empty fallbackAddr means the task continuation
+		// path skipped pickInstance and selected no address — it must then fail
+		// explicitly instead of dialing an empty address. New business requests
+		// that miss a session still have the addr from pickInstance to fall
+		// back to.
 		if isTaskContinuation && fallbackAddr == "" {
 			return nil, fmt.Errorf("no provider session for task continuation of function %q", functionID)
 		}
@@ -168,8 +177,10 @@ func (h *LocalHandler) callProvider(ctx context.Context, functionID string, meta
 	return h.callLocalProvider(ctx, fallbackAddr, msgID, data)
 }
 
-// callSession 在选中会话上执行一次 provider 调用，并把调用计入在途计数：
-// drain 的 ACK 等待据此知道何时在途归零。调用返回（含出错）即出队。
+// callSession performs one provider call on the selected session and counts the
+// call in the in-flight tally: the drain ACK wait uses this to know when
+// in-flight reaches zero. The call dequeues when it returns (including on
+// error).
 func callSession(ctx context.Context, session *ProviderSession, msgID uint32, data []byte) ([]byte, error) {
 	session.AddInflight(1)
 	defer session.AddInflight(-1)
@@ -183,9 +194,11 @@ func (h *LocalHandler) callLocalProvider(ctx context.Context, addr string, msgID
 	tlsCfg := h.tlsCfg
 	h.mu.RUnlock()
 	// Only TCP transport is supported for LocalHandler.
-	// outboundTLS 配置段经 SetTLSConfig 注入；非 nil 时按证书文件拨号 TLS，
-	// 零值回退明文（能力矩阵批次 F 死接线修复：此前 tlsCfg 存入即丢，
-	// 配置显式开启 outboundTLS 也不产生任何效果）。
+	// The outboundTLS config section is injected via SetTLSConfig; when it is
+	// non-nil, dial TLS using the certificate files, and fall back to plaintext
+	// for the zero value (capability matrix batch F dead wiring fix: tlsCfg
+	// used to be dropped as soon as it was stored, so explicitly enabling
+	// outboundTLS had no effect at all).
 	cfg := &tcptr.Config{
 		Address:        addr,
 		Insecure:       tlsCfg == nil,
@@ -242,14 +255,14 @@ func (h *LocalHandler) pickInstance(functionID string, metadata map[string]strin
 		return "", fmt.Errorf("function ID is required")
 	}
 
-	// 使用双层索引获取实例
+	// Use the double-level index to fetch instances
 	snap := h.store.ListByService()
 	serviceMap := snap[functionID]
 	if len(serviceMap) == 0 {
 		return "", fmt.Errorf("function '%s' is not registered", functionID)
 	}
 
-	// 按 service_id 路由（一级过滤）
+	// Route by service_id (first-level filter)
 	targetService := metadata["serviceId"]
 	var arr []agentlocal.Instance
 	if targetService != "" {
@@ -258,15 +271,16 @@ func (h *LocalHandler) pickInstance(functionID string, metadata map[string]strin
 			return "", fmt.Errorf("no instance for service '%s'", targetService)
 		}
 	} else {
-		// 无 service_id，合并所有实例
+		// No service_id: merge all instances
 		for _, instances := range serviceMap {
 			arr = append(arr, instances...)
 		}
 	}
 
-	// 优先选择健康实例（30秒内有心跳）
-	// instanceHealthyWindow 是可注入缝隙（默认与生产行为一致），测试中
-	// 设为负值可让全部实例落入 stale 降级分支。
+	// Prefer healthy instances (heartbeat within 30 seconds)
+	// instanceHealthyWindow is an injectable seam (default matches production
+	// behavior); tests set it negative to push every instance into the stale
+	// degradation branch.
 	now := time.Now()
 	var healthy []agentlocal.Instance
 	for _, inst := range arr {
@@ -276,12 +290,12 @@ func (h *LocalHandler) pickInstance(functionID string, metadata map[string]strin
 	}
 
 	if len(healthy) > 0 {
-		// 使用 fnvIndex 做负载均衡（round-robin风格）
+		// Use fnvIndex for load balancing (round-robin style)
 		idx := fnvIndex(functionID, len(healthy))
 		return healthy[idx].Addr, nil
 	}
 
-	// 降级：返回第一个实例
+	// Degradation: return the first instance
 	h.logger.Warn("function instances are stale, routing to first instance anyway",
 		"function_id", functionID, "service_id", targetService, "addr", arr[0].Addr)
 	return arr[0].Addr, nil

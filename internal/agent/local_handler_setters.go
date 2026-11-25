@@ -28,7 +28,8 @@ func NewLocalHandler(store *agentlocal.LocalStore, configDir, agentID string, lo
 		logger:    logger,
 		configDir: configDir,
 		agentID:   agentID,
-		// 默认对齐 Server 派发层 invokeTimeout（15s），消除旧 10s<15s 倒挂。
+		// Default aligned with the Server dispatch layer's invokeTimeout (15s),
+		// eliminating the old 10s<15s inversion.
 		providerCallTimeout: 15 * time.Second,
 	}
 	// TaskRunner executes tasks via the handler's invoke path.
@@ -36,8 +37,10 @@ func NewLocalHandler(store *agentlocal.LocalStore, configDir, agentID string, lo
 	return h
 }
 
-// SetProviderCallTimeout 配置 Agent → Provider 同步调用默认预算。
-// 非正值回落默认 15s；上限 60s（同步通道边界，更长操作应走异步任务）。
+// SetProviderCallTimeout configures the default budget for synchronous
+// Agent → Provider calls. Non-positive values fall back to the default 15s;
+// the cap is 60s (the synchronous channel boundary — longer operations should
+// go through async tasks).
 func (h *LocalHandler) SetProviderCallTimeout(d time.Duration) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -50,9 +53,10 @@ func (h *LocalHandler) SetProviderCallTimeout(d time.Duration) {
 	h.providerCallTimeout = d
 }
 
-// providerCallDeadline 计算本次 Provider 调用的超时：请求 metadata 声明的
-// timeout_ms 是权威预算（clamp [1s, 60s] 硬顶），无声明时用配置默认。
-// 垃圾值 → 配置默认。
+// providerCallDeadline computes the timeout for this Provider call: the
+// timeout_ms declared in request metadata is the authoritative budget (clamped
+// to a hard [1s, 60s] ceiling); when nothing is declared, the configured
+// default applies. Garbage values → configured default.
 func (h *LocalHandler) providerCallDeadline(meta map[string]string) time.Duration {
 	h.mu.RLock()
 	def := h.providerCallTimeout

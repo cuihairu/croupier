@@ -36,10 +36,12 @@ type TCPLocalListenerConfig struct {
 	// gateway, hence per-conn wrapping instead of tls.NewListener).
 	TLSConfig *tls.Config
 
-	// Provider 握手鉴权（CR-FIX-11）：Require=true 时 ProviderConnectRequest
-	// 的 metadata["authToken"] 必须等于 Token，否则握手被拒（连接关闭，
-	// 不注册会话）。与 LocalHandler.SetProviderAuth 同源配置（同一启动
-	// 参数两路注入），校验逻辑共用 checkProviderAuth。
+	// Provider handshake auth (CR-FIX-11): when Require=true, the
+	// ProviderConnectRequest's metadata["authToken"] must equal Token, or the
+	// handshake is rejected (connection closed, no session registered). Same
+	// source of configuration as LocalHandler.SetProviderAuth (one startup
+	// parameter injected into both paths); validation logic is shared in
+	// checkProviderAuth.
 	RequireProviderAuth bool
 	ProviderAuthToken   string
 }
@@ -73,13 +75,15 @@ type TCPLocalListener struct {
 
 	wg      sync.WaitGroup
 	closing chan struct{}
-	closeMu sync.Mutex // 守护 closed/listener.Close/wg.Wait 的幂等收口（见 Close）
+	closeMu sync.Mutex // guards idempotent close-out of closed/listener.Close/wg.Wait (see Close)
 	closed  bool
-	// serveStarted/serveDone 让 Close 收口到 Accept 循环自身退出：Close 关闭
-	// 监听器后 Accept 解除阻塞、循环读到 closing 返回，serveDone 关闭，Close
-	// 等它才返回。否则 Serve goroutine 会在 Close 返回后继续读 l.listener /
-	// l.closing，与 Close 的写构成数据竞争（-race 实证：App.Stop 与
-	// StartLocalServer 启动的 serve goroutine，2026-11-12 全包 shuffle）。
+	// serveStarted/serveDone let Close close out on the Accept loop exiting
+	// itself: after Close closes the listener, Accept unblocks, the loop reads
+	// closing and returns, serveDone closes, and Close waits on it before
+	// returning. Otherwise the Serve goroutine would keep reading l.listener /
+	// l.closing after Close returns, forming a data race with Close's writes
+	// (proven by -race: App.Stop racing the serve goroutine started by
+	// StartLocalServer, 2026-11-12 full-package shuffle).
 	serveStarted bool
 	serveDone    chan struct{}
 
@@ -87,9 +91,11 @@ type TCPLocalListener struct {
 }
 
 // NewTCPLocalListener creates a new local TCP listener for SDK connections.
-// resolveLocalListenerAddress 决定本地监听地址：显式配置优先；config 为 nil 时
-// 读 CROUPIER_AGENT_LOCAL_ADDR，为空回落 127.0.0.1:19091。独立成函数以便在
-// 不实际绑定端口的前提下测默认值（构造函数会立即 net.Listen）。
+// resolveLocalListenerAddress decides the local listen address: explicit
+// config wins; when config is nil, CROUPIER_AGENT_LOCAL_ADDR is read, falling
+// back to 127.0.0.1:19091 when empty. It is a standalone function so the
+// default can be tested without actually binding a port (the constructor calls
+// net.Listen immediately).
 func resolveLocalListenerAddress(config *TCPLocalListenerConfig) *TCPLocalListenerConfig {
 	if config != nil {
 		return config
@@ -142,20 +148,23 @@ func (l *TCPLocalListener) SetLocalHandler(h transportcore.Handler) {
 
 // Serve accepts connections until ctx is done or the listener is closed.
 func (l *TCPLocalListener) Serve(ctx context.Context) error {
-	// 标记循环已启动并登记退出信号（Close 借此等待 Accept 循环自身退场，
-	// 见 serveStarted/serveDone 注释）。
+	// Mark the loop as started and register the exit signal (Close uses this to
+	// wait for the Accept loop to exit itself, see the serveStarted/serveDone
+	// comment).
 	l.closeMu.Lock()
 	l.serveStarted = true
 	l.closeMu.Unlock()
 	defer close(l.serveDone)
 
 	for {
-		// listener/closing/closed 快照必须在 closeMu 下读取：Close 全程持有
-		// closeMu 写 closed/close(closing)/listener.Close()，Serve 若裸读这些
-		// 字段则与 Close 的写构成数据竞争（-race 实证：App.Stop 与
-		// StartLocalServer 启动的 serve goroutine，2026-11-12 全包 shuffle，
-		// 竞争点在 Serve 首轮循环读 l.listener/l.closing 与 Close 头部写）。
-		// closeMu 让两面对这些字段的访问串行化并建立 happens-before。
+		// The listener/closing/closed snapshot must be read under closeMu: Close
+		// holds closeMu for its entire run, writing closed / close(closing) /
+		// listener.Close(). If Serve read these fields bare, it would race with
+		// Close's writes (-race proven: App.Stop racing the serve goroutine
+		// started by StartLocalServer, 2026-11-12 full-package shuffle; the race
+		// point is Serve's first-loop read of l.listener/l.closing against
+		// Close's header writes). closeMu serializes both sides' access to these
+		// fields and establishes happens-before.
 		l.closeMu.Lock()
 		ln := l.listener
 		closing := l.closing
@@ -205,8 +214,10 @@ func (l *TCPLocalListener) serveConn(ctx context.Context, conn net.Conn) {
 		l.logger.Info("Provider TCP connection closed", "remote", remoteAddr)
 	}()
 
-	// TLS 在 TCP 之上、分帧之下（能力矩阵批次 E）：握手失败只丢弃当前
-	// 连接并告警，Accept 循环与既有会话不受影响——明文探测/扫描不致命。
+	// TLS sits above TCP and below framing (capability matrix batch E): a
+	// handshake failure only drops the current connection with a warning; the
+	// Accept loop and existing sessions are unaffected — plaintext probes/scans
+	// are not fatal.
 	if tlsCfg := l.config.TLSConfig; tlsCfg != nil {
 		tlsConn := tls.Server(conn, tlsCfg)
 		hsCtx, cancel := context.WithTimeout(ctx, tlsHandshakeTimeout)
@@ -271,10 +282,11 @@ func (l *TCPLocalListener) SessionStore() *ProviderSessionStore {
 }
 
 // Close stops accepting new connections and waits for active ones to finish.
-// 幂等；用互斥锁而非 sync.Once：锁在 Close 与 Close、Close 与 Serve 之间
-// 建立显式 happens-before，避免 once.done 的原子写与启动竞态下的读取构成
-// 数据竞争（2026-09-22 -race 实证：App.Stop 与 serve goroutine 启动窗口
-// 重叠时被 race detector 标记）。
+// Idempotent; uses a mutex rather than sync.Once: the lock establishes explicit
+// happens-before between Close and Close, and Close and Serve, avoiding a data
+// race between the atomic write of once.done and reads in a startup race
+// window (2026-09-22 -race proven: flagged by the race detector when App.Stop
+// overlapped the serve goroutine's startup window).
 func (l *TCPLocalListener) Close() error {
 	l.closeMu.Lock()
 	if l.closed {
@@ -285,10 +297,12 @@ func (l *TCPLocalListener) Close() error {
 	close(l.closing)
 	closeErr := l.listener.Close()
 	l.wg.Wait()
-	// serveStarted 必须在 closeMu 下读（Serve 在锁下写它）；但等待
-	// serveDone 必须放锁外——否则 Serve 末轮拿不到 closeMu 读 closed 而退出，
-	// Close 又抱着锁等 serveDone，互相死锁。放锁后 Serve 拿到 closeMu 读到
-	// closed=true 即退出并 close(serveDone)，Close 等它返回即可。
+	// serveStarted must be read under closeMu (Serve writes it under the lock);
+	// but waiting on serveDone must happen outside the lock — otherwise the
+	// final Serve loop cannot get closeMu to read closed and exit, while Close
+	// holds the lock waiting on serveDone, deadlocking the two. Once released,
+	// Serve acquires closeMu, reads closed=true, exits and closes serveDone,
+	// and Close just waits for it to return.
 	serveStarted := l.serveStarted
 	l.closeMu.Unlock()
 	if serveStarted {
@@ -382,9 +396,11 @@ func (h *providerSessionHandler) handleConnect(ctx context.Context, body []byte)
 		return nil, fmt.Errorf("service_id is required")
 	}
 
-	// 握手鉴权（CR-FIX-11）：在会话注册之前校验；拒绝返回 ProtocolError
-	// 由 MuxConn 关闭连接（fail-closed，不产生半注册会话）。token 提取
-	// 必须在元数据合并之前——合并会丢弃保留键（含 authToken）。
+	// Handshake auth (CR-FIX-11): validated before the session is registered;
+	// a rejection returns ProtocolError so MuxConn closes the connection
+	// (fail-closed, no half-registered session). Token extraction must happen
+	// before metadata merging — merging drops reserved keys (including
+	// authToken).
 	if require, token := h.listener.config.RequireProviderAuth, h.listener.config.ProviderAuthToken; require {
 		if err := checkProviderAuth(require, token, extractProviderAuthToken(req)); err != nil {
 			h.listener.logger.Warn("provider handshake auth rejected",
@@ -395,9 +411,12 @@ func (h *providerSessionHandler) handleConnect(ctx context.Context, body []byte)
 
 	sessionID := fmt.Sprintf("ps-%d", time.Now().UnixNano())
 
-	// 用户实例元数据随连接进入会话（保留键丢弃+告警，语义与 local_handler 路径
-	// 一致）；onConnect 注册时经 MergeProviderInstanceMetadata 并入实例元数据。
-	// authToken 已入保留键，不会进入会话元数据（防泄漏到 SDK 分发页）。
+	// User instance metadata enters the session with the connection (reserved
+	// keys dropped with a warning; semantics identical to the local_handler
+	// path); at onConnect registration time it is folded into the instance
+	// metadata via MergeProviderInstanceMetadata. authToken is already a
+	// reserved key and never enters session metadata (prevents leakage to the
+	// SDK distribution page).
 	metadata, metaWarnings := MergeUserProviderMetadata(map[string]string{}, req.GetMetadata())
 	for _, warning := range metaWarnings {
 		h.listener.logger.Warn("provider metadata reserved key dropped",
@@ -473,8 +492,9 @@ func (h *providerSessionHandler) handleDrain(ctx context.Context, body []byte) (
 		return nil, fmt.Errorf("unmarshal ProviderDrainRequest: %w", err)
 	}
 
-	// SDK 自 drain：目标就是本会话。请求常省略 session_id（SDK 只能 drain
-	// 自己），此时回退到握手绑定的会话 id。
+	// SDK self-drain: the target is this very session. Requests often omit
+	// session_id (an SDK can only drain itself); fall back to the session id
+	// bound at handshake.
 	targetSession := req.SessionId
 	if targetSession == "" {
 		_, sessionID := h.state()
@@ -497,8 +517,9 @@ func (h *providerSessionHandler) handleDrain(ctx context.Context, body []byte) (
 			return nil, err
 		}
 	} else {
-		// 非 LocalHandler 装配（测试/退化）：仅应答、不摘除会话——会话由
-		// disconnect 路径清理（onDisconnect → RemoveProvider），与旧行为一致。
+		// Non-LocalHandler wiring (tests / degraded): only reply, no session
+		// removal — sessions are cleaned up by the disconnect path
+		// (onDisconnect → RemoveProvider), matching the old behavior.
 		h.listener.logger.Info("Provider drain acknowledged without shared LocalHandler",
 			"session_id", targetSession, "undrain", undrain)
 	}

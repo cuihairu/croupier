@@ -1,6 +1,8 @@
-// ProviderConnectRequest.metadata 的统一合并入口：保留键丢弃+告警、空键跳过、
-// 其余用户 KV 原样并入。TCP provider 路径（tcp_local_listener）与 local_handler
-// 路径共用，保证两条连接路径的元数据语义一致。
+// Unified merge entry point for ProviderConnectRequest.metadata: reserved keys
+// are dropped with a warning, blank keys are skipped, and the remaining user
+// KVs are merged in verbatim. Shared by the TCP provider path
+// (tcp_local_listener) and the local_handler path so both connection paths keep
+// identical metadata semantics.
 package agent
 
 import (

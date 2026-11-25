@@ -17,13 +17,15 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// 批次 E（能力矩阵 #5 本地网关 TLS 接线）：`tls:` 配置段经
-// tcptr.BuildServerTLSConfig 构建服务端 *tls.Config，注入
-// TCPLocalListenerConfig.TLSConfig。TLS 位于 TCP 之上、分帧之下——
-// 握手成功的连接走与明文完全一致的 ProviderConnect/MuxConn 流程。
+// Batch E (capability matrix #5, local gateway TLS wiring): the `tls:` config
+// section builds a server-side *tls.Config via tcptr.BuildServerTLSConfig and
+// injects it into TCPLocalListenerConfig.TLSConfig. TLS sits above TCP and
+// below framing — a connection whose handshake succeeds runs exactly the same
+// ProviderConnect/MuxConn flow as plaintext.
 
-// startTLSListener 生成 CA/服务器证书并启动 TLS 监听（caFile 为空=单向 TLS，
-// 非空=mTLS），返回监听器、CA 证书池与清理函数。
+// startTLSListener generates CA/server certificates and starts a TLS listener
+// (caFile empty = one-way TLS, non-empty = mTLS), returning the listener, the
+// CA cert pool, and a cleanup function.
 func startTLSListener(t *testing.T, caFile string) (*TCPLocalListener, *x509.CertPool, func()) {
 	t.Helper()
 	caDir := t.TempDir()
@@ -62,7 +64,8 @@ func startTLSListener(t *testing.T, caFile string) (*TCPLocalListener, *x509.Cer
 	return listener, pool, cleanup
 }
 
-// tlsDial 以 TLS 拨入本地网关（clientCert 为空=不出示客户端证书）。
+// tlsDial dials in to the local gateway over TLS (empty clientCrt = no client
+// certificate presented).
 func tlsDial(t *testing.T, addr string, rootCAs *x509.CertPool, clientCrt, clientKey string) *tls.Conn {
 	t.Helper()
 	cfg := &tls.Config{
@@ -80,7 +83,8 @@ func tlsDial(t *testing.T, addr string, rootCAs *x509.CertPool, clientCrt, clien
 	return conn
 }
 
-// tlsProviderSession 走既有 Provider 握手把 TLS 连接升级为已注册会话。
+// tlsProviderSession upgrades a TLS connection into a registered session
+// through the existing Provider handshake.
 func tlsProviderSession(t *testing.T, listener *TCPLocalListener, rootCAs *x509.CertPool, clientCrt, clientKey, serviceID string) {
 	t.Helper()
 	tlsConn := tlsDial(t, listener.Addr(), rootCAs, clientCrt, clientKey)
@@ -119,7 +123,8 @@ func TestTCPLocalListener_TLSRejectsPlaintextAndSurvives(t *testing.T) {
 	listener, pool, cleanup := startTLSListener(t, "")
 	defer cleanup()
 
-	// 明文探测：服务端握手失败 → 连接被丢弃，探针侧读到 EOF/重置。
+	// Plaintext probe: the server handshake fails → the connection is dropped,
+	// and the probe side reads EOF/reset.
 	plain, err := net.Dial("tcp", listener.Addr())
 	require.NoError(t, err)
 	_, err = plain.Write([]byte("GET / HTTP/1.0\r\n\r\n"))
@@ -129,7 +134,8 @@ func TestTCPLocalListener_TLSRejectsPlaintextAndSurvives(t *testing.T) {
 	require.Error(t, err, "server must close non-TLS connections")
 	_ = plain.Close()
 
-	// Accept 循环不受单连接握手失败影响：TLS 客户端照常完成会话注册。
+	// The Accept loop is unaffected by a single connection's handshake failure:
+	// a TLS client still completes session registration.
 	tlsProviderSession(t, listener, pool, "", "", "tls-provider-after-plaintext")
 }
 
@@ -144,7 +150,8 @@ func TestTCPLocalListener_MutualTLSRequiresClientCert(t *testing.T) {
 	listener, pool, cleanup := startTLSListener(t, caCrt)
 	defer cleanup()
 
-	// 无客户端证书：握手失败（或 TLS1.3 下首次读写暴露告警），不得产生会话。
+	// No client certificate: the handshake fails (or, under TLS 1.3, the first
+	// read/write surfaces the alert); no session may be produced.
 	conn, dialErr := tls.DialWithDialer(&net.Dialer{Timeout: 5 * time.Second}, "tcp", listener.Addr(), &tls.Config{
 		RootCAs: pool, ServerName: "127.0.0.1", MinVersion: tls.VersionTLS12,
 	})
@@ -156,6 +163,6 @@ func TestTCPLocalListener_MutualTLSRequiresClientCert(t *testing.T) {
 	}
 	require.Empty(t, listener.SessionStore().List(), "no session may exist from a rejected handshake")
 
-	// 持 CA 签发的客户端证书：正常注册。
+	// Holding a CA-signed client certificate: registers normally.
 	tlsProviderSession(t, listener, pool, clientCrt, clientKey, "tls-provider-mtls")
 }

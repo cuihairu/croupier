@@ -14,21 +14,25 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// instanceHealthyWindow 判定实例健康的心跳窗口（与生产行为一致的默认值，
-// 测试可注入负值覆盖以触达 stale 降级分支）。
+// instanceHealthyWindow is the heartbeat window for judging instance health
+// (default matches production behavior; tests may inject a negative value to
+// reach the stale degradation branch).
 var instanceHealthyWindow = 30 * time.Second
 
-// defaultDrainGrace 是 provider drain 的默认等待窗：drain 标记后等待在途
-// 请求归零，超窗即完成并返回（contract 语义：in-flight 在宽限内完成，
-// 宽限过后不再等待）。请求携带 retry_after_ms 时以该值优先。
+// defaultDrainGrace is the default wait window for provider drain: after the
+// drain flag is set, wait for in-flight requests to reach zero; once the
+// window expires, finish and return (contract semantics: in-flight requests
+// complete within the grace period; past the grace period we stop waiting).
+// When the request carries retry_after_ms, that value takes precedence.
 const defaultDrainGrace = 30 * time.Second
 
-// drainPollInterval 是 drain 等待在途归零的轮询间隔。
+// drainPollInterval is the polling interval used while drain waits for
+// in-flight requests to reach zero.
 const drainPollInterval = 25 * time.Millisecond
 
-// providerDrainingError 把「目标 provider 正在 drain」显式回给调用方，供
-// 上层按 retry-after 语义呈现（wire contract：arriving requests 应答
-// draining/retry_after_ms）。
+// providerDrainingError explicitly reports "target provider is draining" back
+// to the caller so upper layers can present it with retry-after semantics
+// (wire contract: arriving requests are answered with draining/retry_after_ms).
 func providerDrainingError(serviceID string) error {
 	return fmt.Errorf("provider %s is draining (retry after %dms)", serviceID, defaultDrainGrace.Milliseconds())
 }
@@ -85,15 +89,16 @@ type LocalHandler struct {
 	logger           *slog.Logger
 	configDir        string
 	agentID          string
-	expectedGameID   string // Agent 配置的 gameId，用于校验 SDK 注册
-	expectedEnv      string // Agent 配置的 env，用于校验 SDK 注册
-	// providerCallTimeout 是 Agent → Provider 同步调用的默认预算；
-	// 请求 metadata["timeoutMs"] 声明更小值时取更小者（Go deadline
-	// min 语义）。此前硬编码 10s 与 Server 派发层 15s 倒挂。
+	expectedGameID   string // gameId from agent config, used to validate SDK registration
+	expectedEnv      string // env from agent config, used to validate SDK registration
+	// providerCallTimeout is the default budget for synchronous Agent → Provider
+	// calls; when request metadata["timeoutMs"] declares a smaller value, the
+	// smaller one wins (Go deadline min semantics). The previous hardcoded 10s
+	// was inverted relative to the Server dispatch layer's 15s.
 	providerCallTimeout time.Duration
-	// Provider 握手鉴权（CR-FIX-11）：requireProviderAuth=true 时
-	// ProviderConnectRequest.metadata["authToken"] 必须等于
-	// providerAuthToken，否则拒绝握手（两条连接路径共用）。
+	// Provider handshake auth (CR-FIX-11): when requireProviderAuth=true,
+	// ProviderConnectRequest.metadata["authToken"] must equal providerAuthToken,
+	// otherwise the handshake is rejected (shared by both connection paths).
 	providerAuthRequired bool
 	providerAuthToken    string
 	mu                   sync.RWMutex

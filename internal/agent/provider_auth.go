@@ -1,8 +1,11 @@
-// Provider 握手鉴权（CR-FIX-11）：SDK Provider → Agent 的
-// ProviderConnectRequest 携带 metadata["authToken"]，Agent 侧可配置强制
-// 校验。两条连接路径（TCP 本地监听 providerSessionHandler.handleConnect 与
-// mux 路径 LocalHandler.handleProviderConnect）共用本文件的校验与提取逻辑，
-// 保证语义一致：鉴权在会话注册之前，拒绝即拒绝连接，不产生半注册会话。
+// Provider handshake auth (CR-FIX-11): the SDK Provider → Agent
+// ProviderConnectRequest carries metadata["authToken"], and the Agent side can
+// be configured to enforce validation. Both connection paths (the TCP local
+// listener's providerSessionHandler.handleConnect and the mux path
+// LocalHandler.handleProviderConnect) share this file's validation and
+// extraction logic, keeping the semantics identical: auth happens before
+// session registration, and a rejection rejects the connection without
+// producing a half-registered session.
 package agent
 
 import (
@@ -13,14 +16,17 @@ import (
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 )
 
-// ProviderAuthMetadataKey 是 ProviderConnectRequest.metadata 中的握手
-// 鉴权键（平台保留键，见 agentlocal.ReservedMetadataKeys——永不入会话
-// 元数据，用户声明同名键一律丢弃）。
+// ProviderAuthMetadataKey is the handshake auth key inside
+// ProviderConnectRequest.metadata (a platform reserved key, see
+// agentlocal.ReservedMetadataKeys — it never enters session metadata, and a
+// user-declared key of the same name is always dropped).
 const ProviderAuthMetadataKey = "authToken"
 
-// SetProviderAuth 配置 Provider 握手鉴权。require=true 且 token 为空视为
-// 配置错误：所有握手将被拒绝（fail-closed，宁可拒绝服务也不裸奔）——
-// 启动侧应在配置校验阶段拦截，这里只保证不静默放开。
+// SetProviderAuth configures Provider handshake auth. require=true with an
+// empty token is treated as a configuration error: every handshake will be
+// rejected (fail-closed — prefer denying service over running unauthenticated).
+// The startup side should intercept this during config validation; this code
+// only guarantees it does not silently open up.
 func (h *LocalHandler) SetProviderAuth(require bool, token string) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -28,31 +34,34 @@ func (h *LocalHandler) SetProviderAuth(require bool, token string) {
 	h.providerAuthToken = strings.TrimSpace(token)
 }
 
-// ProviderAuthConfig 返回当前握手鉴权配置（TCP 本地监听路径读取用，
-// 与 mux 路径共用同一份配置）。
+// ProviderAuthConfig returns the current handshake auth config (read by the
+// TCP local listener path; shared with the mux path).
 func (h *LocalHandler) ProviderAuthConfig() (require bool, token string) {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 	return h.providerAuthRequired, h.providerAuthToken
 }
 
-// extractProviderAuthToken 从 ProviderConnectRequest 提取握手 token（trim
-// 后返回）。必须在 MergeUserProviderMetadata 之前调用——合并会把保留键
-// （含 authToken）丢弃，之后就读不到了。
+// extractProviderAuthToken extracts the handshake token from
+// ProviderConnectRequest (trimmed). It must be called before
+// MergeUserProviderMetadata — merging drops reserved keys (including
+// authToken), after which it is no longer readable.
 func extractProviderAuthToken(req *sdkv1.ProviderConnectRequest) string {
 	return strings.TrimSpace(req.GetMetadata()[ProviderAuthMetadataKey])
 }
 
-// checkProviderAuth 校验握手 token。返回 error 即拒绝握手（调用方不得
-// 注册会话）。require=false 时恒通过（token 完全忽略——未开启强制时
-// 无 token/错 token 都不影响注册）。token 比较用常量时间比较，防时序
-// 侧信道。
+// checkProviderAuth validates the handshake token. Returning an error rejects
+// the handshake (the caller must not register the session). With
+// require=false it always passes (the token is ignored entirely — without
+// enforcement, a missing or wrong token does not affect registration). The
+// token comparison uses constant-time comparison to prevent timing side
+// channels.
 func checkProviderAuth(require bool, expected, got string) error {
 	if !require {
 		return nil
 	}
 	if expected == "" {
-		// 配置错误（require 无 token）：fail-closed，全部拒绝。
+		// configuration error (require without a token): fail-closed, reject all.
 		return fmt.Errorf("provider auth rejected: requireProviderAuth is on but no token configured")
 	}
 	if got == "" {

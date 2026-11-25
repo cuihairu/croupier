@@ -1,6 +1,7 @@
-// 覆盖目标：handleListCronJobs、marshalTaskInvoke、executeTask、
-// callProvider 会话路由、callLocalProvider 成功路径、provider connect
-// scope 告警、providerSessionHandler 握手分支、Serve/listener 错误路径。
+// Coverage targets: handleListCronJobs, marshalTaskInvoke, executeTask,
+// callProvider session routing, the callLocalProvider success path, provider
+// connect scope warnings, providerSessionHandler handshake branches, and the
+// Serve/listener error paths.
 package agent
 
 import (
@@ -371,7 +372,8 @@ func TestCallProviderSessionRoutingV9(t *testing.T) {
 	})
 }
 
-// startV9RawProvider 起一个裸 TCP provider（服务端 MuxConn），返回监听地址。
+// startV9RawProvider starts a bare TCP provider (server-side MuxConn) and
+// returns its listen address.
 func startV9RawProvider(t *testing.T, handler transportcore.Handler) string {
 	t.Helper()
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
