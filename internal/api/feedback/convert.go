@@ -106,14 +106,15 @@ func convertExtra(fb *model.Feedback) model.JSON {
 		extra["feedbackAttachment"] = fb.Attach
 	}
 	extra["feedbackId"] = fb.ID
-	// 设计债清理：feedbackId 无条件写入，extra 恒非空，
-	// 原 len(extra)==0 分支不可达已删除。
+	// Design-debt cleanup: feedbackId is written unconditionally so extra is
+	// never empty; the former len(extra)==0 branch was unreachable and deleted.
 	bytes, _ := json.Marshal(extra)
 	return bytes
 }
 
 // extractConvertedTicketID reads back the marker written on conversion.
-// Marker format: "[已转工单 #<id>]" possibly followed by a note block.
+// Marker format: the converted-ticket prefix (see the prefix constant below)
+// followed by the ticket id, optionally followed by a note block.
 func extractConvertedTicketID(reply string) string {
 	reply = strings.TrimSpace(reply)
 	const prefix = "[已转工单 #"

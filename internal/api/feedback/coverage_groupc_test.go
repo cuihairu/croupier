@@ -1,5 +1,5 @@
-// 补齐 feedback 包剩余可覆盖分支（group C）：
-// service.Update 的 FeedbackModel 未初始化分支。
+// Fills in the remaining coverable branches of the feedback package (group C):
+// the uninitialized FeedbackModel branch of service.Update.
 package feedback
 
 import (

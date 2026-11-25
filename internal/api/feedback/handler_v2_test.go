@@ -134,7 +134,8 @@ func TestServiceV2_Create_NilRequest(t *testing.T) {
 func TestServiceV2_Create_ContactOptional(t *testing.T) {
 	db := newFeedbackTestDBV2(t)
 	s := NewService(&svc.ServiceContext{FeedbackModel: model.NewFeedbackModel(db)})
-	// 联系方式可选：权限申请等站内来源不带 contact 也必须能落库。
+	// Contact is optional: in-site sources such as permission requests carry no
+	// contact and must still be able to land in the database.
 	resp, err := s.Create(context.TODO(), &FeedbackCreateRequest{Content: "x", Category: "c"})
 	require.NoError(t, err)
 	assert.Equal(t, "", resp.Contact)

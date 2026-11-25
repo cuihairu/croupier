@@ -167,7 +167,8 @@ func TestService_Create_NilRequest(t *testing.T) {
 func TestService_Create_ContactOptional(t *testing.T) {
 	db := newFeedbackExtraTestDB(t)
 	service := NewService(&svc.ServiceContext{FeedbackModel: model.NewFeedbackModel(db)})
-	// 联系方式可选：权限申请等站内来源不带 contact 也必须能落库。
+	// Contact is optional: in-site sources such as permission requests carry no
+	// contact and must still be able to land in the database.
 	resp, err := service.Create(context.Background(), &FeedbackCreateRequest{Content: "test", Category: "bug"})
 	require.NoError(t, err)
 	assert.Equal(t, "", resp.Contact)
@@ -223,7 +224,8 @@ func TestService_Delete_InvalidID(t *testing.T) {
 	assert.Contains(t, err.Error(), "反馈ID无效")
 }
 
-// 零值 ID 在统一解析层（utils.ParseUintID）即拒绝，不再落入模型层 not-found。
+// A zero-value ID is rejected in the unified parsing layer (utils.ParseUintID)
+// and no longer reaches the model-layer not-found path.
 func TestService_Delete_ZeroID(t *testing.T) {
 	db := newFeedbackExtraTestDB(t)
 	service := NewService(&svc.ServiceContext{FeedbackModel: model.NewFeedbackModel(db)})

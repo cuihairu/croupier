@@ -11,7 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Delete 成功路径：先创建反馈再删除，handler 应回 200 与操作成功消息。
+// Delete success path: create a feedback first, then delete it; the handler
+// should return 200 with the operation-success message.
 func TestHandler_Delete_Success(t *testing.T) {
 	db := newFeedbackTestDB(t)
 	handler := newFeedbackHandler(db)
@@ -33,7 +34,7 @@ func TestHandler_Delete_Success(t *testing.T) {
 	require.Equal(t, http.StatusOK, delRec.Code, delRec.Body.String())
 	assert.Contains(t, delRec.Body.String(), "操作成功")
 
-	// 删除后再查应 404/错误，不应残留
+	// Listing after the delete should show 404/error; nothing should remain
 	listCtx, listRec := newFeedbackRequest(http.MethodGet, "/api/v1/feedback?page=1&pageSize=10", "")
 	handler.List(listCtx)
 	require.Equal(t, http.StatusOK, listRec.Code)

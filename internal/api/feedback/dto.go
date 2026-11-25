@@ -9,8 +9,8 @@ type Feedback struct {
 	Category  string `json:"category"`
 	Priority  string `json:"priority"`
 	Status    string `json:"status"`
-	Rating    int    `json:"rating"` // 1-5星
-	Attach    string `json:"attach"` // 附件URL
+	Rating    int    `json:"rating"` // 1-5 stars
+	Attach    string `json:"attach"` // attachment URL
 	GameId    string `json:"gameId"`
 	Env       string `json:"env"`
 	Reply     string `json:"reply"`

@@ -92,8 +92,9 @@ func TestHandler_CreateAndList_RoundTrip(t *testing.T) {
 func TestHandler_Create_MissingFields_BadRequest(t *testing.T) {
 	handler := newFeedbackHandler(newFeedbackTestDB(t))
 
-	// 业务校验失败必须 400：历史上 errors.New 落入 500 兜底，把
-	// 客户端输入错误伪装成服务端故障（权限申请无联系方式即触发）。
+	// Business validation failures must return 400: historically errors.New
+	// fell into the 500 fallback, disguising client input errors as a
+	// server-side fault (permission requests without contact triggered this).
 	tests := []struct {
 		name string
 		body string
@@ -113,8 +114,9 @@ func TestHandler_Create_MissingFields_BadRequest(t *testing.T) {
 	}
 }
 
-// 联系方式可选：个人中心权限申请（无 contact 字段）历史上被
-// 「联系方式不能为空」拒绝并伪装成 500。现在缺联系方式应成功落库。
+// Contact is optional: the profile permission request (no contact field) was
+// historically rejected with "contact cannot be empty" disguised as a 500.
+// Missing contact should now land in the database successfully.
 func TestHandler_Create_ContactOptional_Ok(t *testing.T) {
 	handler := newFeedbackHandler(newFeedbackTestDB(t))
 

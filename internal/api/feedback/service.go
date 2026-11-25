@@ -64,12 +64,15 @@ func (s *Service) Create(ctx context.Context, req *FeedbackCreateRequest) (*Feed
 	if req == nil {
 		return nil, errorx.NewBadRequest("请求体不能为空")
 	}
-	// 联系方式可选：站内用户（如个人中心权限申请）无需留联系方式，
-	// 游客反馈才需要；为空时留空落库，由管理员在分诊时追问。
+	// Contact is optional: in-site users (e.g. permission requests from the
+	// personal center) need not leave contact details, only guest feedback
+	// does. When empty it is stored empty and the admin follows up during
+	// triage.
 	contact := strings.TrimSpace(req.Contact)
 
-	// 业务校验失败必须 400（validation_failed 族），历史上 errors.New
-	// 落入 response.Error 兜底返回 500，把客户端输入错误伪装成服务端故障。
+	// Business validation failures must be 400 (the validation_failed family).
+	// Historically errors.New fell through to the response.Error fallback and
+	// returned 500, disguising client input errors as server-side faults.
 	content := strings.TrimSpace(req.Content)
 	if content == "" {
 		return nil, errorx.NewBadRequest("反馈内容不能为空")
