@@ -11,10 +11,11 @@ type Handler struct {
 	service *Service
 }
 
-// openMultipartFileHeader 是 multipart.FileHeader.Open 的测试缝隙：
-// gin 的 c.FormFile 内部（Request.FormFile）已对同一 FileHeader 先执行
-// 一次 Open，真实请求中 handler 侧第二次 Open 失败不可达（内存态恒成功、
-// 磁盘态需临时文件在两次同步调用间消失），仅测试可注入故障验证。
+// openMultipartFileHeader is the seam for multipart.FileHeader.Open:
+// gin's c.FormFile (via Request.FormFile) already performs one Open on the same
+// FileHeader, so the handler's second Open failing is unreachable in a real
+// request (in-memory always succeeds; on disk the temp file would have to
+// disappear between two synchronous calls). Only tests can inject the fault.
 var openMultipartFileHeader = func(fh *multipart.FileHeader) (multipart.File, error) {
 	return fh.Open()
 }

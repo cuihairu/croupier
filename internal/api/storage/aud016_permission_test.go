@@ -1,8 +1,11 @@
-// AUD-016 回归：通用对象接口按现有权限定义控制写操作与签名访问，并保护
-// 平台保留前缀（backups/、releases/ 等）。
+// AUD-016 regression: the generic object interface gates write operations and
+// signed access by the existing permission definitions, and protects the
+// platform-reserved prefixes (backups/, releases/, etc.).
 //
-// 根因：storage/service.go 直接用输入 path 写全局存储，仅凭认证（Authority
-// 中间件）即可覆盖 backups/ 对象。修复为服务层权限门禁 + 保留前缀写边界。
+// Root cause: storage/service.go wrote to the global store using the input path
+// directly, so authentication alone (the Authority middleware) was enough to
+// overwrite backups/ objects. Fixed with a service-level permission gate plus a
+// reserved-prefix write boundary.
 package storage
 
 import (
@@ -18,12 +21,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// uploadReq 构造一个以内存内容上传的请求（File 为 nil 走 Content 分支）。
+// uploadReq builds an upload request with in-memory content (File nil takes the
+// Content branch).
 func uploadReq(path, content string) *UploadObjectRequest {
 	return &UploadObjectRequest{Path: path, Content: content}
 }
 
-// assertForbidden 断言错误为 403 且携带期望稳定错误码。
+// assertForbidden asserts the error is 403 and carries the expected stable error code.
 func assertForbidden(t *testing.T, err error, code string) {
 	t.Helper()
 	require.Error(t, err, "必须被拒绝")
@@ -33,14 +37,15 @@ func assertForbidden(t *testing.T, err error, code string) {
 	assert.Equal(t, code, codeErr.ErrorCode(), "稳定错误码")
 }
 
-// assertNotExists 断言对象不存在（无副作用）。
+// assertNotExists asserts the object does not exist (no side effects).
 func assertNotExists(t *testing.T, s *Service, key string) {
 	t.Helper()
 	_, err := s.svcCtx.ObjectStore.Get(context.Background(), key)
 	assert.ErrorIs(t, err, os.ErrNotExist, "对象 %s 不得存在", key)
 }
 
-// assertExistsContent 断言对象存在且内容一致（保留前缀对象未被改动）。
+// assertExistsContent asserts the object exists with identical content (a
+// protected-prefix object was left untouched).
 func assertExistsContent(t *testing.T, s *Service, key, want string) {
 	t.Helper()
 	rc, err := s.svcCtx.ObjectStore.Get(context.Background(), key)
@@ -51,8 +56,9 @@ func assertExistsContent(t *testing.T, s *Service, key, want string) {
 	assert.Equal(t, want, string(got), "对象 %s 内容不变", key)
 }
 
-// TestStorage_Aud016_ZeroRoleDeniedOnMutations 验证零角色账号在六个操作面上
-// 一律 403 permission_denied 且无副作用；超管对照可用。
+// TestStorage_Aud016_ZeroRoleDeniedOnMutations verifies that a zero-role account
+// gets 403 permission_denied with no side effects across all six operation
+// surfaces; the super admin control still works.
 func TestStorage_Aud016_ZeroRoleDeniedOnMutations(t *testing.T) {
 	svc := NewService(setupSvcCtxWithStore(t))
 	ctx := viewerCtx()
@@ -76,16 +82,17 @@ func TestStorage_Aud016_ZeroRoleDeniedOnMutations(t *testing.T) {
 	_, err = svc.SignedUrl(ctx, &SignedUrlRequest{Path: "uploads/leak.txt"})
 	assertForbidden(t, err, "permission_denied")
 
-	// 超管对照：数据面存在、拒绝非「资源缺失」。
+	// Super-admin control: the data plane exists and rejects non-"resource missing".
 	up, err := svc.UploadObject(authCtx(), uploadReq("uploads/ok.txt", "body"))
 	require.NoError(t, err)
 	assert.Equal(t, "uploads/ok.txt", up.Path)
 	assertExistsContent(t, svc, "uploads/ok.txt", "body")
 }
 
-// TestStorage_Aud016_UploadsWriteGrantsNormalOps 验证仅持 uploads:write 的
-// 操作员可执行常规存储操作（数据面正常），但不能触碰保留前缀（写边界），
-// 也不能为备份对象签发签名链接（镜像 backup:read）。
+// TestStorage_Aud016_UploadsWriteGrantsNormalOps verifies that an operator holding
+// only uploads:write can perform normal storage operations (the data plane works),
+// but cannot touch reserved prefixes (write boundary), nor sign links for backup
+// objects (mirrors backup:read).
 func TestStorage_Aud016_UploadsWriteGrantsNormalOps(t *testing.T) {
 	svc := NewService(setupSvcCtxWithStore(t))
 	ctx := operatorCtx()
@@ -95,28 +102,29 @@ func TestStorage_Aud016_UploadsWriteGrantsNormalOps(t *testing.T) {
 	assert.Equal(t, "uploads/notes.txt", up.Path)
 	assertExistsContent(t, svc, "uploads/notes.txt", "note-body")
 
-	// 覆盖自身对象允许（同域写）。
+	// Overwriting own objects allowed (same-domain write).
 	_, err = svc.UploadObject(ctx, uploadReq("uploads/notes.txt", "note-v2"))
 	require.NoError(t, err)
 	assertExistsContent(t, svc, "uploads/notes.txt", "note-v2")
 
-	// 常规路径签名链接放行。
+	// Signed links on regular paths are allowed through.
 	sign, err := svc.SignedUrl(ctx, &SignedUrlRequest{Path: "uploads/notes.txt"})
 	require.NoError(t, err)
 	assert.NotEmpty(t, sign.URL)
 
-	// 保留前缀写被拒：审计实证的「覆盖 backups/ 对象」路径。
+	// Reserved-prefix writes rejected: the "overwrite a backups/ object" path proven by the audit.
 	_, err = svc.UploadObject(ctx, uploadReq("backups/scope/db.sql", "pwn"))
 	assertForbidden(t, err, "retention_prefix_forbidden")
 	assertNotExists(t, svc, "backups/scope/db.sql")
 
-	// 备份对象签名访问被拒（无 backup:read，不得绕过备份下载授权）。
+	// Signed access to a backup object is denied (no backup:read; backup download authorization must not be bypassed).
 	_, err = svc.SignedUrl(ctx, &SignedUrlRequest{Path: "backups/scope/db.sql"})
 	assertForbidden(t, err, "permission_denied")
 }
 
-// TestStorage_Aud016_SuperAdminCannotTouchProtectedPrefixes 验证保留前缀写
-// 边界对超管同样成立：平台维护对象不经通用接口写/删/改名。
+// TestStorage_Aud016_SuperAdminCannotTouchProtectedPrefixes verifies that the
+// reserved-prefix write boundary holds for the super admin too: platform-maintained
+// objects are not written/deleted/renamed through the generic interface.
 func TestStorage_Aud016_SuperAdminCannotTouchProtectedPrefixes(t *testing.T) {
 	svc := NewService(setupSvcCtxWithStore(t))
 	ctx := authCtx()
@@ -140,13 +148,13 @@ func TestStorage_Aud016_SuperAdminCannotTouchProtectedPrefixes(t *testing.T) {
 	_, err = svc.CreateDirectory(ctx, &CreateDirectoryRequest{Prefix: "backups/scope"})
 	assertForbidden(t, err, "retention_prefix_forbidden")
 
-	// 双向：移入或移出保留前缀都拒绝。
+	// Both directions: moving into or out of a reserved prefix is denied.
 	_, err = svc.RenameDirectory(ctx, &RenameDirectoryRequest{OldPrefix: "media", NewPrefix: "backups/scope"})
 	assertForbidden(t, err, "retention_prefix_forbidden")
 	_, err = svc.RenameDirectory(ctx, &RenameDirectoryRequest{OldPrefix: "backups/scope", NewPrefix: "media"})
 	assertForbidden(t, err, "retention_prefix_forbidden")
 
-	// 保留前缀签名访问：超管放行（读能力，非写）。
+	// Signed access to reserved prefixes: the super admin is allowed through (read capability, not write).
 	sign, err := svc.SignedUrl(ctx, &SignedUrlRequest{Path: "backups/scope/db.sql"})
 	require.NoError(t, err)
 	assert.NotEmpty(t, sign.URL)
@@ -155,8 +163,9 @@ func TestStorage_Aud016_SuperAdminCannotTouchProtectedPrefixes(t *testing.T) {
 	assert.NotEmpty(t, sign.URL)
 }
 
-// TestStorage_Aud016_BatchWholeRejected 验证批量删除含保留前缀条目时整单
-// 拒绝、无任何删除（无部分执行状态）。
+// TestStorage_Aud016_BatchWholeRejected verifies that a batch delete containing a
+// reserved-prefix entry is rejected as a whole, with nothing deleted (no partial
+// execution state).
 func TestStorage_Aud016_BatchWholeRejected(t *testing.T) {
 	svc := NewService(setupSvcCtxWithStore(t))
 	ctx := authCtx()
@@ -172,19 +181,20 @@ func TestStorage_Aud016_BatchWholeRejected(t *testing.T) {
 	})
 	assertForbidden(t, err, "retention_prefix_forbidden")
 
-	// 无副作用：正常条目也不得被删除（整单拒绝）。
+	// No side effects: even the normal entries must not be deleted (whole-order rejection).
 	assertExistsContent(t, svc, "uploads/a.txt", "a")
 	assertExistsContent(t, svc, "uploads/b.txt", "b")
 }
 
-// TestStorage_Aud016_ProtectedPrefixObjectUntouched 验证预存的备份对象（由
-// 子系统直写，模拟 backupexec）不被覆盖/删除/改名，内容保持一致。
+// TestStorage_Aud016_ProtectedPrefixObjectUntouched verifies that a pre-existing
+// backup object (written directly by a subsystem, simulating backupexec) is never
+// overwritten/deleted/renamed and keeps its content.
 func TestStorage_Aud016_ProtectedPrefixObjectUntouched(t *testing.T) {
 	svc := NewService(setupSvcCtxWithStore(t))
 	ctx := authCtx()
 	const key = "backups/demo/prod/db.dump"
 
-	// 子系统侧直写（不经通用接口），模拟备份执行器产物。
+	// Subsystem-side direct write (not through the generic interface), simulating a backup runner artifact.
 	require.NoError(t, svc.svcCtx.ObjectStore.Put(context.Background(), key,
 		strings.NewReader("original-backup"), int64(len("original-backup")), "application/octet-stream"))
 

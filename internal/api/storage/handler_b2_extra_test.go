@@ -12,9 +12,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestHandlerUploadObject_PreParsedFormTempFileRemoved 预解析 multipart 表单并删除其临时文件。
-// http.Request.FormFile 在 handler 之前就会尝试 fh.Open() 并失败，
-// 处理器因此走“无文件”分支返回 400。
+// TestHandlerUploadObject_PreParsedFormTempFileRemoved pre-parses the multipart form and
+// removes its temporary file. http.Request.FormFile tries fh.Open() and fails before
+// the handler runs, so the handler takes the "no file" branch and answers 400.
 func TestHandlerUploadObject_PreParsedFormTempFileRemoved(t *testing.T) {
 	handler := setupHandler(t)
 	gin.SetMode(gin.TestMode)

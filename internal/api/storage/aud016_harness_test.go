@@ -1,8 +1,11 @@
-// AUD-016 回归：通用对象接口的权限门禁与受保护前缀边界。
+// AUD-016 regression: permission gating of the generic object interface and the
+// protected-prefix boundary.
 //
-// 共享 sqlite 上播种三类账号：超管（HasAdminRole 直通，作为对照）、仅持
-// uploads:write 的操作员（证明既有权限定义即放行）、零角色账号（证明此前
-// 「仅登录即可覆盖共享对象」的洞已关闭）。
+// Three kinds of accounts are seeded on a shared sqlite: a super admin
+// (HasAdminRole passes straight through, used as the control), an operator
+// holding only uploads:write (proving that the existing permission definition
+// alone grants access), and a zero-role account (proving that the old
+// "any logged-in user could overwrite shared objects" hole is closed).
 package storage
 
 import (
@@ -19,22 +22,25 @@ import (
 	"gorm.io/gorm/logger"
 )
 
-// storageSharedDB 是包级共享 sqlite（同 backup 包范式）：Admin/Role 表与种子
-// 账号在首次调用时迁移/播种一次，包内各用例复用，避免每用例 ~100 张表的
-// AutoMigrate 成本。
+// storageSharedDB is a package-level shared sqlite (same paradigm as the backup
+// package): the Admin/Role tables and seed accounts are migrated/seeded once on
+// first use and reused by every case in the package, avoiding a ~100-table
+// AutoMigrate cost per case.
 var (
 	storageSharedDBOnce sync.Once
 	storageSharedDBPtr  *gorm.DB
 )
 
 const (
-	// storageSuperAdminUsername 超管账号：HasAdminRole 直通，对照数据面可用。
+	// storageSuperAdminUsername is the super admin account: HasAdminRole passes
+	// straight through; it is the control for the data plane.
 	storageSuperAdminUsername = "storage_superadmin"
-	// storageOperatorUsername 仅持 uploads:write 的操作员：证明该既有权限
-	// 即可执行存储操作（数据面正常、拒绝非「资源缺失」）。
+	// storageOperatorUsername is an operator holding only uploads:write: proves that
+	// this existing permission is enough to perform storage operations (the data
+	// plane works and rejections are not "resource missing").
 	storageOperatorUsername = "storage_operator"
-	// storageViewerUsername 零角色账号：登录上下文正常但无任何角色/权限，
-	// RequireAnyPermission 必须拒绝。
+	// storageViewerUsername is a zero-role account: the login context is fine but
+	// there are no roles/permissions at all, so RequireAnyPermission must deny.
 	storageViewerUsername = "storage_viewer"
 )
 
@@ -54,7 +60,7 @@ func storageSharedDB(t *testing.T) *gorm.DB {
 	return storageSharedDBPtr
 }
 
-// seedStorageSuperAdmin 幂等创建 super_admin 超管账号（对照）。
+// seedStorageSuperAdmin idempotently creates the super_admin account (the control).
 func seedStorageSuperAdmin(t *testing.T, db *gorm.DB) {
 	t.Helper()
 	ctx := context.Background()
@@ -83,7 +89,8 @@ func seedStorageSuperAdmin(t *testing.T, db *gorm.DB) {
 	}
 }
 
-// seedStorageOperator 幂等创建仅持 uploads:write 权限的操作员账号。
+// seedStorageOperator idempotently creates an operator account holding only
+// uploads:write.
 func seedStorageOperator(t *testing.T, db *gorm.DB) {
 	t.Helper()
 	ctx := context.Background()
@@ -110,7 +117,8 @@ func seedStorageOperator(t *testing.T, db *gorm.DB) {
 		require.NoError(t, roleModel.Create(ctx, role))
 		require.NoError(t, adminModel.AssignRole(ctx, admin.ID, role.ID))
 	}
-	// 每次播种都重挂 uploads:write 权限（幂等），证明「持该权限即可操作」。
+	// Re-attach the uploads:write permission on every seeding pass (idempotent),
+	// proving "holding this permission is enough to operate".
 	roles, err = adminModel.GetAdminRoles(ctx, admin.ID)
 	require.NoError(t, err)
 	for _, r := range roles {
@@ -121,7 +129,7 @@ func seedStorageOperator(t *testing.T, db *gorm.DB) {
 	}
 }
 
-// seedStorageViewer 幂等创建零角色账号（无任何角色/权限）。
+// seedStorageViewer idempotently creates a zero-role account (no roles/permissions at all).
 func seedStorageViewer(t *testing.T, db *gorm.DB) {
 	t.Helper()
 	ctx := context.Background()
@@ -134,8 +142,10 @@ func seedStorageViewer(t *testing.T, db *gorm.DB) {
 	}
 }
 
-// identitySvcCtx 返回带种子账号身份面（Admin/Role/DB）+ 指定对象存储的
-// svcCtx：既有用例自建 svcCtx 时统一经此升级，让服务层权限门禁可过。
+// identitySvcCtx returns a svcCtx carrying the seeded accounts' identity surface
+// (Admin/Role/DB) plus the given object store: existing cases that build their own
+// svcCtx upgrade through this uniformly, so the service-level permission gate can
+// be exercised.
 func identitySvcCtx(t *testing.T, store objstore.Store) *svc.ServiceContext {
 	t.Helper()
 	db := storageSharedDB(t)
@@ -147,17 +157,17 @@ func identitySvcCtx(t *testing.T, store objstore.Store) *svc.ServiceContext {
 	}
 }
 
-// authCtx 返回携带超管用户名的请求上下文（对照）。
+// authCtx returns a request context carrying the super admin username (the control).
 func authCtx() context.Context {
 	return context.WithValue(context.Background(), "username", storageSuperAdminUsername)
 }
 
-// operatorCtx 返回携带仅持 uploads:write 操作员的请求上下文。
+// operatorCtx returns a request context carrying the uploads:write-only operator.
 func operatorCtx() context.Context {
 	return context.WithValue(context.Background(), "username", storageOperatorUsername)
 }
 
-// viewerCtx 返回携带零角色账号的请求上下文。
+// viewerCtx returns a request context carrying the zero-role account.
 func viewerCtx() context.Context {
 	return context.WithValue(context.Background(), "username", storageViewerUsername)
 }

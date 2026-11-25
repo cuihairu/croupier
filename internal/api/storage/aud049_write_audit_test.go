@@ -9,7 +9,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// aud049StorageEnv 组装带审计内存存储的对象存储服务（AUD-049）。
+// aud049StorageEnv assembles an object-store service with an in-memory audit store
+// wired in (AUD-049).
 func aud049StorageEnv(t *testing.T) (*Service, *audit.InMemoryAuditStore) {
 	t.Helper()
 	store := audit.NewInMemoryAuditStore()
@@ -18,9 +19,9 @@ func aud049StorageEnv(t *testing.T) (*Service, *audit.InMemoryAuditStore) {
 	return NewService(svcCtx), store
 }
 
-// aud049StorageRecords 取同事件类型的全部留痕。注意 InMemoryAuditStore.List
-// 底层是 map（遍历顺序随机），断言一律按 outcome/operation 子集过滤，不依赖
-// 顺序。
+// aud049StorageRecords fetches all audit records of one event type. Note that
+// InMemoryAuditStore.List is backed by a map (random iteration order), so
+// assertions always filter by an outcome/operation subset and never rely on order.
 func aud049StorageRecords(t *testing.T, store *audit.InMemoryAuditStore, event audit.AuditEventType) []*audit.AuditRecord {
 	t.Helper()
 	records, _, err := store.List(audit.AuditFilter{EventType: []audit.AuditEventType{event}}, audit.AuditPage{Page: 1, PageSize: 50})
@@ -48,8 +49,9 @@ func aud049ByOperation(records []*audit.AuditRecord, operation string) []*audit.
 	return out
 }
 
-// 上传/删除/批量删除/目录变更成功留痕；零角色账号与无用户名上下文被权限
-// 门禁拒绝时同事件类型落 denied。
+// Successful upload/delete/batch-delete/directory changes are audited; when a
+// zero-role account or a context without a username is denied by the permission
+// gate, the same event type is recorded as denied.
 func TestAud049_StorageWriteAudit(t *testing.T) {
 	s, store := aud049StorageEnv(t)
 
@@ -100,8 +102,8 @@ func TestAud049_StorageWriteAudit(t *testing.T) {
 	require.Len(t, aud049ByOperation(dirs, "directory_rename"), 1)
 }
 
-// ctx 无用户名（外部 token 面）：权限门禁拒绝落 denied，actor 留空但
-// 事件类型 + path 仍可回查。
+// ctx without a username (external token surface): the permission gate denies and
+// records denied; the actor is left empty but the event type + path remain queryable.
 func TestAud049_StorageAuditDeniedWithoutUsername(t *testing.T) {
 	s, store := aud049StorageEnv(t)
 

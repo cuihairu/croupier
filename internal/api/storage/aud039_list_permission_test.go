@@ -1,10 +1,14 @@
-// AUD-039 回归：对象列表读取面挂服务层权限门禁。
+// AUD-039 regression: the object-list read surface carries the service-layer
+// permission gate.
 //
-// 根因：AUD-016 为存储管理面的写操作（upload/delete/batch-delete/目录）与
-// 签名链接加了 requireStoragePermission，但 ListObjects 漏挂——任何登录用户
-// 即可枚举全库对象清单（含 backups/、releases/ 等平台维护对象名），泄露平台
-// 内部对象命名与发布产物存在性。修复为列表读取面与写面同一粗粒度门禁
-// （admin:all | uploads:write）；前缀级 ABAC 留待后续拆分。
+// Root cause: AUD-016 added requireStoragePermission to the storage-management
+// write operations (upload/delete/batch-delete/directories) and to signed links,
+// but ListObjects was missed -- any logged-in user could enumerate the full object
+// inventory of the store (including platform-maintained object names such as
+// backups/, releases/), leaking internal object naming and the existence of
+// release artifacts. Fixed by giving the list read surface the same coarse-grained
+// gate as the write surface (admin:all | uploads:write); prefix-level ABAC is left
+// for a later split.
 package storage
 
 import (
@@ -14,22 +18,24 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestStorage_Aud039_ZeroRoleDeniedOnList 验证零角色账号列表被拒（403
-// permission_denied）；超管对照放行，证明拒绝是权限不足而非「资源缺失」。
+// TestStorage_Aud039_ZeroRoleDeniedOnList verifies that a zero-role account is denied
+// on list (403 permission_denied); the super-admin control passes through, proving the
+// rejection is insufficient permission rather than "resource missing".
 func TestStorage_Aud039_ZeroRoleDeniedOnList(t *testing.T) {
 	svc := NewService(setupSvcCtxWithStore(t))
 
 	_, err := svc.ListObjects(viewerCtx(), &ListObjectsRequest{})
 	assertForbidden(t, err, "permission_denied")
 
-	// 超管对照：数据面可读。
+	// Super-admin control: the data plane is readable.
 	resp, err := svc.ListObjects(authCtx(), &ListObjectsRequest{})
 	require.NoError(t, err)
 	assert.NotNil(t, resp)
 }
 
-// TestStorage_Aud039_UploadsWriteGrantsList 验证仅持 uploads:write 的操作员
-// 列表放行（读写同域粗粒度权限一致），且能看到自己上传的对象。
+// TestStorage_Aud039_UploadsWriteGrantsList verifies that an operator holding only
+// uploads:write is allowed through on list (read and write share the same coarse-grained
+// permission) and can see the objects they uploaded.
 func TestStorage_Aud039_UploadsWriteGrantsList(t *testing.T) {
 	svc := NewService(setupSvcCtxWithStore(t))
 

@@ -1,7 +1,8 @@
-// 覆盖目标：Handler.DeleteObject 的 query 绑定失败分支
-// （DeleteObjectRequest 仅含 string 字段，无法像 SignedUrl/ListObjects 那样
-// 用非法数值触发 mapForm 失败，因此注入失败 Validator 强制 validate 报错，
-// 与 node/console/config 包的 coverage_final 同法）。
+// Coverage target: the query binding failure branch of Handler.DeleteObject
+// (DeleteObjectRequest holds only string fields, so mapForm cannot be made to
+// fail with an out-of-range value the way SignedUrl/ListObjects can; instead a
+// failing Validator is injected to force validate to error -- the same approach
+// as the coverage_final tests in the node/console/config packages).
 package storage
 
 import (
@@ -13,7 +14,7 @@ import (
 	"github.com/gin-gonic/gin/binding"
 )
 
-// storageFailValidator 让任意 Bind 的 validate 步骤返回错误。
+// storageFailValidator makes the validate step of any Bind return an error.
 type storageFailValidator struct{}
 
 func (storageFailValidator) ValidateStruct(any) error { return errors.New("forced bind failure") }

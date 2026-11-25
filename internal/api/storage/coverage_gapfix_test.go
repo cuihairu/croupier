@@ -13,8 +13,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// gapfixStore 在 failingStore 基础上记录 List/Delete 收到的 key，
-// 用于断言防御分支对入参的修正结果。
+// gapfixStore builds on failingStore and records the keys received by List/Delete,
+// used to assert the defense branches' correction of inputs.
 type gapfixStore struct {
 	failingStore
 	listedPrefixes []string
@@ -31,8 +31,9 @@ func (g *gapfixStore) Delete(_ context.Context, key string) error {
 	return nil
 }
 
-// withSlashStrippingNormalizer 注入"剥离尾部斜杠"的归一化实现，
-// 使补斜杠防御分支可达；结束后还原缝隙。
+// withSlashStrippingNormalizer injects a "strip trailing slash" normalization
+// implementation, making the slash-restoring defense branch reachable; the seam is
+// restored afterwards.
 func withSlashStrippingNormalizer(t *testing.T) {
 	t.Helper()
 	orig := normalizeStoragePath
@@ -40,8 +41,9 @@ func withSlashStrippingNormalizer(t *testing.T) {
 	t.Cleanup(func() { normalizeStoragePath = orig })
 }
 
-// path.Join 对空参数切片返回 ""，clean == "." 兜底仅在缝隙注入
-// 恒返回 "." 的 Join 时可达；验证结果归零且不追加尾部斜杠。
+// path.Join returns "" for an empty argument slice; the clean == "." fallback is
+// reachable only when the seam injects a Join that always returns "."; verify the
+// result is zeroed out and no trailing slash is appended.
 func TestGapfixService_NormalizeStoragePath_JoinDotSeam(t *testing.T) {
 	orig := joinStoragePath
 	joinStoragePath = func(parts ...string) string { return "." }
@@ -51,9 +53,9 @@ func TestGapfixService_NormalizeStoragePath_JoinDotSeam(t *testing.T) {
 	assert.Equal(t, "", normalizeStoragePath("a/b/"))
 }
 
-// gin 的 c.FormFile 内部已先 Open 同一 FileHeader，handler 侧第二次
-// Open 失败真实请求不可达；注入故障验证 500 internal_error 兜底
-// （AUD-047 opaque：原文只进日志）。
+// gin's c.FormFile already Opens the same FileHeader, so the handler's second Open
+// failing is unreachable in a real request; inject the fault to verify the 500
+// internal_error fallback (AUD-047 opaque: the raw text only goes to the log).
 func TestGapfixHandler_UploadObject_FileOpenErrorSeam(t *testing.T) {
 	orig := openMultipartFileHeader
 	openMultipartFileHeader = func(*multipart.FileHeader) (multipart.File, error) {
@@ -72,8 +74,8 @@ func TestGapfixHandler_UploadObject_FileOpenErrorSeam(t *testing.T) {
 	assert.NotContains(t, rec.Body.String(), "open spilled file failed")
 }
 
-// 归一化结果丢失尾部斜杠时，ListObjects 的防御分支应把目录前缀
-// 的 "/" 补回后再下推给 store。
+// When normalization drops the trailing slash, ListObjects' defense branch should
+// restore the "/" of a directory prefix before pushing it down to the store.
 func TestGapfixService_ListObjects_PrefixSlashGuard(t *testing.T) {
 	withSlashStrippingNormalizer(t)
 
@@ -86,8 +88,9 @@ func TestGapfixService_ListObjects_PrefixSlashGuard(t *testing.T) {
 	assert.Equal(t, []string{"dir/"}, store.listedPrefixes)
 }
 
-// 归一化结果丢失尾部斜杠时，DeleteObject 的防御分支应补回 "/"
-// 并以带斜杠路径调用 store、返回给调用方。
+// When normalization drops the trailing slash, DeleteObject's defense branch should
+// restore the "/", call the store with the slash-suffixed path, and return it to the
+// caller.
 func TestGapfixService_DeleteObject_SlashGuard(t *testing.T) {
 	withSlashStrippingNormalizer(t)
 
@@ -101,8 +104,9 @@ func TestGapfixService_DeleteObject_SlashGuard(t *testing.T) {
 	assert.Equal(t, []string{"dir/"}, store.deletedKeys)
 }
 
-// 归一化结果丢失尾部斜杠时，BatchDeleteObjects 的防御分支应逐条
-// 补回 "/"：目录条目被修正，普通文件条目保持原样。
+// When normalization drops the trailing slash, BatchDeleteObjects' defense branch
+// should restore "/" entry by entry: directory entries are corrected, ordinary file
+// entries are kept as-is.
 func TestGapfixService_BatchDeleteObjects_SlashGuard(t *testing.T) {
 	withSlashStrippingNormalizer(t)
 

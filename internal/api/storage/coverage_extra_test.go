@@ -92,7 +92,8 @@ func extraRouter(handler *Handler) *gin.Engine {
 
 func doExtraReq(t *testing.T, router *gin.Engine, r *http.Request) *httptest.ResponseRecorder {
 	t.Helper()
-	// AUD-016：权限门禁要求登录身份，统一注入超管（对照）用户名。
+	// AUD-016: the permission gate requires a logged-in identity; uniformly inject
+	// the super-admin (control) username.
 	r = r.WithContext(context.WithValue(r.Context(), "username", storageSuperAdminUsername))
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, r)
