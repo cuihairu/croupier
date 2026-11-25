@@ -119,19 +119,42 @@ func TestAssessRequestCompatibility_BareValueBodyIsDegraded(t *testing.T) {
 	assert.Contains(t, got.Diagnostics[0].Message, "bare string value")
 }
 
-func TestAssessRequestCompatibility_NonJSONBodyMediaIsManual(t *testing.T) {
+// SUI-012: form-urlencoded is a media type the executor serializes, so a body
+// that declares only that type is sendable rather than unsendable. It stays
+// out of the directly executable tier because the serializer is chosen by the
+// executor config, which the generated page cannot express.
+func TestAssessRequestCompatibility_FormURLBodyMediaIsDegraded(t *testing.T) {
 	request := &RequestContract{Body: &RequestBody{Content: map[string]RequestMedia{
 		"application/x-www-form-urlencoded": {Schema: json.RawMessage(`{"type":"object"}`)},
 	}}}
 	got := AssessRequestCompatibility("login", request, compatibilityRoot(t))
-	assert.Equal(t, spec.RequestCompatibilityManual, got.Status)
-	var noJSON bool
+	assert.Equal(t, spec.RequestCompatibilityDegraded, got.Status)
+	var media, noJSON bool
 	for _, diagnostic := range got.Diagnostics {
+		if diagnostic.Field == "$.body.content.application~1x-www-form-urlencoded" {
+			media = true
+		}
 		if diagnostic.Field == "$.body.content" {
 			noJSON = true
 		}
 	}
-	assert.True(t, noJSON, "expected the missing-json diagnostic, got %+v", got.Diagnostics)
+	assert.True(t, media, "expected the media finding, got %+v", got.Diagnostics)
+	assert.True(t, noJSON, "expected the missing-json finding, got %+v", got.Diagnostics)
+}
+
+func TestAssessRequestCompatibility_MultipartOnlyBodyIsManual(t *testing.T) {
+	request := &RequestContract{Body: &RequestBody{Content: map[string]RequestMedia{
+		"multipart/form-data": {Schema: json.RawMessage(`{"type":"object"}`)},
+	}}}
+	got := AssessRequestCompatibility("upload", request, compatibilityRoot(t))
+	assert.Equal(t, spec.RequestCompatibilityManual, got.Status)
+	var unsendable bool
+	for _, diagnostic := range got.Diagnostics {
+		if diagnostic.Field == "$.body.content.multipart~1form-data" {
+			unsendable = true
+		}
+	}
+	assert.True(t, unsendable, "expected the unsendable media finding, got %+v", got.Diagnostics)
 }
 
 func TestAssessRequestCompatibility_JSONBesideMultipartIsManual(t *testing.T) {

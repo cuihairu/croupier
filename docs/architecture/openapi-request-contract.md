@@ -472,12 +472,29 @@ executor keeps the legacy behaviour.
 
 ## Known boundaries
 
-- `form-urlencoded` and `multipart` bodies are declared but not yet executed
-  (SUI-012 / SUI-013). Since SUI-007 they are **skipped by the media-type
-  selection** (not executable) — an operation declaring only such media types
-  gets no body slot plus the `openapi_request_body_no_executable_media`
-  diagnostic instead of a silently mislabeled JSON payload; they remain flagged
-  for the support matrix (SUI-047).
+- `multipart` bodies are declared but not yet executed (SUI-013) and stay
+  flagged for the support matrix (SUI-047). `form-urlencoded` bodies are
+  executed since SUI-012: the executor serializes them as
+  `application/x-www-form-urlencoded` when its request body type is configured
+  for forms (`requestBody.type: form`) — every value escaped by
+  `url.Values.Encode` (spaces become `+`), a list value keeping one key with
+  several entries, and a nested object using the exploded
+  `key[subkey]=value` shape (`{}` for an empty object). The serializer is
+  selected by the provider configuration, not by the media type declared in the
+  document, so the generated page cannot express that choice; the
+  [compatibility tiers](./openapi-sdk-descriptor-v2.md#request-compatibility-tiers-sui-011)
+  classify such a body as `degraded` for that reason.
+- The media-type capability selection described above is documented as the
+  contract, but the executable-media selection it names is not present in the
+  current source: `internal/dashboard/spec/request_body_media.go` and the
+  executor's contract-driven `Content-Type` path are absent, so today the
+  executor derives the body serialization from the provider's
+  `request_body` configuration. Until that selection is restored, the input
+  projection reads only `content["application/json"]` — a body whose only media
+  type is `application/x-www-form-urlencoded` gets no input body plus the
+  `openapi_flat_input_constraint` "No application/json body is declared"
+  diagnostic — and its form serializer never runs, because nothing tells the
+  executor that the provider should send forms.
 - Swagger 2.0 documents are handled by the map front-end only: `in: body`
   parameters become the body slot, `in: formData` parameters are lifted into
   the body object's properties. They do not participate in the kin/map parity

@@ -7,7 +7,7 @@ Source 按 operation 存储 `request`，Provider 对同一份文档派生同一�
 - `parameters[]` 按位置和名称区分参数，保留 `in`、`name`、`required`、`schema`、`style`、`explode`、`allowReserved` 与 `allowEmptyValue`。使用 `content` 声明的参数记录各媒体类型及 schema，采用独立的序列化方式。
 - operation 的同位置同名参数覆盖 path-item 的声明。名称保留原拼写，HTTP header 名称比较忽略大小写。JSON Pointer 指向采用的声明，引用保留目标地址。
 - query 和 cookie 默认 `form`，path 和 header 默认 `simple`。`form` 默认 `explode: true`，其他 style 默认 `false`。参见 [OpenAPI 3.0.4 Parameter Object](https://spec.openapis.org/oas/v3.0.4.html#parameter-object)。
-- `body` 保留请求体是否必填、声明位置及每个 `content[mediaType].schema`。schema 保留根类型及根级约束。JSON 值的缺省与显式 `null` 分开表达。本批调用支持 `application/json`，其余媒体类型保留为元数据。
+- `body` 保留请求体是否必填、声明位置及每个 `content[mediaType].schema`。schema 保留根类型及根级约束。JSON 值的缺省与显式 `null` 分开表达。执行器发送 `application/json` 请求体，并在请求体类型配置为表单时发送 `application/x-www-form-urlencoded`（SUI-012）：值经 `url.Values.Encode` 转义（空格为 `+`）、列表值保持同一 key 多个 entry、嵌套对象用展开式 `key[subkey]=value`；其余媒体类型（如 `multipart/form-data`）保留为元数据（SUI-013）。
 - Source 将契约随 operation 快照存储。旧 Source 行可以从已保存的 OpenAPI 文档重新派生。引用解析和独立 schema 的可执行边界由后续任务覆盖。
 
 ## 调用输入与兼容

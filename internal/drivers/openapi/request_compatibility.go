@@ -33,8 +33,8 @@ type RequestCompatibility struct {
 //	           form (a composite schema, a variant branch, a root array, a bare
 //	           value); the operator edits the JSON payload instead.
 //	manual   – the executor cannot send what was declared: an unresolvable
-//	           reference, a discriminator-picked variant, or a body that has no
-//	           application/json media type. Manual is the tier that keeps an
+//	           reference, a discriminator-picked variant, or a body whose media
+//	           types it cannot serialize at all. Manual is the tier that keeps an
 //	           operation out of the directly executable default proposals; the
 //	           proposal quality gate reads the diagnostic codes.
 func AssessRequestCompatibility(operationID string, request *RequestContract, root map[string]any) RequestCompatibility {
@@ -67,34 +67,50 @@ func AssessRequestCompatibility(operationID string, request *RequestContract, ro
 }
 
 // assessBody classifies the request body: the media types first (an operation
-// is unsendable when no JSON media is declared) and then the declared shape.
+// is unsendable when nothing it declared can be serialized) and then the
+// declared shape.
 func assessBody(operationID string, body *RequestBody) []spec.Diagnostic {
 	var findings []spec.Diagnostic
 	if body == nil || len(body.Content) == 0 {
 		return nil
 	}
 	jsonMediaType, hasJSON := pickJSONMedia(body.Content)
+	formOnly := true
 	for _, media := range sortedMediaTypes(body.Content) {
 		pointer := fmt.Sprintf("$.body.content.%s", pointerToken(media))
-		if !mediaIsJSON(media) {
-			findings = append(findings, finding(operationID, spec.RequestCompatibilityManual, pointer,
-				"request body media "+media+" is not sent by the executor today; declare application/json to make the operation callable"))
+		if mediaIsJSON(media) {
+			if !hasJSON || media != jsonMediaType {
+				continue
+			}
+			mediaEntry := body.Content[media]
+			findings = append(findings, assessBodyShape(operationID, pointer+"/schema", mediaEntry.Schema)...)
+			findings = append(findings, assessSchemaNodes(operationID, pointer+"/schema", mediaEntry.Schema)...)
 			continue
 		}
-		if !hasJSON {
+		if mediaIsForm(media) {
+			// SUI-012: the executor can serialize this media type, but it picks
+			// the serializer from the provider request body config, not from the
+			// media types declared here. The generated page cannot express that
+			// choice, so the operation is not directly executable even though it
+			// is sendable.
+			findings = append(findings, finding(operationID, spec.RequestCompatibilityDegraded, pointer,
+				"request body media "+media+" is sent only when the executor request body type is configured for forms (requestBody.type: form); the generated page cannot make that choice"))
 			continue
 		}
-		mediaEntry, ok := body.Content[media]
-		if !ok || media != jsonMediaType {
-			continue
-		}
-		findings = append(findings, assessBodyShape(operationID, pointer+"/schema", mediaEntry.Schema)...)
-		findings = append(findings, assessSchemaNodes(operationID, pointer+"/schema", mediaEntry.Schema)...)
+		formOnly = false
+		findings = append(findings, finding(operationID, spec.RequestCompatibilityManual, pointer,
+			"request body media "+media+" is not sent by the executor; declare application/json to make the operation callable"))
 	}
 	if !hasJSON {
+		if formOnly {
+			findings = append(findings, finding(operationID, spec.RequestCompatibilityDegraded, "$.body.content",
+				"request body declares no application/json media type (declared: "+joinMediaTypes(body.Content)+
+					"); the executor sends it with the form serializer when configured"))
+			return findings
+		}
 		findings = append(findings, finding(operationID, spec.RequestCompatibilityManual, "$.body.content",
 			"request body declares no application/json media type (declared: "+joinMediaTypes(body.Content)+
-				"); the executor can only send JSON bodies"))
+				"); the executor cannot send those media types"))
 	}
 	return findings
 }
@@ -182,8 +198,19 @@ func schemaObject(raw json.RawMessage) (map[string]json.RawMessage, bool) {
 // mediaIsJSON reports whether the media type, after stripping its parameters,
 // is the JSON type the executor sends.
 func mediaIsJSON(media string) bool {
-	normalized := strings.ToLower(strings.TrimSpace(strings.SplitN(media, ";", 2)[0]))
-	return normalized == "application/json"
+	return normalizedMediaType(media) == "application/json"
+}
+
+// mediaIsForm reports whether the media type is the form-urlencoded type the
+// executor serializes since SUI-012.
+func mediaIsForm(media string) bool {
+	return normalizedMediaType(media) == "application/x-www-form-urlencoded"
+}
+
+// normalizedMediaType strips parameters and case so a declared media type is
+// compared with the types the executor actually sends.
+func normalizedMediaType(media string) string {
+	return strings.ToLower(strings.TrimSpace(strings.SplitN(media, ";", 2)[0]))
 }
 
 func hasNonJSONMedia(content map[string]RequestMedia) bool {

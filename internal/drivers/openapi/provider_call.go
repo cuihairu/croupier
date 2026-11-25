@@ -7,6 +7,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -227,7 +230,94 @@ func (p *Provider) buildBody(bodyConfig *RequestBodyMapping, reqData map[string]
 		data, _ := json.Marshal(result)
 		return data, "application/json"
 	}
+	// SUI-012: a form body is serialized as application/x-www-form-urlencoded,
+	// where every value is escaped and repeated fields keep one key with
+	// several entries.
+	if bodyConfig.Type == "form" {
+		return buildFormBody(bodyConfig, reqData)
+	}
 	return nil, ""
+}
+
+// buildFormBody serializes one form-urlencoded request body. An explicit field
+// mapping names the wire keys; without one the remaining request data is sent
+// as-is. url.Values.Encode escapes every value and sorts the keys, so the
+// encoded body is deterministic across calls.
+func buildFormBody(bodyConfig *RequestBodyMapping, reqData map[string]interface{}) ([]byte, string) {
+	values := url.Values{}
+	if len(bodyConfig.Fields) > 0 {
+		for dstField, srcField := range bodyConfig.Fields {
+			if value, ok := reqData[srcField]; ok {
+				addFormValue(values, dstField, value)
+			}
+		}
+	} else {
+		for key, value := range reqData {
+			addFormValue(values, key, value)
+		}
+	}
+	return []byte(values.Encode()), "application/x-www-form-urlencoded"
+}
+
+// addFormValue records one form field. A list value becomes several values
+// under the same key, which is how a form declares a repeated field; a nested
+// object takes the RFC 7578 exploded shape key[subkey]=value, and an empty
+// object keeps its field present as {}.
+func addFormValue(values url.Values, key string, value interface{}) {
+	switch typed := value.(type) {
+	case nil:
+		return
+	case []interface{}:
+		for _, item := range typed {
+			addFormValue(values, key, item)
+		}
+	case []string:
+		for _, item := range typed {
+			values.Add(key, item)
+		}
+	case map[string]interface{}:
+		if len(typed) == 0 {
+			values.Add(key, "{}")
+			return
+		}
+		for _, subKey := range sortedMapKeys(typed) {
+			addFormValue(values, key+"["+subKey+"]", typed[subKey])
+		}
+	default:
+		values.Add(key, formValueString(typed))
+	}
+}
+
+// sortedMapKeys returns the keys of a JSON object in sorted order so a nested
+// form field always encodes in the same order.
+func sortedMapKeys(values map[string]interface{}) []string {
+	keys := make([]string, 0, len(values))
+	for key := range values {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+// formValueString renders a scalar field the way a caller would type it: JSON
+// style booleans and numbers instead of Go's %v formatting of them.
+func formValueString(value interface{}) string {
+	switch typed := value.(type) {
+	case string:
+		return typed
+	case bool:
+		return strconv.FormatBool(typed)
+	case float64:
+		return strconv.FormatFloat(typed, 'f', -1, 64)
+	case float32:
+		return strconv.FormatFloat(float64(typed), 'f', -1, 32)
+	case int:
+		return strconv.Itoa(typed)
+	case int64:
+		return strconv.FormatInt(typed, 10)
+	default:
+		return fmt.Sprintf("%v", typed)
+	}
 }
 
 // applyTemplate applies a simple template with {{ .field }} placeholders.
