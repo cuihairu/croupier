@@ -160,10 +160,13 @@ func (s *Service) Reload(ctx context.Context, req *ProviderActionRequest) (*Prov
 	}, nil
 }
 
-// SdkStats 聚合在线 provider 会话的 SDK 语言/版本分布（F：sdk-stats 页面）。
-// 语言/版本缺失归入 "unknown"；语言按实例数降序、版本按实例数降序排列。
-// metaKey/metaValue 对用户实例元数据做子串过滤（大小写不敏感；在线会话
-// 为内存态，线性过滤即可）。ctx 带游戏 scope 时按 (gameID, env) 过滤实例。
+// SdkStats aggregates the SDK language/version distribution across online
+// provider sessions (F: the sdk-stats page). A missing language/version falls
+// into "unknown"; languages and versions are each sorted by instance count
+// descending. metaKey/metaValue perform a substring filter on user instance
+// metadata (case-insensitive; online sessions are in-memory, so a linear
+// filter suffices). When ctx carries a game scope, instances are filtered by
+// (gameID, env).
 func (s *Service) SdkStats(ctx context.Context, req *SdkStatsRequest) (*SdkStatsResponse, error) {
 	store, err := ensureRegistryStore(s.svcCtx.RegistryStore)
 	if err != nil {
@@ -173,12 +176,15 @@ func (s *Service) SdkStats(ctx context.Context, req *SdkStatsRequest) (*SdkStats
 	if req == nil {
 		req = &SdkStatsRequest{}
 	}
-	// 大小写归一由 matchMetadata 内部处理，这里只去首尾空白
+	// Case normalization is handled inside matchMetadata; here only leading and
+	// trailing whitespace is trimmed
 	metaKey := strings.TrimSpace(req.MetaKey)
 	metaValue := strings.TrimSpace(req.MetaValue)
 
-	// #38：SDK 分布按游戏隔离展示——路由挂在 scoped 组，中间件保证 scope
-	// 完整且已授权；scope 缺失（内部调用/测试直调 service）保持全量行为。
+	// #38: the SDK distribution is shown isolated per game -- the route hangs
+	// off the scoped group and middleware guarantees the scope is complete and
+	// authorized; a missing scope (internal calls / tests calling the service
+	// directly) keeps the full-data behavior.
 	scope := svc.GameScopeFromContext(ctx)
 	snapshots := store.ProviderSessionSnapshots()
 	instances := make([]SdkInstanceItem, 0, len(snapshots))
@@ -209,9 +215,11 @@ func (s *Service) SdkStats(ctx context.Context, req *SdkStatsRequest) (*SdkStats
 		if version == "" {
 			version = "unknown"
 		}
-		// #44：注册时间做服务端归一（openapi #27② 同模式）——内存快照的
-		// 历史字段在会话过期/重启后自然缺失，零值回退最后活跃时间，前端
-		// 无需再判零值。
+		// #44: the registration time is normalized server-side (the same
+		// pattern as openapi #27②) -- the in-memory snapshot's historical field
+		// is naturally missing after session expiry/restart, so a zero value
+		// falls back to the last-active time and the frontend need not check for
+		// zero anymore.
 		firstSeen := snapshot.FirstSeenUnix
 		if firstSeen <= 0 {
 			firstSeen = snapshot.LastSeenUnix
@@ -239,10 +247,13 @@ func (s *Service) SdkStats(ctx context.Context, req *SdkStatsRequest) (*SdkStats
 	return response, nil
 }
 
-// MetaOptions 返回当前 scope 下实例元数据的去重键值聚合（#2）：过滤下拉
-// 的选项由服务端提供（来自实例实际元数据，#11 EAV 表/在线会话聚合），
-// 前端不得从（已过滤的）列表数据推导。路由挂在 scoped 组，ctx 带游戏
-// scope；scope 缺失（内部调用/测试直调）保持全量行为。
+// MetaOptions returns the deduplicated key/value aggregation of instance
+// metadata under the current scope (#2): the filter dropdown options are
+// supplied by the server (from actual instance metadata, aggregated from the
+// #11 EAV table / online sessions), and the frontend must not derive them from
+// the (already filtered) list data. The route hangs off the scoped group with
+// the game scope in ctx; a missing scope (internal calls / direct test calls)
+// keeps the full-data behavior.
 func (s *Service) MetaOptions(ctx context.Context) (*ProviderMetaOptionsResponse, error) {
 	store, err := ensureRegistryStore(s.svcCtx.RegistryStore)
 	if err != nil {
@@ -256,10 +267,13 @@ func (s *Service) MetaOptions(ctx context.Context) (*ProviderMetaOptionsResponse
 	return &ProviderMetaOptionsResponse{Items: items}, nil
 }
 
-// matchMetadata 判断实例元数据是否同时满足 key/value 子串条件（大小写
-// 不敏感、自行归一化入参；空条件恒过）。value 条件同时匹配键名与 k=v
-// 整对——「按 serverId 搜」时用户往往直接粘值或整对，无需指定是哪个键；
-// 与前端实例搜索 haystack（k=v + 键 + 值）保持同构。
+// matchMetadata reports whether instance metadata satisfies both the key and
+// value substring conditions (case-insensitive, with the arguments normalized
+// internally; empty conditions always pass). The value condition matches
+// against the key name as well as the full k=v pair -- when "searching by
+// serverId" users often paste just the value or the whole pair without saying
+// which key it is; this stays isomorphic with the frontend instance search
+// haystack (k=v + key + value).
 func matchMetadata(metadata map[string]string, key, value string) bool {
 	key = strings.ToLower(strings.TrimSpace(key))
 	value = strings.ToLower(strings.TrimSpace(value))
@@ -300,7 +314,8 @@ func aggregateSdkLanguages(instances []SdkInstanceItem) []SdkLanguageStats {
 		languages = append(languages, language)
 	}
 	sort.Strings(languages)
-	// 实例数多的语言排前；同数量按语言名稳定排序
+	// Languages with more instances come first; ties are stably sorted by
+	// language name
 	sort.SliceStable(languages, func(i, j int) bool {
 		return countByLanguage[languages[i]] > countByLanguage[languages[j]]
 	})

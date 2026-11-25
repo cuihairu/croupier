@@ -1,5 +1,7 @@
-// SdkStats 实例元数据回归：metadata 透传到实例明细 + metaKey/metaValue
-// 服务端子串过滤（value 条件同时匹配键名；key+value 须同一 KV 对命中）。
+// SdkStats instance metadata regression: metadata passes through to the
+// instance details, plus server-side metaKey/metaValue substring filtering (the
+// value condition also matches the key name; key+value must hit the same KV
+// pair).
 package provider
 
 import (
@@ -62,7 +64,8 @@ func TestServiceSdkStats_MetadataPassthrough(t *testing.T) {
 
 	demo := findInstanceItem(t, resp.Instances, "game-demo")
 	assert.Equal(t, map[string]string{"serverId": "s1", "pod": "game-7c4d"}, demo.Metadata)
-	// 无元数据实例字段为 nil（wire omitempty 不发空 map）
+	// An instance without metadata has a nil field (wire omitempty does not
+	// emit an empty map)
 	assert.Nil(t, findInstanceItem(t, resp.Instances, "bare-adapter").Metadata)
 	assert.Equal(t, 3, resp.TotalInstances)
 }
@@ -70,17 +73,17 @@ func TestServiceSdkStats_MetadataPassthrough(t *testing.T) {
 func TestServiceSdkStats_MetaKeyFilter(t *testing.T) {
 	s := NewService(&svc.ServiceContext{RegistryStore: newMetadataStatsStore()})
 
-	// metaKey=serverid（大小写不敏感）→ 两个带 serverId 的实例
+	// metaKey=serverid (case-insensitive) -> the two instances with serverId
 	resp, err := s.SdkStats(context.Background(), &SdkStatsRequest{MetaKey: "ServerID "})
 	require.NoError(t, err)
 	assert.ElementsMatch(t, []string{"game-demo", "prom-adapter"}, providerIDs(resp.Instances))
 
-	// metaKey=pod → 仅 game-demo
+	// metaKey=pod -> game-demo only
 	resp, err = s.SdkStats(context.Background(), &SdkStatsRequest{MetaKey: "pod"})
 	require.NoError(t, err)
 	assert.Equal(t, []string{"game-demo"}, providerIDs(resp.Instances))
 
-	// metaKey 无命中 → 空结果
+	// metaKey with no hit -> empty result
 	resp, err = s.SdkStats(context.Background(), &SdkStatsRequest{MetaKey: "region"})
 	require.NoError(t, err)
 	assert.Empty(t, resp.Instances)
@@ -90,17 +93,19 @@ func TestServiceSdkStats_MetaKeyFilter(t *testing.T) {
 func TestServiceSdkStats_MetaValueFilter(t *testing.T) {
 	s := NewService(&svc.ServiceContext{RegistryStore: newMetadataStatsStore()})
 
-	// 直接粘值 s1 → game-demo
+	// Pasting just the value s1 -> game-demo
 	resp, err := s.SdkStats(context.Background(), &SdkStatsRequest{MetaValue: "s1"})
 	require.NoError(t, err)
 	assert.Equal(t, []string{"game-demo"}, providerIDs(resp.Instances))
 
-	// value 条件同时匹配键名：粘 "pod" 也能命中带 pod 键的实例
+	// The value condition also matches the key name: pasting "pod" still hits
+	// the instance that has a pod key
 	resp, err = s.SdkStats(context.Background(), &SdkStatsRequest{MetaValue: "POD"})
 	require.NoError(t, err)
 	assert.Equal(t, []string{"game-demo"}, providerIDs(resp.Instances))
 
-	// k=v 整对作为 value 亦可命中（前端 haystack 同构）
+	// A whole k=v pair as the value also matches (isomorphic with the frontend
+	// haystack)
 	resp, err = s.SdkStats(context.Background(), &SdkStatsRequest{MetaValue: "serverId=s9"})
 	require.NoError(t, err)
 	assert.Equal(t, []string{"prom-adapter"}, providerIDs(resp.Instances))
@@ -109,19 +114,20 @@ func TestServiceSdkStats_MetaValueFilter(t *testing.T) {
 func TestServiceSdkStats_MetaKeyAndValueMustHitSamePair(t *testing.T) {
 	s := NewService(&svc.ServiceContext{RegistryStore: newMetadataStatsStore()})
 
-	// key 与 value 都存在但分散在两个 KV 对上 → 不命中
+	// Both key and value exist but are spread across two KV pairs -> no hit
 	resp, err := s.SdkStats(context.Background(), &SdkStatsRequest{MetaKey: "serverId", MetaValue: "game-7c4d"})
 	require.NoError(t, err)
 	assert.Empty(t, providerIDs(resp.Instances))
 
-	// 同一 KV 对同时命中 → game-demo
+	// The same KV pair hits both conditions -> game-demo
 	resp, err = s.SdkStats(context.Background(), &SdkStatsRequest{MetaKey: "serverId", MetaValue: "s1"})
 	require.NoError(t, err)
 	assert.Equal(t, []string{"game-demo"}, providerIDs(resp.Instances))
 }
 
 func TestMatchMetadata_SubstringSemantics(t *testing.T) {
-	// 空条件恒真；无元数据遇条件恒假
+	// Empty conditions are always true; an instance without metadata is always
+	// false against any condition
 	assert.True(t, matchMetadata(nil, "", ""))
 	assert.False(t, matchMetadata(nil, "k", ""))
 	assert.False(t, matchMetadata(map[string]string{}, "", "v"))

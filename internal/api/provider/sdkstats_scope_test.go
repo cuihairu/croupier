@@ -1,6 +1,7 @@
-// #38 回归：SdkStats 按中间件注入的游戏 scope 过滤实例。
-// SDK 与游戏绑定，页面只看顶栏选中的 (game, env)；scope 缺失时保持
-// 全量（service 直调/内部消费者的既有行为）。
+// #38 regression: SdkStats filters instances by the game scope injected by
+// middleware. SDKs are bound to a game, and the page only sees the (game, env)
+// selected in the top bar; when the scope is missing the full set is kept
+// (existing behavior of direct service callers / internal consumers).
 package provider
 
 import (
@@ -50,12 +51,14 @@ func sdkLanguageNames(resp *SdkStatsResponse) []string {
 func TestServiceSdkStats_ScopeFilter(t *testing.T) {
 	s := NewService(&svc.ServiceContext{RegistryStore: newScopedStatsStore()})
 
-	// 无 scope → 全量（历史行为，其他 service 直调方不受影响）
+	// No scope -> full set (historical behavior; other direct service callers
+	// are unaffected)
 	resp, err := s.SdkStats(context.Background(), &SdkStatsRequest{})
 	require.NoError(t, err)
 	assert.Equal(t, 3, resp.TotalInstances)
 
-	// scope=game-a/dev → 仅该游戏实例；总数与语言聚合同步收窄
+	// scope=game-a/dev -> only that game's instances; the total and language
+	// aggregates narrow accordingly
 	resp, err = s.SdkStats(
 		svc.WithGameScope(context.Background(), svc.GameScope{GameID: "game-a", Env: "dev"}),
 		&SdkStatsRequest{},
@@ -65,7 +68,8 @@ func TestServiceSdkStats_ScopeFilter(t *testing.T) {
 	assert.Equal(t, 2, resp.TotalInstances)
 	assert.ElementsMatch(t, []string{"go", "js"}, sdkLanguageNames(resp))
 
-	// 游戏相同但 env 不同 → 一并过滤（game-a 没有 prod 会话）
+	// Same game but a different env -> filtered out too (game-a has no prod
+	// sessions)
 	resp, err = s.SdkStats(
 		svc.WithGameScope(context.Background(), svc.GameScope{GameID: "game-a", Env: "prod"}),
 		&SdkStatsRequest{},
@@ -78,7 +82,8 @@ func TestServiceSdkStats_ScopeFilter(t *testing.T) {
 func TestServiceSdkStats_ScopeFilterWithMetaCondition(t *testing.T) {
 	s := NewService(&svc.ServiceContext{RegistryStore: newScopedStatsStore()})
 
-	// scope 过滤与 metaKey/metaValue 过滤叠加：game-b 里没有 serverId=s1
+	// The scope filter stacks with the metaKey/metaValue filter: game-b has
+	// no serverId=s1
 	resp, err := s.SdkStats(
 		svc.WithGameScope(context.Background(), svc.GameScope{GameID: "game-b", Env: "prod"}),
 		&SdkStatsRequest{MetaKey: "serverId", MetaValue: "s1"},
@@ -87,8 +92,10 @@ func TestServiceSdkStats_ScopeFilterWithMetaCondition(t *testing.T) {
 	assert.Empty(t, resp.Instances)
 }
 
-// #2/#11 回归：MetaOptions 按中间件注入的游戏 scope 聚合实例元数据
-// 去重键值（下拉选项服务端提供）；scope 缺失时保持全量。
+// #2/#11 regression: MetaOptions aggregates deduplicated key/value pairs of
+// instance metadata under the game scope injected by middleware (dropdown
+// options are supplied by the server); when the scope is missing the full set
+// is kept.
 func TestServiceMetaOptions_ScopeFilter(t *testing.T) {
 	s := NewService(&svc.ServiceContext{RegistryStore: newScopedMetaStore()})
 
@@ -102,7 +109,7 @@ func TestServiceMetaOptions_ScopeFilter(t *testing.T) {
 	assert.Equal(t, "s-a", resp.Items[0].Values[0].Value)
 	assert.Equal(t, 1, resp.Items[0].Values[0].Count)
 
-	// 无 scope → 全量聚合（两游戏各一值）。
+	// No scope -> full aggregation (one value per game).
 	resp, err = s.MetaOptions(context.Background())
 	require.NoError(t, err)
 	require.Len(t, resp.Items, 1)

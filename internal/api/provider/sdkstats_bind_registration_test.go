@@ -1,16 +1,20 @@
 package provider
 
-// 覆盖率巡检登记（handler.go SdkStats 的 ShouldBindQuery 错误分支）：
+// Coverage sweep registration (the ShouldBindQuery error branch of SdkStats in
+// handler.go):
 //
-//	SdkStatsRequest 仅两个 `form:"...,optional"` string 字段（dto.go），
-//	gin form 绑定对全可选字符串不存在失败路径——无 required 缺失、无类型
-//	转换错误，任何合法 query 都绑定成功。故 handler 的绑定错误分支
-//	（response.Error; return）为防御性不可达，按仓库既有口径登记，
-//	不造假用例、不删防御分支。
+//	SdkStatsRequest has only two `form:"...,optional"` string fields (dto.go),
+//	and gin's form binding has no failure path for all-optional strings -- no
+//	missing required, no type conversion error, so any valid query binds
+//	successfully. The handler's binding-error branch (response.Error; return)
+//	is therefore defensively unreachable; it is registered per the repo's
+//	existing convention, with no fabricated test case and no deletion of the
+//	defensive branch.
 //
-// 本文件以证明性用例锁定「绑定永不失败」这一前提：若未来字段引入
-// required 或强类型（int/bool），该分支变为可达，届时应补真实错误
-// 路径用例并删除本证明。
+// This file locks in the "binding never fails" premise with a proof test: if
+// a required field or a strongly typed field (int/bool) is added in the
+// future, that branch becomes reachable, at which point real error-path cases
+// should be added and this proof removed.
 
 import (
 	"net/http"

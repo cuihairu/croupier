@@ -1,8 +1,10 @@
-// 覆盖率巡检第十七轮（wt-api）：service.go 残余 2 块收口——
-// SdkStats 的 firstSeen <= 0 回退翼（217-218）与 MetaOptions 的
-// items nil → 空切片翼（254-255，DB 聚合失败 fail-soft）。
-// 注册链（registry carryProviderSessionHistory）只把 first == 0 补成 now，
-// 负值穿透——持久化会话恢复出非法负值形态时，服务端仍须回退 lastSeen。
+// Coverage sweep round 17 (wt-api): closes out the 2 remaining blocks in
+// service.go -- the SdkStats firstSeen <= 0 fallback wing (217-218) and the
+// MetaOptions items nil -> empty slice wing (254-255, fail-soft on DB
+// aggregation failure). The registration chain (registry
+// carryProviderSessionHistory) only fills first == 0 with now; negative values
+// pass through -- when a persisted session recovers into an illegal negative
+// form, the server must still fall back to lastSeen.
 package provider
 
 import (
@@ -28,7 +30,9 @@ func TestServiceSdkStats_FirstSeenNegativeFallsBackToLastSeen(t *testing.T) {
 		LastSeen: now,
 		Providers: []reg.ProviderSession{
 			{
-				// 负值不被注册链归一（只补零），穿透到服务端须回退 lastSeen
+				// Negative values are not normalized by the registration chain
+				// (only zero is filled), so they pass through and the server
+				// must fall back to lastSeen
 				ProviderID:    "neg-provider",
 				SDKLanguage:   "go",
 				SDKVersion:    "1.4.0",
@@ -47,10 +51,12 @@ func TestServiceSdkStats_FirstSeenNegativeFallsBackToLastSeen(t *testing.T) {
 }
 
 func TestServiceMetaOptions_AggregateNilToEmptySlice(t *testing.T) {
-	// DB 聚合失败（provider_metadata 缺表）时 store 返回 nil：
-	// 服务层须归一为空切片——下拉选项是 fail-soft 契约（聚合故障只损失
-	// 选项、不报错不透出 null）。内存聚合路径恒返回非 nil 空切片，
-	// 该翼只能经 DB 形态触达。
+	// When DB aggregation fails (provider_metadata table missing), the store
+	// returns nil: the service layer must normalize it to an empty slice --
+	// the dropdown options are a fail-soft contract (an aggregation fault only
+	// loses options, it must not error out or surface null). The in-memory
+	// aggregation path always returns a non-nil empty slice, so this wing is
+	// only reachable through the DB form.
 	db, err := gorm.Open(gsqlite.Open("file:provider_meta_nil_wing?mode=memory&cache=shared"), &gorm.Config{})
 	require.NoError(t, err)
 	store := reg.NewStoreWithDB(db)

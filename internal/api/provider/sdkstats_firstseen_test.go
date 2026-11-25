@@ -1,6 +1,8 @@
-// SdkStats 实例注册时间回归（#44）：firstSeenUnix 由服务端归一透出——
-// 有观测值原样透传，零值（旧快照/重启后历史缺失）回退 lastSeenUnix，
-// 前端无需判零值。语义同 openapi #27②（runtime_sources_test.go 同款形态）。
+// SdkStats instance registration-time regression (#44): firstSeenUnix is
+// normalized by the server before being surfaced -- an observed value passes
+// through unchanged, a zero value (old snapshots / history lost after restart)
+// falls back to lastSeenUnix, and the frontend need not check for zero.
+// Same semantics as openapi #27② (same shape as runtime_sources_test.go).
 package provider
 
 import (
@@ -32,8 +34,10 @@ func TestServiceSdkStats_FirstSeenUnixNormalized(t *testing.T) {
 				LastSeenUnix:  now.Unix(),
 			},
 			{
-				// 未带注册时间的实例（旧快照/持久化会话恢复）：
-				// 注册链会补 now，服务端归一后须为非零且 >= lastSeen
+				// Instance without a registration time (old snapshot /
+				// persisted session recovery): the registration chain fills in
+				// now, and after server-side normalization it must be non-zero
+				// and >= lastSeen
 				ProviderID:   "fresh-provider",
 				SDKLanguage:  "js",
 				SDKVersion:   "1.5.0",

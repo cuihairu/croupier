@@ -1,7 +1,8 @@
-// 覆盖目标：provider 包 handler 的 bind 错误分支（List 非法 query、
-// Capabilities/Descriptors 非法 JSON、bindProviderRequest POST 路径），
-// 以及 service/helpers 的 nil-request 默认、非法 OpenAPI 文档、
-// 资源聚合错误等未覆盖路径。
+// Coverage target: the bind error branches of the provider package handlers
+// (List with an invalid query, Capabilities/Descriptors with invalid JSON, the
+// bindProviderRequest POST path), plus previously uncovered service/helpers
+// paths such as the nil-request default, invalid OpenAPI documents, and
+// resource aggregation errors.
 package provider
 
 import (
@@ -43,8 +44,9 @@ func TestHandler_List_InvalidQuery(t *testing.T) {
 	h := NewHandler(newProviderRegistryService())
 	ctx, rec := newProviderTestContext(http.MethodGet, "/api/v1/providers?page=abc", "")
 	h.List(ctx)
-	// 注：strconv 绑定错误当前被 response.Error 归类为 500 而非 400，
-	// 此处只锁定“非 200 + 走错误分支”。
+	// Note: a strconv binding error is currently classified by response.Error
+	// as 500 rather than 400, so here we only assert "non-200 + error branch
+	// taken".
 	if rec.Code == http.StatusOK {
 		t.Fatalf("status = 200, want non-200 for invalid query")
 	}
@@ -81,8 +83,9 @@ func TestService_List_NilRequestDefaults(t *testing.T) {
 	}
 }
 
-// 非法 OpenAPI 文档的 provider：Descriptors 跳过、聚合资源跳过、
-// Reload 报错——三条防御路径。
+// A provider with an invalid OpenAPI document: Descriptors skips it,
+// aggregated resources skip it, and Reload errors out -- three defensive
+// paths.
 func TestService_InvalidOpenAPIDocPaths(t *testing.T) {
 	store := reg.NewStore()
 	if err := store.UpsertOpenAPIProvider(reg.OpenAPIProviderCaps{
@@ -94,7 +97,7 @@ func TestService_InvalidOpenAPIDocPaths(t *testing.T) {
 	}
 	s := NewService(&svc.ServiceContext{RegistryStore: store})
 
-	// Descriptors：decode 失败 → continue，manifests 为空。
+	// Descriptors: decode fails -> continue, manifests is empty.
 	resp, err := s.Descriptors(context.TODO(), &ProvidersDescriptorsRequest{})
 	if err != nil {
 		t.Fatalf("Descriptors error = %v", err)
@@ -103,7 +106,7 @@ func TestService_InvalidOpenAPIDocPaths(t *testing.T) {
 		t.Fatalf("manifests = %v, want empty", resp.ProviderManifests)
 	}
 
-	// Resources（聚合）：decode 失败 → continue。
+	// Resources (aggregated): decode fails -> continue.
 	res, err := s.Resources(context.TODO(), &ProvidersResourcesRequest{})
 	if err != nil {
 		t.Fatalf("Resources(*) error = %v", err)
@@ -112,12 +115,13 @@ func TestService_InvalidOpenAPIDocPaths(t *testing.T) {
 		t.Fatalf("resources total = %d, want 0", res.Total)
 	}
 
-	// Resources 指定非法文档 provider → decode 失败返回错误。
+	// Resources with the invalid-document provider specified -> decode fails
+	// and returns an error.
 	if _, err := s.Resources(context.TODO(), &ProvidersResourcesRequest{ID: "broken"}); err == nil {
 		t.Fatal("expected error for provider with invalid doc")
 	}
 
-	// Reload：非法文档 → 返回错误。
+	// Reload: invalid document -> returns an error.
 	if _, err := s.Reload(context.TODO(), &ProviderActionRequest{ID: "broken"}); err == nil {
 		t.Fatal("expected Reload error for invalid doc")
 	}
@@ -130,7 +134,8 @@ func TestService_Resources_UnknownProvider(t *testing.T) {
 	}
 }
 
-// 合法文档 + x-resource 扩展：聚合与单 provider 资源提取。
+// A valid document + x-resource extension: aggregated and single-provider
+// resource extraction.
 func TestService_Resources_ExtractsXResource(t *testing.T) {
 	store := reg.NewStore()
 	doc := []byte(`{"openapi":"3.0.3","info":{"title":"t","version":"1"},"paths":{"/a":{"post":{"operationId":"fn.a","x-resource":"player"}}}}`)
