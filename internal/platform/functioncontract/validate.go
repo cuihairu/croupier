@@ -1,72 +1,48 @@
 package functioncontract
 
 import (
-	"encoding/json"
-	"fmt"
-	"sort"
 	"strings"
 
-	"github.com/santhosh-tekuri/jsonschema/v6"
-	"github.com/santhosh-tekuri/jsonschema/v6/kind"
-	"golang.org/x/text/language"
-	"golang.org/x/text/message"
-
 	"github.com/cuihairu/croupier/internal/common/errorx"
+	"github.com/cuihairu/croupier/internal/validation"
 )
 
-const schemaResourceName = "schema.json"
-
 // ValidateInput validates a payload against a function descriptor's input
-// schema. The platform intentionally treats unavailable or malformed schemas
-// as pass-through: the game server remains the authoritative runtime validator.
+// schema. The verdict engine and its unknown-field policy are shared with the
+// console execution path (SUI-016), so the same schema and payload yield the
+// same verdict on both server entries:
+//
+//   - a missing schema passes through: there is no contract to enforce and the
+//     game server remains the authoritative runtime validator;
+//   - a schema that fails to compile, or a payload that is not valid JSON, is
+//     rejected instead of silently degrading to "no schema" (fail-closed, same
+//     direction as ARCH-027);
+//   - contract violations map to a 400 with field-level details.
 func ValidateInput(schema map[string]interface{}, payload []byte) error {
 	if len(schema) == 0 {
 		return nil
 	}
-	compilerSchema := normalizeRequired(schema)
-
-	var instance interface{}
-	if err := json.Unmarshal(payload, &instance); err != nil {
-		return nil
-	}
-
-	compiler := jsonschema.NewCompiler()
-	compiler.DefaultDraft(jsonschema.Draft7)
-	if err := compiler.AddResource(schemaResourceName, compilerSchema); err != nil {
-		return nil
-	}
-	compiled, err := compiler.Compile(schemaResourceName)
+	verdict, err := validation.ValidateJSONSchemaVerdict(normalizeRequired(schema), payload)
 	if err != nil {
+		// A declared contract that cannot be enforced must not be treated as
+		// absent: surface the defect instead of passing the payload through.
+		return err
+	}
+	if !verdict.HasViolations() {
 		return nil
 	}
-
-	validationErr := compiled.Validate(instance)
-	if validationErr == nil {
-		return nil
+	details := make(map[string]any, len(verdict.Details))
+	for field, reason := range verdict.Details {
+		details[field] = reason
 	}
-	validationError, ok := validationErr.(*jsonschema.ValidationError)
-	if !ok {
-		return nil
-	}
-	return badRequest(validationError)
-}
-
-func badRequest(validationError *jsonschema.ValidationError) error {
-	details := make(map[string]any)
-	var missing []string
-	var otherMessages []string
-	collectErrors(validationError, "", details, &missing, &otherMessages)
-
-	if len(missing) > 0 {
-		sort.Strings(missing)
+	if len(verdict.MissingRequired) > 0 {
 		return errorx.NewBadRequestWithDetails(
-			"缺少必填参数: "+strings.Join(missing, ", "),
+			"缺少必填参数: "+strings.Join(verdict.MissingRequired, ", "),
 			details,
 		)
 	}
-	sort.Strings(otherMessages)
 	return errorx.NewBadRequestWithDetails(
-		"输入契约校验失败: "+strings.Join(otherMessages, "; "),
+		"输入契约校验失败: "+strings.Join(verdict.OtherMessages, "; "),
 		details,
 	)
 }
@@ -89,48 +65,4 @@ func normalizeRequired(schema map[string]interface{}) map[string]interface{} {
 	}
 	normalized["required"] = required
 	return normalized
-}
-
-func collectErrors(
-	validationError *jsonschema.ValidationError,
-	path string,
-	details map[string]any,
-	missing *[]string,
-	otherMessages *[]string,
-) {
-	if len(validationError.InstanceLocation) > 0 {
-		path = strings.Join(validationError.InstanceLocation, ".")
-	}
-
-	if required, ok := validationError.ErrorKind.(*kind.Required); ok {
-		for _, name := range required.Missing {
-			fieldPath := name
-			if path != "" {
-				fieldPath = path + "." + name
-			}
-			details[fieldPath] = "required"
-			*missing = append(*missing, fieldPath)
-		}
-		return
-	}
-
-	message := validationError.ErrorKind.LocalizedString(message.NewPrinter(language.English))
-	if path != "" {
-		message = path + ": " + message
-	}
-	if message != "" {
-		details[detailKey(path)] = message
-		*otherMessages = append(*otherMessages, message)
-	}
-
-	for _, cause := range validationError.Causes {
-		collectErrors(cause, path, details, missing, otherMessages)
-	}
-}
-
-func detailKey(path string) string {
-	if path == "" {
-		return "payload"
-	}
-	return fmt.Sprintf("payload.%s", path)
 }

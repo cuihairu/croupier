@@ -504,17 +504,40 @@ func approvalRecipients(ctx context.Context, svcCtx *svc.ServiceContext) []strin
 	return out
 }
 
+// validateBindingExecutePayload shares its verdict engine and unknown-field
+// policy with the direct function invoke path (SUI-016): a missing schema
+// passes through; a schema that cannot be enforced and a payload that is not
+// valid JSON are rejected as schema/payload defects; contract violations
+// return the structured 422 the PageSpec protocol documents.
 func validateBindingExecutePayload(payload json.RawMessage, binding spec.PageFunctionBinding, functions map[string]spec.FunctionSpec) error {
 	fn, ok := functions[strings.TrimSpace(binding.FunctionID)]
 	if !ok || len(fn.InputSchema) == 0 {
 		return nil
 	}
-	if err := validation.ValidateJSONRaw(json.RawMessage(fn.InputSchema), payload); err != nil {
-		return errorx.NewValidationErrorWithDetails("binding payload does not match input schema", map[string]string{
+	var schema any
+	if err := json.Unmarshal([]byte(fn.InputSchema), &schema); err != nil {
+		return errorx.NewValidationErrorWithDetails("binding input schema cannot be enforced", map[string]string{
 			"bindingId":  binding.ID,
 			"functionId": binding.FunctionID,
 			"schema":     "inputSchema",
 			"error":      err.Error(),
+		})
+	}
+	verdict, err := validation.ValidateJSONSchemaVerdict(schema, payload)
+	if err != nil {
+		return errorx.NewValidationErrorWithDetails("binding input schema cannot be enforced", map[string]string{
+			"bindingId":  binding.ID,
+			"functionId": binding.FunctionID,
+			"schema":     "inputSchema",
+			"error":      err.Error(),
+		})
+	}
+	if verdict.HasViolations() {
+		return errorx.NewValidationErrorWithDetails("binding payload does not match input schema", map[string]string{
+			"bindingId":  binding.ID,
+			"functionId": binding.FunctionID,
+			"schema":     "inputSchema",
+			"error":      strings.Join(verdict.AllMessages(), "; "),
 		})
 	}
 	return nil
