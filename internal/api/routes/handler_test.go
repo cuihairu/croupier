@@ -65,7 +65,7 @@ func TestHandler_GetRoutes_ReturnsKnownRoute(t *testing.T) {
 
 func TestService_GetRoutes_NoError(t *testing.T) {
 	svc := NewService()
-	resp, err := svc.GetRoutes(nil) //nolint:staticcheck // 刻意 nil context：验证不依赖 ctx 的健壮性
+	resp, err := svc.GetRoutes(nil) //nolint:staticcheck // nil context on purpose: verify robustness without a ctx
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	assert.Greater(t, len(*resp), 0)
