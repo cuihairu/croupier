@@ -133,9 +133,9 @@
 
 ### 表单风格、默认项与发布
 
-- [ ] **SUI-031 · P1 · 设计 · 定义命名展示变体协议**
+- [x] **SUI-031 · P1 · 设计 · 定义命名展示变体协议**
   - 依赖：SUI-045, SUI-019, SUI-020。交付与验收：更新 [页面模型](docs/zh/architecture/dashboard-page-model.md#表单策略) 与 [PageSpec 协议](docs/zh/architecture/pagespec-protocol.md#formpresentationspec)，明确稳定表单标识、变体 key、默认项、允许覆盖的字段、发布快照和回滚语义。标准与紧凑共用 schema、Binding 与调用治理。旧页面沿用原呈现，新页面没有配置时生成标准纵向表单。
-  - 状态／条件：未开始。
+  - 状态／条件：完成（LOCAL VERIFIED）。e86544b01（docs: define named form display variant protocol，6 文件 EN+ZH 三层）。协议落点：pagespec-protocol.md 新增「命名展示变体（SUI-031）」小节（SUI-045 之后）+ 安全边界快照条目扩展；dashboard-page-model.md 表单策略新增段落；composite-editor-v3.md 新增「仅协议」小节。定义内容：稳定表单标识（稳定段 key 规范路径：`resource.createForm`/`resource.actions.<actionKey>.form`/`composite.sections.<sectionKey>.form` 等，ActionSpec.Key 与 CompositeSection.Key 均已存在，核实于 internal/dashboard/spec/types.go:589 与 page_spec_v2.go:125）；wire 形态 `FormPresentationSpec.variants[]`+`defaultVariant`（additive，`page-spec:1` 不变）；允许覆盖=恰 SUI-045 纯展示集，调用相关键（required/defaultValue/可见性/disabled/validationRules/Binding）结构上不可表达且发布校验拒绝（`form_variant_illegal_override`）；合并语义页面级整体替换、fields 按 key 合并、无撤销语义；默认项语义（未声明=基础呈现生效，声明不解析=`form_variant_default_unknown`）；快照/回滚（变体随表单节点进同一快照，回滚原子恢复+预检对照当前契约，SUI-033 扩展）；解析链（显式选择→defaultVariant→基础呈现→SUI-025 派生纵向）；校验规则与错误码定义（实现归 SUI-033）。验证：`cd docs && CI=true pnpm build` 通过（49.80s）、`bash scripts/dashboard_vnext_guard.sh` PASSED；锚点交叉引用（`#命名展示变体sui-031`/`#named-display-variants-sui-031`）双向落位。边界：纯设计/docs 任务，未改任何 TS/Go 代码与测试——tsc/jest/go test 输入未变，未运行；存储、校验、编辑器、解析、切换分别在 SUI-032/033/034/035/036 按此契约实现后才对外生效。
 
 - [ ] **SUI-032 · P1 · 实现 · 将展示变体纳入 PageSpec 存储**
   - 依赖：SUI-031。交付与验收：同一页面的变体和默认 key 随草稿及发布快照写入现有表，草稿回读、旧版本回读与服务器重启验证数据一致。
