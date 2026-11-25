@@ -17,8 +17,8 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 )
 
-// extensionInt 读取数值型扩展（json number 或数字字符串）。非法值产出
-// error 诊断并按未声明处理（0）。
+// extensionInt reads a numeric extension (json number or numeric string). An
+// invalid value produces an error diagnostic and is treated as undeclared (0).
 func extensionInt(extensions map[string]interface{}, key, field string, diags *[]spec.Diagnostic) int {
 	if extensions == nil {
 		return 0

@@ -1874,7 +1874,8 @@ func TestParseOpenAPISource_ParseFailure(t *testing.T) {
 	assert.True(t, found, "expected error diagnostic from parse failure")
 }
 
-// x-timeout-ms：数值/字符串两种形态解析；非法值产 error 诊断并按未声明。
+// x-timeout-ms: parsed in both numeric and string forms; invalid values yield
+// an error diagnostic and are treated as undeclared.
 func TestService_CreateSource_WithTimeoutMs(t *testing.T) {
 	t.Parallel()
 	service := setupOpenAPITestService(t)
@@ -1895,28 +1896,30 @@ func TestService_CreateSource_WithTimeoutMs(t *testing.T) {
 		}
 	}
 
-	// json number → 解析
+	// json number -> parsed
 	resp, err := service.CreateSource(openAPITestContext(), &OpenAPISourceCreateRequest{Spec: rawSpec(t, mk(20000))})
 	require.NoError(t, err)
 	require.Len(t, resp.Source.Operations, 1)
 	assert.Equal(t, 20000, resp.Source.Operations[0].TimeoutMs)
 
-	// 数字字符串 → 解析
+	// numeric string -> parsed
 	service2 := setupOpenAPITestService(t)
 	spec2 := mk("15000")
 	resp2, err := service2.CreateSource(openAPITestContext(), &OpenAPISourceCreateRequest{Spec: rawSpec(t, spec2)})
 	require.NoError(t, err)
 	assert.Equal(t, 15000, resp2.Source.Operations[0].TimeoutMs)
 
-	// 非法值 → error 诊断阻断创建（既有诊断约定）
+	// invalid value -> error diagnostic blocks creation (existing diagnostic
+	// convention)
 	service3 := setupOpenAPITestService(t)
 	_, err = service3.CreateSource(openAPITestContext(), &OpenAPISourceCreateRequest{Spec: rawSpec(t, mk("fast"))})
 	require.ErrorContains(t, err, "invalid")
 }
 
-// TestOpenAPIResponseSchemaDirection：SUI-010——上传管线/绑定预览的响应
-// schema 与驱动输出同口径剔除 writeOnly 字段（该路径无诊断通道，见
-// docs/architecture/openapi-request-contract.md）。
+// TestOpenAPIResponseSchemaDirection: SUI-010 -- for the response schema of the
+// upload pipeline/binding preview, writeOnly fields are stripped with the same
+// rule as the driver output (this path has no diagnostic channel; see
+// docs/architecture/openapi-request-contract.md).
 func TestOpenAPIResponseSchemaDirection(t *testing.T) {
 	t.Parallel()
 

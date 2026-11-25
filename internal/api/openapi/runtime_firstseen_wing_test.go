@@ -1,7 +1,9 @@
-// 覆盖率巡检第十七轮（wt-api）：service.go RuntimeSources 的
-// firstSeen <= 0 回退翼（330-331）收口。注册链只把 first == 0 补成 now，
-// 负值穿透——内存快照恢复出非法负值形态时仍须回退 lastSeen（#27② 归一）。
-// 710 的 "fn-" 前缀翼维持 coverage_f_test.go 既有不可达登记，不重复处理。
+// Coverage sweep round 17 (wt-api): close out the firstSeen <= 0 fallback wing
+// of RuntimeSources in service.go (330-331). The registration chain only fills
+// in now for first == 0, so negative values pass through — when an in-memory
+// snapshot restores an invalid negative shape it must still fall back to
+// lastSeen (#27 phase 2 normalization). The "fn-" prefix wing at 710 keeps its
+// existing unreachable registration in coverage_f_test.go and is not handled here.
 package openapi
 
 import (
@@ -26,7 +28,9 @@ func TestRuntimeSources_FirstSeenNegativeFallsBackToLastSeen(t *testing.T) {
 		},
 		Providers: []registry.ProviderSession{
 			{
-				// 负值不被注册链归一（只补零），穿透到服务端须回退 lastSeen
+				// Negative values are not normalized by the registration chain
+				// (it only fills zeros); they reach the service and must fall
+				// back to lastSeen
 				ProviderID:    "provider:legacy-neg",
 				Version:       "openapi-neg-1.0",
 				FirstSeenUnix: -1,

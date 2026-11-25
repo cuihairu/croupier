@@ -14,22 +14,23 @@ func TestFunctionMetaInputVersionChain(t *testing.T) {
 		return &model.OpenAPISource{InfoVersion: infoVersion}
 	}
 
-	// 运行时（SDK 注册）版本优先，且必须 semver 合法。
+	// The runtime (SDK-registered) version wins, and it must be valid semver.
 	in := s.functionMetaInputForBinding(source("9.9.9"), OpenAPISourceOperation{}, "player.ban",
 		reg.FunctionMeta{Version: "1.2.3"})
 	assert.Equal(t, "1.2.3", in.Version)
 
-	// 运行时版本非 semver 时不让整函数被下游门槛丢弃，回退 info.version。
+	// When the runtime version is not semver, don't let the downstream gate
+	// discard the whole function; fall back to info.version.
 	in = s.functionMetaInputForBinding(source("9.9.9"), OpenAPISourceOperation{}, "player.ban",
 		reg.FunctionMeta{Version: "nightly"})
 	assert.Equal(t, "9.9.9", in.Version)
 
-	// 双非 semver → 默认 1.0.0。
+	// Neither side is semver -> default 1.0.0.
 	in = s.functionMetaInputForBinding(source("2026-09"), OpenAPISourceOperation{}, "player.ban",
 		reg.FunctionMeta{Version: ""})
 	assert.Equal(t, "1.0.0", in.Version)
 
-	// unbound 组装路径同样归一。
+	// The unbound assembly path normalizes the same way.
 	in = s.functionMetaInputForOperation(source("2026-09"), OpenAPISourceOperation{}, nil, "player.ban")
 	assert.Equal(t, "1.0.0", in.Version)
 	in = s.functionMetaInputForOperation(source("v3.2.1"), OpenAPISourceOperation{}, nil, "player.ban")
