@@ -4,6 +4,8 @@
 
 import { isPlainObject } from 'lodash';
 
+import { primarySchemaType } from './schemaDialect';
+
 /**
  * 安全地解析 JSON 字符串
  * @param jsonString JSON 字符串
@@ -159,21 +161,58 @@ export function parseInputSchema(inputSchema?: string): JSONSchemaType | null {
  * 根据 JSON Schema 派生调用参数默认值。
  * 优先级：schema.default > schema.example > enum 首项 > 按类型生成占位值。
  * 用于调用表单/JSON 模板的初始值，让用户只需改值而不必手写整个结构。
+ *
+ * SUI-017：根骨架跟随根类型——根数组与根标量得到类型正确的种子（空数组、
+ * false、0、显式 null 经编辑/取值/提交往返保持原 JSON 类型），不再一律套
+ * 对象壳；对象根沿用既有逐字段派生（旧对象表单行为不变）。根类型的判定经
+ * primarySchemaType（SUI-009：type 数组取主类型）。
  */
-export function deriveSchemaDefaults(
-  schema?: JSONSchemaType | null,
-): Record<string, JSONSchemaValue> {
-  if (!schema || schema.type !== 'object' || !schema.properties) {
+export function deriveSchemaDefaults(schema?: JSONSchemaType | null): JSONSchemaValue {
+  if (!schema) {
     return {};
   }
-  const out: Record<string, JSONSchemaValue> = {};
-  for (const [key, field] of Object.entries(schema.properties)) {
-    const value = deriveFieldDefault(field);
-    if (value !== undefined) {
-      out[key] = value;
+  const root = primarySchemaType(schema);
+  switch (root) {
+    case 'array': {
+      if (schema.default !== undefined) return schema.default;
+      if (schema.example !== undefined) return schema.example;
+      if (Array.isArray(schema.enum) && schema.enum.length > 0) return schema.enum[0];
+      const itemDefault = schema.items ? deriveFieldDefault(schema.items) : undefined;
+      return itemDefault === undefined ? [] : [itemDefault];
+    }
+    case 'string':
+      if (schema.default !== undefined) return schema.default;
+      if (schema.example !== undefined) return schema.example;
+      if (Array.isArray(schema.enum) && schema.enum.length > 0) return schema.enum[0];
+      return '';
+    case 'integer':
+    case 'number':
+      if (schema.default !== undefined) return schema.default;
+      if (schema.example !== undefined) return schema.example;
+      if (Array.isArray(schema.enum) && schema.enum.length > 0) return schema.enum[0];
+      return typeof schema.minimum === 'number' ? schema.minimum : 0;
+    case 'boolean':
+      if (schema.default !== undefined) return schema.default;
+      if (schema.example !== undefined) return schema.example;
+      if (Array.isArray(schema.enum) && schema.enum.length > 0) return schema.enum[0];
+      return false;
+    case 'object':
+    default: {
+      // 旧对象表单路径不变：根级 default/example 不参与（避免改变存量表单
+      // 的种子语义），仅按 properties 逐字段派生。
+      if (!schema.properties) {
+        return {};
+      }
+      const out: Record<string, JSONSchemaValue> = {};
+      for (const [key, field] of Object.entries(schema.properties)) {
+        const value = deriveFieldDefault(field);
+        if (value !== undefined) {
+          out[key] = value;
+        }
+      }
+      return out;
     }
   }
-  return out;
 }
 
 function deriveFieldDefault(field: JSONSchemaType): JSONSchemaValue | undefined {

@@ -167,10 +167,9 @@ describe('deriveSchemaDefaults', () => {
     ).toEqual({ items: [{ id: '', n: 1 }], tags: [''], free: [] });
   });
 
-  it('schema 缺失或非 object 类型返回空对象', () => {
+  it('schema 缺失返回空对象；无 properties 的对象根返回空对象', () => {
     expect(deriveSchemaDefaults(undefined)).toEqual({});
     expect(deriveSchemaDefaults(null)).toEqual({});
-    expect(deriveSchemaDefaults({ type: 'string' })).toEqual({});
     expect(deriveSchemaDefaults({ type: 'object' })).toEqual({});
   });
 
@@ -219,5 +218,73 @@ describe('deriveSchemaDefaults', () => {
       arr: [],
       obj: { inner: '' },
     });
+  });
+
+  // SUI-017：根骨架跟随根类型——根数组与根标量不再套对象壳。
+  describe('SUI-017 根数组与标量的种子', () => {
+    it('根数组按 items 派生一件示例元素；无 items 得空数组', () => {
+      expect(
+        deriveSchemaDefaults({
+          type: 'array',
+          items: { type: 'object', properties: { id: { type: 'string' } } },
+        }),
+      ).toEqual([{ id: '' }]);
+      expect(deriveSchemaDefaults({ type: 'array' })).toEqual([]);
+      expect(deriveSchemaDefaults({ type: 'array', items: { type: 'string' } })).toEqual(['']);
+    });
+
+    it('根标量得到类型占位值：string/integer/number minimum/boolean', () => {
+      expect(deriveSchemaDefaults({ type: 'string' })).toBe('');
+      expect(deriveSchemaDefaults({ type: 'integer' })).toBe(0);
+      expect(deriveSchemaDefaults({ type: 'number', minimum: 3 })).toBe(3);
+      expect(deriveSchemaDefaults({ type: 'boolean' })).toBe(false);
+    });
+
+    it('可空联合根（SUI-009 type 数组）按主类型派生种子', () => {
+      expect(deriveSchemaDefaults({ type: ['array', 'null'] })).toEqual([]);
+      expect(deriveSchemaDefaults({ type: ['boolean', 'null'] })).toBe(false);
+      expect(deriveSchemaDefaults({ type: ['string', 'null'], minLength: 2 })).toBe('');
+    });
+
+    it('根级 default > example > enum 首项，显式 null 按声明保留', () => {
+      expect(deriveSchemaDefaults({ type: 'array', default: [] })).toEqual([]);
+      expect(deriveSchemaDefaults({ type: 'boolean', default: null })).toBe(null);
+      expect(deriveSchemaDefaults({ type: 'integer', default: 7, example: 9 })).toBe(7);
+      expect(deriveSchemaDefaults({ type: 'string', example: 'E', enum: ['v1'] })).toBe('E');
+      expect(deriveSchemaDefaults({ type: 'integer', enum: [2, 3] })).toBe(2);
+    });
+
+    it('对象根保持旧路径：根级 default 不参与派生', () => {
+      expect(
+        deriveSchemaDefaults({ type: 'object', default: { fromRoot: 1 }, properties: {} }),
+      ).toEqual({});
+    });
+  });
+});
+
+// SUI-017 验收：根数组和标量经编辑（JSON 字符串）→ 取值（parse）→ 提交
+// （payload 序列化）往返后保持原 JSON 类型，覆盖空数组、false、0、显式 null
+// 和旧对象表单。
+describe('SUI-017 根值类型往返', () => {
+  const roundtrip = (schema: Parameters<typeof deriveSchemaDefaults>[0]) => {
+    const seed = deriveSchemaDefaults(schema);
+    // 编辑：编辑器内容即序列化文本；取值：JSON.parse 还原类型
+    const edited = JSON.parse(JSON.stringify(seed, null, 2));
+    return { seed, edited };
+  };
+
+  it.each([
+    ['空数组', { type: 'array' }, []],
+    ['false', { type: 'boolean', default: false }, false],
+    ['0', { type: 'integer' }, 0],
+    ['显式 null', { type: ['null', 'boolean'], default: null }, null],
+    ['根数组骨架', { type: 'array', items: { type: 'string' } }, ['']],
+    ['旧对象表单', { type: 'object', properties: { a: { type: 'string' } } }, { a: '' }],
+  ])('%s 往返后类型不变', (_name, schema, expected) => {
+    const { seed, edited } = roundtrip(schema);
+    expect(seed).toEqual(expected);
+    expect(edited).toEqual(expected);
+    expect(Array.isArray(edited)).toBe(Array.isArray(expected));
+    expect(edited === null).toBe(expected === null);
   });
 });

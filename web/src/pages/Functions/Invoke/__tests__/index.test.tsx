@@ -388,6 +388,14 @@ const DESCRIPTORS: FunctionDescriptor[] = [
     schema: { type: 'object', properties: { viaSchema: { type: 'string', default: 's' } } },
   },
   {
+    id: 'fn.root-array',
+    inputSchema: JSON.stringify({ type: 'array', items: { type: 'string' } }),
+  },
+  {
+    id: 'fn.root-bool',
+    inputSchema: JSON.stringify({ type: 'boolean', default: false }),
+  },
+  {
     id: 'fn.params-fallback',
     inputSchema: [],
     params: { type: 'object', properties: { viaParams: { type: 'boolean', default: true } } },
@@ -710,6 +718,37 @@ describe('函数调用工作台：发送前置校验', () => {
 // ---------------------------------------------------------------------------
 
 describe('函数调用工作台：调用执行', () => {
+  // SUI-017：根数组/标量的种子与提交往返——结构化表单表达不了根非对象的
+  // 值，表单页签不出现，payload 一律取 JSON 编辑器原文，类型经往返不变。
+  it('根数组：种子为 []，强制切到表单模式后发送仍取 JSON 原文的数组', async () => {
+    mockedInvoke.mockResolvedValueOnce({ traceId: 'tr-ra', result: { n: 1 } });
+    mountPage('?fid=fn.root-array');
+    await waitForFormReady();
+    // 种子：编辑器拿到类型正确的数组骨架（items 为 string → ['']），
+    // 且根非对象时模式被重置回 JSON
+    await waitFor(() => expect(screen.getByTestId('rbe-rawjson')).toHaveTextContent('"'));
+    expect(screen.getByTestId('rbe-mode')).toHaveTextContent('json');
+    // 用户在 JSON 编辑器写成带一件元素的数组
+    fireEvent.change(screen.getByTestId('rbe-json-input'), {
+      target: { value: '["a"]' },
+    });
+    // 模拟手动切到表单页签（表单页签已隐藏，但页面状态可能仍是 form）
+    fireEvent.click(screen.getByRole('button', { name: 'rbe-toggle-mode' }));
+    clickSend();
+    await waitFor(() => expect(mockedInvoke).toHaveBeenCalledTimes(1));
+    expect(mockedInvoke).toHaveBeenLastCalledWith('fn.root-array', ['a'], { route: 'lb' });
+  });
+
+  it('根标量 falsy：false 种子经编辑→取值→提交保持布尔类型不丢', async () => {
+    mockedInvoke.mockResolvedValueOnce({ traceId: 'tr-rb', result: { ok: 1 } });
+    mountPage('?fid=fn.root-bool');
+    await waitForFormReady();
+    await waitFor(() => expect(screen.getByTestId('rbe-rawjson')).toHaveTextContent('false'));
+    clickSend();
+    await waitFor(() => expect(mockedInvoke).toHaveBeenCalledTimes(1));
+    expect(mockedInvoke).toHaveBeenLastCalledWith('fn.root-bool', false, { route: 'lb' });
+  });
+
   it('JSON 模式成功：payload/选项透传、traceId、结果与历史落库、message.success', async () => {
     mockedInvoke.mockResolvedValueOnce({ traceId: 'tr-1', result: { ok: true } });
     const { app } = mountPage('?fid=fn.echo');

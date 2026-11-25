@@ -16,6 +16,7 @@ import {
 } from '@/services/api';
 import { extractErrorDetails, extractErrorMessage } from '@/utils/errors';
 import { deriveSchemaDefaults, parseInputSchema, type JSONSchemaType } from '@/utils/json';
+import { primarySchemaType } from '@/utils/schemaDialect';
 import { derivePresentationSpec } from '@/utils/schemaHints';
 import { isScopeReady, subscribeScope } from '@/stores/scope';
 import { queryApprovalStatus } from '@/services/console';
@@ -175,10 +176,20 @@ export default function FunctionInvokePage() {
           },
     );
     // 按 Schema 类型派生默认值：default > example > enum 首项 > 类型占位值，
-    // 让表单/JSON 编辑器开箱即得完整参数骨架。
-    const defaults = deriveSchemaDefaults(schema) as FormValues;
-    setFormValues(defaults);
+    // 让表单/JSON 编辑器开箱即得完整参数骨架。SUI-017：根数组/标量的种子
+    // 跟随根类型（[]、false、0、null），对象根照旧喂表单。
+    const defaults = deriveSchemaDefaults(schema);
+    setFormValues(
+      defaults && typeof defaults === 'object' && !Array.isArray(defaults)
+        ? (defaults as FormValues)
+        : {},
+    );
     setRawJson(JSON.stringify(defaults, null, 2));
+    if (primarySchemaType(schema as { type?: string | string[] }) !== 'object') {
+      // 根非对象（数组/标量）时结构化表单表达不了该值，切回 JSON 编辑；
+      // 表单模式的提交取值也只认对象根（见 execute）。
+      setInputMode('json');
+    }
     setResponse(undefined);
     setError('');
     setErrorDetails([]);
@@ -215,8 +226,13 @@ export default function FunctionInvokePage() {
     }
     let payload: JSONValue;
     try {
+      // SUI-017：结构化表单只能表达对象根；根数组/标量的 payload 一律取
+      // JSON 编辑器原文，保证 []/false/0/null 经编辑→取值→提交往返类型不变。
+      const formEditable =
+        formState.status === 'ready' &&
+        primarySchemaType(formState.spec.jsonSchema as { type?: string | string[] }) === 'object';
       payload =
-        inputMode === 'form' && formState.status === 'ready'
+        inputMode === 'form' && formEditable
           ? (JSON.parse(
               JSON.stringify(
                 formRef.current?.getSubmitValues() ||
@@ -224,7 +240,7 @@ export default function FunctionInvokePage() {
               ),
             ) as JSONValue)
           : (JSON.parse(rawJson) as JSONValue);
-      if (inputMode === 'form' && formState.status === 'ready' && !formRef.current?.validate())
+      if (inputMode === 'form' && formEditable && !formRef.current?.validate())
         throw new Error(
           intlRef.current.formatMessage({
             id: 'pages.functionsInvoke.error.formValidation',

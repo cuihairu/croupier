@@ -4,6 +4,7 @@ import SchemaFormRenderer, { type SchemaFormRendererHandle } from '@/components/
 import { CodeEditor } from '@/components/MonacoDynamic';
 import { defineSublimeTheme } from '@/components/JsonCodeEditor';
 import type { FormValues } from '@/types/dashboard';
+import { primarySchemaType } from '@/utils/schemaDialect';
 import type { FormSchemaState } from './types';
 
 interface RequestBodyEditorProps {
@@ -18,8 +19,18 @@ interface RequestBodyEditorProps {
   onFormat: () => void;
 }
 
+/** SUI-017：结构化表单只能表达对象根；根数组/标量不提供表单页签，
+ * 编辑与提交都走原始 JSON，保证根值类型经往返不变。 */
+function formTabAvailable(formState: FormSchemaState): boolean {
+  return (
+    formState.status === 'ready' &&
+    primarySchemaType(formState.spec.jsonSchema as { type?: string | string[] }) === 'object'
+  );
+}
+
 export default function RequestBodyEditor(props: RequestBodyEditorProps) {
   const intl = useIntl();
+  const formAvailable = formTabAvailable(props.formState);
   return (
     <Card
       size="small"
@@ -72,40 +83,44 @@ export default function RequestBodyEditor(props: RequestBodyEditorProps) {
               />
             ),
           },
-          {
-            key: 'form',
-            label: intl.formatMessage({
-              id: 'pages.functionsInvoke.requestBody.tab.form',
-              defaultMessage: 'Schema 表单',
-            }),
-            children:
-              props.formState.status === 'ready' ? (
-                <SchemaFormRenderer
-                  ref={props.formRef}
-                  spec={props.formState.spec}
-                  initialValues={props.formValues}
-                  onValuesChange={(_, values) => props.onFormValuesChange(values)}
-                  hideSubmit
-                />
-              ) : (
-                <Alert
-                  type="info"
-                  showIcon
-                  title={
-                    props.formState.status === 'unavailable'
-                      ? props.formState.error
-                      : intl.formatMessage({
-                          id: 'pages.functionsInvoke.requestBody.selectFunctionFirst',
-                          defaultMessage: '请选择函数',
-                        })
-                  }
-                  description={intl.formatMessage({
-                    id: 'pages.functionsInvoke.requestBody.schemaFallbackDescription',
-                    defaultMessage: '原始 JSON 模式始终可用，不依赖 Schema。',
-                  })}
-                />
-              ),
-          },
+          ...(formAvailable
+            ? [
+                {
+                  key: 'form',
+                  label: intl.formatMessage({
+                    id: 'pages.functionsInvoke.requestBody.tab.form',
+                    defaultMessage: 'Schema 表单',
+                  }),
+                  children:
+                    props.formState.status === 'ready' ? (
+                      <SchemaFormRenderer
+                        ref={props.formRef}
+                        spec={props.formState.spec}
+                        initialValues={props.formValues}
+                        onValuesChange={(_, values) => props.onFormValuesChange(values)}
+                        hideSubmit
+                      />
+                    ) : (
+                      <Alert
+                        type="info"
+                        showIcon
+                        title={
+                          props.formState.status === 'unavailable'
+                            ? props.formState.error
+                            : intl.formatMessage({
+                                id: 'pages.functionsInvoke.requestBody.selectFunctionFirst',
+                                defaultMessage: '请选择函数',
+                              })
+                        }
+                        description={intl.formatMessage({
+                          id: 'pages.functionsInvoke.requestBody.schemaFallbackDescription',
+                          defaultMessage: '原始 JSON 模式始终可用，不依赖 Schema。',
+                        })}
+                      />
+                    ),
+                },
+              ]
+            : []),
         ]}
       />
     </Card>
