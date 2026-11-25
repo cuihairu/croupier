@@ -92,6 +92,17 @@ interface RemoteOptionsSpec {
 
 扩展 widget 仍需修改 spec 包并同步前端类型；同一变更必须更新能力表，且表内断言覆盖全部枚举，新枚举值没有文档化能力条目就无法通过测试。
 
+### 表单呈现配置校验（SUI-021）
+
+保存与发布都会校验 PageSpec 携带的每一个 `FormPresentationSpec`：`resource.createForm`、`resource.updateForm`、`resource.actions[].form`、`operation.form`、`task.form`、`report.queryForm` 以及每个 `composite.sections[].form`。规则：
+
+- **字段标识**：非空、不重复，且能在该表单的 `jsonSchema` 中解析（裸 key 与 JSON Pointer 均遵循 SUI-019 契约）；诊断定位到 `…form.fields[i].key`。
+- **分组**：分组 key 非空且不重复；分组字段必须在 `form.fields` 中声明且能在 schema 中解析；同一字段不能被两个分组认领（`…groups[i].fields[j]`，冲突码 `form_group_field_conflict`）。
+- **控件**：取值必须是 26 个受控枚举之一，且接受类型（SUI-020 能力表）与解析出的字段 schema 类型匹配；仅声明未实现的 `DateRange`/`RichText` 不因缺少实现而被拒。schema 类型缺省/无法识别时跳过兼容性检查。
+- **宽度**：12 栏网格下必须为 `0`（未设置）或 `1–12`。
+
+校验只有一份规则源：`ValidatePublishablePageShape` 追加 `spec.ValidateFormPresentations`（覆盖发布、accept-and-publish、回滚预检与提案校验），`ValidatePageSpecInScope` 在保存/预览路径追加同一函数；前端 `web/src/utils/formValidation.ts` 复用 `web/src/utils/fieldPath.ts` 与 `web/src/utils/widgetCapabilities.ts`，在 `savePageDraft` 与 `CompositeEditor.save()` 前拦截非法配置，使其根本不到服务端。错误沿用既有 `{field, message}` details 契约。回归用例包含一份完全合法、仍可发布的 PageSpec。
+
 可见性条件是受限表达式，不能读 row/详情数据或调用函数：
 
 ```ts

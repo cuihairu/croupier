@@ -511,6 +511,10 @@ wire 契约见 [PageSpec 协议规范](../architecture/pagespec-protocol.md)「�
 
 `web/src/utils/widgetCapabilities.ts` 提供覆盖全部 26 个 `FormWidget` 取值的共享类型化表：可接受 schema 类型、提交值形态、回退行为，以及是否有真实渲染实现。表单呈现的组件选择下拉现在每个选项带原生 `title` 提示（可接受类型 + 输出形态 + 回退行为），12 个选项值不变。已验证的关键事实：`Switch` 映射到 RJSF `checkbox` 但提交布尔值；`Code` 与 `JSON` 映射到 `textarea` 只提交普通字符串；`Array`/`Object` 是 renderer 管理的复合字段；`KeyValue` 走自定义 field；`DateRange` 与 `RichText` 仅声明、未实现，回退到 schema 类型默认控件。见 [PageSpec 协议](../architecture/pagespec-protocol.md#widget-能力表sui-020) 与 [页面模型](../architecture/dashboard-page-model.md#表单策略)。
 
+## 表单呈现配置校验（SUI-021）
+
+保存请求发出前，浏览器先跑与服务端保存/发布一致的表单呈现规则（`web/src/utils/formValidation.ts`）：页面上的每个表单（资源创建/更新/行操作表单、operation/task 表单、报表查询表单、每个组合页区块表单）都检查字段标识能否在 schema 中解析（裸 key 或 JSON Pointer，SUI-019）、key 重复、分组 key/字段冲突、控件非法或与 schema 类型不兼容（SUI-020 能力表）、宽度越界（0–12）。非法配置被拦截并给出逐条定位消息（如 `resource.createForm.fields[2].width: …`）；完全合法的页面照常保存与发布。服务端保持单一规则源（`spec.ValidateFormPresentations`），提案、发布、回滚预检与 validate 端点报告同一套错误码。见 [PageSpec 协议](../architecture/pagespec-protocol.md#表单呈现配置校验sui-021)。
+
 ## 9. 已知边界
 
 - SUI-020 未新增任何 widget 实现：`DateRange` 与 `RichText` 仍仅声明、未实现，静默回退到类型默认控件；`Code`/`JSON` 仍是普通 textarea 字符串，不解析也不校验内容。能力提示仅为提示信息，不改变提交值。

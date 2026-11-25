@@ -516,6 +516,8 @@ PageSpec 必须与组件库解耦。未来更换表单或图表库时只替换 r
 
 **Widget 能力表（SUI-020）**：共享表 `web/src/utils/widgetCapabilities.ts`（`WIDGET_CAPABILITIES`、`widgetCapability(widget)`）是前端唯一一份覆盖全部 26 个 `FormWidget` 取值的清单，记录可接受的 JSON Schema 类型、提交值形态、真实的 `implemented` 状态与回退行为。它照实反映渲染器的接线（`SchemaFormRenderer.widgetToRjsf` 与 `widgets.tsx`/`widgets-upload.tsx` 注册表），不是设计意图：`Switch` 映射到 RJSF `checkbox` 仍提交布尔值；`Code`/`JSON` 映射到 `textarea` 只提交普通字符串；`Array`/`Object` 是 renderer 管理的复合字段；`DateRange` 与 `RichText` 仅有声明、没有实现，会回退到类型默认控件。Page Studio 的组件选择现在每个选项展示能力提示（可接受类型、输出形态、回退行为），12 个选项值不变。本任务没有新增任何 widget 实现——契约与边界见 [PageSpec 协议](./pagespec-protocol.md#widget-能力表sui-020)。
 
+**表单呈现配置校验（SUI-021）**：保存与发布都校验页面上的每个 `FormPresentationSpec`——字段标识必须能在表单 schema 中解析（裸 key 或 JSON Pointer，SUI-019）、分组 key/字段唯一且无跨组冲突、控件必须是受控枚举且与字段 schema 类型兼容（SUI-020 能力表；仅声明的 `DateRange`/`RichText` 豁免）、宽度必须为 0 或 1–12。服务端只有一份规则源（`spec.ValidateFormPresentations`），同时被 `ValidatePublishablePageShape`（发布链）与 `ValidatePageSpecInScope`（保存/预览）追加；浏览器端在保存前经 `web/src/utils/formValidation.ts` 跑同一套规则，非法表单配置根本不会离开编辑器。错误是定位到具体表单条目的 `{field, message}` details（如 `resource.createForm.fields[2].width`）；完全合法的存量 PageSpec 仍可发布。
+
 JSON Schema 是函数输入/输出的持久化标准；表单展示由 `FormPresentationSpec` 表达，协议定义见 [PageSpec 协议规范](./pagespec-protocol.md)，渲染链路与唯一 runtime 约束见 ProComponents 页面生成与运行时。
 
 `FormPresentationSpec` 只负责表单展示，不改变 FunctionContract payload；保存和发布都必须经过服务端结构校验，校验失败必须报错并要求管理员修复。表单 runtime 固定为 `@rjsf/antd + @rjsf/validator-ajv8`，项目内禁止并行保留第二套表单运行时。

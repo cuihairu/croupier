@@ -92,6 +92,17 @@ The renderer's `SchemaFormRenderer.widgetToRjsf` maps every `FormFieldSpec.widge
 
 Extending widgets still requires modifying the spec package and syncing the frontend types; the capability table must be updated in the same change, and the table asserts full enum coverage so a new enum value cannot land without a documented capability.
 
+### Form presentation validation (SUI-021)
+
+Save and publish validate every `FormPresentationSpec` carried by the PageSpec — `resource.createForm`, `resource.updateForm`, `resource.actions[].form`, `operation.form`, `task.form`, `report.queryForm`, and every `composite.sections[].form`. Rules:
+
+- **Field keys**: non-empty, unique, and resolvable in the form's `jsonSchema` (legacy bare keys and JSON Pointer keys follow the SUI-019 contract). Diagnostics locate `…form.fields[i].key`.
+- **Groups**: group keys are non-empty and unique; every group field must be declared in `form.fields` and resolve in the schema; the same field cannot be assigned to two groups (`…groups[i].fields[j]`, `…conflict`).
+- **Widgets**: the value must be one of the 26 governed enum values, and its accepted schema types (from the SUI-020 capability table) must match the resolved field schema type; declared-only `DateRange`/`RichText` are not rejected merely for lacking an implementation. Missing/unrecognized schema types skip the compatibility check.
+- **Width**: `0` (unset) or `1–12` on the 12-column grid.
+
+Enforcement is one rule source: `spec.ValidateFormPresentations` is appended by `ValidatePublishablePageShape` (publish, accept-and-publish, rollback preflight, proposal validation) and by `ValidatePageSpecInScope` on the save/preview path; the client reuses `web/src/utils/fieldPath.ts` and `web/src/utils/widgetCapabilities.ts` in `web/src/utils/formValidation.ts` before `savePageDraft` and `CompositeEditor.save()` so invalid configuration never reaches the server. Errors use the existing `{field, message}` details contract. Regression tests include a fully valid fixture that still publishes.
+
 Visibility conditions are restricted expressions: they cannot read row/detail data or call functions:
 
 ```ts
