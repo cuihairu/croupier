@@ -21,10 +21,12 @@ import (
 	"gorm.io/gorm"
 )
 
-// alertRulesDBSeq 给每次调用发互不重名的内存库。按 t.Name() 命名不够：
-// -count=3 让同一用例名跑三遍，而 file: 内存库只要还有一条连接开着就存活
-// （上一遍的连接池没关尽），于是这一遍会读到上一遍残留的规则/告警行
-// —— 签名是列表长度翻倍（should have 2 items, but has 4/6）。
+// alertRulesDBSeq hands out a uniquely named in-memory DB for every call. Naming by
+// t.Name() is not enough: -count=3 runs the same test name three times, and a
+// file: memory-shared DB survives as long as at least one connection is open (the
+// previous run's pool never fully closed), so this run reads leftover rule/alert rows
+// from the previous run -- the signature is a doubled list length
+// (should have 2 items, but has 4/6).
 var alertRulesDBSeq int64
 
 func newAlertRulesEnv(t *testing.T) (*gin.Engine, *Service, *gorm.DB) {
@@ -68,7 +70,7 @@ func doAlertReq(r *gin.Engine, method, path, body string) *httptest.ResponseReco
 func TestRulesHandler_CreateRoundTripAndDefaults(t *testing.T) {
 	r, _, db := newAlertRulesEnv(t)
 
-	// 显式字段全量往返(含 enabled=false)。
+	// Full round-trip with explicit fields (including enabled=false).
 	rec := doAlertReq(r, http.MethodPost, "/alerts/rules", `{
 		"name":"CPU 爆表","description":"持续高负载","metric":"cpu.usagePercent",
 		"operator":"gte","threshold":85.5,"forCount":3,"cooldownSeconds":120,
@@ -86,14 +88,15 @@ func TestRulesHandler_CreateRoundTripAndDefaults(t *testing.T) {
 	assert.Equal(t, 120, created.Item.CooldownSeconds)
 	assert.Equal(t, "critical", created.Item.Level)
 	assert.Equal(t, "agent-1", created.Item.AgentFilter)
-	// 注意:enabled=false 时 create 响应里 enabled 会被 gorm 回填为列默认值 true
-	// (库中实际为 false),此处按落库结果断言,见报告。
+	// Note: with enabled=false, gorm refills enabled to the column default true in the
+	// create response (the database actually stores false), so assert against the
+	// persisted row; see the report.
 	var stored model.AlertRule
 	require.NoError(t, db.First(&stored, created.Item.ID).Error)
 	assert.False(t, stored.Enabled)
 	assert.Empty(t, created.Item.LastFiredAt)
 
-	// 缺省字段:forCount→1、cooldownSeconds→300、level→warning、enabled→true。
+	// Defaulted fields: forCount->1, cooldownSeconds->300, level->warning, enabled->true.
 	rec = doAlertReq(r, http.MethodPost, "/alerts/rules",
 		`{"name":"内存高","metric":"memory.usedBytes","operator":"gt","threshold":100}`)
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
@@ -103,7 +106,7 @@ func TestRulesHandler_CreateRoundTripAndDefaults(t *testing.T) {
 	assert.Equal(t, model.AlertRuleLevelWarning, created.Item.Level)
 	assert.True(t, created.Item.Enabled)
 
-	// 列表过滤。
+	// List filtering.
 	listAndAssert := func(query string, want int, wantEnabled *bool) {
 		t.Helper()
 		rec := doAlertReq(r, http.MethodGet, "/alerts/rules"+query, "")
@@ -121,9 +124,9 @@ func TestRulesHandler_CreateRoundTripAndDefaults(t *testing.T) {
 	enabledFalse, enabledTrue := false, true
 	listAndAssert("?enabled=false", 1, &enabledFalse)
 	listAndAssert("?enabled=true", 1, &enabledTrue)
-	listAndAssert("?enabled=bogus", 2, nil) // 非法值不过滤
+	listAndAssert("?enabled=bogus", 2, nil) // invalid value does not filter
 
-	// 持久化核对。
+	// Persistence check.
 	rules, err := model.NewAlertRuleModel(db).List(context.Background(), model.ListAlertRulesOptions{})
 	require.NoError(t, err)
 	require.Len(t, rules, 2)
@@ -163,7 +166,7 @@ func TestRulesHandler_UpdateFlows(t *testing.T) {
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &created))
 	id := fmt.Sprintf("%d", created.Item.ID)
 
-	// 部分更新往返。
+	// Partial update round-trip.
 	rec = doAlertReq(r, http.MethodPut, "/alerts/rules/"+id,
 		`{"threshold":95.5,"forCount":2,"cooldownSeconds":60,"enabled":false,"name":"cpu-2","description":"  升级  ","agentFilter":"agent-9"}`)
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
@@ -176,25 +179,25 @@ func TestRulesHandler_UpdateFlows(t *testing.T) {
 	assert.Equal(t, "cpu-2", updated.Item.Name)
 	assert.Equal(t, "升级", updated.Item.Description)
 	assert.Equal(t, "agent-9", updated.Item.AgentFilter)
-	assert.Equal(t, "cpu.usagePercent", updated.Item.Metric) // 不可变字段不变
+	assert.Equal(t, "cpu.usagePercent", updated.Item.Metric) // immutable fields do not change
 
-	// forCount<1 归一为 1。
+	// forCount < 1 is normalized to 1.
 	rec = doAlertReq(r, http.MethodPut, "/alerts/rules/"+id, `{"forCount":0}`)
 	require.Equal(t, http.StatusOK, rec.Code)
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &updated))
 	assert.Equal(t, 1, updated.Item.ForCount)
 
-	// 空更新返回当前值。
+	// An empty update returns the current values.
 	rec = doAlertReq(r, http.MethodPut, "/alerts/rules/"+id, `{}`)
 	require.Equal(t, http.StatusOK, rec.Code)
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &updated))
 	assert.Equal(t, "cpu-2", updated.Item.Name)
 
-	// level 提供但非法 → 400。
+	// level provided but invalid -> 400.
 	rec = doAlertReq(r, http.MethodPut, "/alerts/rules/"+id, `{"level":"fatal"}`)
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 
-	// 无效/不存在 ID。
+	// Invalid / nonexistent ID.
 	rec = doAlertReq(r, http.MethodPut, "/alerts/rules/abc", `{"threshold":1}`)
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 	rec = doAlertReq(r, http.MethodPut, "/alerts/rules/0", `{"threshold":1}`)
@@ -214,7 +217,7 @@ func TestRulesHandler_DeleteFlow(t *testing.T) {
 	}
 
 	rec := doAlertReq(r, http.MethodDelete, "/alerts/rules/999999", "")
-	assert.Equal(t, http.StatusOK, rec.Code) // gorm 删除不存在的行不报错(当前行为)
+	assert.Equal(t, http.StatusOK, rec.Code) // gorm deleting a nonexistent row does not error (current behavior)
 
 	var list RulesListResponse
 	rec = doAlertReq(r, http.MethodGet, "/alerts/rules", "")
@@ -283,7 +286,7 @@ func TestAlertService_ListLevelStatusFilters(t *testing.T) {
 	assert.Equal(t, "a-warn1", resp.Items[0].Id)
 	assert.Equal(t, "firing", resp.Items[0].Status)
 
-	// 过滤空白与 details 透传。
+	// Whitespace trimming in filters and details pass-through.
 	resp, err = list(" warning ", "")
 	require.NoError(t, err)
 	assert.Len(t, resp.Items, 2)
@@ -303,7 +306,7 @@ func TestSilenceService_LifecycleAndValidation(t *testing.T) {
 	alert := &model.Alert{AlertID: "sil-target", Type: "db_monitor", Level: "warning", Status: "firing", Message: "m"}
 	require.NoError(t, am.Create(ctx, alert))
 
-	// 负 duration 归一为 60 分钟。
+	// A negative duration normalizes to 60 minutes.
 	require.NoError(t, s.Silence(ctx, &AlertSilenceRequest{ID: "sil-target", Duration: -5, Reason: "  发布窗口  "}))
 	var silences []model.AlertSilence
 	require.NoError(t, db.Find(&silences).Error)
@@ -312,20 +315,20 @@ func TestSilenceService_LifecycleAndValidation(t *testing.T) {
 	assert.Equal(t, "发布窗口", silences[0].Reason)
 	assert.WithinDuration(t, time.Now().Add(60*time.Minute), silences[0].ExpiresAt, 2*time.Minute)
 
-	// 列表带出 alertType。
+	// The list response carries alertType.
 	resp, err := s.SilencesList(ctx, &SilencesListRequest{})
 	require.NoError(t, err)
 	require.Len(t, resp.Items, 1)
 	assert.Equal(t, "db_monitor", resp.Items[0].AlertType)
 	assert.NotEmpty(t, resp.Items[0].EndAt)
 
-	// 删除。
+	// Deletion.
 	require.NoError(t, s.SilenceDelete(ctx, &SilenceDeleteRequest{ID: fmt.Sprintf("%d", silences[0].ID)}))
 	resp, err = s.SilencesList(ctx, &SilencesListRequest{})
 	require.NoError(t, err)
 	assert.Empty(t, resp.Items)
 
-	// 校验分支。
+	// Validation branches.
 	err = s.Silence(ctx, &AlertSilenceRequest{ID: "   "})
 	assert.ErrorContains(t, err, "告警ID不能为空")
 	err = s.Silence(ctx, &AlertSilenceRequest{ID: "no-such-alert"})

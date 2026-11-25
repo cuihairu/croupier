@@ -1,9 +1,10 @@
-// 覆盖目标（组 E）：alert handler.RulesList 的 ShouldBindQuery 错误分支
-// （handler.go:78-81）。
+// Coverage target (group E): the ShouldBindQuery error branch of alert handler.RulesList
+// (handler.go:78-81).
 //
-// RulesListRequest 仅含两个无校验 tag 的 string form 字段，绑定恒成功
-// （见 resource/deadbranch_extra_test.go 的同类结论），错误分支只能通过
-// gin 的可插拔校验器扩展点在 validate 阶段注入失败触达。
+// RulesListRequest only carries two string form fields without validation tags, so
+// binding always succeeds (same conclusion as resource/deadbranch_extra_test.go); the
+// error branch can only be reached by injecting a failure at the validate stage via
+// gin's pluggable validator extension point.
 package alert
 
 import (
@@ -17,8 +18,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// failingBindValidatorGroupE 使 ShouldBindQuery 在 mapForm 成功后于
-// validate 阶段返回错误。
+// failingBindValidatorGroupE makes ShouldBindQuery return an error at the validate
+// stage after mapForm has succeeded.
 type failingBindValidatorGroupE struct{}
 
 func (failingBindValidatorGroupE) ValidateStruct(interface{}) error {

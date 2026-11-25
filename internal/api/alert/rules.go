@@ -11,7 +11,7 @@ import (
 	"github.com/cuihairu/croupier/internal/platform/alertrule"
 )
 
-// ---------- 规则 DTO ----------
+// ---------- Rule DTOs ----------
 
 type RuleItem struct {
 	ID              uint    `json:"id"`
@@ -85,7 +85,7 @@ type RuleUpdateResponse struct {
 	Item RuleItem `json:"item"`
 }
 
-// ---------- 规则 handlers（挂在 Service 上） ----------
+// ---------- Rule handlers (attached to Service) ----------
 
 func (s *Service) rulesModel() *model.AlertRuleModel {
 	if s.svcCtx == nil {

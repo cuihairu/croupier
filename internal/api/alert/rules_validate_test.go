@@ -9,17 +9,18 @@ import (
 	"github.com/cuihairu/croupier/internal/model"
 )
 
-// 告警规则输入校验与小工具：非法 metric/operator/level 必须 400 拦截。
+// Alert rule input validation and helpers: an invalid metric/operator/level must be
+// rejected with a 400.
 
 func TestValidateRuleInput(t *testing.T) {
-	// 合法。
+	// Valid inputs.
 	require.NoError(t, validateRuleInput("cpu.usagePercent", "gt", "warning"))
 	require.NoError(t, validateRuleInput("memory.usedBytes", "gte", "critical"))
 	require.NoError(t, validateRuleInput("disk./data.usedPercent", "lt", "info"))
 	require.NoError(t, validateRuleInput("custom.foo", "lte", ""))
 	require.NoError(t, validateRuleInput("cpu.usagePercent", "gt", ""))
 
-	// 非法 metric。
+	// Invalid metric.
 	err := validateRuleInput("gpu.usage", "gt", "warning")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "非法指标")
@@ -38,12 +39,12 @@ func TestValidateRuleInput(t *testing.T) {
 	err = validateRuleInput("", "gt", "warning")
 	require.Error(t, err)
 
-	// 非法 operator。
+	// Invalid operator.
 	err = validateRuleInput("cpu.usagePercent", "ne", "warning")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "operator")
 
-	// 非法 level。
+	// Invalid level.
 	err = validateRuleInput("cpu.usagePercent", "gt", "fatal")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "level")
@@ -70,7 +71,7 @@ func TestDerefString(t *testing.T) {
 }
 
 func TestValidLevelsTable(t *testing.T) {
-	// 约束与 model 常量对齐，防漂移。
+	// The constraints stay aligned with the model constants, guarding against drift.
 	assert.True(t, validLevels[model.AlertRuleLevelInfo])
 	assert.True(t, validLevels[model.AlertRuleLevelWarning])
 	assert.True(t, validLevels[model.AlertRuleLevelCritical])

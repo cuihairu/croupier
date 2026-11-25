@@ -1,6 +1,6 @@
-// 覆盖目标：alert 包 handler 错误分支（service 错误 / bind 错误）、
-// rules.go buildRuleItem LastFiredAt 分支与 rulesModel nil 分支、
-// service.go 静默 ID 越界、extension silences 追加/移除/损坏配置等路径。
+// Coverage targets: the alert package's handler error branches (service error / bind error),
+// the rules.go buildRuleItem LastFiredAt and rulesModel-nil branches, the service.go silence
+// ID out-of-range case, and the extension silences append/remove/corrupt-config paths.
 package alert
 
 import (
@@ -22,7 +22,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// newAlertErrRouter 构造一个空模型 svcCtx 的路由，用于触发 handler 错误分支。
+// newAlertErrRouter builds a router with an empty-model svcCtx, used to trigger the handler error branches.
 func newAlertErrRouter(t *testing.T) *gin.Engine {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
@@ -90,13 +90,14 @@ func TestSilenceDelete_HugeIDFormatRejected(t *testing.T) {
 	db := alertNewMemDB(t)
 	s := NewService(&svc.ServiceContext{AlertModel: model.NewAlertModel(db)})
 
-	// 超出 uint64 的数字在 ParseUint 即失败。
+	// Numbers exceeding uint64 already fail in ParseUint.
 	err := s.SilenceDelete(context.Background(), &SilenceDeleteRequest{ID: "18446744073709551616"})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "静默ID无效")
 }
 
-// 零值 ID 在统一解析层（utils.ParseUintID）即拒绝，不再落入模型层 not-found。
+// A zero-value ID is rejected at the unified parsing layer (utils.ParseUintID) and no longer
+// falls through to the model-layer not-found.
 func TestSilenceDelete_ZeroIDRejected(t *testing.T) {
 	db := alertNewMemDB(t)
 	s := NewService(&svc.ServiceContext{AlertModel: model.NewAlertModel(db)})
@@ -120,7 +121,7 @@ func TestBuildRuleItem_LastFiredAtSet(t *testing.T) {
 	assert.Equal(t, now.UTC().Format(time.RFC3339), item.LastFiredAt)
 }
 
-// ---- extension silences 相关 ----
+// ---- extension silences ----
 
 type alertExtEnv struct {
 	db        *gorm.DB
@@ -226,13 +227,13 @@ func TestRemoveAlertingSilenceFromExtension_RemovesEntry(t *testing.T) {
 	require.Len(t, items, 1)
 	assert.Equal(t, "2", items[0].Id)
 
-	// 删除不存在的 ID：原样保留。
+	// Removing a nonexistent ID: the config is left as it was.
 	require.NoError(t, env.service.removeAlertingSilenceFromExtension(context.Background(), "999"))
 	items, _, err = env.service.loadAlertingSilencesFromExtension(context.Background())
 	require.NoError(t, err)
 	require.Len(t, items, 1)
 
-	// 无活跃安装时为 no-op。
+	// No active installation: a no-op.
 	emptySvc := NewService(&svc.ServiceContext{})
 	require.NoError(t, emptySvc.removeAlertingSilenceFromExtension(context.Background(), "1"))
 }
@@ -258,14 +259,14 @@ func TestLoadAlertingSilencesFromExtension_NoSilencesKey(t *testing.T) {
 func TestFindActiveAlertingInstallation_UninstalledSkipped(t *testing.T) {
 	env := newAlertExtEnv(t, nil)
 
-	// Status = uninstalled → 跳过。
+	// Status = uninstalled -> skipped.
 	require.NoError(t, env.db.Model(&model.ExtensionInstallation{}).
 		Where("id = ?", env.installed.ID).Update("status", "uninstalled").Error)
 	_, ok, err := env.service.findActiveAlertingInstallation(context.Background())
 	require.NoError(t, err)
 	assert.False(t, ok)
 
-	// DesiredState = uninstalled → 跳过。
+	// DesiredState = uninstalled -> skipped.
 	require.NoError(t, env.db.Model(&model.ExtensionInstallation{}).
 		Where("id = ?", env.installed.ID).
 		Updates(map[string]any{"status": "active", "desired_state": "uninstalled"}).Error)
@@ -311,7 +312,7 @@ func TestSilencesList_DatabaseError(t *testing.T) {
 	require.Error(t, err)
 }
 
-// ---- 小工具 ----
+// ---- small helpers ----
 
 func alertNewMemDB(t *testing.T) *gorm.DB {
 	t.Helper()

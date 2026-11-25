@@ -21,7 +21,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// inboundTestSecret 测试用共享密钥（环境变量引用路径的值）。
+// inboundTestSecret is the shared test secret (the value behind the env var reference).
 const inboundTestSecret = "test-inbound-secret"
 
 func setupInboundServer(t *testing.T, sources map[string]config.AlertInboundSourceConfig) (*gin.Engine, *gorm.DB) {
@@ -36,7 +36,7 @@ func setupInboundServer(t *testing.T, sources map[string]config.AlertInboundSour
 	return e, db
 }
 
-// signedInboundRequest 构造带 HMAC 签名与时间戳的入站请求。
+// signedInboundRequest builds an inbound request carrying an HMAC signature and timestamp.
 func signedInboundRequest(t *testing.T, source string, body []byte, secret string, tsUnix int64) *http.Request {
 	t.Helper()
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/alerts/inbound/"+source, bytes.NewReader(body))
@@ -68,14 +68,14 @@ func TestInboundUnknownSourceRejected(t *testing.T) {
 }
 
 func TestInboundSourceNotConfigured(t *testing.T) {
-	// 来源在闭集但未配置 secretEnv → 403（非开放端点）。
+	// Source is in the closed set but secretEnv is not configured -> 403 (not an open endpoint).
 	e, _ := setupInboundServer(t, map[string]config.AlertInboundSourceConfig{})
 	code, _ := doInbound(t, e, signedInboundRequest(t, "generic", []byte(`{}`), inboundTestSecret, time.Now().Unix()))
 	assert.Equal(t, http.StatusForbidden, code)
 }
 
 func TestInboundSecretEnvMissing(t *testing.T) {
-	// secretEnv 指向的环境变量为空 → 403（降级拒绝，不开放）。
+	// The env var pointed to by secretEnv is empty -> 403 (fail closed, not open).
 	t.Setenv("INBOUND_TEST_EMPTY_SECRET", "")
 	e, _ := setupInboundServer(t, map[string]config.AlertInboundSourceConfig{
 		"generic": {SecretEnv: "INBOUND_TEST_EMPTY_SECRET"},
@@ -90,11 +90,11 @@ func TestInboundSignatureRejected(t *testing.T) {
 		"generic": {SecretEnv: "INBOUND_TEST_SECRET"},
 	})
 	body := []byte(`{"eventId":"sig-1","severity":"warning"}`)
-	// 错误密钥签名 → 400 signature_invalid。
+	// Signature computed with a wrong secret -> 400 signature_invalid.
 	code, respBody := doInbound(t, e, signedInboundRequest(t, "generic", body, "wrong-secret", time.Now().Unix()))
 	assert.Equal(t, http.StatusBadRequest, code)
 	assert.Equal(t, "signature_invalid", respBody["error"])
-	// 缺签名头 → 400。
+	// Missing signature header -> 400.
 	req := signedInboundRequest(t, "generic", body, "", time.Now().Unix())
 	code, _ = doInbound(t, e, req)
 	assert.Equal(t, http.StatusBadRequest, code)
@@ -106,16 +106,16 @@ func TestInboundTimestampReplayRejected(t *testing.T) {
 		"generic": {SecretEnv: "INBOUND_TEST_SECRET"},
 	})
 	body := []byte(`{"eventId":"ts-1","severity":"info"}`)
-	// 缺时间戳头 → 400。
+	// Missing timestamp header -> 400.
 	code, respBody := doInbound(t, e, signedInboundRequest(t, "generic", body, inboundTestSecret, 0))
 	assert.Equal(t, http.StatusBadRequest, code)
 	assert.Equal(t, "timestamp_invalid", respBody["error"])
-	// 超窗口（10 分钟前）→ 400（防重放）。
+	// Out of window (10 minutes ago) -> 400 (replay protection).
 	stale := time.Now().Add(-10 * time.Minute).Unix()
 	code, respBody = doInbound(t, e, signedInboundRequest(t, "generic", body, inboundTestSecret, stale))
 	assert.Equal(t, http.StatusBadRequest, code)
 	assert.Equal(t, "timestamp_invalid", respBody["error"])
-	// 非法时间戳 → 400。
+	// Malformed timestamp -> 400.
 	req := signedInboundRequest(t, "generic", body, inboundTestSecret, time.Now().Unix())
 	req.Header.Set("X-Croupier-Timestamp", "not-a-number")
 	code, _ = doInbound(t, e, req)
@@ -154,7 +154,7 @@ func TestInboundGenericAcceptedAndMapped(t *testing.T) {
 	assert.Contains(t, alertMap["message"], "Disk full")
 	assert.Contains(t, alertMap["message"], "usage 95%")
 
-	// 落库断言（告警页同源存储）。
+	// Landing assertion (the alert page reads from this same storage).
 	var row model.Alert
 	require.NoError(t, db.Where("alert_id = ?", "ext-123").First(&row).Error)
 	assert.Equal(t, "generic", row.Source)
@@ -169,7 +169,7 @@ func TestInboundGenericIdempotent(t *testing.T) {
 	body := []byte(`{"kind":"alert.inbound","severity":"warning","eventId":"dup-1","title":"t"}`)
 	code1, resp1 := doInbound(t, e, signedInboundRequest(t, "generic", body, inboundTestSecret, time.Now().Unix()))
 	require.Equal(t, http.StatusCreated, code1)
-	// 同 eventId 重推 → 200 created=false（幂等折叠，不重复落库）。
+	// Re-pushing the same eventId -> 200 with created=false (idempotent collapse, no duplicate row).
 	code2, resp2 := doInbound(t, e, signedInboundRequest(t, "generic", body, inboundTestSecret, time.Now().Unix()))
 	assert.Equal(t, http.StatusOK, code2)
 	created, _ := resp2["created"].(bool)
@@ -186,10 +186,10 @@ func TestInboundGenericPayloadInvalid(t *testing.T) {
 	e, _ := setupInboundServer(t, map[string]config.AlertInboundSourceConfig{
 		"generic": {SecretEnv: "INBOUND_TEST_SECRET"},
 	})
-	// 缺 eventId → 400。
+	// Missing eventId -> 400.
 	code, _ := doInbound(t, e, signedInboundRequest(t, "generic", []byte(`{"severity":"info"}`), inboundTestSecret, time.Now().Unix()))
 	assert.Equal(t, http.StatusBadRequest, code)
-	// 非法 JSON → 400。
+	// Malformed JSON -> 400.
 	code, _ = doInbound(t, e, signedInboundRequest(t, "generic", []byte(`not-json`), inboundTestSecret, time.Now().Unix()))
 	assert.Equal(t, http.StatusBadRequest, code)
 }
@@ -197,7 +197,7 @@ func TestInboundGenericPayloadInvalid(t *testing.T) {
 func TestInboundAlertmanagerAcceptedAndMapped(t *testing.T) {
 	t.Setenv("INBOUND_TEST_SECRET", inboundTestSecret)
 	e, _ := setupInboundServer(t, map[string]config.AlertInboundSourceConfig{
-		"alertmanager": {SecretEnv: "INBOUND_TEST_SECRET"}, // 未配 labelMapping → 内置默认映射
+		"alertmanager": {SecretEnv: "INBOUND_TEST_SECRET"}, // no labelMapping set -> built-in default mapping
 	})
 	body := []byte(`{
 		"alerts": [{
@@ -212,14 +212,14 @@ func TestInboundAlertmanagerAcceptedAndMapped(t *testing.T) {
 
 	alertMap := respBody["alert"].(map[string]any)
 	assert.Equal(t, "critical", alertMap["level"])
-	// 默认映射：instance→type（ops 页 Service 列显示实例名）。
+	// Default mapping: instance->type (shown as the instance name in the Service column of the ops page).
 	assert.Equal(t, "node-1", alertMap["type"])
 	assert.Equal(t, "alertmanager", alertMap["source"])
 	assert.Equal(t, "firing", alertMap["status"])
-	// annotations.summary 兜底 message。
+	// annotations.summary falls back as the message.
 	assert.Contains(t, alertMap["message"], "CPU over 90%")
 
-	// 幂等键确定性：同 payload 重推 → created=false。
+	// Idempotency key determinism: re-pushing the same payload -> created=false.
 	code2, respBody2 := doInbound(t, e, signedInboundRequest(t, "alertmanager", body, inboundTestSecret, time.Now().Unix()))
 	assert.Equal(t, http.StatusOK, code2)
 	created2, _ := respBody2["created"].(bool)
@@ -245,7 +245,7 @@ func TestInboundAlertmanagerCustomLabelMapping(t *testing.T) {
 	code, respBody := doInbound(t, e, signedInboundRequest(t, "alertmanager", body, inboundTestSecret, time.Now().Unix()))
 	require.Equal(t, http.StatusCreated, code)
 	alertMap := respBody["alert"].(map[string]any)
-	// 配置驱动映射覆盖内置默认。
+	// Config-driven mapping overrides the built-in defaults.
 	assert.Equal(t, "warning", alertMap["level"])
 	assert.Equal(t, "gameserver", alertMap["type"])
 	assert.Equal(t, "resolved", alertMap["status"])
@@ -263,23 +263,24 @@ func TestUpsertByAlertID(t *testing.T) {
 	assert.True(t, created)
 	assert.NotZero(t, row.ID)
 
-	// 同 id 再写 → 返回已存在行（dedup）。
+	// Writing the same id again -> the existing row is returned (dedup).
 	row2, created2, err := m.UpsertByAlertID(context.Background(), &model.Alert{
 		AlertID: "up-1", Type: "alert.inbound", Level: "info", Message: "second",
 	})
 	require.NoError(t, err)
 	assert.False(t, created2)
 	assert.Equal(t, row.ID, row2.ID)
-	assert.Equal(t, "critical", row2.Level) // 保留首条内容
+	assert.Equal(t, "critical", row2.Level) // the first record's content is preserved
 
-	// 空 alert_id → 报错。
+	// Empty alert_id -> error.
 	_, _, err = m.UpsertByAlertID(context.Background(), &model.Alert{})
 	assert.Error(t, err)
 }
 
 func TestInboundAlertVisibleOnOpsList(t *testing.T) {
-	// 告警页落库回归：入站告警（source=alertmanager/generic）不在 ops 列表
-	// 排除面（ExcludeSources=contract），落库即页面可见。
+	// Alert page persistence regression: inbound alerts (source=alertmanager/generic) are
+	// not in the ops list exclusion set (ExcludeSources=contract), so once landed they are
+	// visible on the page.
 	db := setupAlertTestDB(t)
 	m := model.NewAlertModel(db)
 	for _, id := range []string{"ops-vis-am", "ops-vis-gen"} {
@@ -289,7 +290,8 @@ func TestInboundAlertVisibleOnOpsList(t *testing.T) {
 		})
 		require.NoError(t, err)
 	}
-	// contract 来源是 ops 列表的既有排除面（函数域业务告警不混入）。
+	// The contract source is the ops list's pre-existing exclusion set (function-domain
+	// business alerts must not mix in).
 	_, _, err := m.UpsertByAlertID(context.Background(), &model.Alert{
 		AlertID: "ops-vis-contract", Type: "contract", Level: "warning",
 		Message: "m", Source: "contract", Status: "firing",

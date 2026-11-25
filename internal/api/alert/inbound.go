@@ -20,14 +20,14 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// inboundSourceClosure 入站来源闭集（plugin-mechanism 设计 §5.3）。
+// inboundSourceClosure is the closed set of inbound sources (plugin-mechanism design §5.3).
 var inboundSourceClosure = map[string]bool{
 	"alertmanager": true,
 	"generic":      true,
 }
 
-// defaultAlertmanagerLabelMapping alertmanager labels 键→告警字段默认映射
-// （配置驱动，可在 alertInbound.sources.alertmanager.labelMapping 覆盖）。
+// defaultAlertmanagerLabelMapping maps alertmanager label keys to alert fields by
+// default (config-driven, overridable via alertInbound.sources.alertmanager.labelMapping).
 var defaultAlertmanagerLabelMapping = map[string]string{
 	"severity": "level",
 	"summary":  "message",
@@ -35,27 +35,29 @@ var defaultAlertmanagerLabelMapping = map[string]string{
 }
 
 const (
-	// inboundTimestampWindow 防重放时间窗（±5 分钟）。
+	// inboundTimestampWindow is the replay-protection window (+/-5 minutes).
 	inboundTimestampWindow = 5 * time.Minute
-	// inboundKindAlertInbound generic 来源固定 kind。
+	// inboundKindAlertInbound is the fixed kind for the generic source.
 	inboundKindAlertInbound = "alert.inbound"
-	// inboundKindAlertManager alertmanager 来源固定 kind。
+	// inboundKindAlertManager is the fixed kind for the alertmanager source.
 	inboundKindAlertManager = "alertmanager"
 )
 
-// InboundResponse 入站 webhook 响应。
+// InboundResponse is the inbound webhook response.
 type InboundResponse struct {
 	Alert   Alert `json:"alert"`
-	Created bool  `json:"created"` // false = 幂等去重（已存在）
+	Created bool  `json:"created"` // false = deduplicated by idempotency (already exists)
 }
 
 // Inbound handles POST /api/v1/alerts/inbound/{source}.
 //
-// 鉴权：X-Croupier-Signature（HMAC-SHA256 over raw body）+ X-Croupier-Timestamp
+// Auth: X-Croupier-Signature (HMAC-SHA256 over raw body) + X-Croupier-Timestamp
 //
-//	（±5 分钟防重放）。密钥走配置 secretEnv 环境变量引用（同 herald tokenEnv 口径）。
+//	(+/-5 minutes replay protection). The secret is resolved via the secretEnv
+//	environment variable reference in config (same convention as herald tokenEnv).
 //
-// 幂等：eventId → Alert.AlertID 唯一键，同 id 重推不重复落库。
+// Idempotency: eventId -> Alert.AlertID unique key; re-pushing the same id does not
+// land a duplicate row in the database.
 func (h *Handler) Inbound(c *gin.Context) {
 	source := c.Param("source")
 	if !inboundSourceClosure[source] {
@@ -80,14 +82,14 @@ func (h *Handler) Inbound(c *gin.Context) {
 		return
 	}
 
-	// HMAC 验签
+	// HMAC signature verification
 	if !verifyInboundSignature(secret, body, c.GetHeader("X-Croupier-Signature")) {
 		h.service.auditInboundRejected(c, source, "signature_invalid")
 		response.Error(c, errorx.NewBadRequestWithCode("signature_invalid", "签名校验失败", nil))
 		return
 	}
 
-	// 时间戳防重放
+	// Timestamp replay protection
 	if !verifyInboundTimestamp(c.GetHeader("X-Croupier-Timestamp")) {
 		h.service.auditInboundRejected(c, source, "timestamp_replay")
 		response.Error(c, errorx.NewBadRequestWithCode("timestamp_invalid", "时间戳无效或已过期", nil))
@@ -106,7 +108,7 @@ func (h *Handler) Inbound(c *gin.Context) {
 	}
 }
 
-// ingestInbound 解析 payload → 映射 Alert → 幂等落库。
+// ingestInbound parses the payload, maps it to an Alert, and lands it idempotently.
 func (s *Service) ingestInbound(ctx context.Context, source string, body []byte, srcCfg config.AlertInboundSourceConfig) (Alert, bool, error) {
 	if s.svcCtx.AlertModel == nil {
 		return Alert{}, false, errors.New("告警模型未初始化")
@@ -130,7 +132,7 @@ func (s *Service) ingestInbound(ctx context.Context, source string, body []byte,
 	return toAlertDTO(row), created, nil
 }
 
-// inboundGenericPayload generic 来源直接使用 §5.2 信封。
+// inboundGenericPayload is the §5.2 envelope, used as-is by the generic source.
 type inboundGenericPayload struct {
 	Kind             string `json:"kind"`
 	Severity         string `json:"severity"`
@@ -147,7 +149,7 @@ type inboundGenericPayload struct {
 	Labels map[string]string `json:"labels"`
 }
 
-// mapGenericPayload 把 §5.2 信封映射为 model.Alert。
+// mapGenericPayload maps the §5.2 envelope to model.Alert.
 func mapGenericPayload(body []byte, source string) (*model.Alert, error) {
 	var p inboundGenericPayload
 	if err := json.Unmarshal(body, &p); err != nil {
@@ -191,14 +193,14 @@ func mapGenericPayload(body []byte, source string) (*model.Alert, error) {
 		Source:  source,
 		Status:  "firing",
 		Details: details,
-		// 4862：generic 载荷自带 scope → 打戳（空 = 平台级）。
-		// alertmanager 载荷无 scope 字段，不打戳。
+		// 4862: the generic payload carries its own scope, so stamp it (empty = platform level).
+		// The alertmanager payload has no scope field, so it is not stamped.
 		GameID: p.Scope.GameID,
 		Env:    p.Scope.Env,
 	}, nil
 }
 
-// inboundAMAlert Alertmanager 兼容 payload 的单条告警。
+// inboundAMAlert is a single alert inside an Alertmanager-compatible payload.
 type inboundAMAlert struct {
 	Status       string            `json:"status"`
 	Labels       map[string]string `json:"labels"`
@@ -208,12 +210,12 @@ type inboundAMAlert struct {
 	GeneratorURL string            `json:"generatorURL"`
 }
 
-// inboundAlertmanagerPayload Alertmanager 兼容 payload。
+// inboundAlertmanagerPayload is an Alertmanager-compatible payload.
 type inboundAlertmanagerPayload struct {
 	Alerts []inboundAMAlert `json:"alerts"`
 }
 
-// mapAlertmanagerPayload 把 Alertmanager payload 映射为 model.Alert（取首条）。
+// mapAlertmanagerPayload maps an Alertmanager payload to model.Alert (first alert only).
 func mapAlertmanagerPayload(body []byte, labelMapping map[string]string) (*model.Alert, error) {
 	var p inboundAlertmanagerPayload
 	if err := json.Unmarshal(body, &p); err != nil {
@@ -240,8 +242,8 @@ func mapAlertmanagerPayload(body []byte, labelMapping map[string]string) (*model
 	}, nil
 }
 
-// mapAMFields 按映射配置把 alertmanager labels/annotations 映射为告警字段。
-// 映射目标：level / message / type / status；其余进 details。
+// mapAMFields maps alertmanager labels/annotations to alert fields per the mapping config.
+// Mapped targets: level / message / type / status; anything else goes into details.
 func mapAMFields(a inboundAMAlert, mapping map[string]string) (level, message, alertType, status string, details map[string]interface{}) {
 	details = map[string]interface{}{}
 
@@ -270,7 +272,7 @@ func mapAMFields(a inboundAMAlert, mapping map[string]string) (level, message, a
 	if alertType == "" {
 		alertType = inboundKindAlertManager
 	}
-	// 优先级：label 映射 status > payload 自带 status > firing 默认。
+	// Priority: label-mapped status > the status carried by the payload > the firing default.
 	if status == "" {
 		status = a.Status
 	}
@@ -286,7 +288,7 @@ func mapAMFields(a inboundAMAlert, mapping map[string]string) (level, message, a
 	return
 }
 
-// alertmanagerEventID 从 labels+status 派生确定性事件 id（幂等键）。
+// alertmanagerEventID derives a deterministic event id from labels+status (idempotency key).
 func alertmanagerEventID(a inboundAMAlert) string {
 	h := sha256.New()
 	keys := make([]string, 0, len(a.Labels))
@@ -304,7 +306,7 @@ func alertmanagerEventID(a inboundAMAlert) string {
 	return "am:" + hex.EncodeToString(h.Sum(nil))[:16]
 }
 
-// verifyInboundSignature 校验 HMAC-SHA256 签名（常量时间比较）。
+// verifyInboundSignature verifies the HMAC-SHA256 signature (constant-time comparison).
 func verifyInboundSignature(secret string, body []byte, sig string) bool {
 	if sig == "" {
 		return false
@@ -315,7 +317,7 @@ func verifyInboundSignature(secret string, body []byte, sig string) bool {
 	return hmac.Equal([]byte(expected), []byte(sig))
 }
 
-// verifyInboundTimestamp 校验时间戳在 ±5 分钟窗口内。
+// verifyInboundTimestamp checks that the timestamp falls within the +/-5 minute window.
 func verifyInboundTimestamp(ts string) bool {
 	if ts == "" {
 		return false
@@ -328,7 +330,7 @@ func verifyInboundTimestamp(ts string) bool {
 	return age >= 0 && age <= inboundTimestampWindow
 }
 
-// auditInboundRejected 记录入站拒绝审计事件。
+// auditInboundRejected records an audit event for a rejected inbound request.
 func (s *Service) auditInboundRejected(c *gin.Context, source, reason string) {
 	if s.svcCtx.AuditService == nil {
 		return
@@ -344,7 +346,7 @@ func (s *Service) auditInboundRejected(c *gin.Context, source, reason string) {
 	}
 }
 
-// toAlertDTO 把 model.Alert 转为 API DTO。
+// toAlertDTO converts model.Alert into the API DTO.
 func toAlertDTO(a *model.Alert) Alert {
 	return Alert{
 		Id:        a.AlertID,

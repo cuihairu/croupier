@@ -41,7 +41,7 @@ type AlertsListResponse struct {
 // AlertSilenceRequest represents the request to silence an alert
 type AlertSilenceRequest struct {
 	ID       string `uri:"id"`
-	Duration int    `json:"duration"` // 分钟
+	Duration int    `json:"duration"` // minutes
 	Reason   string `json:"reason"`
 }
 

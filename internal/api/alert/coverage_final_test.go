@@ -12,7 +12,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// 注入式 gorm 回调：按发生序号让目标操作失败。
+// Injected gorm callback: fails the targeted operation at its Nth occurrence.
 
 func injectQueryFailure(t *testing.T, db *gorm.DB, occurrence int) {
 	t.Helper()
@@ -83,7 +83,7 @@ func TestFinalService_SilencesList_FindByIDsError(t *testing.T) {
 	am := model.NewAlertModel(db)
 	s := NewService(&svc.ServiceContext{AlertModel: am})
 	require.NoError(t, am.CreateSilence(context.Background(), &model.AlertSilence{AlertID: 1, DurationMinute: 5}))
-	// ListSilences 是第 1 个 query，FindByIDs 是第 2 个。
+	// ListSilences is the 1st query, FindByIDs is the 2nd.
 	injectQueryFailure(t, db, 2)
 
 	resp, err := s.SilencesList(context.Background(), &SilencesListRequest{})
@@ -177,7 +177,7 @@ func TestFinalRules_UpdateReloadError(t *testing.T) {
 		Name: "n", Metric: "cpu.usagePercent", Operator: "gt",
 	})
 	require.NoError(t, err)
-	// FindByID(#1) 成功，Update 成功，FindByID(#2) 注错。
+	// FindByID(#1) succeeds, Update succeeds, FindByID(#2) gets the injected failure.
 	injectQueryFailure(t, db, 2)
 
 	resp, err := s.RulesUpdate(context.Background(), created.Item.ID, &RuleUpdateRequest{

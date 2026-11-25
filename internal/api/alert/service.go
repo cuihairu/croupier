@@ -247,9 +247,9 @@ func (s *Service) loadAlertingSilencesFromExtension(ctx context.Context) ([]Sile
 	if !exists || raw == nil {
 		return nil, false, nil
 	}
-	// raw 来自 json.Unmarshal(map[string]any) 的取值，值类型仅可能为 JSON
-	// 基础类型（nil/bool/float64/string/[]any/map[string]any），再 Marshal 恒
-	// 成功，error 分支不可达，已删除。
+	// raw comes from json.Unmarshal(map[string]any), so its value type can only be a
+	// JSON primitive (nil/bool/float64/string/[]any/map[string]any); Marshal therefore
+	// always succeeds, the error branch is unreachable and has been removed.
 	data, _ := json.Marshal(raw)
 	items := []Silence{}
 	if err := json.Unmarshal(data, &items); err != nil {

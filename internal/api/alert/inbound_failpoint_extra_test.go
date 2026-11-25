@@ -1,12 +1,13 @@
 package alert
 
-// inbound.go 补测（失败注入/纯函数臂口径）：请求体读取失败臂、
-// ingestInbound 的模型未初始化与 Upsert 失败透传臂、generic 载荷的
-// severity 缺省与 title/body 组合臂、alertmanager 载荷的非法 JSON 与
-// 空列表臂、mapAMFields 的 type/status 映射、description 回退、kind 与
-// firing 兜底臂、入站拒绝审计链（Log 失败 → ReportWriteGap）。
+// Extra coverage for inbound.go (failure-injection / pure-function arm conventions):
+// the request-body read failure arm, ingestInbound's model-not-initialized and Upsert
+// failure pass-through arms, the generic payload severity default and title/body
+// combination arms, the alertmanager payload malformed-JSON and empty-list arms,
+// mapAMFields type/status mapping, the description fallback, the kind and firing
+// fallback arms, and the inbound rejection audit chain (Log failure -> ReportWriteGap).
 //
-// 诚实跳过：无。
+// Honest skips: none.
 
 import (
 	"context"
@@ -25,12 +26,12 @@ import (
 	"gorm.io/gorm"
 )
 
-// errBodyReader 恒返回读取错误（GetRawData 失败臂）。
+// errBodyReader always returns a read error (GetRawData failure arm).
 type errBodyReader struct{}
 
 func (errBodyReader) Read([]byte) (int, error) { return 0, errors.New("body pipe broken") }
 
-// TestInbound_ReadBodyError：请求体读取失败（68-70）。
+// TestInbound_ReadBodyError: request body read failure (68-70).
 func TestInbound_ReadBodyError(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	db := setupAlertTestDB(t)
@@ -49,7 +50,7 @@ func TestInbound_ReadBodyError(t *testing.T) {
 	require.Contains(t, w.Body.String(), "read body failed")
 }
 
-// ingestInbound 的告警模型未初始化臂（112-113）。
+// ingestInbound's alert-model-not-initialized arm (112-113).
 func TestIngestInbound_NilAlertModel(t *testing.T) {
 	s := NewService(&svc.ServiceContext{})
 	_, _, err := s.ingestInbound(context.Background(), "generic", []byte(`{"eventId":"e1"}`),
@@ -57,12 +58,12 @@ func TestIngestInbound_NilAlertModel(t *testing.T) {
 	require.ErrorContains(t, err, "告警模型未初始化")
 }
 
-// ingestInbound 的 UpsertByAlertID 失败透传臂（128-129）：Create 注入失败。
+// ingestInbound's UpsertByAlertID failure pass-through arm (128-129): injected Create failure.
 func TestIngestInbound_UpsertError(t *testing.T) {
 	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
 	if sqlDB, err := db.DB(); err == nil {
-		sqlDB.SetMaxOpenConns(1) // :memory: 单连接
+		sqlDB.SetMaxOpenConns(1) // :memory: single connection
 	}
 	require.NoError(t, db.AutoMigrate(&model.Alert{}))
 
@@ -83,8 +84,8 @@ func TestIngestInbound_UpsertError(t *testing.T) {
 	require.ErrorContains(t, err, "alerts down")
 }
 
-// generic 载荷映射的缺省与组合臂：severity 空 → warning（162）、
-// title+body 组合（168）与仅 body（169-170）。
+// Generic payload mapping default and combination arms: empty severity -> warning (162),
+// title+body combination (168) and body-only (169-170).
 func TestMapGenericPayload_Fallbacks(t *testing.T) {
 	a, err := mapGenericPayload([]byte(`{"eventId":"e1"}`), "generic")
 	require.NoError(t, err)
@@ -100,7 +101,7 @@ func TestMapGenericPayload_Fallbacks(t *testing.T) {
 	require.Equal(t, "only body", a.Message)
 }
 
-// alertmanager 载荷映射的非法 JSON（220-221）与空列表（223-224）臂。
+// Alertmanager payload mapping malformed-JSON (220-221) and empty-list (223-224) arms.
 func TestMapAlertmanagerPayload_InvalidAndEmpty(t *testing.T) {
 	_, err := mapAlertmanagerPayload([]byte(`not-json`), nil)
 	require.ErrorContains(t, err, "invalid alertmanager payload")
@@ -109,11 +110,11 @@ func TestMapAlertmanagerPayload_InvalidAndEmpty(t *testing.T) {
 	require.ErrorContains(t, err, "alerts is empty")
 }
 
-// mapAMFields 的映射与兜底臂：instance→type（默认映射，253）、
-// 自定义 status 映射（257）、description 回退（266-268）、kind 兜底
-// （271-272）、firing 兜底（278-279）。
+// mapAMFields mapping and fallback arms: instance->type (default mapping, 253),
+// custom status mapping (257), description fallback (266-268), kind fallback
+// (271-272), firing fallback (278-279).
 func TestMapAMFields_Branches(t *testing.T) {
-	// 默认映射：severity→level、summary→message、instance→type；无映射键 → details
+	// Default mapping: severity->level, summary->message, instance->type; unmapped keys -> details
 	level, message, alertType, status, details := mapAMFields(inboundAMAlert{
 		Labels: map[string]string{"instance": "host-1", "extra": "v"},
 	}, defaultAlertmanagerLabelMapping)
@@ -121,7 +122,7 @@ func TestMapAMFields_Branches(t *testing.T) {
 	require.Empty(t, message)
 	require.Equal(t, "host-1", alertType)
 
-	// summary→message 映射（253）
+	// summary->message mapping (253)
 	level, message, _, _, _ = mapAMFields(inboundAMAlert{
 		Labels: map[string]string{"severity": "critical", "summary": "disk full"},
 	}, defaultAlertmanagerLabelMapping)
@@ -130,14 +131,14 @@ func TestMapAMFields_Branches(t *testing.T) {
 	require.Equal(t, "firing", status)
 	require.Equal(t, "v", details["label.extra"])
 
-	// 自定义 status 映射
+	// Custom status mapping
 	_, _, _, status, _ = mapAMFields(inboundAMAlert{
 		Status: "ignored-by-mapping",
 		Labels: map[string]string{"status": "resolved"},
 	}, map[string]string{"status": "status"})
 	require.Equal(t, "resolved", status)
 
-	// message 空时 annotations.description 回退；无映射 type → 固定 kind
+	// annotations.description fallback when message is empty; unmapped type -> the fixed kind
 	_, message, alertType, _, _ = mapAMFields(inboundAMAlert{
 		Annotations: map[string]string{"description": "desc only"},
 	}, nil)
@@ -145,7 +146,7 @@ func TestMapAMFields_Branches(t *testing.T) {
 	require.Equal(t, inboundKindAlertManager, alertType)
 }
 
-// failAuditStore 只让 Create 失败的审计存储（其余方法透传内存实现）。
+// failAuditStore is an audit store that only fails on Create (other methods delegate to memory).
 type failAuditStore struct {
 	*audit.InMemoryAuditStore
 	createErr error
@@ -153,8 +154,8 @@ type failAuditStore struct {
 
 func (s *failAuditStore) Create(record *audit.AuditRecord) error { return s.createErr }
 
-// 入站拒绝审计链（336-344）：签名拒绝 → AuditService.Log 失败 →
-// ReportWriteGap 兜底分支。
+// Inbound rejection audit chain (336-344): signature rejection -> AuditService.Log
+// failure -> ReportWriteGap fallback branch.
 func TestAuditInboundRejected_ReportWriteGap(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	s := NewService(&svc.ServiceContext{AuditService: audit.NewAuditService(
@@ -167,7 +168,7 @@ func TestAuditInboundRejected_ReportWriteGap(t *testing.T) {
 	})
 }
 
-// 对照组：审计写入成功路径（Log 不失败 → 不触发 ReportWriteGap）。
+// Control group: the successful audit write path (Log does not fail -> no ReportWriteGap).
 func TestAuditInboundRejected_LogSuccess(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	s := NewService(&svc.ServiceContext{AuditService: audit.NewAuditService(audit.NewInMemoryAuditStore(), nil)})
