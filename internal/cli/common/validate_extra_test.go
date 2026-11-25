@@ -8,7 +8,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-// TestFileExists 测试文件存在检查
+// TestFileExists exercises the file existence check
 func TestFileExists(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -29,7 +29,7 @@ func TestFileExists(t *testing.T) {
 		},
 		{
 			name:    "存在的主机文件",
-			path:    os.Args[0], // 当前测试二进制文件
+			path:    os.Args[0], // the current test binary
 			wantErr: false,
 		},
 	}
@@ -50,15 +50,15 @@ func TestFileExists(t *testing.T) {
 	}
 }
 
-// TestValidateTLS 测试 TLS 证书验证
+// TestValidateTLS exercises TLS certificate validation
 func TestValidateTLS(t *testing.T) {
-	// 创建临时证书文件用于测试
+	// Create temporary certificate files for the test
 	tmpDir := t.TempDir()
 	certFile := filepath.Join(tmpDir, "cert.pem")
 	keyFile := filepath.Join(tmpDir, "key.pem")
 	caFile := filepath.Join(tmpDir, "ca.pem")
 
-	// 创建空文件
+	// Create placeholder files
 	_ = os.WriteFile(certFile, []byte("cert"), 0644)
 	_ = os.WriteFile(keyFile, []byte("key"), 0644)
 	_ = os.WriteFile(caFile, []byte("ca"), 0644)
@@ -155,7 +155,7 @@ func TestValidateTLS(t *testing.T) {
 	}
 }
 
-// TestValidateAddr 测试地址验证
+// TestValidateAddr exercises address validation
 func TestValidateAddr(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -209,9 +209,9 @@ func TestValidateAddr(t *testing.T) {
 	}
 }
 
-// TestValidateServerConfig 测试服务器配置验证
+// TestValidateServerConfig exercises server config validation
 func TestValidateServerConfig(t *testing.T) {
-	// 创建临时配置文件
+	// Create temporary config files
 	tmpDir := t.TempDir()
 	rbacFile := filepath.Join(tmpDir, "rbac.yaml")
 	usersFile := filepath.Join(tmpDir, "users.yaml")
@@ -220,7 +220,7 @@ func TestValidateServerConfig(t *testing.T) {
 	keyFile := filepath.Join(tmpDir, "key.pem")
 	caFile := filepath.Join(tmpDir, "ca.pem")
 
-	// 创建空文件（使用有效的 RBAC 和 users 格式）
+	// Create placeholder files (using valid RBAC and users formats)
 	_ = os.WriteFile(rbacFile, []byte(`{"allow": {}}`), 0644)
 	_ = os.WriteFile(usersFile, []byte(`[]`), 0644)
 	_ = os.WriteFile(gamesFile, []byte("games: []"), 0644)
@@ -324,7 +324,7 @@ func TestValidateServerConfig(t *testing.T) {
 	}
 }
 
-// TestValidateAgentConfig 测试 Agent 配置验证
+// TestValidateAgentConfig exercises Agent config validation
 func TestValidateAgentConfig(t *testing.T) {
 	tmpDir := t.TempDir()
 	certFile := filepath.Join(tmpDir, "cert.pem")
