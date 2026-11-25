@@ -127,9 +127,9 @@
   - 依赖：SUI-019, SUI-021, SUI-028。交付与验收：界面可创建、排序、移动和删除分组，设置折叠行为。草稿重开后分组和顺序回读一致。
   - 状态／条件：LOCAL VERIFIED（2026-11-26）：`FormPresentationEditor`（a1ec58fde）在所有含表单页面（操作/任务/报表/资源/组合区块）新增分组编辑区：新增（`group-N` 唯一顺延 key）、重命名（key + 多语言标题 LocalizedTextEditor）、拖拽排序（SortableList 手柄）、删除、字段归属多选（按选择顺序，其他分组已认领字段置灰防 `form_group_field_conflict`）、`collapsible`/`collapsed` 折叠开关；编辑直接写回 `FormPresentationSpec.groups` 同一草稿、无旁路状态，重开按数组顺序原样回读；保存/发布继续走 SUI-021 校验（唯一 key/已知字段/单归属）。边界如实：只改呈现（schema/binding/payload 不变）；分组字段选择限于 `form.fields` 已声明项，嵌套字段需先有声明指针 key 的字段项；无显式 fields 的表单（SUI-025 无 hints 兜底）不显示分组编辑区。测试：`form-presentation-editor.test.tsx` 新增 5 例（回读 key/标题/字段归属/折叠态、新增 key 顺延、重命名/折叠/删除只改目标、重排透传顺序、readonly 无操作入口），`operation-page-editor.test.tsx` 新增草稿重开用例（编辑→onChange 保存→rerender 回读折叠态与顺序）；编辑器两套件 20/20 绿、PageEditor/locales/PageStudio 回归 22 suites 186 tests 绿；中英 `pageEditor.ts` 词典 10 新键同步；tsc 0 错误；`go build ./...`+`go test ./internal/...` 全绿；guard PASSED；docs build 通过。文档：协议/页面模型/编辑器使用中英双树同步（SUI-029 小节）。
 
-- [ ] **SUI-030 · P2 · 测试 · 稳定隐藏字段切换回归用例**
+- [x] **SUI-030 · P2 · 测试 · 稳定隐藏字段切换回归用例**（72ea7185f）
   - 依赖：SUI-014。交付与验收：根据实际 UI 提交与回填事件等待，重复跑测试记录剔除、恢复断言及执行结果，复核报告中出现的 5 秒超时。
-  - 状态／条件：未开始。
+  - 状态／条件：LOCAL VERIFIED（2026-11-26）：复核 docs/review/schema-driven-ui-2026-11-21.md §现有测试「隐藏字段切换测试超过 Jest 的 5 秒限制」——两个真实 UI 用例（`visible-when.test.tsx`「切到 batch 提交不含隐藏字段；切回 single 值恢复」、`submit-values.test.tsx`「隐藏时两者一致剔除；恢复后两者一致带回编辑值」）存在点击 Radio 后不等待派生 schema 重算/antd 重渲染即断言 DOM 的竞态，负载下 rjsf 重算排队拖过 5s 默认预算即误报超时（测试本体 8-40s 完成但单测卡 waitFor）。修复：断言全部改为「真实 UI 事件 + 显式回填等待」——切 batch 后 waitFor 目标玩家从 DOM 消失再提交、提交后 waitFor onFinish 到达再读投影/命令式取值、切回 single 后 waitFor 输入框重新挂载且回填旧值（p1/p2）再断言 getSubmitValues；jest.setTimeout 放宽到 20s（对齐 widgets-upload/remote-options 既有惯例），负载机器上 transformer 与渲染排队不再触发误报。重复跑记录：负载 11-13 下 `submit-values|visible-when` 两套件连跑 8 轮（修复前 3 + 修复后 5）全部 11/11 绿、无 ✕ 无 Exceeded timeout（修复前单套件冷启动 40.27s vs 热缓存 8.89-10.27s——冷启动超时是 5s 报告的根因形态）；tsc 0 错误。剔除与恢复断言语义未改（预期值逐字保留：剔除 `{mode:'batch',remark:'note'}`、恢复 `{mode:'single',targetPlayer:'p2',remark:'note'}`、必填隐藏 `{mode:'batch'}` 不阻断）。边界如实：本项只改测试时序与预算，不断言生产代码；5s 报告根因判定为「点击后未等待 UI 落地 + 默认预算过紧」的组合，非渲染器回归（渲染器隐藏/恢复行为在 8 轮内零失败）。
 
 ### 表单风格、默认项与发布
 
