@@ -525,6 +525,7 @@ JSON Schema 是函数输入/输出的持久化标准；表单展示由 `FormPres
 **无 schema 兜底（单 payload 字段）**：函数没有 `inputSchema` 时，页面生成器不再产出空表单（渲染为空白废页），而是兑现 normalizer 诊断（`input_schema_missing`）的承诺——生成单 `payload` 字段的表单（JSON 文本域，`widget: JSON`，双语 label/描述）。已知边界：payload 是包裹键，提交的请求体为 `{"payload": "<用户输入 JSON 文本>"}`，执行链不解包；要获得真表单应在注册侧补 schema（openapi provider 已自动推导，见 [Agent Providers](../guide/integrations/agent-providers.md)）。
 
 **根值类型经往返保持原 JSON 类型（SUI-017）**：`deriveSchemaDefaults` 按 schema 根类型派生参数骨架——根数组种子为 `[]`（或一件 items 骨架），根标量为类型占位值（`''`/`0`/`false`，优先级 `default` > `example` > `enum` 首项），显式 `default: null` 原样保留；旧对象根保持按 properties 逐字段派生不变。调用工作台（Functions Invoke）中结构化表单只表达对象根：根数组/标量的函数只保留原始 JSON 页签，提交直接取 JSON 编辑器文本，因此 `[]`、`false`、`0`、`null` 经编辑 → 取值 → 提交往返不套对象壳。生成的页面表单（PageSpec `FormPresentationSpec`）按构造即对象根；其中的根数组与裸标量由请求兼容性分级归入降级形态（JSON 编辑）。
+**请求初值按明确的默认规则填充（SUI-018）**：种子拆成两层，让作者声明的默认值、示例与显示占位永不混用。**默认值层**（`deriveFormDefaults`）只派生 schema 以 `default` 显式声明的值——含嵌套声明默认；显式 `default: null` 视为「未声明默认」，字段保持缺省而非提交 `null`——表单与 JSON 编辑器都以此为初值。**模板层**（`deriveSchemaDefaults`，优先级 `default` > `example` > `enum` 首项 > 类型占位）只在用户索要时产出：调用工作台与实例调试弹窗各提供显式的「填入示例」动作，以该模板替换当前请求体。因此用户从未触碰的可选字段在提交的 payload 中保持**缺席**（提交投影对缺失键原样保留缺省），而用户确实给出的值——包括显式 `false`、`0`、`null`——原样提交，不被任何层覆盖。占位留在显示侧（`x-placeholder`，见呈现字段语义）；对象根仍忽略根级 `default`/`example`（旧对象表单种子路径不变）。
 
 ## Scope、菜单、发布与演进
 
