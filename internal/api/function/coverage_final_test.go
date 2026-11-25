@@ -24,7 +24,7 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// 辅助
+// Helpers
 // ---------------------------------------------------------------------------
 
 func finalFnDestIs[T any](tx *gorm.DB) bool {
@@ -38,7 +38,8 @@ func finalFnDestIs[T any](tx *gorm.DB) bool {
 	return false
 }
 
-// failingApprovalsStore 让 Create 报错，其余委托 MemStore。
+// failingApprovalsStore makes Create error and delegates everything else to
+// MemStore.
 type failingApprovalsStore struct {
 	*approvals.MemStore
 	failCreate bool
@@ -73,7 +74,7 @@ func finalHandlerCtx(method, target, body string, reqCtx context.Context, uriID 
 }
 
 // ---------------------------------------------------------------------------
-// handler 成功路径（response.Success 行）
+// Handler success paths (the response.Success lines)
 // ---------------------------------------------------------------------------
 
 func TestFinalHandler_FunctionDetail_Success(t *testing.T) {
@@ -117,8 +118,8 @@ func TestFinalHandler_Descriptors_Success(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rec.Code)
 }
 
-// 审批流走通 handler 成功响应；Route 非空覆盖 createFunctionApproval 的
-// route 透传分支。
+// The approval flow reaches a handler success response; a non-empty Route
+// covers the createFunctionApproval route pass-through branch.
 func TestFinalHandler_FunctionInvoke_ApprovalSuccess(t *testing.T) {
 	f := newInvokeFixture(t)
 	f.createOperator(t, "opuser", "admin")
@@ -134,10 +135,11 @@ func TestFinalHandler_FunctionInvoke_ApprovalSuccess(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// helpers.go 分支
+// helpers.go branches
 // ---------------------------------------------------------------------------
 
-// functionsList：外层 FunctionModel.List 失败（第二次 functions 查询）。
+// functionsList: the outer FunctionModel.List fails (the second functions
+// query).
 func TestFinalFunctionsList_ModelListError(t *testing.T) {
 	svcCtx := setupTestServiceContext(t)
 	var listQueries int
@@ -158,7 +160,8 @@ func TestFinalFunctionsList_ModelListError(t *testing.T) {
 	assert.Nil(t, resp)
 }
 
-// functionsList：契约 resource 为空时回落 FunctionModel metadata。
+// functionsList: falls back to FunctionModel metadata when the contract's
+// resource is empty.
 func TestFinalFunctionsList_ResourceFallbackFromMetadata(t *testing.T) {
 	svcCtx := setupTestServiceContext(t)
 	createTestFunction(t, svcCtx.DB, "demo.fallback", "Fallback")
@@ -168,7 +171,7 @@ func TestFinalFunctionsList_ResourceFallbackFromMetadata(t *testing.T) {
 		FunctionID:  "demo.fallback",
 		Version:     "1.0.0",
 		Enabled:     true,
-		ResourceKey: "", // 空 resource，触发回落
+		ResourceKey: "", // empty resource triggers the fallback
 	}).Error)
 
 	ctx := svc.WithGameScope(context.Background(), svc.GameScope{GameID: "test-game", Env: "prod"})
@@ -182,7 +185,7 @@ func TestFinalFunctionsList_ResourceFallbackFromMetadata(t *testing.T) {
 	}
 }
 
-// functionInvoke：审批存储失败。
+// functionInvoke: approval store failure.
 func TestFinalFunctionInvoke_ApprovalStoreFailure(t *testing.T) {
 	f := newInvokeFixture(t)
 	f.createOperator(t, "opuser", "admin")
@@ -199,7 +202,8 @@ func TestFinalFunctionInvoke_ApprovalStoreFailure(t *testing.T) {
 	assert.Contains(t, err.Error(), "failed to create approval request")
 }
 
-// 执行留痕：成功调用写入 OK 状态与响应体。
+// Execution log: a successful invocation writes the OK status with the
+// response body.
 func TestFinalFunctionInvoke_ExecutionLogSuccess(t *testing.T) {
 	f := newInvokeFixture(t)
 	f.createOperator(t, "opuser", "admin")
@@ -215,7 +219,8 @@ func TestFinalFunctionInvoke_ExecutionLogSuccess(t *testing.T) {
 	assert.NotEmpty(t, resp.Result)
 }
 
-// 执行留痕：失败调用写入 Fail 状态与错误体。
+// Execution log: a failed invocation writes the Fail status with the error
+// body.
 func TestFinalFunctionInvoke_ExecutionLogFailure(t *testing.T) {
 	f := newInvokeFixture(t)
 	f.createOperator(t, "opuser", "admin")
@@ -230,7 +235,7 @@ func TestFinalFunctionInvoke_ExecutionLogFailure(t *testing.T) {
 	require.Error(t, err)
 }
 
-// 执行留痕：成功但结果为空 → responseBody 保持 nil。
+// Execution log: success with an empty result -> responseBody stays nil.
 func TestFinalFunctionInvoke_ExecutionLogEmptyResult(t *testing.T) {
 	f := newInvokeFixture(t)
 	f.createOperator(t, "opuser", "admin")
@@ -246,7 +251,8 @@ func TestFinalFunctionInvoke_ExecutionLogEmptyResult(t *testing.T) {
 	assert.Empty(t, resp.Result)
 }
 
-// 审批通知：NotifyService 已配置且 Actor 非空时收件人去重追加。
+// Approval notification: when NotifyService is configured and Actor is
+// non-empty, deduplicated recipients are appended.
 func TestFinalFunctionInvoke_ApprovalNotifyWithActor(t *testing.T) {
 	f := newInvokeFixture(t)
 	f.svcCtx.NotifyService = notify.New(nil, model.NewMessageModel(f.db))
@@ -270,13 +276,14 @@ func finalRequireApprovalPolicy() *policymgr.Policy {
 	}
 }
 
-// dedupeStrings：空串过滤与去重。
+// dedupeStrings: empty-string filtering and deduplication.
 func TestFinalDedupeStrings(t *testing.T) {
 	assert.Equal(t, []string{"a", "b"}, dedupeStrings([]string{"a", "", "b", "a", ""}))
 	assert.Empty(t, dedupeStrings(nil))
 }
 
-// route 已提供时审批记录透传 route（非 lb 默认）。
+// When a route is provided, the approval record passes it through (not the
+// lb default).
 func TestFinalCreateFunctionApproval_RoutePassthrough(t *testing.T) {
 	f := newInvokeFixture(t)
 	f.createOperator(t, "opuser", "admin")
@@ -293,8 +300,9 @@ func TestFinalCreateFunctionApproval_RoutePassthrough(t *testing.T) {
 	assert.WithinDuration(t, time.Now(), stored.CreatedAt, time.Minute)
 }
 
-// 路由语义接线（400 级）：targeted 缺 targetServiceId 不再静默回落 lb，
-// broadcast 配 async 不再静默走 async——都在 policy/dispatch 之前拦截。
+// Route semantics wiring (400-level): targeted without targetServiceId no
+// longer silently falls back to lb, and broadcast with async no longer
+// silently goes async — both are intercepted before policy/dispatch.
 func TestFinalFunctionInvoke_RouteValidationWired(t *testing.T) {
 	f := newInvokeFixture(t)
 	f.createOperator(t, "opuser", "admin")
@@ -320,7 +328,7 @@ func TestFinalFunctionInvoke_RouteValidationWired(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, badReq.Code)
 }
 
-// functionsList：DB 函数 resource 为空 → metadata 回落。
+// functionsList: DB function has an empty resource -> metadata fallback.
 func TestFinalFunctionsList_ResourceEmptyFallback(t *testing.T) {
 	svcCtx := setupTestServiceContext(t)
 	require.NoError(t, svcCtx.DB.Create(&model.Function{
@@ -328,7 +336,7 @@ func TestFinalFunctionsList_ResourceEmptyFallback(t *testing.T) {
 		Name:       "NoRes",
 		GameID:     "test-game",
 		Status:     1,
-		Resource:   "", // 空，触发 metadata 回落
+		Resource:   "", // empty, triggers the metadata fallback
 		Metadata:   map[string]interface{}{"resource": "meta-res", "openapi_spec": map[string]interface{}{"openapi": "3.0.3"}},
 	}).Error)
 
@@ -345,7 +353,8 @@ func TestFinalFunctionsList_ResourceEmptyFallback(t *testing.T) {
 	assert.True(t, found, "demo.nores must appear in list")
 }
 
-// 审批通知：收件人查询失败时静默跳过（recipients=nil 分支）。
+// Approval notification: silently skipped when the recipient query fails
+// (recipients=nil branch).
 func TestFinalFunctionInvoke_ApprovalNotifyRecipientsError(t *testing.T) {
 	f := newInvokeFixture(t)
 	f.svcCtx.NotifyService = notify.New(nil, model.NewMessageModel(f.db))
@@ -371,15 +380,16 @@ func TestFinalFunctionInvoke_ApprovalNotifyRecipientsError(t *testing.T) {
 	assert.NotEmpty(t, resp.ApprovalID)
 }
 
-// functionsList：openAPISpec 回落。DB 行被 status 过滤（logic 层），
-// registry 运行时条目的 OpenAPISpec 为空，外层 dbIndex 仍含该函数。
+// functionsList: openAPISpec fallback. The DB row is filtered out by status
+// (logic layer), the registry runtime entry has an empty OpenAPISpec, and the
+// outer dbIndex still contains the function.
 func TestFinalFunctionsList_OpenAPISpecFallback(t *testing.T) {
 	svcCtx := setupTestServiceContext(t)
 	require.NoError(t, svcCtx.DB.Create(&model.Function{
 		FunctionID: "demo.off",
 		Name:       "Off",
 		GameID:     "test-game",
-		Status:     0, // 禁用：logic 层 status 过滤后不进入 items
+		Status:     0, // disabled: filtered by the logic layer's status filter, not in items
 		Metadata:   map[string]interface{}{"openapi_spec": map[string]interface{}{"openapi": "3.0.3"}},
 	}).Error)
 	require.NoError(t, svcCtx.RegistryStore.UpsertAgent(&reg.AgentSession{

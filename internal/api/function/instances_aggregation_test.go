@@ -13,13 +13,16 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// instances 跨实例聚合（照 /ops/nodes 的「归属表全集 + 本地补详情」模式）：
-// 本地 registry 只含连到本实例的 agent，归属表（cluster_agent_owners，
-// TTL 内即活跃）补出对端实例持有的 agent，明细从共享 agent_sessions
-// 快照表读取。单实例（Cluster nil）退化纯本地。
+// instances cross-instance aggregation (following the /ops/nodes
+// "ownership table full set + local detail fill-in" pattern): the local
+// registry only holds agents connected to this instance, while the ownership
+// table (cluster_agent_owners, active within TTL) supplies the agents held by
+// the peer instance, with details read from the shared agent_sessions
+// snapshot table. Single-instance (Cluster nil) degenerates to pure local.
 
-// seedRemoteSession 在共享 DB（agent_sessions 快照表）造一条远端 agent
-// 会话行，并返回指向它的归属表 fake。
+// seedRemoteSession inserts a remote agent session row into the shared DB
+// (agent_sessions snapshot table) and returns the ownership-table fake that
+// points at it.
 func seedRemoteSession(t *testing.T, f *invokeFixture, sess *reg.AgentSession, ownerInstance string) {
 	t.Helper()
 	require.NoError(t, reg.MigrateAgentSessions(f.db))
@@ -87,7 +90,7 @@ func TestFunctionInstancesAll_RemoteOwnerAggregated(t *testing.T) {
 	for _, in := range resp.Instances {
 		byAgent[in.AgentID] = append(byAgent[in.AgentID], in)
 	}
-	// 本地行不动 + 远端行带 provider 明细与 owner 标注。
+	// Local rows untouched + the remote row carries provider details and the owner annotation.
 	require.Len(t, byAgent["agent-local"], 1)
 	require.Len(t, byAgent["agent-remote"], 1)
 	remote := byAgent["agent-remote"][0]
@@ -118,8 +121,9 @@ func TestFunctionInstancesAll_RemoteScopeMismatch_Excluded(t *testing.T) {
 func TestFunctionInstancesAll_OwnerWithoutSnapshotRow_Skipped(t *testing.T) {
 	f := newInvokeFixture(t)
 	f.registerAgent(t, "agent-local", "demo.fn")
-	// 归属表活跃但快照表无行（owner 已 Release 的竞态）：跳过该 agent，
-	// 不造空行也不影响本地视图。
+	// Ownership table active but no snapshot-table row (the owner-already
+	// Released race): skip the agent without fabricating an empty row or
+	// perturbing the local view.
 	f.svcCtx.Cluster = &svc.ClusterRuntime{
 		ListAgentOwners: ownersFake(
 			cluster.AgentOwnerRecord{AgentID: "agent-ghost", InstanceID: "server2", GameID: "demo", Env: "prod"},
@@ -168,8 +172,10 @@ func TestFunctionInstancesAll_LocalAgentInOwnerTable_NotDuplicated(t *testing.T)
 	assert.Equal(t, 1, counts["agent-remote"])
 }
 
-// 本地 registry 里的 DB 快照（refreshRemoteSnapshots 回灌）实为对端持有：
-// 条目必须标真归属，否则前端把远端快照渲染成「本实例」误导排障。
+// A DB snapshot inside the local registry (refilled by refreshRemoteSnapshots)
+// is actually held by the peer: the entry must be annotated with its true
+// owner, otherwise the frontend renders the remote snapshot as "this instance"
+// and misleads troubleshooting.
 func TestFunctionInstancesAll_LocalSnapshotOwnedByPeer_Annotated(t *testing.T) {
 	f := newInvokeFixture(t)
 	f.registerAgent(t, "agent-snap", "demo.fn")
@@ -186,7 +192,8 @@ func TestFunctionInstancesAll_LocalSnapshotOwnedByPeer_Annotated(t *testing.T) {
 	assert.Equal(t, "server2", resp.Instances[0].OwnerInstance, "对端持有的本地快照要标注归属实例")
 }
 
-// 自持 agent（owner=本实例）保持空标注（前端渲染「本实例」）。
+// A self-owned agent (owner = this instance) keeps an empty annotation (the
+// frontend renders "this instance").
 func TestFunctionInstancesAll_SelfOwnedLocal_EmptyAnnotation(t *testing.T) {
 	f := newInvokeFixture(t)
 	f.registerAgent(t, "agent-local", "demo.fn")
@@ -218,7 +225,7 @@ func TestFunctionInstances_RemoteOwnerIncluded(t *testing.T) {
 	assert.Equal(t, "agent-remote", resp.Items[0].AgentId)
 	assert.Equal(t, "server2", resp.Items[0].OwnerInstance)
 
-	// 本地未持有该函数、远端也没有的函数 ID：空列表。
+	// A function ID neither held locally nor present remotely: empty list.
 	resp2, err := NewService(f.svcCtx).FunctionInstances(f.ctxFor("opuser"), &FunctionInstancesRequest{ID: "demo.nope"})
 	require.NoError(t, err)
 	assert.Empty(t, resp2.Items)

@@ -283,7 +283,8 @@ func TestFunctionAnalytics(t *testing.T) {
 	resp, err := functionAnalytics(ctx, svcCtx, req)
 	require.NoError(t, err)
 	assert.Equal(t, int64(0), resp.TotalCalls)
-	// 新口径（execution_logs 真实聚合）：零调用不伪造 100% 成功率
+	// New semantics (real aggregation over execution_logs): zero calls must not
+	// fabricate a 100% success rate
 	assert.Equal(t, 0.0, resp.SuccessRate)
 	assert.Equal(t, 0.0, resp.AvgLatency)
 }
@@ -995,7 +996,8 @@ func TestService_FunctionDisable(t *testing.T) {
 	svc := NewService(svcCtx)
 	ctx := context.Background()
 
-	// enable/disable 按外部 function_id 定位；自造数据避免依赖共享种子的存在性
+	// enable/disable locate by the external function_id; fabricated data avoids
+	// depending on the presence of the shared seed
 	require.NoError(t, svcCtx.DB.WithContext(ctx).Create(&model.Function{FunctionID: "func1", Name: "func1", Status: 1}).Error)
 	req := &FunctionDisableRequest{FunctionId: "func1"}
 	err := svc.FunctionDisable(ctx, req)

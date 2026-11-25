@@ -14,9 +14,11 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// 函数历史版本索引（OPEN-ISSUES #26）：版本门槛只允许选历史出现过的
-// 版本——服务端从 function_contract_versions 聚合 distinct 版本（30s
-// TTL 内存缓存），前端门槛编辑改下拉而非手输，杜绝手拼不存在的版本号。
+// Function history version index (OPEN-ISSUES #26): version floors may only
+// pick versions that historically appeared -- the server aggregates distinct
+// versions from function_contract_versions (30s TTL in-memory cache), and the
+// frontend floor editor becomes a dropdown instead of free-text input,
+// eliminating hand-crafted nonexistent version numbers.
 
 type functionVersionIndexItem struct {
 	FunctionID string   `json:"functionId"`
@@ -39,13 +41,16 @@ var (
 	versionIndexCache = map[string]cachedVersionIndex{}
 )
 
-// 说明：缓存只有 TTL 失效、无写路径失效——契约版本追加发生在注册链
-// （registry/service 层），api/function 不在其依赖方向上；版本索引是
-// 下拉选项不是权威数据，30s 陈旧可接受（对齐 #14 分类聚合先例）。
+// Note: the cache is only invalidated by TTL, with no write-path invalidation
+// -- contract version appends happen in the registration chain (registry /
+// service layer), which api/function does not depend on; the version index is
+// a dropdown option list, not authoritative data, so 30s staleness is
+// acceptable (matching the #14 category aggregation precedent).
 
-// VersionHistoryIndex handles GET /api/v1/functions/version-history。
-// 返回当前 scope 下每个函数历史出现过的契约版本（semver 降序，新版本
-// 在前）；无历史的函数不出现在列表中。
+// VersionHistoryIndex handles GET /api/v1/functions/version-history.
+// Returns the contract versions that historically appeared for each function
+// in the current scope (semver descending, newest first); functions with no
+// history are absent from the list.
 func (h *Handler) VersionHistoryIndex(c *gin.Context) {
 	gameID, env, err := h.versionFloorScopeOnly(c)
 	if err != nil {
@@ -76,8 +81,10 @@ func (h *Handler) VersionHistoryIndex(c *gin.Context) {
 	response.Success(c, functionVersionIndexResponse{Items: items})
 }
 
-// loadVersionIndex 查库聚合并整型：函数按字典序，函数内版本按 semver
-// 降序（不可解析版本排最后、字典序）。结果缓存进 versionIndexCache。
+// loadVersionIndex queries the database, aggregates and shapes the result:
+// functions are ordered lexicographically, versions within a function are
+// ordered by semver descending (unparseable versions sort last, lexicographic
+// among themselves). The result is cached in versionIndexCache.
 func loadVersionIndex(ctx context.Context, svcCtx *svc.ServiceContext, gameID, env string) ([]functionVersionIndexItem, error) {
 	if svcCtx == nil || svcCtx.DB == nil {
 		return nil, nil
@@ -108,7 +115,7 @@ func loadVersionIndex(ctx context.Context, svcCtx *svc.ServiceContext, gameID, e
 			case pi && pj:
 				return sdkversion.Higher(versions[i], versions[j])
 			case pi != pj:
-				return pi // 可解析版本排前
+				return pi // parseable versions sort first
 			default:
 				return versions[i] < versions[j]
 			}
@@ -118,8 +125,9 @@ func loadVersionIndex(ctx context.Context, svcCtx *svc.ServiceContext, gameID, e
 	return items, nil
 }
 
-// dedupeVersions 去重（GROUP BY 已保证 distinct，GROUP 语义对空白差异
-// 的同值仍可能产出重复行，这里兜底）。
+// dedupeVersions dedupes (GROUP BY already guarantees distinct; under GROUP
+// semantics, equal values differing only by whitespace can still yield
+// duplicate rows, so this is a fallback).
 func dedupeVersions(versions []string) []string {
 	seen := make(map[string]struct{}, len(versions))
 	out := make([]string, 0, len(versions))

@@ -15,8 +15,9 @@ import (
 
 var errHandlerServiceBoom = errors.New("handler service boom")
 
-// errInjectingService 包装 *Service，将八个桩方法替换为返回注入错误，
-// 用于覆盖 handler 层的 service 错误分支。
+// errInjectingService wraps *Service, replacing eight stub methods with ones
+// that return an injected error, to cover the handler layer's service error
+// branches.
 type errInjectingService struct {
 	*Service
 }
@@ -78,7 +79,8 @@ func TestHandlers_ServiceErrorResponds500(t *testing.T) {
 			tc.fn(ctx)
 
 			require.Equal(t, http.StatusInternalServerError, rec.Code, rec.Body.String())
-			// AUD-047 opaque：未知错误原文只进日志，body 只含稳定文案 + 追踪号。
+			// AUD-047 opaque: the raw unknown error only goes to the log; the
+			// body contains only the stable message plus a tracking number.
 			assert.Contains(t, rec.Body.String(), "internal_error")
 			assert.NotContains(t, rec.Body.String(), errHandlerServiceBoom.Error())
 		})

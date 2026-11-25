@@ -13,11 +13,13 @@ import (
 func functionInvoke(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionInvokeRequest) (*FunctionInvokeResponse, error) {
 	shared := functioninvokeRequestFromDTO(req)
 	resp, err := functioninvoke.Invoke(ctx, svcCtx, shared)
-	// 统一链会把 GameID/Env 覆写为 ctx scope 值并归一化 Route；同步回 DTO
-	// 保持收口前入口行为（调用方可读到生效 scope）。
+	// The unified chain overwrites GameID/Env with the ctx scope values and
+	// normalizes Route; sync them back to the DTO to preserve the pre-close-out
+	// entry behavior (callers can read the effective scope).
 	req.GameID, req.Env, req.Route = shared.GameID, shared.Env, shared.Route
 	if err != nil {
-		// 派发失败同样返回可追踪的空响应（与收口前行为一致）。
+		// Dispatch failure still returns a traceable empty response (matching
+		// pre-close-out behavior).
 		if resp != nil {
 			return functionInvokeResponseFromUnified(resp), err
 		}

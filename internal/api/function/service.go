@@ -15,7 +15,7 @@ func NewService(svcCtx *svc.ServiceContext) *Service {
 	return &Service{svcCtx: svcCtx}
 }
 
-// SvcCtx 暴露服务上下文（供 handler 层扩展使用）。
+// SvcCtx exposes the service context (for extension use by the handler layer).
 func (s *Service) SvcCtx() *svc.ServiceContext { return s.svcCtx }
 
 // Function management methods
@@ -114,7 +114,8 @@ func trimString(s string) string {
 	return strings.TrimSpace(s)
 }
 
-// FunctionWarningFilterOptions 注册警告过滤下拉聚合选项（#34）。
+// FunctionWarningFilterOptions returns the aggregated options for the
+// registration warning filter dropdowns (#34).
 func (s *Service) FunctionWarningFilterOptions(ctx context.Context) (*FunctionWarningFilterOptionsResponse, error) {
 	return functionWarningFilterOptions(ctx, s.svcCtx)
 }

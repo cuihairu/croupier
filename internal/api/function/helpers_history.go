@@ -14,7 +14,7 @@ var fetchFunctionHistoryPage = func(ctx context.Context, svcCtx *svc.ServiceCont
 }
 
 func functionHistory(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionHistoryRequest) (*FunctionHistoryResponse, error) {
-	// 历史默认取最近一页；limit/offset 由 query 传入
+	// History defaults to the most recent page; limit/offset come from the query.
 	limit := req.Limit
 	if limit <= 0 {
 		limit = functionHistoryDefaultLimit
@@ -43,8 +43,10 @@ func functionHistory(ctx context.Context, svcCtx *svc.ServiceContext, req *Funct
 	return &FunctionHistoryResponse{Items: result, Total: total}, nil
 }
 
-// --- 统一执行链薄壳（internal/platform/functioninvoke）---
+// --- Thin shell over the unified execution chain (internal/platform/functioninvoke) ---
 //
-// functionInvoke 的完整执行链（scope、禁用、分配、策略审批、审计、执行
-// 留痕）已上收为唯一实现 functioninvoke.Invoke，HTTP 入口与 logic 侧薄壳
-// 共用同一实现。本包只保留 API DTO 适配与既有用例依赖的私有 helper 转发。
+// The full functionInvoke execution chain (scope, disabling, assignment, policy
+// approval, audit and execution traceability) now lives in the single
+// implementation functioninvoke.Invoke, shared by the HTTP entry point and the
+// logic-side thin shell. This package only keeps API DTO adaptation plus the
+// private helper forwarding that existing test cases rely on.

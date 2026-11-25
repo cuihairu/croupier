@@ -109,8 +109,9 @@ type FunctionInstance struct {
 	AgentName string `json:"agentName"`
 	Status    string `json:"status"`
 	UpdatedAt string `json:"updatedAt"`
-	// OwnerInstance 非空表示该 agent 连接在另一个 server 实例上（跨实例
-	// 聚合条目）；本地连接的 agent 为空。
+	// OwnerInstance being non-empty means this agent connection lives on
+	// another server instance (a cross-instance aggregated entry); it is empty
+	// for locally connected agents.
 	OwnerInstance string `json:"ownerInstance,omitempty"`
 }
 
@@ -138,16 +139,19 @@ type FunctionInstanceSummary struct {
 	SDKName    string `json:"sdkName"`
 	SDKLang    string `json:"sdkLang"`
 	SDKVersion string `json:"sdkVersion"`
-	// AgentVersion 是 agent 进程自身上报的版本（RegisterRequest.Version），
-	// 与 Version（provider/游戏服务版本，SDK RegisterWithAgent 传入）、
-	// SDKVersion（SDK 库版本）三者语义不同，前端分列展示。
+	// AgentVersion is the version reported by the agent process itself
+	// (RegisterRequest.Version); it differs in meaning from Version (the
+	// provider/game service version, passed by the SDK RegisterWithAgent) and
+	// SDKVersion (the SDK library version), so the frontend shows them in
+	// separate columns.
 	AgentVersion string `json:"agentVersion,omitempty"`
 	GameID       string `json:"gameId"`
 	Env          string `json:"env"`
 	Status       string `json:"status"`
 	UpdatedAt    string `json:"updatedAt"`
-	// OwnerInstance 非空表示该 agent 连接在另一个 server 实例上（跨实例
-	// 聚合条目）；本地连接的 agent 为空。
+	// OwnerInstance being non-empty means this agent connection lives on
+	// another server instance (a cross-instance aggregated entry); it is empty
+	// for locally connected agents.
 	OwnerInstance string `json:"ownerInstance,omitempty"`
 }
 
@@ -172,8 +176,9 @@ type FunctionInvokeRequest struct {
 	Route           string          `json:"route"`
 	TargetServiceID string          `json:"targetServiceId"`
 	HashKey         string          `json:"hashKey"`
-	// TimeoutMs 声明本次同步调用的超时预算（毫秒，[1000,60000] 越界
-	// clamp）。仅 sync 模式有意义；async 任务有自己的生命周期。
+	// TimeoutMs declares the timeout budget for this synchronous call
+	// (milliseconds, clamped into [1000,60000]). Only meaningful in sync mode;
+	// async tasks have their own lifecycle.
 	TimeoutMs int               `json:"timeoutMs,omitempty"`
 	Metadata  map[string]string `json:"-"`
 }
@@ -241,7 +246,7 @@ type FunctionPublishRequest struct {
 
 // FunctionPublishResponse represents the response of a function publish operation
 type FunctionPublishResponse struct {
-	ApprovalId string `json:"approvalId,omitempty"` // 如果需要审批
+	ApprovalId string `json:"approvalId,omitempty"` // if approval is required
 	Published  bool   `json:"published"`
 }
 
@@ -405,15 +410,18 @@ type WarningsResponse = FunctionWarningsResponse
 type PendingRequest = FunctionsPendingRequest
 type PendingResponse = FunctionsPendingResponse
 
-// WarningFilterOptionItem GET /api/v1/functions/warnings/filter-options 的
-// 选项行（#34）：value 即函数 ID / Agent ID 本身，count 为该维度警告条数。
+// WarningFilterOptionItem is an option row of
+// GET /api/v1/functions/warnings/filter-options (#34): value is the function
+// ID / agent ID itself, and count is the number of warnings for that
+// dimension.
 type WarningFilterOptionItem struct {
 	Value string `json:"value"`
 	Label string `json:"label,omitempty"`
 	Count int64  `json:"count"`
 }
 
-// FunctionWarningFilterOptionsResponse 注册警告过滤下拉聚合响应（#34）。
+// FunctionWarningFilterOptionsResponse is the registration response
+// aggregating the warning-filter dropdown options (#34).
 type FunctionWarningFilterOptionsResponse struct {
 	Functions []WarningFilterOptionItem `json:"functions"`
 	Agents    []WarningFilterOptionItem `json:"agents"`

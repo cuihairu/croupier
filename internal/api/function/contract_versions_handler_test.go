@@ -14,9 +14,10 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// B2 契约版本历史 REST 面的 handler 单测：scope/参数校验 + 正常读路径 +
-// DB 未初始化降级。版本行直接经 model.AppendVersion 播种（与生产写路径
-// 同一 seq 分配逻辑）。
+// Handler unit tests for the B2 contract version history REST surface:
+// scope/parameter validation + the normal read path + the DB-not-initialized
+// degradation. Version rows are seeded directly via model.AppendVersion (the
+// same seq allocation logic as the production write path).
 
 func contractVersionSnapshot(t *testing.T, version string, inputSchema string) model.JSON {
 	t.Helper()
@@ -37,8 +38,9 @@ func seedTwoContractVersions(t *testing.T, svcCtx *svc.ServiceContext) {
 	t.Helper()
 	ctx := context.Background()
 	m := model.NewFunctionContractVersionModel(svcCtx.DB)
-	// v1 required ["a"]，v2 新增 required "b" → schemadiff 判破坏性
-	// （收紧约束才是 breaking；删除 required 是放宽，非破坏）。
+	// v1 required ["a"], v2 adds required "b" -> schemadiff judges it breaking
+	// (tightening a constraint is breaking; removing required is a relaxation,
+	// not breaking).
 	v1 := &model.FunctionContractVersion{
 		GameID: "g", Env: "e", FunctionID: "player.ban",
 		Version: "1.0.0", Source: "sdk", ChangeType: "created",
@@ -145,7 +147,8 @@ func TestHandler_ContractVersions_CheckAccessFails(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
-	// 带登录名但 AdminModel 未初始化 → 权限预检报错（500 而非 403）。
+	// A login name is present but AdminModel is not initialized -> the
+	// permission precheck errors (500 rather than 403).
 	h := NewHandler(NewService(&svc.ServiceContext{}))
 	ctx, rec := newFunctionTestContext(http.MethodGet, "/api/v1/functions/player.ban/contract-versions", "")
 	ctx.Params = gin.Params{{Key: "id", Value: "player.ban"}}
@@ -326,7 +329,7 @@ func TestParsePositiveInt(t *testing.T) {
 	if got := parsePositiveInt("5", 1); got != 5 {
 		t.Fatalf("parsePositiveInt(5) = %d", got)
 	}
-	// 非法输入全部回落默认值
+	// Invalid input always falls back to the default value.
 	for _, raw := range []string{"", "abc", "0", "-3", "1.5"} {
 		if got := parsePositiveInt(raw, 7); got != 7 {
 			t.Fatalf("parsePositiveInt(%q) = %d, want fallback 7", raw, got)
@@ -359,10 +362,10 @@ func TestPolicyRiskFromContract(t *testing.T) {
 		{string(spec.RiskWarning), policy.RiskMedium},
 		{string(spec.RiskHigh), policy.RiskHigh},
 		{string(spec.RiskDanger), policy.RiskDanger},
-		// 未知/空值回落 medium（历史默认档）。
+		// Unknown/empty values fall back to medium (the historical default tier).
 		{"", policy.RiskMedium},
 		{"whatever", policy.RiskMedium},
-		// 大小写与空白归一。
+		// Case and whitespace are normalized.
 		{"  DANGER ", policy.RiskDanger},
 	}
 	for _, tc := range cases {

@@ -9,20 +9,29 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// R53：ContractVersions 惰性回填面（9c50e3d 落地）两处降级翼收口。
+// R53: closes out the two degraded wings of the ContractVersions lazy
+// backfill surface (landed in 9c50e3d).
 //
-// ① handler.go:35-36 回填写失败 → slog.Warn 降级、响应不受影响
-//   （源注释契约：「历史是衍生审计数据，回填失败降级为日志、不影响列表响应」）；
-// ② handler.go:39-41 回填成功（created=true）后重查失败 → 错误透传。
+// (1) handler.go:35-36 backfill write fails -> slog.Warn degradation, the
+//   response is untouched (source-comment contract: "history is derived audit
+//   data; a backfill failure degrades to a log line and does not affect the
+//   list response");
+// (2) handler.go:39-41 the re-query after a successful backfill
+//   (created=true) fails -> the error is passed through.
 //
-// 注入口径（仓内既有技法）：本包 setupTestDB 为每用例独立 `:memory:` 库
-// （非共享单例），sqlite 触发器注入天然按用例隔离，无跨用例毒化面——
-// 与共享 cache=shared 库需唯一 scope 隔离的包不同。
-// ① 写阻断：BEFORE INSERT TRIGGER + RAISE(ABORT)（svc C 批同款）；
-// ② 读炸裂：AFTER INSERT TRIGGER 追加 seq 为非数字 TEXT 的毒行——
-//   回填 INSERT 本身成功（created=true），紧随的 List Find 把 TEXT 扫进
-//   int64 列即报 scan error，构造「写成功→紧接着读失败」这一单请求内
-//   读故障形态（RAISE 族技法补不了读侧，毒行是读侧等价物）。
+// Injection technique (established in this repo): this package's setupTestDB
+// gives every case its own `:memory:` database (not a shared singleton), so
+// sqlite trigger injection is inherently isolated per case with no
+// cross-case poisoning surface — unlike packages that share a
+// cache=shared database and need a unique scope for isolation.
+// (1) write block: BEFORE INSERT TRIGGER + RAISE(ABORT) (same as the svc C
+// batch);
+// (2) read blow-up: an AFTER INSERT TRIGGER appends a poison row whose seq
+//   is non-numeric TEXT — the backfill INSERT itself succeeds (created=true),
+//   and the List Find that follows immediately scanning that TEXT into an
+//   int64 column yields a scan error, producing the "write succeeds -> the
+//   very next read fails" in-request read-failure shape (the RAISE family
+//   cannot reach the read side; the poison row is its read-side equivalent).
 
 func TestHandler_ContractVersions_BackfillWriteFailureDegrades(t *testing.T) {
 	t.Parallel()
@@ -34,7 +43,8 @@ func TestHandler_ContractVersions_BackfillWriteFailureDegrades(t *testing.T) {
 		`CREATE TRIGGER r53_block_version_insert BEFORE INSERT ON function_contract_versions `+
 			`BEGIN SELECT RAISE(ABORT, 'r53 injected write failure'); END;`).Error)
 
-	// 回填写入被拦 → 只降级为 warn，响应仍是首查的空列表（200，非 500）。
+	// The backfill write is blocked -> degraded to a warn only; the response
+	// is still the empty list from the first query (200, not 500).
 	total, items := listVersionsViaHandler(t, NewHandler(NewService(svcCtx)), "inventory.consume")
 	require.EqualValues(t, 0, total)
 	require.Empty(t, items)
@@ -46,8 +56,9 @@ func TestHandler_ContractVersions_RequeryFailureAfterBackfill(t *testing.T) {
 
 	svcCtx := setupTestServiceContext(t)
 	seedContractWithoutHistory(t, svcCtx)
-	// 回填 INSERT 成功后由触发器追加 seq='x' 毒行：Count 不受影响，
-	// Find 把 TEXT 'x' 扫进 int64 Seq 即 scan error → 重查错误透传 500。
+	// After the backfill INSERT succeeds, the trigger appends a poison row
+	// with seq='x': Count is unaffected, and Find scanning TEXT 'x' into the
+	// int64 Seq yields a scan error -> the re-query error passes through as 500.
 	require.NoError(t, svcCtx.DB.Exec(
 		`CREATE TRIGGER r53_poison_after_insert AFTER INSERT ON function_contract_versions `+
 			`BEGIN INSERT INTO function_contract_versions `+

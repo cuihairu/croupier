@@ -52,9 +52,11 @@ func functionWarnings(ctx context.Context, svcCtx *svc.ServiceContext, req *Func
 
 // Descriptors implementations
 
-// functionWarningFilterOptions 按 #34 提供注册警告过滤下拉的服务端聚合选项：
-// 当前 scope 警告全集（与 functionWarnings 同源、不过滤）下 distinct
-// 函数 ID / Agent 及各自警告条数，供 Warnings 页两个下拉一次取全。
+// functionWarningFilterOptions provides the server-side aggregated options for
+// the registration warning filter dropdowns per #34: distinct function IDs /
+// agents over the complete warning set of the current scope (same source as
+// functionWarnings, unfiltered) along with each of their warning counts, so
+// the two dropdowns on the Warnings page can fetch everything in one call.
 func functionWarningFilterOptions(ctx context.Context, svcCtx *svc.ServiceContext) (*FunctionWarningFilterOptionsResponse, error) {
 	scope := currentFunctionScope(ctx)
 
@@ -69,7 +71,7 @@ func functionWarningFilterOptions(ctx context.Context, svcCtx *svc.ServiceContex
 	warnings := svcCtx.RegistryStore.ListRegistrationWarnings(reg.RegistrationWarningFilter{
 		GameID: scope.GameID,
 		Env:    scope.Env,
-		Limit:  0, // 聚合用全集，不限条数
+		Limit:  0, // full set for aggregation, no row limit
 	})
 
 	funcCounts := map[string]int64{}
@@ -92,7 +94,8 @@ func optionItemsFromCounts(counts map[string]int64) []WarningFilterOptionItem {
 	for value, count := range counts {
 		items = append(items, WarningFilterOptionItem{Value: value, Label: value, Count: count})
 	}
-	// 稳定序：条数降序、同数按 value 字典序（测试与展示均可预期）
+	// Stable order: count descending, ties broken by value lexicographic order
+	// (predictable for both tests and display).
 	sort.Slice(items, func(i, j int) bool {
 		if items[i].Count != items[j].Count {
 			return items[i].Count > items[j].Count

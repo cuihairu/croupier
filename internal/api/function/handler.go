@@ -20,9 +20,11 @@ func bindFunctionRequest(c *gin.Context, req interface{}) error {
 	if c.Request.Method == "GET" {
 		return requestbind.BindQueryCompat(c, req)
 	}
-	// 动作类端点（enable/disable/delete 等）的 body 字段全可选且路径已带
-	// :id：curl 与前端不发 body 是合法调用，空 body（ContentLength 0 或
-	// chunked 流的 EOF）不应按 bad_request(EOF) 拒绝；非法 JSON 仍 400。
+	// Action-style endpoints (enable/disable/delete etc.) have all-optional
+	// body fields and already carry :id on the path: curl or the frontend not
+	// sending a body is a legitimate call, so an empty body (ContentLength 0
+	// or EOF from a chunked stream) must not be rejected as
+	// bad_request(EOF); malformed JSON still returns 400.
 	if c.Request.Body == nil || c.Request.ContentLength == 0 {
 		return nil
 	}
@@ -456,7 +458,7 @@ func (h *Handler) BatchDelete(c *gin.Context) {
 	h.BatchDeleteFunctions(c)
 }
 
-// WarningDelete 处理删除单条注册警告。
+// WarningDelete handles deleting a single registration warning.
 func (h *Handler) WarningDelete(c *gin.Context) {
 	var uri struct {
 		Key string `uri:"key" binding:"required"`
@@ -476,7 +478,7 @@ func (h *Handler) WarningDelete(c *gin.Context) {
 	response.Success(c, gin.H{"deleted": true, "key": uri.Key})
 }
 
-// WarningDeleteAll 处理清空全部注册警告。
+// WarningDeleteAll handles clearing all registration warnings.
 func (h *Handler) WarningDeleteAll(c *gin.Context) {
 	if h.service.SvcCtx().RegistryStore == nil {
 		response.Error(c, errorx.NewNotFound("注册警告存储不可用"))
@@ -486,7 +488,7 @@ func (h *Handler) WarningDeleteAll(c *gin.Context) {
 	response.Success(c, gin.H{"deleted": n})
 }
 
-// WarningMarkRead 处理标记单条警告已读。
+// WarningMarkRead handles marking a single warning as read.
 func (h *Handler) WarningMarkRead(c *gin.Context) {
 	var uri struct {
 		Key string `uri:"key" binding:"required"`
@@ -506,7 +508,7 @@ func (h *Handler) WarningMarkRead(c *gin.Context) {
 	response.Success(c, gin.H{"key": uri.Key, "read": true})
 }
 
-// WarningMarkAllRead 处理全部标记已读。
+// WarningMarkAllRead handles marking all warnings as read.
 func (h *Handler) WarningMarkAllRead(c *gin.Context) {
 	if h.service.SvcCtx().RegistryStore == nil {
 		response.Error(c, errorx.NewNotFound("注册警告存储不可用"))
@@ -516,8 +518,9 @@ func (h *Handler) WarningMarkAllRead(c *gin.Context) {
 }
 
 // WarningFilterOptions handles GET /api/v1/functions/warnings/filter-options
-// （#34）：当前 scope 警告全集 distinct 函数 ID / Agent 聚合，供 Warnings
-// 页过滤下拉消费。
+// (#34): aggregates the distinct function IDs / agents across the full
+// warning set for the current scope, consumed by the Warnings page filter
+// dropdowns.
 func (h *Handler) WarningFilterOptions(c *gin.Context) {
 	resp, err := h.service.FunctionWarningFilterOptions(c.Request.Context())
 	if err != nil {

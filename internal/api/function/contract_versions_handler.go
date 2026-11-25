@@ -11,7 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// B2：函数契约变更历史 REST 面（scoped by X-Game-ID/X-Env）。
+// B2: REST surface for function contract change history (scoped by X-Game-ID/X-Env).
 
 func (h *Handler) ContractVersions(c *gin.Context) {
 	logic, gameID, env, functionID, err := h.contractVersionsScope(c)
@@ -26,9 +26,12 @@ func (h *Handler) ContractVersions(c *gin.Context) {
 		response.Error(c, err)
 		return
 	}
-	// 存量函数惰性回填（B2 版本历史晚于注册面引入，0029 前注册的契约没有
-	// created 记录，历史页为空）：首次查看时补一条 created 初始快照再重查。
-	// 历史是衍生审计数据，回填失败降级为日志、不影响列表响应。
+	// Lazy backfill for pre-existing contracts (B2: version history arrived
+	// later than the registration surface, so contracts registered before 0029
+	// have no created record and an empty history page): on first view, add a
+	// created initial snapshot and re-query. History is derived audit data;
+	// a backfill failure degrades to a log line and does not affect the list
+	// response.
 	if resp != nil && resp.Total == 0 {
 		if created, bfErr := contractsvc.NewContractService(h.service.SvcCtx().DB).
 			BackfillInitialContractVersion(c.Request.Context(), gameID, env, functionID); bfErr != nil {

@@ -151,7 +151,7 @@ func TestHandler_FunctionPermissions_Empty(t *testing.T) {
 
 	// May panic due to nil FunctionModel
 	defer func() {
-		_ = recover() // 空 ServiceContext 预期可能 panic，统一吞掉
+		_ = recover() // an empty ServiceContext may legitimately panic; swallowed uniformly
 	}()
 	h.FunctionPermissions(ctx)
 
@@ -200,7 +200,7 @@ func TestHandler_FunctionPermissionsUpdate_EmptyBody(t *testing.T) {
 
 	// This may panic due to nil FunctionModel in helper
 	defer func() {
-		_ = recover() // 空 ServiceContext 预期可能 panic，统一吞掉
+		_ = recover() // an empty ServiceContext may legitimately panic; swallowed uniformly
 	}()
 	h.FunctionPermissionsUpdate(ctx)
 
@@ -344,7 +344,7 @@ func TestHandler_Descriptors_WithGameId(t *testing.T) {
 
 	// May panic due to nil ServiceContext
 	defer func() {
-		_ = recover() // 空 ServiceContext 预期可能 panic，统一吞掉
+		_ = recover() // an empty ServiceContext may legitimately panic; swallowed uniformly
 	}()
 	h.Descriptors(ctx)
 
@@ -361,7 +361,7 @@ func TestHandler_Descriptors_EmptyGameId(t *testing.T) {
 
 	// May panic due to nil ServiceContext
 	defer func() {
-		_ = recover() // 空 ServiceContext 预期可能 panic，统一吞掉
+		_ = recover() // an empty ServiceContext may legitimately panic; swallowed uniformly
 	}()
 	h.Descriptors(ctx)
 
@@ -378,7 +378,7 @@ func TestHandler_Descriptors_WithEnv(t *testing.T) {
 
 	// May panic due to nil ServiceContext
 	defer func() {
-		_ = recover() // 空 ServiceContext 预期可能 panic，统一吞掉
+		_ = recover() // an empty ServiceContext may legitimately panic; swallowed uniformly
 	}()
 	h.Descriptors(ctx)
 
@@ -487,7 +487,7 @@ func TestHandler_FunctionPermissionsUpdate_WithBody(t *testing.T) {
 
 	// May panic due to nil FunctionModel in helper
 	defer func() {
-		_ = recover() // 空 ServiceContext 预期可能 panic，统一吞掉
+		_ = recover() // an empty ServiceContext may legitimately panic; swallowed uniformly
 	}()
 	h.FunctionPermissionsUpdate(ctx)
 
@@ -623,7 +623,7 @@ func TestHandler_FunctionInvoke_SuccessPath(t *testing.T) {
 
 	// May panic due to missing registry or policy
 	defer func() {
-		_ = recover() // 空 ServiceContext 预期可能 panic，统一吞掉
+		_ = recover() // an empty ServiceContext may legitimately panic; swallowed uniformly
 	}()
 	h.FunctionInvoke(ctx)
 
@@ -670,7 +670,7 @@ func TestHandler_FunctionPermissions_SuccessPath(t *testing.T) {
 
 	// May panic due to nil FunctionModel
 	defer func() {
-		_ = recover() // 空 ServiceContext 预期可能 panic，统一吞掉
+		_ = recover() // an empty ServiceContext may legitimately panic; swallowed uniformly
 	}()
 	h.FunctionPermissions(ctx)
 
@@ -754,7 +754,7 @@ func TestHandler_FunctionPermissionsUpdate_WithPermissions(t *testing.T) {
 
 	// May panic due to nil FunctionModel
 	defer func() {
-		_ = recover() // 空 ServiceContext 预期可能 panic，统一吞掉
+		_ = recover() // an empty ServiceContext may legitimately panic; swallowed uniformly
 	}()
 	h.FunctionPermissionsUpdate(ctx)
 

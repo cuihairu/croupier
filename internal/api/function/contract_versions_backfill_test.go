@@ -13,8 +13,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// 存量函数惰性回填（B2 版本历史晚于注册面引入）：有契约、无历史的函数
-// 首次打开变更历史时补一条 created 初始快照；幂等——再次拉取不再新增。
+// Lazy backfill for pre-existing contracts (B2: version history arrived later
+// than the registration surface): a contract with no history gains a "created"
+// initial snapshot the first time its change history is opened; idempotent —
+// a repeat fetch adds nothing new.
 
 func seedContractWithoutHistory(t *testing.T, svcCtx *svc.ServiceContext) {
 	t.Helper()
@@ -69,7 +71,7 @@ func TestHandler_ContractVersions_BackfillsInitialVersionForLegacyContract(t *te
 	require.Equal(t, "backfill", items[0]["actor"])
 	require.Equal(t, "2.4.0", items[0]["version"])
 
-	// 幂等：第二次拉取不新增。
+	// Idempotent: a second fetch adds nothing.
 	total2, _ := listVersionsViaHandler(t, h, "inventory.consume")
 	require.EqualValues(t, 1, total2)
 }
@@ -78,7 +80,8 @@ func TestHandler_ContractVersions_NoBackfillWithoutContract(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
-	// 无契约的函数（如历史遗留脏 id）不补快照，保持空列表不报错。
+	// A function with no contract (e.g. a stale legacy id) gets no snapshot;
+	// the list stays empty without an error.
 	svcCtx := setupTestServiceContext(t)
 	h := NewHandler(NewService(svcCtx))
 
@@ -87,8 +90,10 @@ func TestHandler_ContractVersions_NoBackfillWithoutContract(t *testing.T) {
 	require.Empty(t, items)
 }
 
-// 直测 service 层：DB 无契约表（nil 合约模型不可用场景由构造保证）时
-// BackfillInitialContractVersion 不 panic；契约存在时返回 created=true。
+// Service layer exercised directly: when the DB has no contract table
+// (the unavailable-contract-model case is guaranteed by construction)
+// BackfillInitialContractVersion does not panic; when the contract exists it
+// returns created=true.
 func TestBackfillInitialContractVersion_Direct(t *testing.T) {
 	t.Parallel()
 
@@ -104,7 +109,7 @@ func TestBackfillInitialContractVersion_Direct(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, created, "second backfill must be a no-op")
 
-	// 未知函数：不补写、不报错。
+	// Unknown function: no backfill, no error.
 	created, err = cs.BackfillInitialContractVersion(context.Background(), "g", "e", "ghost.function")
 	require.NoError(t, err)
 	require.False(t, created)

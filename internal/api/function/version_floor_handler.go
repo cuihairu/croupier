@@ -12,9 +12,11 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// 函数级最低函数版本门槛 REST 面（scoped by X-Game-ID/X-Env）。
-// 判定语义见 control_handler.evaluateSDKVersionFloor：函数描述符版本
-// 低于配置值时，旧版声明不随注册物化（只产生注册警告）——防契约回退。
+// REST surface for function-level minimum function version floors (scoped by
+// X-Game-ID/X-Env). See control_handler.evaluateSDKVersionFloor for the
+// evaluation semantics: when the function descriptor version is below the
+// configured value, the older declaration is not materialized on registration
+// (it only raises a registration warning) -- guarding against contract rollback.
 
 type versionFloorResponse struct {
 	FunctionID string `json:"functionId"`
@@ -41,7 +43,8 @@ type versionFloorBatchResponse struct {
 	MinVersion string   `json:"minVersion,omitempty"`
 }
 
-// versionFloorScopeOnly 解析作用域（批量端点共用，无 :id param）。
+// versionFloorScopeOnly resolves the scope (shared by the batch endpoints, no
+// :id param).
 func (h *Handler) versionFloorScopeOnly(c *gin.Context) (gameID, env string, err error) {
 	scope := svc.GameScopeFromContext(c.Request.Context())
 	gameID = strings.TrimSpace(scope.GameID)
@@ -52,9 +55,11 @@ func (h *Handler) versionFloorScopeOnly(c *gin.Context) (gameID, env string, err
 	return gameID, env, nil
 }
 
-// versionFloorScope 解析作用域与函数 id。读路径只受认证 + scope 保护
-// （与注释历史上声称的 functions:read 校验不符，为既有边界）；写路径
-// 另行校验 functions:manage（checkVersionFloorManage）。
+// versionFloorScope resolves the scope and the function id. The read path is
+// only guarded by authentication plus scope (inconsistent with the
+// functions:read check the comment historically claimed; a pre-existing
+// boundary); the write path separately validates functions:manage
+// (checkVersionFloorManage).
 func (h *Handler) versionFloorScope(c *gin.Context) (gameID, env, functionID string, err error) {
 	gameID, env, err = h.versionFloorScopeOnly(c)
 	if err != nil {
@@ -67,8 +72,9 @@ func (h *Handler) versionFloorScope(c *gin.Context) (gameID, env, functionID str
 	return gameID, env, functionID, nil
 }
 
-// checkVersionFloorManage 校验 functions:manage（或 admin/*）——与
-// descriptors_logic.checkReadPermission 同一准入面的写变体。
+// checkVersionFloorManage validates functions:manage (or admin/*) -- the
+// write variant of the same admission surface as
+// descriptors_logic.checkReadPermission.
 func (h *Handler) checkVersionFloorManage(c *gin.Context) error {
 	ctx := c.Request.Context()
 	username, _ := utils.CurrentUsername(ctx)
@@ -90,8 +96,9 @@ func (h *Handler) checkVersionFloorManage(c *gin.Context) error {
 	return errorx.NewForbidden("无权设置函数版本门槛")
 }
 
-// VersionFloorGet handles GET /api/v1/functions/:id/version-floor。
-// 未配置时 minVersion 为空串（不 404——设置面板直接回显空态）。
+// VersionFloorGet handles GET /api/v1/functions/:id/version-floor.
+// When not configured, minVersion is an empty string (no 404 -- the settings
+// panel echoes the empty state directly).
 func (h *Handler) VersionFloorGet(c *gin.Context) {
 	gameID, env, functionID, err := h.versionFloorScope(c)
 	if err != nil {
@@ -109,8 +116,9 @@ func (h *Handler) VersionFloorGet(c *gin.Context) {
 	})
 }
 
-// VersionFloorPut handles PUT /api/v1/functions/:id/version-floor。
-// minVersion 必须可解析（sdkversion.Parseable）；清空走 DELETE。
+// VersionFloorPut handles PUT /api/v1/functions/:id/version-floor.
+// minVersion must be parseable (sdkversion.Parseable); clearing goes through
+// DELETE.
 func (h *Handler) VersionFloorPut(c *gin.Context) {
 	if err := h.checkVersionFloorManage(c); err != nil {
 		response.Error(c, err)
@@ -166,9 +174,11 @@ func (h *Handler) VersionFloorDelete(c *gin.Context) {
 	response.Success(c, versionFloorResponse{FunctionID: functionID})
 }
 
-// VersionFloorsList handles GET /api/v1/functions/version-floors。
-// 返回当前 scope 下全部函数级最低版本（functionId → minVersion），函数
-// 目录「最低SDK版本」列数据源；未配置的函数不在 map 中。
+// VersionFloorsList handles GET /api/v1/functions/version-floors.
+// Returns every function-level minimum version in the current scope
+// (functionId -> minVersion), the data source of the "minimum SDK version"
+// column in the function directory; functions without a floor are absent from
+// the map.
 func (h *Handler) VersionFloorsList(c *gin.Context) {
 	gameID, env, err := h.versionFloorScopeOnly(c)
 	if err != nil {
@@ -183,10 +193,13 @@ func (h *Handler) VersionFloorsList(c *gin.Context) {
 	response.Success(c, versionFloorsListResponse{Floors: store.GetFunctionVersionFloors(gameID, env)})
 }
 
-// VersionFloorBatch handles POST /api/v1/functions/version-floor/batch。
-// 统一值语义：minVersion 空 = 批量清除（对齐单函数 DELETE）；非空先对
-// 统一值整体校验可解析（一个坏值零写入），再逐函数 Set/Delete，个别失
-// 败收集进 failed（对齐 batch 家族部分成功语义；Set/Delete 幂等，重试安全）。
+// VersionFloorBatch handles POST /api/v1/functions/version-floor/batch.
+// Unified value semantics: an empty minVersion means batch clear (mirroring the
+// single-function DELETE); a non-empty value is first validated for
+// parseability as a whole (one bad value means zero writes), then Set/Delete
+// runs per function with individual failures collected into failed (mirroring
+// the partial-success semantics of the batch family; Set/Delete are idempotent,
+// so retries are safe).
 func (h *Handler) VersionFloorBatch(c *gin.Context) {
 	if err := h.checkVersionFloorManage(c); err != nil {
 		response.Error(c, err)

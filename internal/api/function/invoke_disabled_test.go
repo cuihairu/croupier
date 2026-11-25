@@ -10,15 +10,17 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// E2 禁用拦截：dashboard 禁用按钮写 functions.status，functionInvoke 必须
-// 回读并拒绝禁用函数（409 function_disabled），同步/异步同一闸门。
+// E2 disable intercept: the dashboard disable button writes functions.status,
+// and functionInvoke must read it back and reject disabled functions (409
+// function_disabled), with sync and async sharing the same gate.
 func TestFunctionInvoke_DisabledFunctionBlocked(t *testing.T) {
 	f := newInvokeFixture(t)
 	f.createOperator(t, "opuser", "admin")
 	f.registerAgent(t, "agent-1", "demo.echo")
 	f.caller = &fakeSessionCaller{invokePayload: []byte(`{"echo":true}`)}
 	f.resolver.callers["agent-1"] = f.caller
-	// 物化禁用行（模拟 setFunctionEnabled(fn, StatusDisabled) 的结果）
+	// Materialize the disabled row (simulating the result of
+	// setFunctionEnabled(fn, StatusDisabled))
 	require.NoError(t, f.svcCtx.FunctionModel.Create(context.Background(), &model.Function{
 		FunctionID: "demo.echo",
 		GameID:     "demo",
@@ -32,10 +34,10 @@ func TestFunctionInvoke_DisabledFunctionBlocked(t *testing.T) {
 	require.ErrorAs(t, err, &codeErr)
 	assert.Equal(t, 409, codeErr.Code)
 	assert.Equal(t, "function_disabled", codeErr.ErrorCode())
-	// 请求不得到达 agent
+	// The request must not reach the agent
 	assert.Empty(t, f.caller.requests)
 
-	// async 模式走同一闸门（闸门在 Mode 分流之前）
+	// async mode goes through the same gate (the gate sits before Mode branching)
 	_, err = NewService(f.svcCtx).FunctionInvoke(f.ctxFor("opuser"), &FunctionInvokeRequest{
 		ID: "demo.echo", Mode: "async", Payload: []byte(`{}`),
 	})
@@ -44,7 +46,8 @@ func TestFunctionInvoke_DisabledFunctionBlocked(t *testing.T) {
 	assert.Empty(t, f.caller.requests)
 }
 
-// 重新启用后闸门放行（同时覆盖「禁用写路径 → 执行读路径」闭环）。
+// After re-enabling the gate lets the call through (also covering the
+// "disable write path -> execution read path" loop).
 func TestFunctionInvoke_ReEnabledFunctionPasses(t *testing.T) {
 	f := newInvokeFixture(t)
 	f.createOperator(t, "opuser", "admin")

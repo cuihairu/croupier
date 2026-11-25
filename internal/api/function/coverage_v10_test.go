@@ -1,10 +1,12 @@
 package function
 
-// 覆盖目标（组 B）：
-//  1. validateInvokeInput 的三处透传分支——空白 functionID、descriptor
-//     Input 为空 map、required 数组中出现非字符串/空字符串项。
-//  2. remoteAgentSnapshots 的快照表读取失败分支（agent_sessions 表缺失，
-//     归属表仍活跃）→ 静默回落本地视图。
+// Coverage targets (group B):
+//  1. The three pass-through branches of validateInvokeInput — blank
+//     functionID, a descriptor with an empty Input map, and non-string/empty
+//     string entries appearing in the required array.
+//  2. The snapshot-table read failure branch of remoteAgentSnapshots (the
+//     agent_sessions table is missing while the ownership table is still
+//     active) -> silently falls back to the local view.
 
 import (
 	"context"
@@ -18,7 +20,8 @@ import (
 	"gorm.io/datatypes"
 )
 
-// 空白 functionID：不在本层拦截（透传给下游路由层处理）。
+// Blank functionID: not intercepted in this layer (passed through to the
+// downstream routing layer).
 func TestV10ValidateInvokeInput_BlankFunctionIDPassthrough(t *testing.T) {
 	f := newInvokeFixture(t)
 	upsertInputContract(t, f, "demo.grant", datatypes.JSONMap{
@@ -31,7 +34,7 @@ func TestV10ValidateInvokeInput_BlankFunctionIDPassthrough(t *testing.T) {
 		&FunctionInvokeRequest{}, []byte(`{}`)))
 }
 
-// descriptor 存在但 Input 为空 map：透传。
+// The descriptor exists but Input is an empty map: pass-through.
 func TestV10ValidateInvokeInput_EmptyInputPassthrough(t *testing.T) {
 	f := newInvokeFixture(t)
 	upsertInputContract(t, f, "demo.empty-input", datatypes.JSONMap{})
@@ -40,8 +43,9 @@ func TestV10ValidateInvokeInput_EmptyInputPassthrough(t *testing.T) {
 		&FunctionInvokeRequest{ID: "demo.empty-input"}, []byte(`{}`)))
 }
 
-// required 数组含非字符串项（数字）与空字符串项：跳过这些项，
-// 只对合法字符串项做缺失判定。
+// The required array holds a non-string entry (a number) and an empty string
+// entry: those entries are skipped and the missing check only considers
+// well-formed string entries.
 func TestV10ValidateInvokeInput_RequiredNonStringEntriesSkipped(t *testing.T) {
 	f := newInvokeFixture(t)
 	upsertInputContract(t, f, "demo.mixed-required", datatypes.JSONMap{
@@ -49,20 +53,23 @@ func TestV10ValidateInvokeInput_RequiredNonStringEntriesSkipped(t *testing.T) {
 		"required": []interface{}{123, "", "playerId"},
 	})
 
-	// playerId 缺失：非字符串项与空串项不产出「缺少必填参数」条目。
+	// playerId missing: the non-string and blank entries produce no
+	// "missing required parameter" entry.
 	err := validateInvokeInput(context.Background(), f.svcCtx,
 		&FunctionInvokeRequest{ID: "demo.mixed-required"}, []byte(`{}`))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "playerId")
 	assert.NotContains(t, err.Error(), ", ,", "blank/numeric entries must not join the message")
 
-	// playerId 提供后：无缺失 → 透传。
+	// After playerId is provided: nothing missing -> pass-through.
 	require.NoError(t, validateInvokeInput(context.Background(), f.svcCtx,
 		&FunctionInvokeRequest{ID: "demo.mixed-required"}, []byte(`{"playerId":"p-1"}`)))
 }
 
-// 归属表活跃（agent 不在本地 registry）但共享 agent_sessions 快照表不可读
-// （表缺失模拟 DB 故障）→ 返回 nil 静默回落本地视图，不升级成错误。
+// The ownership table is active (the agent is not in the local registry) but
+// the shared agent_sessions snapshot table is unreadable (a dropped table
+// simulating a DB failure) -> returns nil to silently fall back to the local
+// view instead of escalating to an error.
 func TestV10RemoteAgentSnapshots_SnapshotLoadFailureFallsBack(t *testing.T) {
 	f := newInvokeFixture(t)
 	require.NoError(t, reg.MigrateAgentSessions(f.db))

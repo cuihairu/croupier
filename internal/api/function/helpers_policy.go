@@ -18,9 +18,11 @@ func resolvePolicyRisk(ctx context.Context, svcCtx *svc.ServiceContext, function
 }
 
 // ResolvePolicyRisk exposes resolvePolicyRisk to the approve path
-// (internal/api/approval step-up gate, OPEN-ISSUES #75): 高危审批门槛必须与
-// 调用路径共用同一风险判定口径，禁止各包私抄解析逻辑。来源故障向上传播，
-// 调用侧按 fail-closed 处理（step-up 门槛视作高危）。
+// (internal/api/approval step-up gate, OPEN-ISSUES #75): the high-risk approval
+// bar must share the same risk determination criteria as the invocation path;
+// no package may privately re-implement the resolution logic. Source failures
+// propagate upward and callers treat them fail-closed (the step-up bar counts
+// as high-risk).
 func ResolvePolicyRisk(ctx context.Context, svcCtx *svc.ServiceContext, functionID, gameID, env string) (policy.RiskLevel, error) {
 	return functioninvoke.ResolvePolicyRisk(ctx, svcCtx, functionID, gameID, env)
 }

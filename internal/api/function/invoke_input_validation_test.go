@@ -12,8 +12,9 @@ import (
 	"gorm.io/datatypes"
 )
 
-// validateInvokeInput：dispatch 前按 descriptor inputSchema 校验 payload；
-// 客户端契约错误必须在路由到 agent 前返回 400。
+// validateInvokeInput validates the payload against the descriptor
+// inputSchema before dispatch; client-side contract errors must return 400
+// before the request is routed to an agent.
 
 func upsertInputContract(t *testing.T, f *invokeFixture, functionID string, input datatypes.JSONMap) {
 	t.Helper()
@@ -54,13 +55,14 @@ func TestValidateInvokeInput_ProvidedPasses(t *testing.T) {
 		"required": []interface{}{"playerId"},
 	})
 
-	// 空串/false 是 JSON Schema 合法值（required 只约束存在性）。
+	// Empty strings/false are valid JSON Schema values (required only constrains presence).
 	require.NoError(t, validateInvokeInput(context.Background(), f.svcCtx,
 		&FunctionInvokeRequest{ID: "demo.grant"}, []byte(`{"playerId":""}`)))
-	// 显式 null 仅在类型不允许 null 时失败；required 只约束属性存在。
+	// Explicit null only fails when the type disallows null; required only
+	// constrains property presence.
 	require.NoError(t, validateInvokeInput(context.Background(), f.svcCtx,
 		&FunctionInvokeRequest{ID: "demo.grant"}, []byte(`{"playerId":null}`)))
-	// 空对象 payload。
+	// Empty object payload.
 	require.Error(t, validateInvokeInput(context.Background(), f.svcCtx,
 		&FunctionInvokeRequest{ID: "demo.grant"}, []byte(`{}`)))
 }
@@ -94,10 +96,10 @@ func TestValidateInvokeInput_TypeAndNestedSchema(t *testing.T) {
 
 func TestValidateInvokeInput_NoContractPassthrough(t *testing.T) {
 	f := newInvokeFixture(t)
-	// 无 descriptor：透传（契约由游戏服兜底）。
+	// No descriptor: pass through (the game server is the fallback for the contract).
 	require.NoError(t, validateInvokeInput(context.Background(), f.svcCtx,
 		&FunctionInvokeRequest{ID: "demo.bare"}, []byte(`{}`)))
-	// descriptor 有 Input 但无 required：透传。
+	// Descriptor with Input but no required: pass through.
 	upsertInputContract(t, f, "demo.noreq", datatypes.JSONMap{
 		"type": "object",
 		"properties": map[string]interface{}{
@@ -106,19 +108,20 @@ func TestValidateInvokeInput_NoContractPassthrough(t *testing.T) {
 	})
 	require.NoError(t, validateInvokeInput(context.Background(), f.svcCtx,
 		&FunctionInvokeRequest{ID: "demo.noreq"}, []byte(`{}`)))
-	// 非对象 payload（数组）不在此层拦截。
+	// A non-object payload (array) is not intercepted at this layer.
 	upsertInputContract(t, f, "demo.grant", datatypes.JSONMap{
 		"required": []interface{}{"playerId"},
 	})
 	require.NoError(t, validateInvokeInput(context.Background(), f.svcCtx,
 		&FunctionInvokeRequest{ID: "demo.grant"}, []byte(`[1,2]`)))
-	// FunctionModel 未初始化：跳过。
+	// FunctionModel not initialized: skip.
 	require.NoError(t, validateInvokeInput(context.Background(), nil,
 		&FunctionInvokeRequest{ID: "demo.grant"}, []byte(`{}`)))
 }
 
-// 缺参必须在 dispatch 前被拒：agent 在线也不应收到请求（否则用户看到的
-// 是 no live agent 之类的路由错误而不是缺了哪个参数）。
+// Missing parameters must be rejected before dispatch: the agent must not
+// receive the request even when online (otherwise the user sees a routing
+// error such as no live agent instead of which parameter is missing).
 func TestFunctionInvoke_MissingRequiredRejectedBeforeDispatch(t *testing.T) {
 	f := newInvokeFixture(t)
 	f.createOperator(t, "opuser", "admin")

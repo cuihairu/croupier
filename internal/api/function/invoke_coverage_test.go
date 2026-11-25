@@ -200,7 +200,8 @@ func TestFunctionInvoke_AsyncTask(t *testing.T) {
 	})
 	require.NoError(t, err)
 	assert.Equal(t, "task-42", resp.TaskId)
-	// 设计债修复：TaskID 双字段已删，async 响应 JSON 只含 taskId 不含 taskID。
+	// Design-debt fix: the duplicate TaskID field is gone; the async response
+	// JSON contains taskId but not taskID.
 	payload, err := json.Marshal(resp)
 	require.NoError(t, err)
 	assert.Contains(t, string(payload), `"taskId":"task-42"`)
@@ -449,13 +450,14 @@ func TestFunctionEnableDisable_TogglesStatus(t *testing.T) {
 	other := &model.Function{FunctionID: "keep.me", Name: "Keep", Status: 1}
 	require.NoError(t, f.db.WithContext(ctx).Create(other).Error)
 
-	// 修复回归：此前硬编码主键 0 导致 WHERE 不命中、静默无效。
+	// Fix regression: a hardcoded primary key of 0 used to make the WHERE clause
+	// miss and silently no-op.
 	require.NoError(t, functionDisable(ctx, f.svcCtx, &FunctionDisableRequest{FunctionId: "toggle.me"}))
 	var after model.Function
 	require.NoError(t, f.db.WithContext(ctx).Where("function_id = ?", "toggle.me").First(&after).Error)
 	assert.Equal(t, 0, after.Status, "disable must flip status")
 
-	// 其他函数不受影响
+	// Other functions are unaffected
 	var untouched model.Function
 	require.NoError(t, f.db.WithContext(ctx).Where("function_id = ?", "keep.me").First(&untouched).Error)
 	assert.Equal(t, 1, untouched.Status)
@@ -464,9 +466,9 @@ func TestFunctionEnableDisable_TogglesStatus(t *testing.T) {
 	require.NoError(t, f.db.WithContext(ctx).Where("function_id = ?", "toggle.me").First(&after).Error)
 	assert.Equal(t, 1, after.Status, "enable must restore status")
 
-	// 空 functionId 应显式报错而非静默成功
+	// An empty functionId must fail explicitly rather than succeed silently
 	require.Error(t, functionDisable(ctx, f.svcCtx, &FunctionDisableRequest{FunctionId: "  "}))
-	// 不存在的函数应报错
+	// A nonexistent function must fail
 	require.Error(t, functionDisable(ctx, f.svcCtx, &FunctionDisableRequest{FunctionId: "missing.fn"}))
 }
 
@@ -635,7 +637,8 @@ func TestFunctionWarnings_WithRegistry(t *testing.T) {
 	assert.Empty(t, resp.Items)
 }
 
-// timeoutMs 请求选项 → 约定键 metadata["timeoutMs"] 端到端透传到派发层。
+// The timeoutMs request option is passed through end to end to the dispatch
+// layer under the agreed key metadata["timeoutMs"].
 func TestFunctionInvoke_TimeoutMsInjectedIntoMetadata(t *testing.T) {
 	f := newInvokeFixture(t)
 	f.createOperator(t, "opuser", "admin")
@@ -653,7 +656,7 @@ func TestFunctionInvoke_TimeoutMsInjectedIntoMetadata(t *testing.T) {
 	require.Len(t, f.caller.requests, 1)
 	assert.Equal(t, "2500", f.caller.requests[0].GetMetadata()["timeoutMs"])
 
-	// 未声明 → 不注入（沿用全局默认）
+	// Not declared -> not injected (fall back to the global default)
 	second := &fakeSessionCaller{invokePayload: []byte(`{}`)}
 	f.resolver.callers["agent-1"] = second
 	_, err = svcAPI.FunctionInvoke(f.ctxFor("opuser"), &FunctionInvokeRequest{
@@ -663,8 +666,10 @@ func TestFunctionInvoke_TimeoutMsInjectedIntoMetadata(t *testing.T) {
 	assert.NotContains(t, second.requests[0].GetMetadata(), "timeoutMs")
 }
 
-// 声明式超时（契约 Behavior.TimeoutMs）执行层接线：
-// 声明即契约——显式值不得突破契约上限；契约缺失时显式值直通。
+// Execution-layer wiring for declarative timeouts (contract
+// Behavior.TimeoutMs): a declaration is a contract -- an explicit value must
+// not exceed the contract ceiling; when there is no contract the explicit
+// value passes straight through.
 func TestFunctionInvoke_DeclaredTimeoutContract(t *testing.T) {
 	f := newInvokeFixture(t)
 	f.createOperator(t, "opuser", "admin")
@@ -672,7 +677,7 @@ func TestFunctionInvoke_DeclaredTimeoutContract(t *testing.T) {
 	f.caller = &fakeSessionCaller{invokePayload: []byte(`{}`)}
 	f.resolver.callers["agent-1"] = f.caller
 
-	// 契约：slow 声明 20s；free 未声明
+	// Contract: slow declares 20s; free declares nothing
 	contractModel := model.NewFunctionContractModel(f.svcCtx.DB)
 	require.NoError(t, contractModel.UpsertContract(f.ctxFor("opuser"), &model.FunctionContract{
 		GameID: "demo", Env: "prod", FunctionID: "demo.slow", Enabled: true,
@@ -680,41 +685,41 @@ func TestFunctionInvoke_DeclaredTimeoutContract(t *testing.T) {
 	}))
 	require.NoError(t, contractModel.UpsertContract(f.ctxFor("opuser"), &model.FunctionContract{
 		GameID: "demo", Env: "prod", FunctionID: "demo.free", Enabled: true,
-		Execution: "sync", // 未声明
+		Execution: "sync", // not declared
 	}))
 
 	svcAPI := NewService(f.svcCtx)
 	ctx := f.ctxFor("opuser")
 
-	// 1) 显式 30s > 契约 20s → 被契约截到 20s
+	// 1) explicit 30s > contract 20s -> clamped to 20s by the contract
 	resp, err := svcAPI.FunctionInvoke(ctx, &FunctionInvokeRequest{ID: "demo.slow", Payload: []byte(`{}`), TimeoutMs: 30000})
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	require.Len(t, f.caller.requests, 1)
 	assert.Equal(t, "20000", f.caller.requests[0].GetMetadata()["timeoutMs"])
 
-	// 2) 只有契约 → 契约值注入
+	// 2) contract only -> the contract value is injected
 	second := &fakeSessionCaller{invokePayload: []byte(`{}`)}
 	f.resolver.callers["agent-1"] = second
 	_, err = svcAPI.FunctionInvoke(ctx, &FunctionInvokeRequest{ID: "demo.slow", Payload: []byte(`{}`)})
 	require.NoError(t, err)
 	assert.Equal(t, "20000", second.requests[0].GetMetadata()["timeoutMs"])
 
-	// 3) 无契约无显式 → 不注入
+	// 3) no contract and no explicit value -> not injected
 	third := &fakeSessionCaller{invokePayload: []byte(`{}`)}
 	f.resolver.callers["agent-1"] = third
 	_, err = svcAPI.FunctionInvoke(ctx, &FunctionInvokeRequest{ID: "demo.free", Payload: []byte(`{}`)})
 	require.NoError(t, err)
 	assert.NotContains(t, third.requests[0].GetMetadata(), "timeoutMs")
 
-	// 4) 无契约 + 显式 8s → 直通
+	// 4) no contract + explicit 8s -> passes straight through
 	fourth := &fakeSessionCaller{invokePayload: []byte(`{}`)}
 	f.resolver.callers["agent-1"] = fourth
 	_, err = svcAPI.FunctionInvoke(ctx, &FunctionInvokeRequest{ID: "demo.free", Payload: []byte(`{}`), TimeoutMs: 8000})
 	require.NoError(t, err)
 	assert.Equal(t, "8000", fourth.requests[0].GetMetadata()["timeoutMs"])
 
-	// 5) async 模式不注入超时（任务有自己的生命周期）
+	// 5) async mode does not inject a timeout (a task has its own lifecycle)
 	fifth := &fakeSessionCaller{invokePayload: []byte(`{}`)}
 	f.resolver.callers["agent-1"] = fifth
 	_, err = svcAPI.FunctionInvoke(ctx, &FunctionInvokeRequest{ID: "demo.slow", Payload: []byte(`{}`), Mode: "async", TimeoutMs: 5000})

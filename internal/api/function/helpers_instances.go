@@ -11,7 +11,8 @@ import (
 	"github.com/cuihairu/croupier/internal/svc"
 )
 
-// sessionMatchesScope 判断会话是否落入 scope（空 scope 全通过）。
+// sessionMatchesScope reports whether the session falls within scope (an
+// empty scope lets everything through).
 func sessionMatchesScope(scope svc.GameScope, gameID, env string) bool {
 	if scope.GameID == "" {
 		return true
@@ -20,14 +21,16 @@ func sessionMatchesScope(scope svc.GameScope, gameID, env string) bool {
 		strings.EqualFold(strings.TrimSpace(env), scope.Env)
 }
 
-// remoteAgentSnapshot 是归属表兜底出的远端 agent 会话快照及其 owner 实例。
+// remoteAgentSnapshot is a remote agent session snapshot derived as a fallback
+// from the ownership table, together with its owner instance.
 type remoteAgentSnapshot struct {
 	sess          *reg.AgentSession
 	ownerInstance string
 }
 
-// clusterOwnerRecords 读归属表全集。集群未启用（Cluster/ListAgentOwners
-// 未装配）或读失败返回 nil，instances 视图回落本地语义。
+// clusterOwnerRecords reads the full ownership table. It returns nil when the
+// cluster is not enabled (Cluster/ListAgentOwners not wired) or the read
+// fails, and the instances view then falls back to local semantics.
 func clusterOwnerRecords(ctx context.Context, svcCtx *svc.ServiceContext) []cluster.AgentOwnerRecord {
 	if svcCtx.Cluster == nil || svcCtx.Cluster.ListAgentOwners == nil {
 		return nil
@@ -39,7 +42,8 @@ func clusterOwnerRecords(ctx context.Context, svcCtx *svc.ServiceContext) []clus
 	return recs
 }
 
-// clusterSelfInstanceID 返回本实例的集群身份（未装配返回空）。
+// clusterSelfInstanceID returns this instance's cluster identity (empty when
+// not wired).
 func clusterSelfInstanceID(svcCtx *svc.ServiceContext) string {
 	if svcCtx.Cluster == nil {
 		return ""
@@ -47,10 +51,12 @@ func clusterSelfInstanceID(svcCtx *svc.ServiceContext) string {
 	return svcCtx.Cluster.InstanceID
 }
 
-// remoteOwnerMap 从归属表构建 agentID → 对端实例标注：本地 registry 里
-// 由对端持有的 DB 快照（refreshRemoteSnapshots 回灌的）标真归属，本实例
-// 自持的排除（前端渲染「本实例」）。selfInstanceID 为空（未装配集群身份）
-// 时无法区分自持，整体不标注。
+// remoteOwnerMap builds agentID -> peer-instance annotations from the
+// ownership table: DB snapshots in the local registry that are owned by a peer
+// (fed back by refreshRemoteSnapshots) get their true owner, while entries
+// held by this instance are excluded (the frontend renders them as "this
+// instance"). When selfInstanceID is empty (no cluster identity wired) local
+// ownership cannot be distinguished, so nothing is annotated at all.
 func remoteOwnerMap(owners []cluster.AgentOwnerRecord, selfInstanceID string) map[string]string {
 	if len(owners) == 0 || selfInstanceID == "" {
 		return nil
@@ -65,14 +71,19 @@ func remoteOwnerMap(owners []cluster.AgentOwnerRecord, selfInstanceID string) ma
 	return out
 }
 
-// remoteAgentSnapshots 返回「归属表活跃但本地 registry 未持有」的 agent
-// 会话快照——集群模式下 instances 视图的跨实例兜底来源：本地 registry 只
-// 含连到本实例的 agent，对端实例持有的 agent 以共享归属表
-// （cluster_agent_owners，TTL 内即活跃）为在线全集，明细从共享
-// agent_sessions 快照表读取（Providers/Functions 已 JSON 落库）。归属表
-// 不可达或快照行缺失（owner 已 Release 的竞态）时静默回落本地视图，
-// 读路径不升级成 5xx。非集群部署（Cluster/DB 未装配）恒返回空。
-// owners 由调用方一次读出共用（本地条目标注也要用，避免双查归属表）。
+// remoteAgentSnapshots returns session snapshots of agents that are active in
+// the ownership table but not held by the local registry -- the cross-instance
+// fallback source of the instances view in cluster mode: the local registry
+// only contains agents connected to this instance, while agents held by peer
+// instances use the shared ownership table (cluster_agent_owners, active
+// within its TTL) as the online universe, with details read from the shared
+// agent_sessions snapshot table (Providers/Functions are already landed in the
+// database as JSON). If the ownership table is unreachable or a snapshot row is
+// missing (a race where the owner already Released), it silently falls back to
+// the local view and the read path does not escalate to a 5xx. Non-cluster
+// deployments (Cluster/DB not wired) always return empty.
+// owners are read once by the caller and shared (local entry annotation needs
+// them too, avoiding a double query of the ownership table).
 func remoteAgentSnapshots(ctx context.Context, svcCtx *svc.ServiceContext, scope svc.GameScope, localAgentIDs map[string]struct{}, owners []cluster.AgentOwnerRecord) []remoteAgentSnapshot {
 	if svcCtx.Cluster == nil || svcCtx.Cluster.ListAgentOwners == nil || svcCtx.DB == nil {
 		return nil
@@ -99,16 +110,18 @@ func remoteAgentSnapshots(ctx context.Context, svcCtx *svc.ServiceContext, scope
 		ownerByAgent[rec.AgentID] = rec.InstanceID
 	}
 	out := make([]remoteAgentSnapshot, 0, len(sessions))
-	// 设计债清理：sessions 来自 LoadActiveSessionsByAgentIDs，其元素由
-	// toDomainSession 产出（err!=nil 时被跳过不 append），恒非 nil，
-	// 原 nil 防御分支不可达已删除。
+	// Design-debt cleanup: sessions comes from LoadActiveSessionsByAgentIDs,
+	// whose elements are produced by toDomainSession (skipped and not appended
+	// when err != nil), so they are always non-nil; the original nil defensive
+	// branch was unreachable and removed.
 	for _, sess := range sessions {
 		out = append(out, remoteAgentSnapshot{sess: sess, ownerInstance: ownerByAgent[sess.AgentID]})
 	}
 	return out
 }
 
-// instanceItemForFunction 判断会话是否注册了目标函数并产出条目。
+// instanceItemForFunction checks whether the session has registered the target
+// function and, if so, produces the instance item.
 func instanceItemForFunction(sess *reg.AgentSession, scope svc.GameScope, functionID, ownerInstance string) (FunctionInstance, bool) {
 	if sess == nil || !sessionMatchesScope(scope, sess.GameID, sess.Env) {
 		return FunctionInstance{}, false
@@ -125,9 +138,11 @@ func instanceItemForFunction(sess *reg.AgentSession, scope svc.GameScope, functi
 	return FunctionInstance{}, false
 }
 
-// appendInstanceSummaries 把单个 agent 会话的函数注册展开为实例条目：
-// provider 会话优先（携带 ServiceID/SDK/addr 明细），未被任何 provider
-// 声明的函数仍以 agent 级条目兜底。scope 不匹配的会话/provider 跳过。
+// appendInstanceSummaries expands the function registrations of a single agent
+// session into instance items: provider sessions take precedence (carrying
+// ServiceID/SDK/addr details), and functions not declared by any provider still
+// get an agent-level fallback entry. Sessions/providers whose scope does not
+// match are skipped.
 func appendInstanceSummaries(instances []FunctionInstanceSummary, sess *reg.AgentSession, scope svc.GameScope, ownerInstance string) []FunctionInstanceSummary {
 	if sess == nil || !sessionMatchesScope(scope, sess.GameID, sess.Env) {
 		return instances
@@ -190,10 +205,13 @@ func functionInstances(ctx context.Context, svcCtx *svc.ServiceContext, req *Fun
 		return &FunctionInstancesResponse{Items: []FunctionInstance{}}, nil
 	}
 
-	// 本地条目在读锁内构建（会话对象与 registry 并发写共享，不能锁外
-	// 访问）；归属表在锁前一次读出——本地快照中被对端持有的条目也按
-	// 归属表标注（refreshRemoteSnapshots 回灌的 DB 快照不是本实例直连），
-	// 集群兜底 IO（归属表/快照表）在锁外。
+	// Local entries are built inside the read lock (session objects are shared
+	// with concurrent writes to the registry and must not be accessed outside
+	// the lock); the ownership table is read once before taking the lock --
+	// entries in the local snapshot that are owned by a peer are annotated from
+	// the ownership table too (DB snapshots fed back by refreshRemoteSnapshots
+	// are not direct connections of this instance), and the cluster fallback IO
+	// (ownership table/snapshot table) happens outside the lock.
 	owners := clusterOwnerRecords(ctx, svcCtx)
 	ownerOf := remoteOwnerMap(owners, clusterSelfInstanceID(svcCtx))
 	items := []FunctionInstance{}
@@ -228,8 +246,9 @@ func functionInstancesAll(ctx context.Context, svcCtx *svc.ServiceContext, req *
 		return &FunctionInstancesAllResponse{Instances: []FunctionInstanceSummary{}, Total: 0}, nil
 	}
 
-	// 同 functionInstances：本地条目持读锁构建（对端持有的 DB 快照按
-	// 归属表标注），集群兜底 IO 在锁外。
+	// Same as functionInstances: local entries are built while holding the
+	// read lock (DB snapshots owned by a peer are annotated from the ownership
+	// table), and the cluster fallback IO happens outside the lock.
 	owners := clusterOwnerRecords(ctx, svcCtx)
 	ownerOf := remoteOwnerMap(owners, clusterSelfInstanceID(svcCtx))
 	instances := []FunctionInstanceSummary{}

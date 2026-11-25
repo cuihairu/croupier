@@ -10,10 +10,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// 回归：POST /api/v1/functions/:id/disable 曾因空 body 走 ShouldBindJSON
-// 得 io.EOF → 400 bad_request("EOF")，且 FunctionDisableRequest 缺 uri
-// tag 导致路径 :id 从未绑进 FunctionId。修复后空 body 合法、functionId
-// 从路径绑定，非法 JSON 仍 400。
+// Regression: POST /api/v1/functions/:id/disable used to pass through
+// ShouldBindJSON with an empty body and get io.EOF -> 400 bad_request("EOF"),
+// and FunctionDisableRequest lacked a uri tag so the path :id was never bound
+// into FunctionId. After the fix an empty body is legal and functionId is
+// bound from the path, while malformed JSON still returns 400.
 
 func TestBindFunctionRequestEmptyBodyTolerant(t *testing.T) {
 	t.Parallel()
@@ -30,8 +31,8 @@ func TestBindFunctionRequestChunkedEmptyBodyTolerant(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
-	// ContentLength = -1（chunked/无长度声明）+ 空 payload：ShouldBindJSON
-	// 报 io.EOF，同样容忍。
+	// ContentLength = -1 (chunked / no declared length) + empty payload:
+	// ShouldBindJSON reports io.EOF, which is also tolerated.
 	ctx, _ := newFunctionTestContext(http.MethodPost, "/api/v1/functions/fn.a/enable", "")
 	ctx.Request.ContentLength = -1
 	ctx.Params = gin.Params{{Key: "id", Value: "fn.a"}}
@@ -54,7 +55,8 @@ func TestBindFunctionRequestJSONBodyStillWins(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
-	// 带 body 的旧客户端用法不受影响；body 显式值优先于路径值。
+	// The legacy client usage with a body is unaffected; an explicit body
+	// value takes precedence over the path value.
 	ctx, _ := newFunctionTestContext(http.MethodPost, "/api/v1/functions/from-path/disable", `{"functionId":"from-body"}`)
 	ctx.Params = gin.Params{{Key: "id", Value: "from-path"}}
 	var req FunctionDisableRequest
@@ -62,8 +64,8 @@ func TestBindFunctionRequestJSONBodyStillWins(t *testing.T) {
 	assert.Equal(t, "from-body", req.FunctionId)
 }
 
-// toggleRecordingService 记录 disable/enable 收到的 functionId，
-// 验证 handler 链路（路由参数 → bind → service）端到端成立。
+// toggleRecordingService records the functionId received by disable/enable to
+// verify the handler chain (route param -> bind -> service) end to end.
 type toggleRecordingService struct {
 	*Service
 	gotDisable string

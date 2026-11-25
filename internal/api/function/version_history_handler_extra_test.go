@@ -1,11 +1,15 @@
 package function
 
-// #26 函数历史版本索引的排序/去重边界与存储错误路径（既有用例已覆盖
-// scope 校验、semver 降序、DB 未初始化、30s TTL 缓存）：
-//  ① dedupeVersions 的重复分支——GROUP BY(function_id, version) 拦不住
-//     空白差异的同值（'1.0.0' 与 ' 1.0.0' 是两行），TrimSpace 后必须收敛；
-//  ② 排序的「双不可解析」分支——可解析排前之后，剩余版本按字典序；
-//  ③ ListDistinctVersions 的存储错误（表缺失）→ 统一错误对象而非静默空集。
+// #26 sorting/dedup edges and the storage error path of the function history
+// version index (the existing cases already cover scope validation, semver
+// descending order, uninitialized DB, and the 30s TTL cache):
+//  1) the dedupeVersions duplicate branch -- GROUP BY(function_id, version)
+//     cannot catch equal values differing by whitespace ('1.0.0' and ' 1.0.0'
+//     are two rows); they must converge after TrimSpace;
+//  2) the "both unparseable" sort branch -- after parseable versions sort
+//     first, the remaining versions order lexicographically;
+//  3) a ListDistinctVersions storage error (missing table) -> a unified error
+//     object instead of a silent empty set.
 
 import (
 	"net/http"
@@ -17,7 +21,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// 空白差异的同值版本收敛为一个选项。
+// Equal versions differing by whitespace converge into one option.
 func TestHandler_VersionHistoryIndex_DedupesWhitespaceVariants(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
@@ -25,7 +29,8 @@ func TestHandler_VersionHistoryIndex_DedupesWhitespaceVariants(t *testing.T) {
 	const gameID = "vh-dedupe"
 	svcCtx := setupTestServiceContext(t)
 	seedContractVersion(t, svcCtx, gameID, "a.fn", "1.0.0")
-	// 同一版本号的空白变体：SQL 层是 distinct 的两行，handler 须去重
+	// Whitespace variant of the same version: two distinct rows at the SQL
+	// layer; the handler must dedupe them
 	seedContractVersion(t, svcCtx, gameID, "a.fn", " 1.0.0")
 
 	h := NewHandler(NewService(svcCtx))
@@ -38,7 +43,8 @@ func TestHandler_VersionHistoryIndex_DedupesWhitespaceVariants(t *testing.T) {
 	assert.Equal(t, []string{"1.0.0"}, items[0].Versions)
 }
 
-// 不可解析版本在可解析版本之后，按字典序排列（两个都不可解析才走此分支）。
+// Unparseable versions sort after parseable ones, lexicographically (this
+// branch only triggers when both are unparseable).
 func TestHandler_VersionHistoryIndex_UnparseableSortedLexicographically(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
@@ -59,7 +65,9 @@ func TestHandler_VersionHistoryIndex_UnparseableSortedLexicographically(t *testi
 	assert.Equal(t, []string{"1.0.0", "alpha", "nightly-x"}, items[0].Versions)
 }
 
-// 版本表缺失（迁移未跑）→ 500，不得静默返回空下拉（空下拉会被误读为「无历史版本」）。
+// A missing version table (migrations not run) -> 500; it must not silently
+// return an empty dropdown (an empty dropdown would be misread as "no history
+// versions").
 func TestHandler_VersionHistoryIndex_StoreError(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)

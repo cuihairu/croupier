@@ -1,4 +1,5 @@
-// 覆盖目标：enforceFunctionPolicy 的角色限制/admin 旁路/角色不匹配分支。
+// Coverage target: the role-restriction / admin-bypass / role-mismatch
+// branches of enforceFunctionPolicy.
 package function
 
 import (
@@ -25,7 +26,7 @@ func TestEnforceFunctionPolicy_AllowedRolesAdminBypass(t *testing.T) {
 
 func TestEnforceFunctionPolicy_NoRoleRestriction(t *testing.T) {
 	f := newInvokeFixture(t)
-	// 默认策略（无 override）且 admin 角色旁路 Casbin 检查
+	// Default policy (no override) with the admin role bypassing the Casbin check
 	f.createOperator(t, "policy-free", "admin")
 
 	ctx := f.ctxFor("policy-free")

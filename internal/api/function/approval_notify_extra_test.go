@@ -1,5 +1,5 @@
-// 覆盖目标：approvalNotifyRecipients（0%）、enforceFunctionPolicy 与
-// createFunctionApproval 的错误分支。
+// Coverage targets: approvalNotifyRecipients (0%) and the error branches of
+// enforceFunctionPolicy and createFunctionApproval.
 package function
 
 import (

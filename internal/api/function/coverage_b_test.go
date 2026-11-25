@@ -1,8 +1,10 @@
-// 覆盖目标（B 批）：version_floor_handler.go 各 handler 的错误分支
-// （checkVersionFloorManage 权限面、store 未初始化、参数/scope 校验失败、
-// 底层存储错误）与 contract_versions_handler.go ContractVersionDiff 的
-// scope 失败 / Diff 查询失败分支。复用既有测试基建（newFunctionTestContext、
-// setupTestServiceContext、setupFloorDBForHandler、seedTwoContractVersions）。
+// Coverage targets (batch B): the error branches of the handlers in
+// version_floor_handler.go (the checkVersionFloorManage permission surface,
+// store not initialized, parameter/scope validation failures, underlying store
+// errors) plus the scope-failure / Diff query-failure branches of
+// ContractVersionDiff in contract_versions_handler.go. Reuses the existing
+// test infrastructure (newFunctionTestContext, setupTestServiceContext,
+// setupFloorDBForHandler, seedTwoContractVersions).
 package function
 
 import (
@@ -19,10 +21,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// ---- checkVersionFloorManage 权限面基建 ----
+// ---- checkVersionFloorManage permission-surface infrastructure ----
 
-// newFloorAdminSvcCtx 在既有测试上下文上补 AdminModel/RoleModel
-// （setupTestServiceContext 默认不带，checkVersionFloorManage 需要）。
+// newFloorAdminSvcCtx adds AdminModel/RoleModel on top of the existing test
+// context (setupTestServiceContext omits them by default;
+// checkVersionFloorManage needs them).
 func newFloorAdminSvcCtx(t *testing.T) *svc.ServiceContext {
 	t.Helper()
 	svcCtx := setupTestServiceContext(t)
@@ -31,8 +34,10 @@ func newFloorAdminSvcCtx(t *testing.T) *svc.ServiceContext {
 	return svcCtx
 }
 
-// seedFloorAdmin 创建管理员并按需绑角色与权限（权限以字符串直写
-// role_permissions，HasPermissionID 只比对字符串无需 permissions 表行）。
+// seedFloorAdmin creates an admin and binds a role and permissions as needed
+// (permissions are written as strings straight into role_permissions, and
+// HasPermissionID compares strings only, so no permissions table rows are
+// required).
 func seedFloorAdmin(t *testing.T, svcCtx *svc.ServiceContext, username, roleName string, perms []string) {
 	t.Helper()
 	ctx := context.Background()
@@ -48,16 +53,18 @@ func seedFloorAdmin(t *testing.T, svcCtx *svc.ServiceContext, username, roleName
 	}
 }
 
-// withFloorUser 往请求上下文注入登录名（与生产认证中间件同 key），
-// 触发 checkVersionFloorManage 的已认证分支。
+// withFloorUser injects the login name into the request context (same key as
+// the production auth middleware), triggering the authenticated branch of
+// checkVersionFloorManage.
 func withFloorUser(ctx *gin.Context, username string) {
 	ctx.Request = ctx.Request.WithContext(
 		context.WithValue(ctx.Request.Context(), "username", username))
 }
 
-// ---- versionFloorScope：:id param 缺失 ----
+// ---- versionFloorScope: missing :id param ----
 
-// GET 请求未带 :id param → id is required（versionFloorScope 的空 id 分支）。
+// A GET request without a :id param -> id is required (the empty-id branch of
+// versionFloorScope).
 func TestVersionFloorCovB_GetMissingID(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
@@ -76,7 +83,7 @@ func TestVersionFloorCovB_GetMissingID(t *testing.T) {
 	}
 }
 
-// ---- RegistryStore 未初始化（各 handler 的降级 500）----
+// ---- RegistryStore not initialized (each handler's degraded 500) ----
 
 func TestVersionFloorCovB_GetStoreNil(t *testing.T) {
 	t.Parallel()
@@ -157,10 +164,11 @@ func TestVersionFloorCovB_BatchStoreNil(t *testing.T) {
 	}
 }
 
-// ---- checkVersionFloorManage：已认证各分支 ----
+// ---- checkVersionFloorManage: authenticated branches ----
 
-// 管理员不存在 → LoadCurrentAdmin 报错 → 写路径 500（而非 403）。
-// 同时覆盖 PUT 头部的 checkVersionFloorManage err 转发分支。
+// Admin does not exist -> LoadCurrentAdmin errors -> write path 500 (not
+// 403). Also covers the checkVersionFloorManage err-forwarding branch at the
+// head of PUT.
 func TestVersionFloorCovB_PutAdminLoadError(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
@@ -178,8 +186,9 @@ func TestVersionFloorCovB_PutAdminLoadError(t *testing.T) {
 	}
 }
 
-// 角色权限展开查询失败（role_permissions 表被移除注入非 NotFound 错误）
-// → PermissionIDsFromRoles err → 写路径 500。
+// The role-permission expansion query fails (the role_permissions table is
+// dropped to inject a non-NotFound error) -> PermissionIDsFromRoles err ->
+// write path 500.
 func TestVersionFloorCovB_PutPermissionQueryError(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
@@ -201,7 +210,8 @@ func TestVersionFloorCovB_PutPermissionQueryError(t *testing.T) {
 	}
 }
 
-// admin 级角色（HasAdminRole）→ 放行 → PUT 成功（覆盖放行 return nil 分支）。
+// Admin-level role (HasAdminRole) -> allowed -> PUT succeeds (covers the
+// allow return nil branch).
 func TestVersionFloorCovB_PutAllowedAsAdminRole(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
@@ -223,13 +233,14 @@ func TestVersionFloorCovB_PutAllowedAsAdminRole(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("unmarshal: %v body=%s", err, rec.Body.String())
 	}
-	// updatedBy 回显当前登录名
+	// updatedBy echoes the current login name.
 	if resp.UpdatedBy != "adminop" || resp.MinVersion != "0.3.0" {
 		t.Fatalf("expected adminop/0.3.0, got %+v", resp)
 	}
 }
 
-// functions:manage 权限（HasPermissionID）→ 放行（第二放行变体，同一 if 块）。
+// functions:manage permission (HasPermissionID) -> allowed (a second allow
+// variant, the same if block).
 func TestVersionFloorCovB_PutAllowedByPermission(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
@@ -249,7 +260,8 @@ func TestVersionFloorCovB_PutAllowedByPermission(t *testing.T) {
 	}
 }
 
-// 已认证但既非 admin 角色也无 functions:manage → 403（Forbidden 分支）。
+// Authenticated but neither an admin role nor functions:manage -> 403
+// (Forbidden branch).
 func TestVersionFloorCovB_PutForbidden(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
@@ -272,7 +284,8 @@ func TestVersionFloorCovB_PutForbidden(t *testing.T) {
 	}
 }
 
-// DELETE：权限不足 403（checkVersionFloorManage err 转发分支）。
+// DELETE: insufficient permission 403 (checkVersionFloorManage err-forwarding
+// branch).
 func TestVersionFloorCovB_DeleteForbidden(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
@@ -292,7 +305,8 @@ func TestVersionFloorCovB_DeleteForbidden(t *testing.T) {
 	}
 }
 
-// Batch：权限不足 403（checkVersionFloorManage err 转发分支）。
+// Batch: insufficient permission 403 (checkVersionFloorManage err-forwarding
+// branch).
 func TestVersionFloorCovB_BatchForbidden(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
@@ -312,9 +326,9 @@ func TestVersionFloorCovB_BatchForbidden(t *testing.T) {
 	}
 }
 
-// ---- 其余参数/scope 校验与存储错误分支 ----
+// ---- Remaining parameter/scope validation and store error branches ----
 
-// PUT 缺 scope → 400（versionFloorScope err 转发分支）。
+// PUT missing scope -> 400 (versionFloorScope err-forwarding branch).
 func TestVersionFloorCovB_PutMissingScope(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
@@ -333,7 +347,7 @@ func TestVersionFloorCovB_PutMissingScope(t *testing.T) {
 	}
 }
 
-// PUT 请求体非法 JSON → 400（ShouldBindJSON err 分支）。
+// PUT with malformed JSON body -> 400 (ShouldBindJSON err branch).
 func TestVersionFloorCovB_PutMalformedJSON(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
@@ -350,7 +364,7 @@ func TestVersionFloorCovB_PutMalformedJSON(t *testing.T) {
 	}
 }
 
-// DELETE 缺 scope → 400（versionFloorScope err 转发分支）。
+// DELETE missing scope -> 400 (versionFloorScope err-forwarding branch).
 func TestVersionFloorCovB_DeleteMissingScope(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
@@ -366,8 +380,9 @@ func TestVersionFloorCovB_DeleteMissingScope(t *testing.T) {
 	}
 }
 
-// DELETE：底层连接关闭后 DeleteFunctionVersionFloor 报错 → 500
-// （复用既有 floor 专用库与关连接手法）。
+// DELETE: after the underlying connection is closed,
+// DeleteFunctionVersionFloor errors -> 500 (reusing the established
+// floor-specific DB and closed-connection technique).
 func TestVersionFloorCovB_DeleteStoreError(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
@@ -378,7 +393,8 @@ func TestVersionFloorCovB_DeleteStoreError(t *testing.T) {
 
 	h := NewHandler(NewService(&svc.ServiceContext{RegistryStore: registry.NewStoreWithDB(floorDB)}))
 
-	// 连接存活时播种门槛，关闭后删除路径报错
+	// Seed the floor while the connection is alive; the delete path errors
+	// after it is closed.
 	require.NoError(t, h.service.SvcCtx().RegistryStore.SetFunctionVersionFloor("g", "e", "player.ban", "0.3.0", "tester"))
 	_ = sqlDB.Close()
 
@@ -392,9 +408,10 @@ func TestVersionFloorCovB_DeleteStoreError(t *testing.T) {
 	}
 }
 
-// ---- ContractVersionDiff 缺口分支 ----
+// ---- ContractVersionDiff gap branches ----
 
-// Diff 请求缺 scope → 400（contractVersionsScope err 转发分支）。
+// Diff request missing scope -> 400 (contractVersionsScope err-forwarding
+// branch).
 func TestContractVersionDiffCovB_MissingScope(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
@@ -413,7 +430,8 @@ func TestContractVersionDiffCovB_MissingScope(t *testing.T) {
 	}
 }
 
-// Diff 的 from 版本不存在 → logic.Diff 报 NotFound → 404（Diff err 转发分支）。
+// Diff's from version does not exist -> logic.Diff reports NotFound -> 404
+// (Diff err-forwarding branch).
 func TestContractVersionDiffCovB_VersionNotFound(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)

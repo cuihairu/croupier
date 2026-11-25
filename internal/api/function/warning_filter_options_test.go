@@ -1,6 +1,7 @@
 package function
 
-// #34：注册警告过滤下拉聚合（GET /api/v1/functions/warnings/filter-options）。
+// #34: registration warning filter dropdown aggregation
+// (GET /api/v1/functions/warnings/filter-options).
 
 import (
 	"context"
@@ -26,7 +27,7 @@ func TestFunctionWarningFilterOptions_AggregatesDistinctFunctionsAndAgents(t *te
 	seedRegistrationWarning(t, store, "w-1", "agent-1", "fn.a", "invalid_version")
 	seedRegistrationWarning(t, store, "w-2", "agent-1", "fn.b", "invalid_version")
 	seedRegistrationWarning(t, store, "w-3", "agent-2", "fn.b", "stale_contract")
-	// scope 外不进聚合
+	// Rows outside the scope do not enter the aggregation
 	store.UpsertRegistrationWarning(context.Background(), reg.FunctionRegistrationWarning{
 		Key: "w-out", GameID: "other", Env: "x",
 		AgentID: "agent-9", FunctionID: "fn.z", Code: "c", Count: 1,
@@ -37,7 +38,7 @@ func TestFunctionWarningFilterOptions_AggregatesDistinctFunctionsAndAgents(t *te
 	resp, err := functionWarningFilterOptions(ctx, svcCtx)
 	require.NoError(t, err)
 
-	// 条数降序、同数按 value 字典序
+	// Count descending; ties broken by value lexicographic order
 	require.Len(t, resp.Functions, 2)
 	assert.Equal(t, "fn.b", resp.Functions[0].Value)
 	assert.Equal(t, int64(2), resp.Functions[0].Count)

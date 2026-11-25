@@ -305,7 +305,7 @@ func TestWarningHandlers_V9(t *testing.T) {
 		assert.Equal(t, http.StatusOK, rec.Code)
 		assert.Contains(t, rec.Body.String(), "k-v9")
 
-		// 已删除后再标记已读 → 404
+		// Marking read after deletion -> 404
 		assert.Equal(t, http.StatusNotFound, doRequestV9(t, r, http.MethodPost, "/warnings/k-v9/read").Code)
 	})
 
@@ -387,7 +387,7 @@ func TestFunctionInvoke_TelemetrySpan_V9(t *testing.T) {
 	f.createOperator(t, "teluser", "admin")
 	attachTelemetryV9(t, f.svcCtx)
 
-	// 成功路径：span + bridge 正常收尾
+	// Success path: span + bridge finish normally
 	f.registerAgent(t, "agent-tel", "tel.ok")
 	caller := &fakeSessionCaller{invokePayload: []byte(`{"ok":1}`)}
 	f.resolver.callers["agent-tel"] = caller
@@ -395,14 +395,14 @@ func TestFunctionInvoke_TelemetrySpan_V9(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 
-	// 失败路径：deferred span 记录错误事件
+	// Failure path: the deferred span records the error event
 	_, err = NewService(f.svcCtx).FunctionInvoke(f.ctxFor("teluser"), &FunctionInvokeRequest{ID: "ghost.fn"})
 	require.Error(t, err)
 }
 
 func TestFunctionInvoke_LoadAdminError_V9(t *testing.T) {
 	f := newInvokeFixture(t)
-	// scope 存在但缺少 username → LoadCurrentAdmin 失败
+	// Scope present but no username -> LoadCurrentAdmin fails
 	ctx := svc.WithGameScope(context.Background(), svc.GameScope{GameID: "demo", Env: "prod"})
 	_, err := NewService(f.svcCtx).FunctionInvoke(ctx, &FunctionInvokeRequest{ID: "demo.fn"})
 	require.Error(t, err)
@@ -449,14 +449,14 @@ func TestFunctionInvoke_AsyncAndBroadcastErrors_V9(t *testing.T) {
 	f := newInvokeFixture(t)
 	f.createOperator(t, "erruser", "admin")
 
-	// async 无 agent → StartTaskRequest 失败
+	// async with no agent -> StartTaskRequest fails
 	resp, err := NewService(f.svcCtx).FunctionInvoke(f.ctxFor("erruser"), &FunctionInvokeRequest{
 		ID: "ghost.fn", Mode: "async",
 	})
 	require.Error(t, err)
 	require.NotNil(t, resp)
 
-	// broadcast 无 agent → InvokeBroadcast 失败
+	// broadcast with no agent -> InvokeBroadcast fails
 	resp, err = NewService(f.svcCtx).FunctionInvoke(f.ctxFor("erruser"), &FunctionInvokeRequest{
 		ID: "ghost.fn", Route: "broadcast",
 	})
@@ -476,14 +476,14 @@ func TestEffectiveTimeoutMs_Boundaries_V9(t *testing.T) {
 	f := newInvokeFixture(t)
 	ctx := f.ctxFor("nobody")
 
-	// 负数显式值按 0 处理（不注入）
+	// An explicit negative value is treated as 0 (not injected)
 	assert.Equal(t, 0, effectiveTimeoutMs(ctx, f.svcCtx, &FunctionInvokeRequest{TimeoutMs: -5}))
 
-	// nil svcCtx / nil DB → 0
+	// nil svcCtx / nil DB -> 0
 	assert.Equal(t, 0, declaredTimeoutMs(ctx, nil, &FunctionInvokeRequest{ID: "f"}))
 	assert.Equal(t, 0, declaredTimeoutMs(ctx, &svc.ServiceContext{}, &FunctionInvokeRequest{ID: "f"}))
 
-	// game/env 缺失 → 0
+	// missing game/env -> 0
 	assert.Equal(t, 0, declaredTimeoutMs(ctx, f.svcCtx, &FunctionInvokeRequest{ID: "f"}))
 	assert.Equal(t, 0, declaredTimeoutMs(ctx, f.svcCtx, &FunctionInvokeRequest{ID: "f", GameID: "demo"}))
 }

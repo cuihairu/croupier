@@ -15,8 +15,10 @@ import (
 	"github.com/cuihairu/croupier/internal/svc"
 )
 
-// 函数级最低 SDK 版本门槛 REST 面：GET/PUT/DELETE + scope/参数校验。
-// 测试上下文无认证信息（匿名），准入面与 descriptors 读路径一致放行。
+// REST surface for function-level minimum SDK version floors: GET/PUT/DELETE
+// plus scope and parameter validation.
+// The test context carries no authentication information (anonymous), so the
+// admission surface lets it through consistently with the descriptors read path.
 
 func withFloorScope(ctx *gin.Context) {
 	ctx.Request = ctx.Request.WithContext(
@@ -130,7 +132,7 @@ func TestHandler_VersionFloor_MissingScope(t *testing.T) {
 	}
 }
 
-// ---- 批量面：GET /version-floors + POST /version-floor/batch ----
+// ---- Batch surface: GET /version-floors + POST /version-floor/batch ----
 
 func TestHandler_VersionFloors_ListEmpty(t *testing.T) {
 	t.Parallel()
@@ -220,7 +222,7 @@ func TestHandler_VersionFloorBatch_Set(t *testing.T) {
 	if resp.Updated != 2 || len(resp.Failed) != 0 || resp.MinVersion != "0.3.0" {
 		t.Fatalf("expected updated=2 failed=0 minVersion=0.3.0, got %+v", resp)
 	}
-	// 逐函数回读验证落库
+	// Read back per function to verify the floor landed in the database
 	for id, want := range map[string]string{"player.ban": "0.3.0", "mail.send": "0.3.0"} {
 		if got := h.service.SvcCtx().RegistryStore.GetFunctionVersionFloor("g", "e", id); got != want {
 			t.Fatalf("floor %s: expected %q, got %q", id, want, got)
@@ -274,7 +276,7 @@ func TestHandler_VersionFloorBatch_UnparseableRejected(t *testing.T) {
 	if !strings.Contains(rec.Body.String(), "parseable") {
 		t.Fatalf("expected parseable error, got %s", rec.Body.String())
 	}
-	// 零写入：统一值非法时不得留下任何门槛
+	// Zero writes: an invalid unified value must not leave any floor behind
 	if got := h.service.SvcCtx().RegistryStore.GetFunctionVersionFloor("g", "e", "player.ban"); got != "" {
 		t.Fatalf("expected zero writes, got floor %q", got)
 	}
@@ -339,8 +341,9 @@ func TestHandler_VersionFloorBatch_TrimsAndDedupes(t *testing.T) {
 	}
 }
 
-// setupFloorDBForHandler 迁出带 function_version_floors 的 sqlite 内存库
-// （镜像 registry 包 setupFnFloorDB；跨包不能复用其测试 helper）。
+// setupFloorDBForHandler builds an in-memory sqlite database carrying
+// function_version_floors (mirrors the registry package's setupFnFloorDB; its
+// test helper cannot be reused across packages).
 func setupFloorDBForHandler(t *testing.T) *gorm.DB {
 	t.Helper()
 	db, err := gorm.Open(gsqlite.Open("file:"+t.Name()+"?mode=memory&cache=private"), &gorm.Config{})
@@ -353,8 +356,10 @@ func setupFloorDBForHandler(t *testing.T) *gorm.DB {
 	return db
 }
 
-// TestHandler_VersionFloorBatch_PartialFailure：底层连接被关后逐函数写
-// 失败进 failed（部分成功语义；首次批量在连接存活时成功落库）。
+// TestHandler_VersionFloorBatch_PartialFailure: once the underlying
+// connection is closed, per-function writes fail into failed (partial-success
+// semantics; the first batch lands successfully in the database while the
+// connection is alive).
 func TestHandler_VersionFloorBatch_PartialFailure(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
@@ -367,7 +372,7 @@ func TestHandler_VersionFloorBatch_PartialFailure(t *testing.T) {
 
 	h := NewHandler(NewService(&svc.ServiceContext{RegistryStore: registry.NewStoreWithDB(floorDB)}))
 
-	// 先在连接可用时成功写两个函数
+	// First write both functions successfully while the connection is available
 	ctx, rec := newFunctionTestContext(http.MethodPost, "/api/v1/functions/version-floor/batch",
 		`{"functionIds":["player.ban","mail.send"],"minVersion":"0.3.0"}`)
 	withFloorScope(ctx)
@@ -384,7 +389,8 @@ func TestHandler_VersionFloorBatch_PartialFailure(t *testing.T) {
 	}
 	_ = sqlDB.Close()
 
-	// 再跑一次批量：连接已关 → 两个函数都进 failed
+	// Run the batch again: the connection is closed -> both functions land in
+	// failed
 	ctx2, rec2 := newFunctionTestContext(http.MethodPost, "/api/v1/functions/version-floor/batch",
 		`{"functionIds":["player.ban","mail.send"],"minVersion":"1.0.0"}`)
 	withFloorScope(ctx2)
