@@ -157,10 +157,12 @@ func TestHandler_Upsert_GETMethod(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
-	// GET + query params must actually populate UpsertRequest. 旧断言只查
-	// 「非 400」——gin 按字段名精确匹配绑不上 key/value，service 拿到空 key
-	// 报错返回 500，测试因错误原因转绿（BUG-030 病类；旧代码此处 req.Key
-	// 恒为空，本断言可作回归）。
+	// GET + query params must actually populate UpsertRequest. The old
+	// assertion only checked "not 400" -- gin binds by exact field name, so
+	// key/value never bound, the service got an empty key, returned a 500,
+	// and the test turned green for the wrong reason (a BUG-030 class defect;
+	// under the old code req.Key was always empty here, so this assertion
+	// works as a regression guard).
 	ctx, _ := newConfigTestContext(http.MethodGet, "/api/v1/config?key=test&value={}", "")
 	var req UpsertRequest
 	if err := bindConfigRequest(ctx, &req); err != nil {
