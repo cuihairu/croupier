@@ -5,7 +5,7 @@ import validator from '@rjsf/validator-ajv8';
 import type { RJSFSchema } from '@rjsf/utils';
 import { getFunctionDetail, invokeFunction, type FunctionInstance } from '@/services/api';
 import JsonCodeEditor from '@/components/JsonCodeEditor';
-import { deriveSchemaDefaults } from '@/utils/json';
+import { deriveFormDefaults, deriveSchemaDefaults, type JSONSchemaType } from '@/utils/json';
 import type { JSONValue } from '@/types/dashboard';
 import { resolveDescriptorSchema } from './shared';
 
@@ -29,7 +29,8 @@ export default function DebugModal({
   const [debugResult, setDebugResult] = useState<Record<string, JSONValue> | null>(null);
   const [debugLoading, setDebugLoading] = useState(false);
 
-  // 打开调试面板：拉取函数 schema 并按类型派生默认参数骨架
+  // 打开调试面板：拉取函数 schema 并按 SUI-018 默认值层派生初值
+  // （只含 schema 声明的 default；示例经「填入示例」显式填入）
   useEffect(() => {
     if (!open || !instance) return;
     let cancelled = false;
@@ -44,7 +45,7 @@ export default function DebugModal({
         const schema = resolveDescriptorSchema(descriptor);
         if (!schema) return;
         setDebugSchema(schema as RJSFSchema);
-        const defaults = deriveSchemaDefaults(schema);
+        const defaults = deriveFormDefaults(schema);
         setDebugPayload(JSON.stringify(defaults, null, 2));
       } catch {
         // schema 拉取失败不阻断调试，保留空模板由用户手写
@@ -54,6 +55,13 @@ export default function DebugModal({
       cancelled = true;
     };
   }, [open, instance]);
+
+  // SUI-018：显式填入示例模板（default > example > enum 首项 > 类型占位），
+  // 覆盖当前请求参数——示例不进初始值，只有用户点按钮才出现。
+  const fillExamples = () => {
+    if (!debugSchema) return;
+    setDebugPayload(JSON.stringify(deriveSchemaDefaults(debugSchema as JSONSchemaType), null, 2));
+  };
 
   const executeDebug = async (dryRun = false) => {
     if (!instance) return;
@@ -238,12 +246,27 @@ export default function DebugModal({
         </div>
 
         <div>
-          <Text strong>
-            <FormattedMessage
-              id="pages.functionsInstances.debug.label.requestParams"
-              defaultMessage="请求参数 (JSON):"
-            />
-          </Text>
+          <Space style={{ width: '100%', justifyContent: 'space-between' }}>
+            <Text strong>
+              <FormattedMessage
+                id="pages.functionsInstances.debug.label.requestParams"
+                defaultMessage="请求参数 (JSON):"
+              />
+            </Text>
+            <Tooltip
+              title={intl.formatMessage({
+                id: 'pages.functionsInstances.debug.button.fillExamplesHint',
+                defaultMessage: '按 Schema 填入完整示例模板（含 example 与占位值），覆盖当前参数',
+              })}
+            >
+              <Button size="small" disabled={!debugSchema} onClick={fillExamples}>
+                <FormattedMessage
+                  id="pages.functionsInstances.debug.button.fillExamples"
+                  defaultMessage="填入示例"
+                />
+              </Button>
+            </Tooltip>
+          </Space>
           <div style={{ marginTop: 8 }}>
             <JsonCodeEditor value={debugPayload} onChange={setDebugPayload} height={260} />
           </div>

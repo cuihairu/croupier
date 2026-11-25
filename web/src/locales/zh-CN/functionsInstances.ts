@@ -26,6 +26,9 @@ export default {
   'pages.functionsInstances.debug.button.executeHint':
     '定向执行需要该函数实例具备 Service ID；缺失时点击会给出原因，参数预览仍可用',
   'pages.functionsInstances.debug.button.execute': '执行',
+  'pages.functionsInstances.debug.button.fillExamples': '填入示例',
+  'pages.functionsInstances.debug.button.fillExamplesHint':
+    '按 Schema 填入完整示例模板（含 example 与占位值），覆盖当前参数',
   'pages.functionsInstances.debug.button.preview': '参数预览',
   'pages.functionsInstances.debug.error.executeFailed': '调试执行失败',
   'pages.functionsInstances.debug.error.invalidJson': '无效的 JSON 格式',

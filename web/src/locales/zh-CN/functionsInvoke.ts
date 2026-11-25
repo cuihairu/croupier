@@ -38,6 +38,9 @@ export default {
   'pages.functionsInvoke.message.taskCreated': '任务已创建：{taskId}',
   'pages.functionsInvoke.pageSubtitle': '构造请求、选择路由并直接查看真实执行结果',
   'pages.functionsInvoke.pageTitle': '函数调用工作台',
+  'pages.functionsInvoke.requestBody.fillExamples': '填入示例',
+  'pages.functionsInvoke.requestBody.fillExamplesTooltip':
+    '按 Schema 填入完整示例模板（含 example 与占位值），覆盖当前请求体',
   'pages.functionsInvoke.requestBody.formatButton': '格式化 JSON',
   'pages.functionsInvoke.requestBody.formatTooltip': '将当前请求体格式化',
   'pages.functionsInvoke.requestBody.schemaFallbackDescription':

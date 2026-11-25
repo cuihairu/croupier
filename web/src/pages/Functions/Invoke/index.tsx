@@ -15,7 +15,12 @@ import {
   type InvokeFunctionOptions,
 } from '@/services/api';
 import { extractErrorDetails, extractErrorMessage } from '@/utils/errors';
-import { deriveSchemaDefaults, parseInputSchema, type JSONSchemaType } from '@/utils/json';
+import {
+  deriveFormDefaults,
+  deriveSchemaDefaults,
+  parseInputSchema,
+  type JSONSchemaType,
+} from '@/utils/json';
 import { primarySchemaType } from '@/utils/schemaDialect';
 import { derivePresentationSpec } from '@/utils/schemaHints';
 import { isScopeReady, subscribeScope } from '@/stores/scope';
@@ -175,10 +180,11 @@ export default function FunctionInvokePage() {
             }),
           },
     );
-    // 按 Schema 类型派生默认值：default > example > enum 首项 > 类型占位值，
-    // 让表单/JSON 编辑器开箱即得完整参数骨架。SUI-017：根数组/标量的种子
-    // 跟随根类型（[]、false、0、null），对象根照旧喂表单。
-    const defaults = deriveSchemaDefaults(schema);
+    // SUI-018 默认值层：表单/JSON 初值只含 schema 声明的 default（含嵌套
+    // 声明默认）；示例、枚举首项与类型占位不自动进初值——可选字段未填写
+    // 即保持缺省（提交时缺席），完整模板经「填入示例」显式填入（fillExamples）。
+    // SUI-017：根数组/标量的种子跟随根类型（[]、false、0、声明 null 原样）。
+    const defaults = deriveFormDefaults(schema);
     setFormValues(
       defaults && typeof defaults === 'object' && !Array.isArray(defaults)
         ? (defaults as FormValues)
@@ -417,6 +423,21 @@ export default function FunctionInvokePage() {
     );
   }, [pendingApproval]);
 
+  // SUI-018：「填入示例」把模板层（default > example > enum 首项 > 类型占位）
+  // 显式应用到表单与 JSON 编辑器——示例与占位只有用户点按钮才进请求初值。
+  const fillExamples = () => {
+    if (!selected) return;
+    const schema = resolveSchema(selected);
+    if (!schema) return;
+    const template = deriveSchemaDefaults(schema);
+    setFormValues(
+      template && typeof template === 'object' && !Array.isArray(template)
+        ? (template as FormValues)
+        : {},
+    );
+    setRawJson(JSON.stringify(template, null, 2));
+  };
+
   const restore = (item: RequestHistoryItem) => {
     restoringRef.current = true;
     // Reset flag after microtask in case selected doesn't change (same function)
@@ -562,6 +583,7 @@ export default function FunctionInvokePage() {
               formValues={formValues}
               formRef={formRef as React.RefObject<SchemaFormRendererHandle>}
               onModeChange={setInputMode}
+              onFillExamples={fillExamples}
               onRawJsonChange={(json) => {
                 setRawJson(json);
                 // JSON → 表单回写：合法对象时同步表单初值，切回表单模式所见一致；

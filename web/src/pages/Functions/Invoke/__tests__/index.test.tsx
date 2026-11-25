@@ -141,6 +141,7 @@ jest.mock('../RequestBodyEditor', () => {
       } | null;
     };
     onModeChange: (mode: 'form' | 'json') => void;
+    onFillExamples: () => void;
     onRawJsonChange: (value: string) => void;
     onFormValuesChange: (values: Record<string, unknown>) => void;
     onFormat: () => void;
@@ -173,6 +174,9 @@ jest.mock('../RequestBodyEditor', () => {
         />
         <button type="button" onClick={() => props.onFormValuesChange({ viaForm: 1 })}>
           rbe-form-values
+        </button>
+        <button type="button" onClick={() => props.onFillExamples()}>
+          rbe-fill-examples
         </button>
         <button type="button" onClick={() => props.onFormat()}>
           rbe-format
@@ -394,6 +398,20 @@ const DESCRIPTORS: FunctionDescriptor[] = [
   {
     id: 'fn.root-bool',
     inputSchema: JSON.stringify({ type: 'boolean', default: false }),
+  },
+  {
+    // SUI-018：声明 default / example / 可选未填三类字段同场
+    id: 'fn.defaults',
+    inputSchema: JSON.stringify({
+      type: 'object',
+      properties: {
+        declared: { type: 'string', default: 'D' },
+        withExample: { type: 'string', example: 'EX' },
+        optNum: { type: 'integer' },
+        flag: { type: 'boolean' },
+      },
+      required: ['declared'],
+    }),
   },
   {
     id: 'fn.params-fallback',
@@ -720,14 +738,17 @@ describe('函数调用工作台：发送前置校验', () => {
 describe('函数调用工作台：调用执行', () => {
   // SUI-017：根数组/标量的种子与提交往返——结构化表单表达不了根非对象的
   // 值，表单页签不出现，payload 一律取 JSON 编辑器原文，类型经往返不变。
-  it('根数组：种子为 []，强制切到表单模式后发送仍取 JSON 原文的数组', async () => {
+  it('根数组：初值为 []，填入示例得骨架，发送仍取 JSON 原文的数组', async () => {
     mockedInvoke.mockResolvedValueOnce({ traceId: 'tr-ra', result: { n: 1 } });
     mountPage('?fid=fn.root-array');
     await waitForFormReady();
-    // 种子：编辑器拿到类型正确的数组骨架（items 为 string → ['']），
+    // SUI-018 默认值层：根数组无声明 default → 初值 []（不含 items 骨架），
     // 且根非对象时模式被重置回 JSON
-    await waitFor(() => expect(screen.getByTestId('rbe-rawjson')).toHaveTextContent('"'));
+    await waitFor(() => expect(screen.getByTestId('rbe-rawjson')).toHaveTextContent('[]'));
     expect(screen.getByTestId('rbe-mode')).toHaveTextContent('json');
+    // 「填入示例」显式填入模板层骨架（items 为 string → ['']）
+    fireEvent.click(screen.getByRole('button', { name: 'rbe-fill-examples' }));
+    await waitFor(() => expect(screen.getByTestId('rbe-rawjson')).toHaveTextContent('"'));
     // 用户在 JSON 编辑器写成带一件元素的数组
     fireEvent.change(screen.getByTestId('rbe-json-input'), {
       target: { value: '["a"]' },
@@ -747,6 +768,61 @@ describe('函数调用工作台：调用执行', () => {
     clickSend();
     await waitFor(() => expect(mockedInvoke).toHaveBeenCalledTimes(1));
     expect(mockedInvoke).toHaveBeenLastCalledWith('fn.root-bool', false, { route: 'lb' });
+  });
+
+  // SUI-018：默认值层初值只含声明 default；示例与可选未填字段不自动进
+  // 请求，可选未填写即缺席提交 payload。
+  it('默认值层：初值只有声明 default，可选未填缺席提交', async () => {
+    mockedInvoke.mockResolvedValueOnce({ traceId: 'tr-d1', result: { ok: 1 } });
+    mountPage('?fid=fn.defaults');
+    await waitForFormReady();
+    await waitFor(() => expect(screen.getByTestId('rbe-rawjson')).toHaveTextContent('D'));
+    // example 与类型占位不入默认值层
+    expect(screen.getByTestId('rbe-rawjson')).not.toHaveTextContent('EX');
+    expect(screen.getByTestId('rbe-rawjson')).not.toHaveTextContent('optNum');
+    expect(screen.getByTestId('rbe-rawjson')).not.toHaveTextContent('flag');
+    clickSend();
+    await waitFor(() => expect(mockedInvoke).toHaveBeenCalledTimes(1));
+    expect(mockedInvoke).toHaveBeenLastCalledWith(
+      'fn.defaults',
+      { declared: 'D' },
+      { route: 'lb' },
+    );
+  });
+
+  it('填入示例：模板层（example + 类型占位）显式应用到表单与 JSON', async () => {
+    mockedInvoke.mockResolvedValueOnce({ traceId: 'tr-d2', result: { ok: 1 } });
+    mountPage('?fid=fn.defaults');
+    await waitForFormReady();
+    fireEvent.click(screen.getByRole('button', { name: 'rbe-fill-examples' }));
+    await waitFor(() => expect(screen.getByTestId('rbe-rawjson')).toHaveTextContent('EX'));
+    expect(screen.getByTestId('rbe-rawjson')).toHaveTextContent('optNum');
+    expect(screen.getByTestId('rbe-formvalues')).toHaveTextContent('EX');
+    // 模板填入后照文本提交（显式文本即显式值）
+    clickSend();
+    await waitFor(() => expect(mockedInvoke).toHaveBeenCalledTimes(1));
+    expect(mockedInvoke).toHaveBeenLastCalledWith(
+      'fn.defaults',
+      { declared: 'D', withExample: 'EX', optNum: 0, flag: false },
+      { route: 'lb' },
+    );
+  });
+
+  it('显式 falsy 不被覆盖：用户给出的 false/0/null 原样提交', async () => {
+    mockedInvoke.mockResolvedValueOnce({ traceId: 'tr-d3', result: { ok: 1 } });
+    mountPage('?fid=fn.defaults');
+    await waitForFormReady();
+    // 用户在 JSON 编辑器显式给出 false/0（及额外 null 字段），任何层不得改写
+    fireEvent.change(screen.getByTestId('rbe-json-input'), {
+      target: { value: '{"declared":"D","flag":false,"optNum":0,"note":null}' },
+    });
+    clickSend();
+    await waitFor(() => expect(mockedInvoke).toHaveBeenCalledTimes(1));
+    expect(mockedInvoke).toHaveBeenLastCalledWith(
+      'fn.defaults',
+      { declared: 'D', flag: false, optNum: 0, note: null },
+      { route: 'lb' },
+    );
   });
 
   it('JSON 模式成功：payload/选项透传、traceId、结果与历史落库、message.success', async () => {

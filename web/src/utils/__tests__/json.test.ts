@@ -9,6 +9,7 @@
 import {
   cloneDeep,
   deepMerge,
+  deriveFormDefaults,
   deriveSchemaDefaults,
   isValidJSON,
   jsonParse,
@@ -259,6 +260,81 @@ describe('deriveSchemaDefaults', () => {
         deriveSchemaDefaults({ type: 'object', default: { fromRoot: 1 }, properties: {} }),
       ).toEqual({});
     });
+  });
+});
+
+// SUI-018 默认值层：表单/JSON 初值只含 schema 声明的 default；示例、枚举
+// 首项与类型占位不入层（示例经「填入示例」显式填入，占位只作输入提示），
+// 可选字段未填写即保持缺省。
+describe('deriveFormDefaults（SUI-018 默认值层）', () => {
+  it('只收声明 default：example、enum 首项与类型占位都不入层', () => {
+    expect(
+      deriveFormDefaults({
+        type: 'object',
+        properties: {
+          a: { type: 'string', default: 'D', example: 'E', enum: ['v1'] },
+          b: { type: 'string', example: 'E' },
+          c: { type: 'string', enum: ['v1', 'v2'] },
+          d: { type: 'integer' },
+          e: { type: 'boolean' },
+          f: { type: 'array', items: { type: 'string' } },
+        },
+      }),
+    ).toEqual({ a: 'D' });
+  });
+
+  it('显式 null default 视为未声明（可选字段留缺省不提交 null）', () => {
+    expect(
+      deriveFormDefaults({
+        type: 'object',
+        properties: {
+          a: { type: ['null', 'string'], default: null },
+          b: { type: 'boolean', default: false },
+          c: { type: 'integer', default: 0 },
+        },
+      }),
+    ).toEqual({ b: false, c: 0 });
+  });
+
+  it('嵌套对象递归收集子字段声明默认；无任何声明默认的嵌套对象整体缺席', () => {
+    expect(
+      deriveFormDefaults({
+        type: 'object',
+        properties: {
+          cfg: {
+            type: 'object',
+            properties: {
+              level: { type: 'integer', default: 3 },
+              note: { type: 'string' },
+            },
+          },
+          empty: { type: 'object', properties: { x: { type: 'string' } } },
+        },
+      }),
+    ).toEqual({ cfg: { level: 3 } });
+  });
+
+  it('对象根忽略根级 default/example（旧对象表单路径不变）', () => {
+    expect(
+      deriveFormDefaults({ type: 'object', default: { fromRoot: 1 }, properties: {} }),
+    ).toEqual({});
+  });
+
+  it('根数组/标量无 default 时给类型骨架（JSON 模式可发送的初值）', () => {
+    expect(deriveFormDefaults({ type: 'array' })).toEqual([]);
+    expect(deriveFormDefaults({ type: 'string' })).toBe('');
+    expect(deriveFormDefaults({ type: 'integer' })).toBe(0);
+    expect(deriveFormDefaults({ type: 'number', minimum: 2 })).toBe(2);
+    expect(deriveFormDefaults({ type: 'boolean' })).toBe(false);
+    expect(deriveFormDefaults(undefined)).toEqual({});
+    expect(deriveFormDefaults(null)).toEqual({});
+  });
+
+  it('声明 default 时根数组/标量原样取 default（含 falsy 与 null）', () => {
+    expect(deriveFormDefaults({ type: 'boolean', default: false })).toBe(false);
+    expect(deriveFormDefaults({ type: 'integer', default: 0 })).toBe(0);
+    expect(deriveFormDefaults({ type: ['null', 'string'], default: null })).toBe(null);
+    expect(deriveFormDefaults({ type: 'array', default: [] })).toEqual([]);
   });
 });
 

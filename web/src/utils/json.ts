@@ -158,9 +158,11 @@ export function parseInputSchema(inputSchema?: string): JSONSchemaType | null {
 }
 
 /**
- * 根据 JSON Schema 派生调用参数默认值。
+ * 根据 JSON Schema 派生调用参数模板（示例层）。
  * 优先级：schema.default > schema.example > enum 首项 > 按类型生成占位值。
- * 用于调用表单/JSON 模板的初始值，让用户只需改值而不必手写整个结构。
+ * SUI-018：这是「显式填入示例」按钮产出的完整模板层——示例与类型占位
+ * 在此层出现（用户看得见、可改可删），但不作为表单初始值自动提交；
+ * 表单初始值走 deriveFormDefaults（只含 schema 声明的 default）。
  *
  * SUI-017：根骨架跟随根类型——根数组与根标量得到类型正确的种子（空数组、
  * false、0、显式 null 经编辑/取值/提交往返保持原 JSON 类型），不再一律套
@@ -213,6 +215,74 @@ export function deriveSchemaDefaults(schema?: JSONSchemaType | null): JSONSchema
       return out;
     }
   }
+}
+
+/**
+ * SUI-018 表单初值种子（默认值层）：只派生 schema 显式声明的 default
+ * （含嵌套对象字段递归；显式 null 视为「未声明默认」，留缺省由服务端兜底）。
+ * 示例（example）、枚举首项与类型占位不入此层——示例经「填入示例」显式
+ * 填入（deriveSchemaDefaults 模板层），占位只作输入提示（x-placeholder）。
+ * 效果：可选字段未填写即不出现在表单值里，提交投影（projectSubmitValues）
+ * 对缺失键原样保留缺省；用户显式给出的 false/0/null 以普通表单值原样提交，
+ * 不被任何层覆盖。根数组/标量无 default 时给类型骨架（JSON 模式需要可
+ * 发送的初值；结构化表单不表达非对象根，见 SUI-017）。
+ */
+export function deriveFormDefaults(schema?: JSONSchemaType | null): JSONSchemaValue {
+  if (!schema) {
+    return {};
+  }
+  const root = primarySchemaType(schema);
+  switch (root) {
+    case 'array':
+      return schema.default !== undefined ? schema.default : [];
+    case 'string':
+      return schema.default !== undefined ? schema.default : '';
+    case 'integer':
+    case 'number':
+      return schema.default !== undefined
+        ? schema.default
+        : typeof schema.minimum === 'number'
+          ? schema.minimum
+          : 0;
+    case 'boolean':
+      return schema.default !== undefined ? schema.default : false;
+    case 'object':
+    default:
+      if (!schema.properties) {
+        return {};
+      }
+      return collectDeclaredDefaults(schema.properties);
+  }
+}
+
+/** 对象 properties 的声明式默认值收集：只有显式 default（非 null）入层。 */
+function collectDeclaredDefaults(
+  properties: Record<string, JSONSchemaType>,
+): Record<string, JSONSchemaValue> {
+  const out: Record<string, JSONSchemaValue> = {};
+  for (const [key, field] of Object.entries(properties)) {
+    const value = declaredFieldDefault(field);
+    if (value !== undefined) {
+      out[key] = value;
+    }
+  }
+  return out;
+}
+
+function declaredFieldDefault(field: JSONSchemaType): JSONSchemaValue | undefined {
+  if (field.default !== undefined && field.default !== null) {
+    return field.default;
+  }
+  // 嵌套对象自身无默认时，收集其子字段的声明式默认；无任何声明默认的
+  // 可选对象整体留缺省（不出现在提交 payload）。
+  const type = primarySchemaType(field);
+  if (type === 'object' && field.properties) {
+    const nested = collectDeclaredDefaults(field.properties);
+    if (Object.keys(nested).length > 0) {
+      return nested;
+    }
+  }
+  return undefined;
 }
 
 function deriveFieldDefault(field: JSONSchemaType): JSONSchemaValue | undefined {

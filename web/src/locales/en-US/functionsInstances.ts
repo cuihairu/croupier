@@ -27,6 +27,9 @@ export default {
   'pages.functionsInstances.debug.button.executeHint':
     'Targeted execution requires a Service ID on this instance; clicking without one explains why. Parameter preview stays available.',
   'pages.functionsInstances.debug.button.execute': 'Execute',
+  'pages.functionsInstances.debug.button.fillExamples': 'Fill examples',
+  'pages.functionsInstances.debug.button.fillExamplesHint':
+    'Fill the full example template from the schema (examples and placeholders), replacing the current params',
   'pages.functionsInstances.debug.button.preview': 'Preview Params',
   'pages.functionsInstances.debug.error.executeFailed': 'Debug execution failed',
   'pages.functionsInstances.debug.error.invalidJson': 'Invalid JSON format',

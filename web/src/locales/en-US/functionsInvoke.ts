@@ -46,6 +46,9 @@ export default {
   'pages.functionsInvoke.pageSubtitle':
     'Build requests, choose routing and inspect real execution results',
   'pages.functionsInvoke.pageTitle': 'Function Invocation Workbench',
+  'pages.functionsInvoke.requestBody.fillExamples': 'Fill examples',
+  'pages.functionsInvoke.requestBody.fillExamplesTooltip':
+    'Fill the full example template from the schema (examples and placeholders), replacing the request body',
   'pages.functionsInvoke.requestBody.formatButton': 'Format JSON',
   'pages.functionsInvoke.requestBody.formatTooltip': 'Format the current request body',
   'pages.functionsInvoke.requestBody.schemaFallbackDescription':

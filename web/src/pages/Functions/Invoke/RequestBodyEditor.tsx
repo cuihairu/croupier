@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Tabs, Tooltip } from 'antd';
+import { Alert, Button, Card, Space, Tabs, Tooltip } from 'antd';
 import { FormattedMessage, useIntl } from '@umijs/max';
 import SchemaFormRenderer, { type SchemaFormRendererHandle } from '@/components/SchemaFormRenderer';
 import { CodeEditor } from '@/components/MonacoDynamic';
@@ -14,6 +14,9 @@ interface RequestBodyEditorProps {
   formValues: FormValues;
   formRef: React.RefObject<SchemaFormRendererHandle>;
   onModeChange: (mode: 'form' | 'json') => void;
+  /** SUI-018：显式填入示例模板（default > example > enum 首项 > 类型占位），
+   * 同时应用到表单与 JSON 编辑器；无 schema（idle/unavailable）时按钮禁用。 */
+  onFillExamples: () => void;
   onRawJsonChange: (value: string) => void;
   onFormValuesChange: (values: FormValues) => void;
   onFormat: () => void;
@@ -39,19 +42,38 @@ export default function RequestBodyEditor(props: RequestBodyEditorProps) {
         defaultMessage: '请求体',
       })}
       extra={
-        <Tooltip
-          title={intl.formatMessage({
-            id: 'pages.functionsInvoke.requestBody.formatTooltip',
-            defaultMessage: '将当前请求体格式化',
-          })}
-        >
-          <Button size="small" onClick={props.onFormat}>
-            <FormattedMessage
-              id="pages.functionsInvoke.requestBody.formatButton"
-              defaultMessage="格式化 JSON"
-            />
-          </Button>
-        </Tooltip>
+        <Space size={4}>
+          <Tooltip
+            title={intl.formatMessage({
+              id: 'pages.functionsInvoke.requestBody.fillExamplesTooltip',
+              defaultMessage: '按 Schema 填入完整示例模板（含 example 与占位值），覆盖当前请求体',
+            })}
+          >
+            <Button
+              size="small"
+              disabled={props.formState.status !== 'ready'}
+              onClick={props.onFillExamples}
+            >
+              <FormattedMessage
+                id="pages.functionsInvoke.requestBody.fillExamples"
+                defaultMessage="填入示例"
+              />
+            </Button>
+          </Tooltip>
+          <Tooltip
+            title={intl.formatMessage({
+              id: 'pages.functionsInvoke.requestBody.formatTooltip',
+              defaultMessage: '将当前请求体格式化',
+            })}
+          >
+            <Button size="small" onClick={props.onFormat}>
+              <FormattedMessage
+                id="pages.functionsInvoke.requestBody.formatButton"
+                defaultMessage="格式化 JSON"
+              />
+            </Button>
+          </Tooltip>
+        </Space>
       }
     >
       <Tabs
