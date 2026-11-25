@@ -46,7 +46,8 @@ func setupTestService(t *testing.T) (*Service, *gorm.DB) {
 }
 
 // generateTestCert creates a test certificate PEM
-// generateSelfSignedPEM 生成自签证书与私钥 PEM（探测模式测试用）。
+// generateSelfSignedPEM generates a self-signed certificate and private key PEM (for
+// probing mode tests).
 func generateSelfSignedPEM(t *testing.T, domain string) (certPEM, keyPEM []byte) {
 	t.Helper()
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
@@ -159,8 +160,9 @@ func TestHandler_Add_EmptyCertificate(t *testing.T) {
 	router := gin.New()
 	router.POST("/certificates", handler.Add)
 
-	// PEM 为空时按 domain:port 在线探测；保留一个不可达的探测目标以
-	// 触发 400（此前空 PEM 直接 400「证书内容不能为空」，现在语义升级）。
+	// With an empty PEM, probing happens online at domain:port; an unreachable probe
+	// target is kept so 400 is triggered (previously an empty PEM gave a straight 400
+	// "certificate content cannot be empty"; the semantics have since been upgraded).
 	reqBody := `{"domain": "cert-probe.invalid", "certificate": ""}`
 
 	req := httptest.NewRequest("POST", "/certificates", strings.NewReader(reqBody))
@@ -177,7 +179,7 @@ func TestHandler_Add_ProbeModeLocalServer(t *testing.T) {
 	service, _ := setupTestService(t)
 	handler := NewHandler(service)
 
-	// 起本地 TLS 服务提供可探测的真实证书。
+	// Start a local TLS server that provides a real, probed-able certificate.
 	certPEM, keyPEM := generateSelfSignedPEM(t, "probe.local")
 	tlsCert, err := tls.X509KeyPair(certPEM, keyPEM)
 	require.NoError(t, err)
@@ -186,7 +188,8 @@ func TestHandler_Add_ProbeModeLocalServer(t *testing.T) {
 	})
 	require.NoError(t, err)
 	go func() {
-		// 保持连接打开让 client 完成 TLS 握手并读取叶子证书
+		// Keep the connection open so the client can finish the TLS handshake and read
+		// the leaf certificate
 		for {
 			conn, err := ln.Accept()
 			if err != nil {
@@ -217,7 +220,8 @@ func TestHandler_Add_ProbeModeLocalServer(t *testing.T) {
 	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
 	assert.Contains(t, w.Body.String(), "probe.local")
 
-	// 重复添加同一域名：必须更新已有记录（重新探测），不得 500。
+	// Adding the same domain again: the existing record must be updated (re-probe) and
+	// must not return 500.
 	req2 := httptest.NewRequest("POST", "/certificates", strings.NewReader(reqBody))
 	req2.Header.Set("Content-Type", "application/json")
 	w2 := httptest.NewRecorder()
@@ -277,7 +281,7 @@ func TestHandler_Get_NotFound(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// Model returns "证书不存在" which is treated as internal error
+	// Model returns a "certificate not found" message, which is treated as internal error
 	assert.NotEqual(t, http.StatusOK, w.Code)
 }
 
@@ -422,7 +426,7 @@ func TestHandler_AddAlert_DomainNotFound(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// Model returns "证书不存在" when domain not found
+	// Model returns a "certificate not found" message when the domain is not found
 	assert.NotEqual(t, http.StatusOK, w.Code)
 }
 

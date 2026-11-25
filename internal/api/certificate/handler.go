@@ -48,7 +48,7 @@ func (h *Handler) Add(c *gin.Context) {
 // Get handles the request to get certificate details
 func (h *Handler) Get(c *gin.Context) {
 	var req GetRequest
-	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
+	_ = c.ShouldBindUri(&req) // uri fields are all strings with no required tag: binding cannot fail; the population semantics are kept
 
 	resp, err := h.service.Get(c.Request.Context(), &req)
 	if err != nil {
@@ -61,7 +61,7 @@ func (h *Handler) Get(c *gin.Context) {
 // Check handles the request to check a certificate
 func (h *Handler) Check(c *gin.Context) {
 	var req CheckRequest
-	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
+	_ = c.ShouldBindUri(&req) // uri fields are all strings with no required tag: binding cannot fail; the population semantics are kept
 
 	resp, err := h.service.Check(c.Request.Context(), &req)
 	if err != nil {
@@ -74,7 +74,7 @@ func (h *Handler) Check(c *gin.Context) {
 // Delete handles the request to delete a certificate
 func (h *Handler) Delete(c *gin.Context) {
 	var req DeleteRequest
-	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
+	_ = c.ShouldBindUri(&req) // uri fields are all strings with no required tag: binding cannot fail; the population semantics are kept
 
 	if err := h.service.Delete(c.Request.Context(), &req); err != nil {
 		response.Error(c, err)
@@ -136,9 +136,10 @@ func (h *Handler) CheckAll(c *gin.Context) {
 }
 
 // GetDomainInfo handles the request to get domain certificate info.
-// 路由注册为 query 风格（GET /domain-info?domain=xxx，routes.go 无 :domain
-// 路径参数），必须走 query 绑定；此前误用 ShouldBindUri 且 DTO 无 uri tag，
-// 导致 Domain 恒空、端点恒 400。
+// The route is registered query-style (GET /domain-info?domain=xxx; routes.go has no
+// :domain path param), so query binding must be used. It previously misused
+// ShouldBindUri and the DTO had no uri tag, leaving Domain always empty and the
+// endpoint always 400.
 func (h *Handler) GetDomainInfo(c *gin.Context) {
 	var req DomainInfoRequest
 	if err := c.ShouldBindQuery(&req); err != nil {

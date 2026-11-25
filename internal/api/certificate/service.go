@@ -53,10 +53,11 @@ func (s *Service) List(ctx context.Context, req *ListRequest) (*ListResponse, er
 
 // Add adds a new certificate.
 //
-// 两种模式：
-//   - 登记：certificate PEM 非空，直接解析入库
-//   - 监控：PEM 为空时按 domain:port TLS 拨号在线拉取远端证书（页面
-//     「新增域名监控」表单只收集 domain/port/alertDays，正是此语义）
+// Two modes:
+//   - Registration: the certificate PEM is non-empty and is parsed and landed directly
+//   - Monitoring: with an empty PEM the remote certificate is fetched online by a TLS
+//     dial to domain:port (the "Add Domain Monitoring" page form only collects
+//     domain/port/alertDays - exactly this semantic)
 func (s *Service) Add(ctx context.Context, req *AddRequest) (*AddResponse, error) {
 	domain, err := utils.ValidateDomain(req.Domain)
 	if err != nil {
@@ -97,8 +98,9 @@ func (s *Service) Add(ctx context.Context, req *AddRequest) (*AddResponse, error
 		LastCheckedAt:  &checkedAt,
 	}
 
-	// domain 唯一索引：重复添加视为重新登记/重新探测，更新已有记录并
-	// 刷新检查时间，而不是让唯一约束把 500 抛给用户。
+	// The domain unique index treats a repeated add as re-registration / re-probing:
+	// update the existing record and refresh the check time, instead of letting the
+	// unique constraint throw a 500 at the user.
 	if existing, err := s.svcCtx.CertificateModel.FindByDomain(ctx, domain); err == nil && existing != nil {
 		now := time.Now()
 		certificate.ID = existing.ID
@@ -124,7 +126,8 @@ func (s *Service) Add(ctx context.Context, req *AddRequest) (*AddResponse, error
 		return nil, err
 	}
 
-	// 告警阈值与证书一并登记（页面表单的 alertDays）。
+	// The alert threshold is registered along with the certificate (alertDays on the
+	// page form).
 	if req.AlertDays > 0 {
 		_ = s.svcCtx.CertificateModel.AddAlert(ctx, &model.CertificateAlert{
 			Domain:        domain,
@@ -138,27 +141,30 @@ func (s *Service) Add(ctx context.Context, req *AddRequest) (*AddResponse, error
 	}, nil
 }
 
-// fetchRemoteCertificate 连接 domain:port 并把对端叶子证书编码为 PEM。
+// fetchRemoteCertificate dials domain:port and encodes the peer's leaf certificate as
+// PEM.
 func (s *Service) fetchRemoteCertificate(domain string, port int) (*x509.Certificate, string, error) {
 	if port <= 0 || port > 65535 {
 		port = 443
 	}
 	address := fmt.Sprintf("%s:%d", domain, port)
 	dialer := &net.Dialer{Timeout: 10 * time.Second}
-	// 探测目的在于读取对端证书事实（有效期/签发者），不做身份验证；
-	// InsecureSkipVerify 只影响本次读取，不会把未验证连接用于其他用途。
+	// The purpose of probing is to read the peer's certificate facts (validity
+	// period / issuer), not to authenticate; InsecureSkipVerify only affects this
+	// read and the unverified connection is never used for anything else.
 	conn, err := tls.DialWithDialer(dialer, "tcp", address, &tls.Config{
-		InsecureSkipVerify: true, //nolint:gosec // 证书监控探测语义
+		InsecureSkipVerify: true, //nolint:gosec // certificate monitoring probe semantics
 	})
 	if err != nil {
 		return nil, "", errorx.NewBadRequest(fmt.Sprintf("连接 %s 获取证书失败: %v", address, err))
 	}
 	defer func() { _ = conn.Close() }()
 
-	// Go crypto/tls 客户端不支持任何匿名（无证书）套件：服务端返回空证书列表时
-	// 握手在 verifyServerCertificate 阶段即报 "server didn't provide a
-	// certificate" 失败，DialWithDialer 成功则 PeerCertificates 必非空，
-	// 空列表分支不可达，已删除。
+	// The Go crypto/tls client supports no anonymous (certificate-less) suites: when
+	// the server returns an empty certificate list, the handshake already fails at the
+	// verifyServerCertificate stage with "server didn't provide a certificate". If
+	// DialWithDialer succeeds, PeerCertificates is necessarily non-empty; the empty-list
+	// branch is unreachable and was deleted.
 	peers := conn.ConnectionState().PeerCertificates
 	leaf := peers[0]
 	pemBytes := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: leaf.Raw})

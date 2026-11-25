@@ -1,6 +1,8 @@
-// 回归测试：GET /domain-info 契约是 query 风格（docs/operations/certificates.md
-// `?domain=xxx`，路由注册无 :domain 路径参数）。此前 handler 误用
-// ShouldBindUri 且 DTO 只有 form tag，Domain 恒空 → 端点恒 400（线上不可用）。
+// Regression test: the GET /domain-info contract is query-style
+// (docs/operations/certificates.md `?domain=xxx`; the route registration has no :domain
+// path param). Previously the handler misused ShouldBindUri and the DTO only had form
+// tags, so Domain stayed empty -> the endpoint always returned 400 (unusable in
+// production).
 package certificate
 
 import (
@@ -53,8 +55,9 @@ func TestHandlerGetDomainInfoQueryContract(t *testing.T) {
 	})
 
 	t.Run("unknown domain maps to 404 not 500", func(t *testing.T) {
-		// FindByDomain 此前用 fmt.Errorf 断链，"证书不存在"落 500 兜底；
-		// wrap ErrRecordNotFound 后 response.Error 应映射 404。
+		// FindByDomain previously used fmt.Errorf and broke the chain, so "certificate
+		// not found" fell into the 500 fallback; after wrapping ErrRecordNotFound,
+		// response.Error should map it to 404.
 		service, _ := setupTestService(t)
 		h := NewHandler(service)
 

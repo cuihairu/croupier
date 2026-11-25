@@ -69,7 +69,7 @@ func TestHandler_Check_NotFound(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	// Model returns "证书不存在" which is treated as internal error
+	// Model returns a "certificate not found" message, which is treated as internal error
 	assert.NotEqual(t, http.StatusOK, w.Code)
 }
 

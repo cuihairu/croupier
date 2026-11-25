@@ -17,7 +17,7 @@ import (
 	"github.com/cuihairu/croupier/internal/model"
 )
 
-// closeV9DB 关闭底层连接，用于让后续所有模型操作返回错误。
+// closeV9DB closes the underlying connection so all later model operations fail.
 func closeV9DB(t *testing.T, db *gorm.DB) {
 	t.Helper()
 	sqlDB, err := db.DB()
@@ -25,14 +25,15 @@ func closeV9DB(t *testing.T, db *gorm.DB) {
 	require.NoError(t, sqlDB.Close())
 }
 
-// failV9Updates 注册 update 前置回调，令所有 UPDATE 失败。
+// failV9Updates registers an update pre-callback that fails every UPDATE.
 func failV9Updates(db *gorm.DB) {
 	_ = db.Callback().Update().Before("gorm:update").Register("v9_fail_update", func(tx *gorm.DB) {
 		_ = tx.AddError(errors.New("forced update failure"))
 	})
 }
 
-// failV9CreateFor 注册 create 前置回调，令指定 Dest 类型的 INSERT 失败。
+// failV9CreateFor registers a create pre-callback that fails INSERTs of the given Dest
+// type.
 func failV9CreateFor(db *gorm.DB, match func(tx *gorm.DB) bool) {
 	_ = db.Callback().Create().Before("gorm:create").Register("v9_fail_create", func(tx *gorm.DB) {
 		if match(tx) {
@@ -111,8 +112,9 @@ func TestHandlerServiceErrorsV9(t *testing.T) {
 			req := httptest.NewRequest(ep.method, ep.path, nil)
 			w := httptest.NewRecorder()
 			router.ServeHTTP(w, req)
-			// GetDomainInfo 的 DTO 用 form tag 绑定 uri 失效（domain 为空）
-			// 同样落入错误分支（400）；其余为服务层错误（500）。
+			// GetDomainInfo's DTO uses form tags, so uri binding is ineffective
+			// (domain stays empty) and also lands in the error branch (400); the
+			// rest are service-layer errors (500).
 			assert.NotEqual(t, http.StatusOK, w.Code, w.Body.String())
 		})
 	}
@@ -130,7 +132,7 @@ func TestServiceAddFindModelErrorV9(t *testing.T) {
 	service, db := setupTestService(t)
 	closeV9DB(t, db)
 
-	// 连接已关闭：FindByDomain 返回非「证书不存在」错误。
+	// Connection closed: FindByDomain returns an error other than "certificate not found".
 	_, err := service.Add(context.Background(), &AddRequest{
 		Domain:      "example.com",
 		Certificate: generateTestCert(t, "example.com", 30),
@@ -142,7 +144,7 @@ func TestServiceAddFindModelErrorV9(t *testing.T) {
 func TestServiceAddUpdateErrorV9(t *testing.T) {
 	service, db := setupTestService(t)
 
-	// 已存在的域名走 Update 分支。
+	// An already existing domain takes the Update branch.
 	_, err := service.Add(context.Background(), &AddRequest{
 		Domain:      "example.com",
 		Certificate: generateTestCert(t, "example.com", 30),
@@ -252,7 +254,8 @@ func TestServiceListAlertsWithRowsV9(t *testing.T) {
 		Domain:        "other.com",
 		ThresholdDays: 7,
 	}).Error)
-	// gorm 对 bool 零值套用 default:true，需显式更新关闭。
+	// gorm applies default:true to a bool zero value, so turning it off needs an
+	// explicit update.
 	require.NoError(t, db.Model(&model.CertificateAlert{}).
 		Where("domain = ?", "other.com").Update("active", false).Error)
 

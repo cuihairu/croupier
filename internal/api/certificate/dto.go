@@ -18,10 +18,11 @@ type CertificateItem struct {
 	Domain string `json:"domain"`
 	Port   int    `json:"port,omitempty"`
 	Issuer string `json:"issuer"`
-	// Subject 为证书主体 CN（页面「主体」列）。
+	// Subject is the certificate subject CN (the "Subject" column on the page).
 	Subject string `json:"subject"`
-	// NotBefore/NotAfter 为证书有效期起止（页面「有效期自/至」列），
-	// ExpiresAt 与 NotAfter 同值，保留别名兼容旧消费方。
+	// NotBefore/NotAfter are the start and end of the certificate validity period (the
+	// "Valid from/to" columns on the page); ExpiresAt holds the same value as NotAfter
+	// and is kept as an alias for older consumers.
 	NotBefore     string `json:"validFrom"`
 	NotAfter      string `json:"validTo"`
 	ExpiresAt     string `json:"expiresAt"`
@@ -37,10 +38,11 @@ type CertificateAddRequest struct {
 	Domain      string `json:"domain"`
 	Certificate string `json:"certificate"`
 	PrivateKey  string `json:"privateKey"`
-	// Port 为在线探测端口；Certificate 为空时按 domain:port 拉取远端证书
-	// （监控模式，页面「新增域名」即此语义），PEM 非空时 Port 被忽略。
+	// Port is the port used for online probing; when Certificate is empty the remote
+	// certificate is fetched at domain:port (monitoring mode - the "Add Domain" page
+	// form is exactly this semantic), and Port is ignored when the PEM is non-empty.
 	Port int `json:"port"`
-	// AlertDays 同时登记到期告警阈值（0 表示不建告警）。
+	// AlertDays also registers the expiry alert threshold (0 means no alert is created).
 	AlertDays int `json:"alertDays"`
 }
 

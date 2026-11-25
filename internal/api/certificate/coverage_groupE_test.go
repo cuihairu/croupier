@@ -1,9 +1,10 @@
-// 覆盖目标（组 E）：certificate handler.GetDomainInfo 的 query 绑定错误
-// 分支（handler.go:144-147）。
+// Coverage target (group E): the query binding error branch of certificate
+// handler.GetDomainInfo (handler.go:144-147).
 //
-// CertificateDomainInfoRequest 只有 form tag 的 string 字段（无校验
-// tag），query 绑定对纯 string 恒成功，错误分支只能通过 gin 的可
-// 插拔校验器扩展点在 validate 阶段注入失败触达。
+// CertificateDomainInfoRequest has only string fields with form tags (no validation
+// tags), so query binding always succeeds for plain strings; the error branch is only
+// reachable by injecting a failure at the validate stage via gin's pluggable validator
+// extension point.
 package certificate
 
 import (
@@ -17,8 +18,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// failingBindValidatorGroupE 使 ShouldBindQuery 在 mapForm 成功后于 validate
-// 阶段返回错误。
+// failingBindValidatorGroupE makes ShouldBindQuery return an error at the validate
+// stage after mapForm succeeds.
 type failingBindValidatorGroupE struct{}
 
 func (failingBindValidatorGroupE) ValidateStruct(interface{}) error {
@@ -37,7 +38,7 @@ func TestHandlerGetDomainInfoBindErrorGroupE(t *testing.T) {
 	service, _ := setupTestService(t)
 	h := NewHandler(service)
 
-	// 挂载为线上路由形态（query 风格，无 :domain 路径参数）。
+	// Mount in the production route shape (query style, no :domain path param).
 	r := gin.New()
 	r.GET("/certificates/domain-info", h.GetDomainInfo)
 
