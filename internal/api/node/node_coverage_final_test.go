@@ -1,8 +1,10 @@
-// 覆盖目标（coverage final）：
-//  1. handler.List / handler.ListCommands 的 query 绑定失败分支
-//     （DTO 全为可选 string，注入失败 Validator 触发）。
-//  2. service.UpdateMeta 中 NodeModel.UpdateMeta 失败分支
-//     （gorm update callback 注错，前置 FindByNodeID 为 SELECT 不受影响）。
+// Coverage targets (coverage final):
+//  1. The query binding failure branch of handler.List / handler.ListCommands
+//     (the DTO fields are all optional strings; triggered by injecting a
+//     failing Validator).
+//  2. The NodeModel.UpdateMeta failure branch in service.UpdateMeta
+//     (an error injected into the gorm update callback; the preceding
+//     FindByNodeID is a SELECT and unaffected).
 package node
 
 import (
@@ -17,7 +19,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// nodeFailValidator 让任意 Bind 的 validate 步骤返回错误。
+// nodeFailValidator makes the validate step of any Bind return an error.
 type nodeFailValidator struct{}
 
 func (nodeFailValidator) ValidateStruct(any) error { return errors.New("injected validate failure") }

@@ -36,7 +36,7 @@ type NodeCommandsResponse struct {
 // NodeDrainRequest represents a request to drain a node.
 type NodeDrainRequest struct {
 	ID      string `uri:"id"`
-	Timeout int    `json:"timeout"` // 秒
+	Timeout int    `json:"timeout"` // seconds
 }
 
 // NodeMetaRequest represents a request to get node metadata.

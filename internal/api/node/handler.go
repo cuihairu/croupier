@@ -32,7 +32,7 @@ func (h *Handler) List(c *gin.Context) {
 // GetMeta handles the request to get node metadata
 func (h *Handler) GetMeta(c *gin.Context) {
 	var req NodeMetaRequest
-	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
+	_ = c.ShouldBindUri(&req) // uri fields are all strings with no required: binding cannot fail, keep populate-only semantics
 
 	resp, err := h.service.GetMeta(c.Request.Context(), &req)
 	if err != nil {
@@ -45,7 +45,7 @@ func (h *Handler) GetMeta(c *gin.Context) {
 // UpdateMeta handles the request to update node metadata
 func (h *Handler) UpdateMeta(c *gin.Context) {
 	var req NodeMetaUpdateRequest
-	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
+	_ = c.ShouldBindUri(&req) // uri fields are all strings with no required: binding cannot fail, keep populate-only semantics
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, err)
 		return
@@ -62,10 +62,11 @@ func (h *Handler) UpdateMeta(c *gin.Context) {
 // Drain handles the request to drain a node
 func (h *Handler) Drain(c *gin.Context) {
 	var req NodeDrainRequest
-	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
-	// timeout 是可选 body：仅在有请求体时绑定（空 body 的旧调用方——
-	// 脚本/其他服务——不带 body 仍可 drain；历史上不 bind 导致
-	// timeout 参数被静默忽略）。
+	_ = c.ShouldBindUri(&req) // uri fields are all strings with no required: binding cannot fail, keep populate-only semantics
+	// timeout lives in an optional body and is only bound when a request body
+	// exists (legacy callers with an empty body — scripts/other services — can
+	// still drain without a body; historically not binding it silently ignored
+	// the timeout parameter).
 	if c.Request != nil && c.Request.ContentLength > 0 {
 		if err := c.ShouldBindJSON(&req); err != nil {
 			response.Error(c, err)
@@ -83,7 +84,7 @@ func (h *Handler) Drain(c *gin.Context) {
 // Undrain handles the request to undrain a node
 func (h *Handler) Undrain(c *gin.Context) {
 	var req NodeActionRequest
-	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
+	_ = c.ShouldBindUri(&req) // uri fields are all strings with no required: binding cannot fail, keep populate-only semantics
 
 	if err := h.service.Undrain(c.Request.Context(), &req); err != nil {
 		response.Error(c, err)
@@ -95,7 +96,7 @@ func (h *Handler) Undrain(c *gin.Context) {
 // Restart handles the request to restart a node
 func (h *Handler) Restart(c *gin.Context) {
 	var req NodeActionRequest
-	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
+	_ = c.ShouldBindUri(&req) // uri fields are all strings with no required: binding cannot fail, keep populate-only semantics
 
 	if err := h.service.Restart(c.Request.Context(), &req); err != nil {
 		response.Error(c, err)
@@ -120,7 +121,8 @@ func (h *Handler) ListCommands(c *gin.Context) {
 	response.Success(c, resp)
 }
 
-// ListCronJobs 读取节点所在主机的定时任务（crontab + /etc/cron.d）。
+// ListCronJobs reads the cron jobs of the host the node runs on (crontab +
+// /etc/cron.d).
 func (h *Handler) ListCronJobs(c *gin.Context) {
 	id := c.Param("id")
 	jobs, err := h.service.ListCronJobs(c.Request.Context(), id)
@@ -131,8 +133,8 @@ func (h *Handler) ListCronJobs(c *gin.Context) {
 	response.Success(c, gin.H{"items": jobs, "total": len(jobs)})
 }
 
-// ListAllCronJobs 聚合全部节点的宿主机定时任务（#24）：
-// /ops/schedules 按来源（platform/host）分组展示的数据源。
+// ListAllCronJobs aggregates the host cron jobs of all nodes (#24): the data
+// source /ops/schedules groups and displays by source (platform/host).
 func (h *Handler) ListAllCronJobs(c *gin.Context) {
 	reports, err := h.service.ListAllCronJobs(c.Request.Context())
 	if err != nil {

@@ -14,7 +14,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// perNodeResolver：按节点 ID 解析调用器（缺失即离线），驱动聚合的混合在线场景
+// perNodeResolver resolves a caller by node ID (a missing entry means offline),
+// driving mixed online/offline aggregation scenarios
 type perNodeResolver struct {
 	callers map[string]transport.SessionCaller
 }
@@ -24,7 +25,7 @@ func (f perNodeResolver) ResolveSessionCaller(nodeID string) (transport.SessionC
 	return c, ok
 }
 
-// countingCaller：记录被调用次数（缓存生效断言用）
+// countingCaller records how often it is called (used to assert the cache works)
 type countingCaller struct {
 	respBody []byte
 	calls    atomic.Int32
@@ -49,7 +50,8 @@ func cronJobsPayload(jobs string) []byte {
 	return []byte(`{"jobs":` + jobs + `}`)
 }
 
-// #24：全量聚合——在线节点 ok=true 且任务归位；离线节点 ok=false 带原因
+// #24: full aggregation — an online node has ok=true with its jobs in place;
+// an offline node has ok=false carrying a reason
 func TestListAllCronJobs_AggregatesPerNode(t *testing.T) {
 	online := &countingCaller{respBody: cronJobsPayload(
 		`[{"schedule":"*/5 * * * *","command":"/usr/bin/backup","user":"root","sourceFile":"/etc/crontab","enabled":true}]`)}
@@ -89,7 +91,8 @@ func TestListAllCronJobs_EmptyNodeTable(t *testing.T) {
 	assert.Empty(t, reports)
 }
 
-// #24：30s TTL 缓存——第二次调用不再打 agent（caller 调用计数不变）
+// #24: 30s TTL cache — the second call does not reach the agent (the caller's
+// invocation count stays unchanged)
 func TestListAllCronJobs_CachesAggregatedReports(t *testing.T) {
 	caller := &countingCaller{respBody: cronJobsPayload(`[]`)}
 	resolver := perNodeResolver{callers: map[string]transport.SessionCaller{"agent-1": caller}}
@@ -103,8 +106,8 @@ func TestListAllCronJobs_CachesAggregatedReports(t *testing.T) {
 	assert.Equal(t, int32(1), caller.calls.Load(), "第二次聚合应命中缓存而非再次调用 agent")
 }
 
-// #24：handler 形态——GET /api/v1/nodes/cron-jobs 返回 {items,total}，
-// 报告按节点归位且不可达节点以 error 标注
+// #24: handler shape — GET /api/v1/nodes/cron-jobs returns {items,total},
+// reports are placed per node and unreachable nodes are marked with error
 func TestHandler_ListAllCronJobs(t *testing.T) {
 	online := &countingCaller{respBody: cronJobsPayload(
 		`[{"schedule":"daily","command":"C:\\run.exe","user":"corp\\svc","sourceFile":"\\MyApp\\Nightly","enabled":true}]`)}

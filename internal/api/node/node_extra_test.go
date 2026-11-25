@@ -1,5 +1,6 @@
-// 覆盖目标：node service/handler 的错误分支与参数校验路径
-// （invalid nodeID、节点不存在、meta 非 map、存储故障、命令列表种子数据）。
+// Coverage targets: node service/handler error branches and parameter validation
+// paths (invalid nodeID, unknown node, non-map meta, storage failures, command
+// list seed data).
 package node
 
 import (
@@ -16,7 +17,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// nodeSvcCtxOf 构造仅含 NodeModel 的 ServiceContext。
+// nodeSvcCtxOf builds a ServiceContext carrying only a NodeModel.
 func nodeSvcCtxOf(db *gorm.DB) *svc.ServiceContext {
 	return &svc.ServiceContext{NodeModel: model.NewNodeModel(db)}
 }
@@ -90,7 +91,8 @@ func TestService_Drain_TimeoutStatus(t *testing.T) {
 	assert.Equal(t, "restarting", node.Status)
 }
 
-// 验证 Bug5 修复：Drain handler 现在绑定可选 body 的 timeout
+// Verifies the Bug5 fix: the Drain handler now binds the timeout from an
+// optional body
 func TestHandler_Drain_BindsTimeoutFromBody(t *testing.T) {
 	db := newNodeTestDB(t)
 	seedNode(t, db, "agent-tb")
@@ -107,7 +109,8 @@ func TestHandler_Drain_BindsTimeoutFromBody(t *testing.T) {
 	assert.Equal(t, "draining:33", node.Status, "timeout 必须从 body 读取（历史被静默忽略）")
 }
 
-// 空 body 兼容：不带 body 的旧调用方仍可 drain（不带 timeout）
+// Empty-body compatibility: legacy callers without a body can still drain
+// (without a timeout)
 func TestHandler_Drain_EmptyBody_Compatible(t *testing.T) {
 	db := newNodeTestDB(t)
 	seedNode(t, db, "agent-te")
@@ -139,7 +142,7 @@ func TestService_ListCommands_WithSeed_StoreError(t *testing.T) {
 	require.Error(t, err)
 }
 
-// handler 层：service 错误与 bind 失败分支
+// Handler layer: service error and bind failure branches
 func TestHandler_List_ServiceError(t *testing.T) {
 	db := newNodeTestDB(t)
 	require.NoError(t, db.Migrator().DropTable("nodes"))
@@ -190,10 +193,10 @@ func TestHandler_Restart_ServiceError(t *testing.T) {
 	assert.NotEqual(t, http.StatusOK, rec.Code, rec.Body.String())
 }
 
-// ListCronJobs：会话表未初始化 / 节点不在线 → 错误分支。
+// ListCronJobs: uninitialized session table / node not online -> error branches.
 func TestService_ListCronJobs_Guards(t *testing.T) {
 	db := newNodeTestDB(t)
-	nsvc := NewService(&svc.ServiceContext{DB: db}) // AgentSessions 为 nil
+	nsvc := NewService(&svc.ServiceContext{DB: db}) // AgentSessions is nil
 
 	_, err := nsvc.ListCronJobs(context.Background(), "agent-x")
 	assert.ErrorContains(t, err, "会话表未初始化")
@@ -214,7 +217,8 @@ func (f fakeSessionResolver) ResolveSessionCaller(string) (transport.SessionCall
 	return nil, false
 }
 
-// recordingCaller：可编程的会话调用器（录制请求 / 返回固定响应或错误）。
+// recordingCaller: a programmable session caller (records the request / returns
+// a fixed response or error).
 type recordingCaller struct {
 	respBody []byte
 	err      error
@@ -244,13 +248,13 @@ func TestService_ListCronJobs_ViaAgent(t *testing.T) {
 	assert.Equal(t, "/usr/bin/backup", jobs[0].Command)
 	assert.True(t, jobs[0].Enabled)
 
-	// agent 返回坏 JSON → 解析错误
+	// The agent returns bad JSON -> parse error
 	caller2 := &recordingCaller{respBody: []byte("{bad")}
 	nsvc2 := NewService(&svc.ServiceContext{DB: db, AgentSessions: fakeSessionResolver{caller: caller2}})
 	_, err = nsvc2.ListCronJobs(context.Background(), "agent-1")
 	assert.ErrorContains(t, err, "解析 agent 响应失败")
 
-	// agent 调用失败 → 包装错误
+	// The agent call fails -> wrapped error
 	caller3 := &recordingCaller{err: context.DeadlineExceeded}
 	nsvc3 := NewService(&svc.ServiceContext{DB: db, AgentSessions: fakeSessionResolver{caller: caller3}})
 	_, err = nsvc3.ListCronJobs(context.Background(), "agent-1")
@@ -261,7 +265,7 @@ func TestHandler_ListCronJobs(t *testing.T) {
 	db := newNodeTestDB(t)
 	handler := newNodeHandler(db)
 
-	// 成功路径（需 svcCtx 注入 resolver）
+	// Success path (the svcCtx must be given a resolver)
 	caller := &recordingCaller{respBody: []byte(`{"jobs":[]}`)}
 	handler.service.svcCtx.AgentSessions = fakeSessionResolver{caller: caller}
 	ctx, rec := newNodeRequest(http.MethodGet, "/api/v1/nodes/agent-1/cron-jobs", "")
@@ -270,7 +274,7 @@ func TestHandler_ListCronJobs(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 	assert.Contains(t, rec.Body.String(), `"total":0`)
 
-	// 在线但 agent 报错 → 500
+	// Online but the agent errors -> 500
 	callerErr := &recordingCaller{err: assert.AnError}
 	handler.service.svcCtx.AgentSessions = fakeSessionResolver{caller: callerErr}
 	ctx2, rec2 := newNodeRequest(http.MethodGet, "/api/v1/nodes/agent-1/cron-jobs", "")
@@ -278,7 +282,8 @@ func TestHandler_ListCronJobs(t *testing.T) {
 	handler.ListCronJobs(ctx2)
 	assert.Equal(t, http.StatusInternalServerError, rec2.Code)
 
-	// 在线但坏 JSON → 400（json.SyntaxError 按错误契约映射为客户端错误）
+	// Online but bad JSON -> 400 (json.SyntaxError maps to a client error per
+	// the error contract)
 	callerBad := &recordingCaller{respBody: []byte("{bad")}
 	handler.service.svcCtx.AgentSessions = fakeSessionResolver{caller: callerBad}
 	ctx3, rec3 := newNodeRequest(http.MethodGet, "/api/v1/nodes/agent-1/cron-jobs", "")
@@ -287,7 +292,8 @@ func TestHandler_ListCronJobs(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, rec3.Code)
 }
 
-// DB 故障注入：删表后 List/GetMeta/Drain 走错误分支。
+// DB failure injection: after dropping the table, List/GetMeta/Drain take their
+// error branches.
 func TestHandler_DBError_Branches(t *testing.T) {
 	db := newNodeTestDB(t)
 	handler := newNodeHandler(db)
@@ -302,14 +308,15 @@ func TestHandler_DBError_Branches(t *testing.T) {
 	handler.GetMeta(ctx2)
 	assert.NotEqual(t, http.StatusOK, rec2.Code)
 
-	// UpdateMeta：meta 非对象 → 400/500 错误分支；Update 失败 → 错误分支
+	// UpdateMeta: a non-object meta -> 400/500 error branch; a failed Update ->
+	// error branch
 	ctx3, rec3 := newNodeRequest(http.MethodPut, "/api/v1/nodes/agent-x/meta", `{"meta":"not-an-object"}`)
 	ctx3.Params = gin.Params{{Key: "id", Value: "agent-x"}}
 	handler.UpdateMeta(ctx3)
 	assert.NotEqual(t, http.StatusOK, rec3.Code)
 }
 
-// Drain 带非法 JSON body（ContentLength>0）→ 400。
+// Drain with an invalid JSON body (ContentLength>0) -> 400.
 func TestHandler_Drain_BadBody(t *testing.T) {
 	db := newNodeTestDB(t)
 	handler := newNodeHandler(db)

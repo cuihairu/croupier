@@ -20,8 +20,9 @@ import (
 type Service struct {
 	svcCtx *svc.ServiceContext
 
-	// #24：宿主机任务聚合的短 TTL 缓存——/ops/schedules 的概览统计与
-	// 分组表格共用一次采集，避免每次渲染打满 agent 会话
+	// #24: short-TTL cache for host task aggregation — the /ops/schedules
+	// overview stats and grouped table share one collection pass, so every
+	// render does not hammer the agent sessions
 	cronJobsMu       sync.Mutex
 	cronJobsCache    []NodeCronJobsReport
 	cronJobsCacheExp time.Time
@@ -155,7 +156,8 @@ func (s *Service) Restart(ctx context.Context, req *NodeActionRequest) error {
 	return s.svcCtx.NodeModel.UpdateStatus(ctx, nodeID, "restarting")
 }
 
-// NodeCronJob 主机定时任务条目（agent 侧解析 crontab + /etc/cron.d）。
+// NodeCronJob is a host cron job entry (parsed on the agent side from crontab +
+// /etc/cron.d).
 type NodeCronJob struct {
 	Schedule   string `json:"schedule"`
 	Command    string `json:"command"`
@@ -164,7 +166,8 @@ type NodeCronJob struct {
 	Enabled    bool   `json:"enabled"`
 }
 
-// ListCronJobs 经会话表代理到在线 Agent，读取其所在主机的定时任务。
+// ListCronJobs proxies through the session table to the online Agent and reads
+// the cron jobs of the host it runs on.
 func (s *Service) ListCronJobs(ctx context.Context, nodeID string) ([]NodeCronJob, error) {
 	if err := s.ensureCronJobsDeps(); err != nil {
 		return nil, err
@@ -172,7 +175,7 @@ func (s *Service) ListCronJobs(ctx context.Context, nodeID string) ([]NodeCronJo
 	return s.collectCronJobs(ctx, nodeID)
 }
 
-// ensureCronJobsDeps 校验采集链路依赖（会话表）。
+// ensureCronJobsDeps checks the collection chain dependencies (session table).
 func (s *Service) ensureCronJobsDeps() error {
 	if s.svcCtx.AgentSessions == nil {
 		return errors.New("会话表未初始化")
@@ -180,7 +183,8 @@ func (s *Service) ensureCronJobsDeps() error {
 	return nil
 }
 
-// collectCronJobs 单节点原始采集（不经缓存），单点查询与全量聚合共用。
+// collectCronJobs performs the raw single-node collection (no cache), shared by
+// the single-node query and the full aggregation.
 func (s *Service) collectCronJobs(ctx context.Context, nodeID string) ([]NodeCronJob, error) {
 	caller, ok := s.svcCtx.AgentSessions.ResolveSessionCaller(nodeID)
 	if !ok {
@@ -199,8 +203,9 @@ func (s *Service) collectCronJobs(ctx context.Context, nodeID string) ([]NodeCro
 	return resp.Jobs, nil
 }
 
-// NodeCronJobsReport 单节点的宿主机定时任务采集结果；不可达节点 ok=false
-// 并携带原因，不中断整体聚合（#24：/ops/schedules 按来源分组展示）。
+// NodeCronJobsReport is the host cron collection result for one node; an
+// unreachable node gets ok=false with a reason and does not interrupt the
+// overall aggregation (#24: /ops/schedules groups and displays by source).
 type NodeCronJobsReport struct {
 	NodeID   string        `json:"nodeId"`
 	NodeName string        `json:"nodeName"`
@@ -210,12 +215,15 @@ type NodeCronJobsReport struct {
 	Jobs     []NodeCronJob `json:"jobs"`
 }
 
-// nodeCronJobsCacheTTL 限定聚合结果的陈旧度（与 #14 分类聚合同量级）。
+// nodeCronJobsCacheTTL bounds how stale the aggregated result may get (same
+// order of magnitude as the #14 classification aggregation).
 const nodeCronJobsCacheTTL = 30 * time.Second
 
-// ListAllCronJobs 聚合全部节点的宿主机定时任务。
-// 在线节点并行经会话表采集，离线/失败节点以 ok=false 标注原因；
-// 结果缓存 nodeCronJobsCacheTTL，避免概览+表格双渲染打满 agent。
+// ListAllCronJobs aggregates the host cron jobs of all nodes. Online nodes are
+// collected in parallel through the session table; offline/failed nodes are
+// marked ok=false with a reason. The result is cached for
+// nodeCronJobsCacheTTL so the overview + table double render does not hammer
+// the agents.
 func (s *Service) ListAllCronJobs(ctx context.Context) ([]NodeCronJobsReport, error) {
 	s.cronJobsMu.Lock()
 	if s.cronJobsCache != nil && time.Now().Before(s.cronJobsCacheExp) {

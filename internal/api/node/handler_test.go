@@ -129,7 +129,7 @@ func TestHandler_GetMeta_UnknownNode_Error(t *testing.T) {
 	ctx.Params = gin.Params{{Key: "id", Value: "does-not-exist"}}
 	handler.GetMeta(ctx)
 
-	// Unknown node surfaces a model error (节点不存在), never 200.
+	// Unknown node surfaces a model error (node not found), never 200.
 	assert.NotEqual(t, http.StatusOK, rec.Code, rec.Body.String())
 	assertNodeErrorShape(t, rec)
 }
