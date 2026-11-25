@@ -5,8 +5,8 @@ type RateLimit struct {
 	Id        string      `json:"id"`
 	Name      string      `json:"name"`
 	Resource  string      `json:"resource"` // function, api, user
-	Limit     int         `json:"limit"`    // 每秒请求数
-	Window    int         `json:"window"`   // 时间窗口（秒）
+	Limit     int         `json:"limit"`    // requests per second
+	Window    int         `json:"window"`   // time window in seconds
 	Action    string      `json:"action"`   // reject, throttle
 	Rules     interface{} `json:"rules"`
 	Status    int         `json:"status"`

@@ -1,6 +1,7 @@
-// 覆盖目标：handler 的 service 错误/JSON 绑定错误分支，
-// service 层 List/Get/Upsert/Delete 的数据库错误分支、
-// normalizeRules 非对象规则分支、parseRateLimitID 空白 ID 分支。
+// Coverage target: the handler's service-error / JSON-binding error branches,
+// the database error branches of the service-layer List/Get/Upsert/Delete, the
+// normalizeRules non-object rule branch, and the parseRateLimitID blank ID
+// branch.
 package rate_limit
 
 import (
@@ -16,8 +17,9 @@ import (
 	"github.com/cuihairu/croupier/internal/svc"
 )
 
-// brokenSvcCtx 返回底层 rate_limits 表已被删除的服务上下文，
-// 用于触发 model 层数据库错误（非 NotFound）。
+// brokenSvcCtx returns a service context whose underlying rate_limits table
+// has been dropped, used to trigger model-layer database errors (not
+// NotFound).
 func brokenSvcCtx(t *testing.T) *svc.ServiceContext {
 	t.Helper()
 	svcCtx := setupSvcCtx(t)
@@ -103,7 +105,8 @@ func TestService_Upsert_FindByKeyAfterWriteFails(t *testing.T) {
 	svcCtx := setupSvcCtx(t)
 	svc := NewService(svcCtx)
 
-	// 在写入成功后立即删除表，触发 Upsert 内部 FindByKey 的数据库错误分支
+	// Drop the table right after a successful write to trigger the database
+	// error branch of FindByKey inside Upsert
 	require.NoError(t, svcCtx.DB.Callback().Create().After("gorm:create").Register("test_drop_table", func(tx *gorm.DB) {
 		_ = tx.Migrator().DropTable("rate_limits")
 	}))
@@ -150,7 +153,8 @@ func TestHandler_Preview_InvalidJSON(t *testing.T) {
 	assertErrorShape(t, rec)
 }
 
-// TestService_Upsert_ValdationBranches 覆盖参数校验各错误分支。
+// TestService_Upsert_ValdationBranches covers each parameter validation error
+// branch.
 func TestService_Upsert_ValdationBranches(t *testing.T) {
 	svc := NewService(setupSvcCtx(t))
 	ctx := context.Background()
@@ -174,7 +178,8 @@ func TestService_Upsert_ValdationBranches(t *testing.T) {
 	}
 }
 
-// TestModelNotFound 直接验证 model 错误映射依赖的 ErrNotFound 语义仍然成立。
+// TestModelNotFound directly verifies that the ErrNotFound semantics the model
+// error mapping depends on still hold.
 func TestModelNotFound(t *testing.T) {
 	svcCtx := setupSvcCtx(t)
 	_, err := svcCtx.RateLimitModel.FindByKey(context.Background(), "missing")

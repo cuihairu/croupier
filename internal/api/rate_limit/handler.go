@@ -16,7 +16,7 @@ func NewHandler(service *Service) *Handler {
 // List handles the request to list rate limits
 func (h *Handler) List(c *gin.Context) {
 	var req RateLimitsListRequest
-	_ = c.ShouldBindQuery(&req) // query 仅一个无校验标签的 string 字段：绑定恒成功，保留填充语义
+	_ = c.ShouldBindQuery(&req) // the query has a single string field with no validation tag: binding always succeeds; the call is kept for its population semantics
 
 	resp, err := h.service.List(c.Request.Context(), &req)
 	if err != nil {
@@ -29,7 +29,7 @@ func (h *Handler) List(c *gin.Context) {
 // Get handles the request to get a rate limit
 func (h *Handler) Get(c *gin.Context) {
 	var req RateLimitGetRequest
-	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
+	_ = c.ShouldBindUri(&req) // all uri fields are strings with no required tag: binding cannot fail; the call is kept for its population semantics
 
 	resp, err := h.service.Get(c.Request.Context(), &req)
 	if err != nil {
@@ -58,7 +58,7 @@ func (h *Handler) Upsert(c *gin.Context) {
 // Delete handles the request to delete a rate limit
 func (h *Handler) Delete(c *gin.Context) {
 	var req RateLimitDeleteRequest
-	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
+	_ = c.ShouldBindUri(&req) // all uri fields are strings with no required tag: binding cannot fail; the call is kept for its population semantics
 
 	if err := h.service.Delete(c.Request.Context(), &req); err != nil {
 		response.Error(c, err)
