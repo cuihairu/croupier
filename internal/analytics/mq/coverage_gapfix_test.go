@@ -10,7 +10,7 @@ import (
 	kafka "github.com/segmentio/kafka-go"
 )
 
-// fakeKafkaWriter 记录写入消息并可注入 Close/WriteMessages 故障。
+// fakeKafkaWriter records written messages and can inject Close/WriteMessages failures.
 type fakeKafkaWriter struct {
 	closeErr error
 	writeErr error
@@ -41,8 +41,8 @@ func overrideKafkaFromEnv(t *testing.T, fn func() (Queue, error)) {
 	t.Cleanup(func() { newKafkaFromEnvFn = prev })
 }
 
-// newRedisFromEnv 唯一返回形态为 (非 nil Queue, nil error)，redis 分支的
-// 错误包装仅在缝隙注入 (nil, err) 时可触达。
+// newRedisFromEnv's only possible return shape is (non-nil Queue, nil error); the
+// error wrapping in the redis branch is reachable only via a (nil, err) seam injection.
 func TestNewFromEnv_RedisConstructionErrorWrapped(t *testing.T) {
 	withMQType(t, "redis")
 	overrideRedisFromEnv(t, func() (Queue, error) {
@@ -61,7 +61,7 @@ func TestNewFromEnv_RedisConstructionErrorWrapped(t *testing.T) {
 	}
 }
 
-// redis 分支的 nil publisher 防御仅在缝隙注入 (nil, nil) 时可触达。
+// The nil publisher guard in the redis branch is reachable only via a (nil, nil) seam injection.
 func TestNewFromEnv_RedisNilPublisherRejected(t *testing.T) {
 	withMQType(t, "redis")
 	overrideRedisFromEnv(t, func() (Queue, error) { return nil, nil })
@@ -78,8 +78,8 @@ func TestNewFromEnv_RedisNilPublisherRejected(t *testing.T) {
 	}
 }
 
-// newKafkaFromEnv 唯一返回形态为 (非 nil Queue, nil error)，kafka 分支的
-// 错误包装仅在缝隙注入 (nil, err) 时可触达。
+// newKafkaFromEnv's only possible return shape is (non-nil Queue, nil error); the
+// error wrapping in the kafka branch is reachable only via a (nil, err) seam injection.
 func TestNewFromEnv_KafkaConstructionErrorWrapped(t *testing.T) {
 	withMQType(t, "kafka")
 	overrideKafkaFromEnv(t, func() (Queue, error) {
@@ -98,7 +98,7 @@ func TestNewFromEnv_KafkaConstructionErrorWrapped(t *testing.T) {
 	}
 }
 
-// kafka 分支的 nil publisher 防御仅在缝隙注入 (nil, nil) 时可触达。
+// The nil publisher guard in the kafka branch is reachable only via a (nil, nil) seam injection.
 func TestNewFromEnv_KafkaNilPublisherRejected(t *testing.T) {
 	withMQType(t, "kafka")
 	overrideKafkaFromEnv(t, func() (Queue, error) { return nil, nil })
@@ -115,8 +115,9 @@ func TestNewFromEnv_KafkaNilPublisherRejected(t *testing.T) {
 	}
 }
 
-// kafka-go v0.4.50 的 Writer.Close 恒返回 nil，Close 的错误传播分支仅在
-// 缝隙注入故障 writer 时可触达：events writer 失败时错误必须向上传播。
+// kafka-go v0.4.50's Writer.Close always returns nil, so the error propagation
+// branch of Close is reachable only by injecting a broken writer through the seam:
+// when the events writer fails, the error must propagate upward.
 func TestKafkaQueue_ClosePropagatesEventsWriterError(t *testing.T) {
 	boom := errors.New("events writer close boom")
 	q := &kafkaQueue{
@@ -128,7 +129,8 @@ func TestKafkaQueue_ClosePropagatesEventsWriterError(t *testing.T) {
 	}
 }
 
-// 两个 writer 均失败时，payments 的错误后写覆盖 events 的错误（现行语义）。
+// When both writers fail, the payments error, written last, overwrites the events
+// error (current semantics).
 func TestKafkaQueue_ClosePaymentsErrorWins(t *testing.T) {
 	eventsErr := errors.New("events close boom")
 	payErr := errors.New("payments close boom")
@@ -141,8 +143,8 @@ func TestKafkaQueue_ClosePaymentsErrorWins(t *testing.T) {
 	}
 }
 
-// PublishEvent/PublishPayment 走 write：payload 必须序列化为 JSON 消息体，
-// 且 write 错误原样传播。
+// PublishEvent/PublishPayment go through write: the payload must be serialized into
+// a JSON message body, and write errors must propagate as-is.
 func TestKafkaQueue_WriteMarshalsPayloadAndPropagatesError(t *testing.T) {
 	events := &fakeKafkaWriter{}
 	payments := &fakeKafkaWriter{}
@@ -181,7 +183,8 @@ func TestKafkaQueue_WriteMarshalsPayloadAndPropagatesError(t *testing.T) {
 	}
 }
 
-// write 对 nil writer 的容忍分支：半构造的 kafkaQueue 不 panic 且不产生副作用。
+// write's nil-writer tolerance branch: a half-constructed kafkaQueue must not
+// panic and must have no side effects.
 func TestKafkaQueue_WriteNilWriterNoOp(t *testing.T) {
 	q := &kafkaQueue{}
 	if err := q.PublishEvent(map[string]any{"k": "v"}); err != nil {
@@ -195,10 +198,11 @@ func TestKafkaQueue_WriteNilWriterNoOp(t *testing.T) {
 	}
 }
 
-// 真实 writer 经缝隙接口仍满足 kafkaQueue 依赖（编译期契约）。
+// The real writer still satisfies kafkaQueue's dependency through the seam
+// interface (compile-time contract).
 var _ kafkaWriter = (*kafka.Writer)(nil)
 
-// PendingEvents/PendingPayments 恒 (0, nil)。
+// PendingEvents/PendingPayments always return (0, nil).
 func TestKafkaQueue_PendingZero(t *testing.T) {
 	q := &kafkaQueue{}
 	n, err := q.PendingEvents()

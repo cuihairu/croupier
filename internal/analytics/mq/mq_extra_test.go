@@ -1,5 +1,6 @@
-// 覆盖目标：mq 包 kafkaQueue 零值方法、PendingEvents/PendingPayments 的
-// 成功与 WRONGTYPE 错误路径（miniredis）、newRedisFromEnv 环境变量解析分支。
+// Coverage targets: the zero-value methods of kafkaQueue in the mq package, the
+// success and WRONGTYPE error paths of PendingEvents/PendingPayments (miniredis),
+// and the newRedisFromEnv environment-variable parsing branches.
 package mq
 
 import (
@@ -27,7 +28,7 @@ func TestKafkaQueue_ZeroValueMethods(t *testing.T) {
 	assert.Zero(t, n)
 }
 
-// withEnv 设置环境变量并在测试结束后恢复。
+// withMQEnv sets an environment variable and restores it after the test.
 func withMQEnv(t *testing.T, key, value string) {
 	t.Helper()
 	prev, had := os.LookupEnv(key)
@@ -67,7 +68,7 @@ func TestNewRedisFromEnv_InvalidMaxLenAndApproxTrue(t *testing.T) {
 	withMQEnv(t, "REDIS_URL", "")
 	withMQEnv(t, "ANALYTICS_REDIS_STREAM_EVENTS", "")
 	withMQEnv(t, "ANALYTICS_REDIS_STREAM_PAYMENTS", "")
-	// 非法 maxlen 保持默认；approx=1 → true。
+	// An invalid maxlen keeps the default; approx=1 -> true.
 	withMQEnv(t, "ANALYTICS_REDIS_MAXLEN", "not-a-number")
 	withMQEnv(t, "ANALYTICS_REDIS_MAXLEN_APPROX", "1")
 

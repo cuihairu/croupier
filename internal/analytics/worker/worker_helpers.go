@@ -61,13 +61,15 @@ func asFloat(m map[string]any, k string) float64 {
 	return 0
 }
 
-// asRetryCount 读取消息的 retry_count 字段为 int。外部流消息的 retry_count
-// 是生产方可控字段：合法值应是从 JSON 数字解析的 float64，但非 float64 类型
-// （字符串/布尔/对象等）会令 .(float64) 断言 panic——worker Run 循环无
-// recover，单条坏消息会崩掉整个 worker。此处 fail-closed：非数值类型视为
-// 0（不 panic），让插入失败后按 0 次重试入队；若消息本身已带坏类型，重试
-// 计数不推进也不会死循环（每次重试都按 0 处理，仍会在 maxPendingRetries
-// 内进入死信——需在 retry 路径同时做类型归一，见 processMessage）。
+// asRetryCount reads the message's retry_count field as an int. retry_count on external
+// stream messages is a producer-controlled field: a valid value should be a float64 parsed
+// from a JSON number, but a non-float64 type (string/bool/object, etc.) makes the .(float64)
+// assertion panic — the worker Run loop has no recover, so a single bad message would crash
+// the whole worker. This is fail-closed: a non-numeric type is treated as 0 (no panic) and a
+// failed insert is re-queued with 0 retries; if the message itself already carries a bad type,
+// the retry count cannot advance and cannot livelock either (each retry is treated as 0, and it
+// still dead-letters within maxPendingRetries — the retry path must also normalize the type, see
+// processMessage).
 func asRetryCount(m map[string]any) int {
 	if v, ok := m["retry_count"]; ok {
 		switch t := v.(type) {

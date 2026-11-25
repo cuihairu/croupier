@@ -41,10 +41,12 @@ func (w *Worker) touchAgg(ctx context.Context, m map[string]any) {
 	if ts == "" || t.IsZero() {
 		t = time.Now()
 	}
-	// 分桶一律归一 UTC：flush 侧 time.Parse 按 UTC 解析 hll key 里的墙钟串，
-	// 这里若按事件自带 offset（或本地时区 fallback）渲染，非 UTC 部署上双方
-	// 错开一个时区偏移，minute_online 在 CST 服务器上永不满足 t.Before(nowMin)
-	// 而漏flush（993cb65 审计时间窗同族：写入/解析时区必须一致）。
+	// Always normalize buckets to UTC: the flush side parses the wall-clock strings in the
+	// hll key with time.Parse assuming UTC. If we rendered keys here using the event's own
+	// offset (or a local-timezone fallback), the two sides would be off by a timezone offset
+	// on non-UTC deployments, t.Before(nowMin) would never hold, and minute_online would
+	// never be flushed on CST servers (same family as the 993cb65 audit time-window issue:
+	// write/parse timezones must match).
 	t = t.UTC()
 	game := asString(m, "game_id")
 	env := asString(m, "env")
@@ -80,11 +82,13 @@ func (w *Worker) flush(ctx context.Context) error {
 	if err := w.flushBatches(ctx); err != nil {
 		slog.Warn("flush batches", "err", err)
 	}
-	// 快照/同步所有权（DATA-014）：在 aggMu 内把共享状态整段转移给本地
-	// 快照并清空共享 map，随即释放锁，再对快照做 ClickHouse I/O。写方
-	// （touchAgg/commitRevenue）不再被长持锁阻塞；I/O 失败时把该项合并
-	// 回共享 map（若写方已重建同 key，则累加而非覆盖），失败重试不丢
-	// 增量。快照转移后写方新值落在共享 map，不会被本次 flush 误删。
+	// Snapshot/sync ownership (DATA-014): inside aggMu, move the shared state wholesale
+	// into a local snapshot and clear the shared maps, then release the lock and do the
+	// ClickHouse I/O against the snapshot. Writers (touchAgg/commitRevenue) are no longer
+	// blocked by a long-held lock; on I/O failure the item is merged back into the shared
+	// map (accumulated rather than overwritten if the writer already rebuilt the same key),
+	// so failed retries lose no increments. After the snapshot transfer, new writer values
+	// land in the shared map and cannot be wrongly deleted by this flush.
 	w.aggMu.Lock()
 	minSnap := make(map[string]struct{}, len(w.touchedMinutes))
 	for k := range w.touchedMinutes {
@@ -103,24 +107,27 @@ func (w *Worker) flush(ctx context.Context) error {
 	w.revAgg = map[string]*revRow{}
 	w.aggMu.Unlock()
 
-	// key 内墙钟串已归一 UTC（touchAgg），比较基准同步 UTC。
+	// The wall-clock string inside the key is already normalized to UTC (touchAgg); the
+	// comparison baseline is UTC too.
 	nowMin := time.Now().UTC().Truncate(time.Minute)
 	// flush minute_online for minutes earlier than current minute
 	for k := range minSnap {
 		parts := strings.Split(k, ":") // hll:online:game:env:YYYYMMDDHHmm
 		if len(parts) < 5 {
-			// 无法解析的 key 属垃圾数据：丢弃（共享 map 已清空，不重写回），
-			// 避免每次 flush 都失败重试。仅 I/O 失败才 remerge 保留。
+			// An unparseable key is garbage data: drop it (the shared map is already
+			// cleared, so it is not written back) to avoid failing retries on every flush.
+			// Only I/O failures remerge to preserve the key.
 			continue
 		}
 		ts := parts[len(parts)-1]
 		t, err := time.Parse("200601021504", ts)
 		if err != nil {
-			// 坏时间串：不属可 flush 范围，丢弃（原语义 delete）。
+			// Bad time string: not flushable, drop it (original semantics: delete).
 			continue
 		}
 		if !t.Before(nowMin) {
-			// 当前/未来分钟：保留，等它成为过去后再 flush（原语义）。
+			// Current/future minutes: kept until they become the past, then flushed (original
+			// semantics).
 			w.remergeTouchedMinute(k)
 			continue
 		}
@@ -157,7 +164,7 @@ func (w *Worker) flush(ctx context.Context) error {
 	for dk := range daySnap {
 		sp := strings.Split(dk, "|")
 		if len(sp) != 3 {
-			// 坏 key 丢弃（原语义）。
+			// Bad key discarded (original semantics).
 			continue
 		}
 		day, game, env := sp[0], sp[1], sp[2]
@@ -165,8 +172,9 @@ func (w *Worker) flush(ctx context.Context) error {
 		knew := fmt.Sprintf("hll:new:%s:%s:%s", game, env, day)
 		dau, err := w.rdb.PFCount(ctx, kdau).Result()
 		if err != nil {
-			// PFCount 失败不得以 0 覆写当日真实 DAU（ReplacingMergeTree 按
-			// version 取代）；合并回共享 map 下次重试（语义同 minute_online）。
+			// A PFCount failure must not overwrite the day's real DAU with 0 (ReplacingMergeTree
+			// replaces by version); merge back into the shared map for the next retry (same
+			// semantics as minute_online).
 			slog.Warn("pfcount dau", "key", kdau, "err", err)
 			w.remergeTouchedDay(dk)
 			continue
@@ -200,7 +208,8 @@ func (w *Worker) flush(ctx context.Context) error {
 	for rk, rv := range revSnap {
 		sp := strings.Split(rk, "|")
 		if len(sp) != 3 {
-			// 坏 key 保留（原语义：continue 不 delete，重试可修复）。
+			// Bad key kept (original semantics: continue without delete, so a retry can fix
+			// it).
 			w.remergeRev(rk, rv)
 			continue
 		}
@@ -227,8 +236,9 @@ func (w *Worker) flush(ctx context.Context) error {
 	return nil
 }
 
-// remergeTouchedMinute 把 flush 失败的 minute_online key 合并回共享 map；
-// 若写方已重建同 key，保留（新值由写方继续累积，快照项为旧值，不覆盖）。
+// remergeTouchedMinute merges a minute_online key whose flush failed back into the
+// shared map; if the writer already rebuilt the same key, it is kept (the writer keeps
+// accumulating the new value, the snapshot item is stale, so it does not overwrite).
 func (w *Worker) remergeTouchedMinute(k string) {
 	w.aggMu.Lock()
 	defer w.aggMu.Unlock()
@@ -238,8 +248,8 @@ func (w *Worker) remergeTouchedMinute(k string) {
 	w.touchedMinutes[k] = struct{}{}
 }
 
-// remergeTouchedDay 把 flush 失败的 daily_users key 合并回共享 map（语义同
-// remergeTouchedMinute）。
+// remergeTouchedDay merges a daily_users key whose flush failed back into the shared
+// map (same semantics as remergeTouchedMinute).
 func (w *Worker) remergeTouchedDay(k string) {
 	w.aggMu.Lock()
 	defer w.aggMu.Unlock()
@@ -249,8 +259,9 @@ func (w *Worker) remergeTouchedDay(k string) {
 	w.touchedDays[k] = struct{}{}
 }
 
-// remergeRev 把 flush 失败的 daily_revenue 增量合并回共享 map；若写方已
-// 重建同 key，则累加（不覆盖），保证失败重试不丢增量。
+// remergeRev merges a daily_revenue increment whose flush failed back into the shared
+// map; if the writer already rebuilt the same key, the values are accumulated (not
+// overwritten), so failed retries lose no increments.
 func (w *Worker) remergeRev(k string, rv *revRow) {
 	w.aggMu.Lock()
 	defer w.aggMu.Unlock()

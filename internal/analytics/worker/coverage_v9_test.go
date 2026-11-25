@@ -524,13 +524,14 @@ func TestRunTickerAndCancelBranchesV9(t *testing.T) {
 	done := make(chan error, 1)
 	go func() { done <- w.Run(ctx) }()
 
-	// 20ms ticker 在 500ms 窗口内必然多次触发（Go ticker 首跳在 interval 后
-	// 语义上保证发生），覆盖 flush 与 reclaim 两个 ticker.C 分支。
+	// The 20ms ticker is guaranteed to fire multiple times within the 500ms
+	// window (a Go ticker's first tick is semantically guaranteed after one
+	// interval), covering both the flush and reclaim ticker.C branches.
 	time.Sleep(500 * time.Millisecond)
 	cancel()
 
-	// cancel 覆盖两个 goroutine 的 ctx.Done 分支；Run 主循环在 XReadGroup
-	// Block（2s）返回后以 ctx.Err() 退出。
+	// cancel covers the ctx.Done branches of both goroutines; the Run main
+	// loop exits with ctx.Err() after XReadGroup Block (2s) returns.
 	select {
 	case err := <-done:
 		if err != context.Canceled {

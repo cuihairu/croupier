@@ -1,19 +1,24 @@
 package worker
 
-// ARCH-012 — 分析管道崩溃恢复故障钻机。
+// ARCH-012 — crash-recovery fault drill for the analytics pipeline.
 //
-// 验收（todo.md）：在 Append 后/Send 前、Send 后/ACK 前、重入队失败时中断；
-// 比对源消息、PEL、死信与 ClickHouse 行，证实无静默丢失。
+// Acceptance (todo.md): interrupt after Append/before Send, after Send/before
+// ACK, and on requeue failure; compare source messages, the PEL, the dead letter,
+// and the ClickHouse rows to prove there is no silent loss.
 //
-// 本钻机用真实 Redis Streams（redis-server，或 ARCH012_REDIS_ADDR）与真实
-// ClickHouse（ARCH012_CLICKHOUSE_DSN，需带 analytics 库与 001_init.sql 建出的
-// events/payments 表）验证三条故障点下的「崩溃 → 重启 → reclaim 重投 →
-// 对账」闭环。缺可控环境时 t.Skip（ARCH-012 边界：需 Redis 与 ClickHouse
-// 可控环境）；本地/带环境的 CI 才实际执行。
+// This drill uses real Redis Streams (redis-server, or ARCH012_REDIS_ADDR) and
+// real ClickHouse (ARCH012_CLICKHOUSE_DSN, with the analytics database and the
+// events/payments tables created by 001_init.sql) to verify the closed loop of
+// "crash -> restart -> reclaim redelivery -> reconciliation" at each of the
+// three fault points. It calls t.Skip when no controllable environment is
+// available (ARCH-012 boundary: needs a controllable Redis and ClickHouse);
+// only local runs / CI with the environment execute it for real.
 //
-// 不把测试 fixture 的游戏副作用结果当真实游戏恢复凭据：这里只核对分析管道
-// 自身「无静默丢失」不变量（源消息最终落在 events 表 / 死信流 / 仍 PENDING 三
-// 者之一），不断言游戏侧 exactly-once（GAME-010 仍 NOT RUN）。
+// Test-fixture game-side effects are not treated as real game recovery
+// credentials: this only verifies the analytics pipeline's own "no silent loss"
+// invariant (the source message must end up in exactly one of the events table,
+// the dead-letter stream, or still PENDING) and does not assert game-side
+// exactly-once (GAME-010 remains NOT RUN).
 
 import (
 	"context"
@@ -211,11 +216,12 @@ func arch012Reclaim(ctx context.Context, t *testing.T, w *Worker, rdb *redis.Cli
 	}
 }
 
-// --- 故障点 1：Append 后 / Send 前崩溃 ---
+// --- Fault point 1: crash after Append / before Send ---
 
-// 消息被 append 进内存批次后、批次 Send 前崩溃：内存批次丢失，消息保持在
-// Redis PEL（deferred XACK）。重启后 reclaim 重投 → 重新 append → flush →
-// ClickHouse 行出现 + ACK。无静默丢失。
+// The message has been appended into the in-memory batch and the crash happens
+// before the batch Send: the in-memory batch is lost and the message stays in
+// the Redis PEL (deferred XACK). After a restart, reclaim redelivers ->
+// re-append -> flush -> the ClickHouse row appears + ACK. No silent loss.
 func TestDrill_AppendThenCrash_BeforeSend_ReclaimNoLoss(t *testing.T) {
 	redisAddr := arch012Redis(t)
 	conn := arch012CH(t)
@@ -227,19 +233,20 @@ func TestDrill_AppendThenCrash_BeforeSend_ReclaimNoLoss(t *testing.T) {
 	eventID := uuid.NewString() // unique per run; the CH database persists across runs
 	wA := arch012Worker(t, redisAddr, sts)
 
-	// 源消息进流并 claim 进 PEL，然后走真实 processMessage（deferred XACK）。
+	// The source message enters the stream and is claimed into the PEL, then goes
+	// through the real processMessage (deferred XACK).
 	srcID := arch012XAdd(ctx, t, rdb, sts.events, arch012Event("2025-06-15 10:00:00", eventID))
 	msg := arch012Claim(ctx, t, rdb, sts.events, sts.group, sts.consumer, srcID)
 	require.NoError(t, wA.processMessage(ctx, sts.events, msg))
 
-	// 未 flush：消息在 PEL、ClickHouse 无行、批次未 Send。
+	// Not flushed: the message is in the PEL, ClickHouse has no row, the batch has not been Sent.
 	require.Equal(t, 1, arch012PendingLen(ctx, t, rdb, sts.events, sts.group), "message must stay pending until batch Send")
 	require.Equal(t, 0, arch012EventRows(ctx, t, conn, eventID), "no ClickHouse row before Send")
 
-	// 崩溃：丢弃 wA（内存批次丢失），消息留在 PEL。
+	// Crash: drop wA (the in-memory batch is lost); the message stays in the PEL.
 	_ = wA
 
-	// 重启：新 worker reclaim 重投 → 重新 append → flush → CH 行 + ACK。
+	// Restart: the new worker's reclaim redelivers -> re-append -> flush -> CH row + ACK.
 	wB := arch012Worker(t, redisAddr, sts)
 	arch012Reclaim(ctx, t, wB, rdb, sts.events)
 	require.NoError(t, wB.flushBatches(ctx))
@@ -249,11 +256,13 @@ func TestDrill_AppendThenCrash_BeforeSend_ReclaimNoLoss(t *testing.T) {
 	require.Zero(t, rdb.XLen(ctx, sts.deadEvents).Val(), "no dead-letter on the crash path")
 }
 
-// --- 故障点 2：Send 后 / ACK 前崩溃 ---
+// --- Fault point 2: crash after Send / before ACK ---
 
-// 批次 Send 已成功（行落 ClickHouse）但 ACK 未执行时崩溃：消息仍在 PEL。
-// 重启后 reclaim 重投 → 重新 append → 再次 Send → ClickHouse 可能多一行
-// （同一 event_id），消费端以 event_id 去重；消息不丢。PEL 清空、无死信。
+// The batch Send already succeeded (the row landed in ClickHouse) but the ACK
+// was not executed when the crash happens: the message is still in the PEL.
+// After a restart, reclaim redelivers -> re-append -> Send again -> ClickHouse
+// may gain an extra row (same event_id); the consumer dedups by event_id, so
+// the message is not lost. The PEL drains and there is no dead letter.
 func TestDrill_SendThenCrash_BeforeAck_ReclaimNoLoss(t *testing.T) {
 	redisAddr := arch012Redis(t)
 	conn := arch012CH(t)
@@ -269,15 +278,15 @@ func TestDrill_SendThenCrash_BeforeAck_ReclaimNoLoss(t *testing.T) {
 	msg := arch012Claim(ctx, t, rdb, sts.events, sts.group, sts.consumer, srcID)
 	require.NoError(t, wA.processMessage(ctx, sts.events, msg))
 
-	// Send 成功（行已落库）但 ackSent 未执行：消息仍在 PEL。
+	// Send succeeded (the row landed) but ackSent was not executed: the message stays in the PEL.
 	require.NoError(t, wA.eventBatch.Send())
 	require.Equal(t, 1, arch012EventRows(ctx, t, conn, eventID), "Send must land the row")
 	require.Equal(t, 1, arch012PendingLen(ctx, t, rdb, sts.events, sts.group), "message pending (ACK lost)")
 
-	// 崩溃：丢弃 wA（批次已消费）。
+	// Crash: drop wA (the batch was already consumed).
 	_ = wA
 
-	// 重启：reclaim 重投 → 重新 append → 再次 Send → 行（可能重复，event_id 去重）+ ACK。
+	// Restart: reclaim redelivers -> re-append -> Send again -> row (possibly duplicated, event_id dedup) + ACK.
 	wB := arch012Worker(t, redisAddr, sts)
 	arch012Reclaim(ctx, t, wB, rdb, sts.events)
 	require.NoError(t, wB.flushBatches(ctx))
@@ -289,11 +298,13 @@ func TestDrill_SendThenCrash_BeforeAck_ReclaimNoLoss(t *testing.T) {
 	require.Zero(t, rdb.XLen(ctx, sts.deadEvents).Val(), "no dead-letter on the crash path")
 }
 
-// --- 故障点 3：重入队失败 ---
+// --- Fault point 3: requeue failure ---
 
-// processMessage 处理失败（行被 ClickHouse 拒绝）后重入队 XAdd 失败：消息
-// 不得被 ACK，必须留在 PEL 供 reclaim 重试（否则静默丢失）。这里用真实
-// Redis 的 PEL/流态，把 worker 的 rdb 换成拒绝 XAdd 的客户端注入重入队失败。
+// processMessage fails to process (the row is rejected by ClickHouse) and then
+// the requeue XAdd fails: the message must not be ACKed and must stay in the
+// PEL for reclaim to retry (otherwise it is silently lost). Here, using the
+// real Redis PEL/stream state, the requeue failure is injected by swapping the
+// worker's rdb for a client that rejects XAdd.
 func TestDrill_RequeueFailure_MessageStaysPending(t *testing.T) {
 	redisAddr := arch012Redis(t)
 	conn := arch012CH(t)
@@ -304,26 +315,30 @@ func TestDrill_RequeueFailure_MessageStaysPending(t *testing.T) {
 
 	wA := arch012Worker(t, redisAddr, sts)
 
-	// 源消息带非法时间戳 → insertEvent 的 batch.Append 被 ClickHouse 拒绝
-	// → processMessage 进入重试分支 → 重入队。
+	// The source message carries an invalid timestamp -> insertEvent's
+	// batch.Append is rejected by ClickHouse -> processMessage enters the retry
+	// branch -> requeue.
 	eventID := uuid.NewString() // unique per run; the CH database persists across runs
 	srcID := arch012XAdd(ctx, t, rdb, sts.events, arch012Event("not-a-date", eventID))
 	msg := arch012Claim(ctx, t, rdb, sts.events, sts.group, sts.consumer, srcID)
 
-	// 注入重入队失败：换 rdb 为拒绝 XAdd 的客户端。
+	// Inject the requeue failure: swap rdb for a client that rejects XAdd.
 	wA.rdb = deadRedisClientV9()
 	err := wA.processMessage(ctx, sts.events, msg)
 	require.Error(t, err, "requeue failure must surface (message not acked)")
 
-	// 不变量：消息留在真实 PEL、无 ClickHouse 行、无死信 —— 未被静默丢弃。
+	// Invariant: the message stays in the real PEL, no ClickHouse row, no dead
+	// letter — it was not silently dropped.
 	require.Equal(t, 1, arch012PendingLen(ctx, t, rdb, sts.events, sts.group), "message must stay pending on requeue failure")
 	require.Equal(t, 0, arch012EventRows(ctx, t, conn, eventID), "no row for rejected payload")
 	require.Zero(t, rdb.XLen(ctx, sts.deadEvents).Val(), "not dead-lettered (retryable)")
 
-	// 恢复：真实 redis 的 reclaim 能取回它（重入队成功后不再静默丢失）。
+	// Recovery: reclaim against the real Redis can pick it back up (no more
+	// silent loss once the requeue succeeds).
 	wA.rdb = rdb
 	wB := arch012Worker(t, redisAddr, sts)
 	arch012Reclaim(ctx, t, wB, rdb, sts.events)
-	// 非法 payload 会再次被拒 → 重入队成功 → 源 ACK + retry 副本入流，最终不丢。
+	// The invalid payload is rejected again -> the requeue succeeds -> the source
+	// is ACKed + a retry copy enters the stream; nothing is lost in the end.
 	require.Zero(t, arch012PendingLen(ctx, t, rdb, sts.events, sts.group), "reclaim recovered the pending message")
 }

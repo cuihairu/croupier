@@ -6,9 +6,10 @@ import (
 	"os"
 )
 
-// 可注入缝隙：生产路径等价于直接调用 newRedisFromEnv / newKafkaFromEnv。
-// 两个构造函数唯一返回形态为 (非 nil Queue, nil)，下方 (err != nil) 与
-// (q == nil) 防御分支仅在注入故障时可触达。
+// Injectable seam: the production path is equivalent to calling
+// newRedisFromEnv / newKafkaFromEnv directly. Both constructors' only return
+// shape is (non-nil Queue, nil), so the (err != nil) and (q == nil) defensive
+// branches below are reachable only when a fault is injected.
 var (
 	newRedisFromEnvFn = newRedisFromEnv
 	newKafkaFromEnvFn = newKafkaFromEnv

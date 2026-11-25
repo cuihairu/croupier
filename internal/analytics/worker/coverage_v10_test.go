@@ -11,15 +11,18 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// V10 helpers: go-redis ProcessHook 注入，伪造服务端异常响应
+// V10 helpers: go-redis ProcessHook injection, faking server-side error responses
 // ---------------------------------------------------------------------------
 
-// hookV10 按命令名注入故障：
-//   - failAck:     XACK 恒失败（模拟 ack 异常，覆盖 Run/reclaim 内 processMessage 错误分支）
-//   - okSetID:     XGROUP SETID 恒成功（miniredis 未实现该命令，伪造成功以覆盖 lastIDs 赋值）
-//   - failPending: XPENDING EXT 恒失败
-//   - failClaim:   XAUTOCLAIM 恒失败
-//   - pfCountNeg:  PFCOUNT 恒返回 -5（伪造服务端异常值，覆盖 n<0 防御分支）
+// hookV10 injects faults by command name:
+//   - failAck:     XACK always fails (simulates an ack anomaly, covering the
+//     processMessage error branches inside Run/reclaim)
+//   - okSetID:     XGROUP SETID always succeeds (miniredis does not implement this
+//     command; faking success covers the lastIDs assignment)
+//   - failPending: XPENDING EXT always fails
+//   - failClaim:   XAUTOCLAIM always fails
+//   - pfCountNeg:  PFCOUNT always returns -5 (a faked server-side error value,
+//     covering the n<0 defensive branch)
 type hookV10 struct {
 	failAck     bool
 	okSetID     bool
@@ -66,8 +69,8 @@ func (h hookV10) ProcessHook(next redis.ProcessHook) redis.ProcessHook {
 	}
 }
 
-// addPendingMessageV10 在 stream 上制造一条属于 stale 消费者的 pending 消息，
-// 并把 miniredis 时钟推进 10 分钟（idle ≥ pendingIdleTimeout）。
+// addPendingMessageV10 creates a pending message owned by a stale consumer on
+// the stream and advances the miniredis clock by 10 minutes (idle >= pendingIdleTimeout).
 func addPendingMessageV10(t *testing.T, w *Worker, mr *miniredis.Miniredis) {
 	t.Helper()
 	ctx := context.Background()
@@ -83,7 +86,7 @@ func addPendingMessageV10(t *testing.T, w *Worker, mr *miniredis.Miniredis) {
 }
 
 // ---------------------------------------------------------------------------
-// Run 循环：processMessage 返回错误（XAck 失败）→ slog.Warn 分支
+// Run loop: processMessage returns an error (XAck fails) -> slog.Warn branch
 // ---------------------------------------------------------------------------
 
 func TestRunProcessMessageErrorWarnV10(t *testing.T) {
@@ -100,7 +103,8 @@ func TestRunProcessMessageErrorWarnV10(t *testing.T) {
 	done := make(chan error, 1)
 	go func() { done <- w.Run(runCtx) }()
 
-	// XAck 恒失败 → 消息处理完成后留在 PEL（即 Run 内 processMessage 已返回错误）。
+	// XAck always fails -> the message stays in the PEL after processing
+	// (i.e. processMessage inside Run has already returned an error).
 	deadline := time.Now().Add(5 * time.Second)
 	for {
 		p, err := w.rdb.XPending(context.Background(), w.streamEvents, w.group).Result()
@@ -113,7 +117,7 @@ func TestRunProcessMessageErrorWarnV10(t *testing.T) {
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
-	// 失败路径不写 checkpoint。
+	// The failure path does not write a checkpoint.
 	if n, _ := w.rdb.Exists(context.Background(), w.checkpointPrefix+":"+w.streamEvents).Result(); n != 0 {
 		t.Error("checkpoint must not be persisted when ack fails")
 	}
@@ -130,7 +134,7 @@ func TestRunProcessMessageErrorWarnV10(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// restoreCheckpoints：XGroupSetID 成功 → lastIDs[stream] = id
+// restoreCheckpoints: XGroupSetID succeeds -> lastIDs[stream] = id
 // ---------------------------------------------------------------------------
 
 func TestRestoreCheckpointSetIDSuccessV10(t *testing.T) {
@@ -147,7 +151,7 @@ func TestRestoreCheckpointSetIDSuccessV10(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// reclaim：XPendingExt 失败 + 孤儿消息认领后 XAck 失败
+// reclaim: XPendingExt fails + XAck fails after claiming an orphaned message
 // ---------------------------------------------------------------------------
 
 func TestReclaimPendingExtFailThenOrphanAckFailV10(t *testing.T) {
@@ -157,7 +161,7 @@ func TestReclaimPendingExtFailThenOrphanAckFailV10(t *testing.T) {
 
 	w.reclaimPendingFromStream(context.Background(), w.streamEvents)
 
-	// 孤儿路径认领成功但 ack 失败 → 消息仍在 PEL。
+	// The orphan path claimed successfully but ack failed -> the message is still in the PEL.
 	p, err := w.rdb.XPending(context.Background(), w.streamEvents, w.group).Result()
 	if err != nil {
 		t.Fatal(err)
@@ -168,7 +172,7 @@ func TestReclaimPendingExtFailThenOrphanAckFailV10(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// reclaim：XAutoClaim 失败（pending 循环内 + 孤儿路径）
+// reclaim: XAutoClaim fails (inside the pending loop + the orphan path)
 // ---------------------------------------------------------------------------
 
 func TestReclaimAutoClaimFailV10(t *testing.T) {
@@ -178,7 +182,7 @@ func TestReclaimAutoClaimFailV10(t *testing.T) {
 
 	w.reclaimPendingFromStream(context.Background(), w.streamEvents)
 
-	// 认领全部失败 → 消息保留在 PEL，且不写 checkpoint。
+	// All claims failed -> the message stays in the PEL, and no checkpoint is written.
 	p, err := w.rdb.XPending(context.Background(), w.streamEvents, w.group).Result()
 	if err != nil {
 		t.Fatal(err)
@@ -192,7 +196,8 @@ func TestReclaimAutoClaimFailV10(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// reclaim：认领成功后 processMessage 失败（XAck 失败）→ claimed 循环 Warn
+// reclaim: after a successful claim, processMessage fails (XAck fails) -> Warn in
+// the claimed loop
 // ---------------------------------------------------------------------------
 
 func TestReclaimClaimedProcessErrorV10(t *testing.T) {
@@ -212,7 +217,8 @@ func TestReclaimClaimedProcessErrorV10(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// flush：PFCount 返回负数 → n<0 防御分支（置 0 后仍成功写入）
+// flush: PFCount returns a negative number -> the n<0 defensive branch (writing
+// still succeeds after it is clamped to 0)
 // ---------------------------------------------------------------------------
 
 func TestFlushNegativePFCountV10(t *testing.T) {

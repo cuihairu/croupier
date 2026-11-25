@@ -11,8 +11,8 @@ import (
 	kafka "github.com/segmentio/kafka-go"
 )
 
-// kafkaWriter 是 kafkaQueue 对 kafka.Writer 的最小依赖接口缝隙，
-// 便于测试注入 Close / WriteMessages 故障。
+// kafkaWriter is kafkaQueue's minimal dependency interface seam on kafka.Writer,
+// so tests can inject Close / WriteMessages failures.
 type kafkaWriter interface {
 	WriteMessages(ctx context.Context, msgs ...kafka.Message) error
 	Close() error

@@ -6,11 +6,13 @@ import (
 	"time"
 )
 
-// 时区无关回归：事件 ts 带非 UTC offset（+09:30）时，minute-online 分桶
-// 必须仍归一到正确的 UTC 分钟并被 flush。写入侧若按事件 offset（或本地
-// 时区 fallback）渲染 hll key，flush 侧 time.Parse（恒 UTC）会与 key 错开
-// 一个时区偏移，t.Before(nowMin) 永假，非 UTC 部署上 minute_online 永不
-// 落库（993cb65 审计时间窗同族；本用例在任意机器时区下均应通过）。
+// Timezone-independent regression: when an event ts carries a non-UTC offset (+09:30),
+// minute-online bucketing must still normalize to the correct UTC minute and be flushed.
+// If the write side rendered the hll key using the event's own offset (or a local-timezone
+// fallback), the flush side's time.Parse (always UTC) would be off from the key by one
+// timezone offset, t.Before(nowMin) would never hold, and minute_online would never land
+// in the database on non-UTC deployments (same family as the 993cb65 audit time-window
+// issue; this case must pass under any machine timezone).
 func TestTouchAggFlushOffsetIndependentMinute(t *testing.T) {
 	w, _ := testWorker(t)
 	zone := time.FixedZone("FIXED", 9*60*60+30*60)
@@ -31,7 +33,7 @@ func TestTouchAggFlushOffsetIndependentMinute(t *testing.T) {
 		t.Fatalf("flush = %v", err)
 	}
 	if len(w.touchedMinutes) != 0 {
-		t.Fatalf("minute key not flushed; touchedMinutes=%v (写入侧未归一 UTC?)", w.touchedMinutes)
+		t.Fatalf("minute key not flushed; touchedMinutes=%v (write side not normalized to UTC?)", w.touchedMinutes)
 	}
 	mc := getMockConn(t, w)
 	if mc.batch == nil || mc.batch.Rows() != 1 {
@@ -52,7 +54,7 @@ func TestTouchAggFlushOffsetIndependentMinute(t *testing.T) {
 	}
 	want := now.Add(-2 * time.Minute).UTC()
 	if !got.Equal(want) {
-		t.Fatalf("minute_online m = %v, want %v (必须 UTC 分钟)", got, want)
+		t.Fatalf("minute_online m = %v, want %v (must be the UTC minute)", got, want)
 	}
 }
 

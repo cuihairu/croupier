@@ -11,15 +11,16 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-// recordingConn 是并发安全的 mock ClickHouse 连接：每次 PrepareBatch 返回
-// 新 batch，Send 时把 daily_revenue 的行记录到 conn 统计，供 DATA-014 的
-// 「固定样本核对总量」验证（已 flush + revAgg 剩余 = 总写入）。
+// recordingConn is a concurrency-safe mock ClickHouse connection: each
+// PrepareBatch returns a fresh batch, and Send records the daily_revenue
+// rows into the conn counters, feeding DATA-014's "fixed sample versus total"
+// cross-check (flushed + revAgg remainder == total written).
 type recordingConn struct {
 	mu      sync.Mutex
-	revSent uint64 // 已 Send 的 revenue_cents 累计
+	revSent uint64 // revenue_cents already Sent
 	refunds uint64
 	failed  uint64
-	dailyN  int // daily_revenue 行数
+	dailyN  int // number of daily_revenue rows
 }
 
 func (c *recordingConn) PrepareBatch(ctx context.Context, query string, opts ...driver.PrepareBatchOption) (driver.Batch, error) {
@@ -61,7 +62,7 @@ func (b *recordingBatch) Columns() []column.Interface   { return nil }
 func (b *recordingBatch) Close() error                  { return nil }
 
 func (b *recordingBatch) Send() error {
-	// daily_revenue 行格式：(d, game_id, env, revenue_cents, refunds_cents, failed, version)
+	// daily_revenue row shape: (d, game_id, env, revenue_cents, refunds_cents, failed, version)
 	if b.query == "INSERT INTO analytics.daily_revenue (d, game_id, env, revenue_cents, refunds_cents, failed, version)" {
 		b.conn.mu.Lock()
 		for _, r := range b.rows {
@@ -99,9 +100,10 @@ func toUint64(v any) uint64 {
 	return 0
 }
 
-// TestSharedState_ConcurrentRevAggNoLoss 验证 DATA-014 的「固定样本核对总量」：
-// 并发 commitRevenue（写 revAgg）与 flush（读+删）下，已发送 revenue 与
-// revAgg 剩余之和恒等于总写入，不丢不重。
+// TestSharedState_ConcurrentRevAggNoLoss verifies DATA-014's "fixed sample
+// versus total" cross-check: with concurrent commitRevenue (writing revAgg)
+// and flush (read+delete), sent revenue plus the revAgg remainder always
+// equals the total written — nothing lost, nothing duplicated.
 func TestSharedState_ConcurrentRevAggNoLoss(t *testing.T) {
 	w := &Worker{
 		rdb:            newTestRedisClient(t),
@@ -115,7 +117,7 @@ func TestSharedState_ConcurrentRevAggNoLoss(t *testing.T) {
 
 	const writers = 8
 	const perWriter = 25
-	const total = writers * perWriter // 每笔 success 100 分 → 期望 revenue = total*100
+	const total = writers * perWriter // 100 cents per success -> expected revenue = total*100
 
 	var wg sync.WaitGroup
 	for i := 0; i < writers; i++ {
@@ -127,7 +129,8 @@ func TestSharedState_ConcurrentRevAggNoLoss(t *testing.T) {
 			}
 		}()
 	}
-	// 并发 flush 读+删，验证同步所有权下不丢不重。
+	// Concurrent flush read+delete, checking for no loss and no duplication
+	// under synchronized ownership.
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -153,8 +156,10 @@ func TestSharedState_ConcurrentRevAggNoLoss(t *testing.T) {
 	}
 }
 
-// #656：flush daily_users 时 Redis PFCount 出错不得以 0 覆写当日真实 DAU
-// （ReplacingMergeTree 按 version 取代）；应把该 day 合并回共享 map 下次重试。
+// #656: when Redis PFCount errors out during the daily_users flush, the real
+// DAU of the day must not be overwritten with 0 (ReplacingMergeTree replaces
+// by version); the day should be merged back into the shared map and retried
+// next time.
 func TestFlush_DailyUsersPFCntErrorRemerges(t *testing.T) {
 	mr, err := miniredis.Run()
 	if err != nil {
@@ -171,15 +176,17 @@ func TestFlush_DailyUsersPFCntErrorRemerges(t *testing.T) {
 		revAgg:         map[string]*revRow{},
 		clickBatchSize: 500,
 	}
-	// 模拟 PFCount 失败（miniredis 无该 key 时 PFCount 返回 0；改以 Close 使
-	// Redis 不可达，触发错误路径）。构造一个已关闭的客户端模拟 Redis 错误。
+	// Simulate a PFCount failure (miniredis returns 0 for a missing key, so
+	// instead Close is used to make Redis unreachable and trigger the error
+	// path). A closed client stands in for the Redis error.
 	bad := redis.NewClient(&redis.Options{Addr: mr.Addr()})
 	_ = bad.Close()
 	w.rdb = bad
 
 	_ = w.flush(context.Background())
 
-	// 失败路径应把 day 合并回共享 map（不丢、不写 0 行）。
+	// The failure path should merge the day back into the shared map
+	// (no loss, and no 0 row written).
 	w.aggMu.Lock()
 	_, remerged := w.touchedDays["2025-06-15|g1|e1"]
 	w.aggMu.Unlock()

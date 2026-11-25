@@ -35,20 +35,23 @@ const (
 	maxPendingRetries  = 3
 )
 
-// shutdownTimeout / finalFlushTimeout 是 Run 退出序列的有界等待上限（默认
-// 与生产行为一致），作为可注入缝隙供测试缩短以覆盖阻塞刷新与最终 flush
-// 的截止分支（DATA-015）。
+// shutdownTimeout / finalFlushTimeout are the bounded wait limits of the Run
+// exit sequence (defaults match production behavior); they are injectable
+// seams that tests can shorten to cover the blocking-flush and final-flush
+// deadline branches (DATA-015).
 var (
 	shutdownTimeout   = 5 * time.Second
 	finalFlushTimeout = 10 * time.Second
 )
 
-// pendingReclaimInterval 是回收循环的心跳间隔（默认与生产行为一致），
-// 作为可注入缝隙供测试缩短以覆盖 ticker 分支。
+// pendingReclaimInterval is the heartbeat interval of the reclaim loop
+// (default matches production behavior); an injectable seam that tests can
+// shorten to cover the ticker branch.
 var pendingReclaimInterval = 30 * time.Second
 
-// runFlushInterval 是 Run 周期 flush 的心跳间隔（默认与生产行为一致），
-// 作为可注入缝隙供测试缩短以覆盖 ticker 分支。
+// runFlushInterval is the heartbeat interval of Run's periodic flush
+// (default matches production behavior); an injectable seam that tests can
+// shorten to cover the ticker branch.
 var runFlushInterval = 15 * time.Second
 
 // ackRef tracks a Redis stream message whose row has been appended to an
@@ -137,10 +140,12 @@ func NewWorker() (*Worker, error) {
 	if err != nil {
 		return nil, fmt.Errorf("parse clickhouse dsn: %w", err)
 	}
-	// ParseDSN 恒产出非空 Addr（DSN 缺 host 时直接报 "parse dsn address
-	// failed"），空 Addr 兜底分支不可达，已删除。
-	// clickhouse-go v2.43.0 的 Open 无条件构造连接对象返回 nil error
-	// （懒连接，不做任何可失败的校验），error 分支不可达，已删除。
+	// ParseDSN always yields a non-empty Addr (a DSN missing its host fails
+	// outright with "parse dsn address failed"), so the empty-Addr fallback
+	// branch is unreachable and has been removed.
+	// clickhouse-go v2.43.0's Open unconditionally constructs the connection
+	// object and returns a nil error (lazy connect, no fallible validation),
+	// so the error branch is unreachable and has been removed.
 	ch, _ := clickhouse.Open(opts)
 	batchSize := 500
 	if v := strings.TrimSpace(os.Getenv("ANALYTICS_CLICKHOUSE_BATCH")); v != "" {
@@ -179,9 +184,11 @@ func (w *Worker) ensureGroups(ctx context.Context) {
 
 func (w *Worker) Run(ctx context.Context) error {
 	w.ensureGroups(ctx)
-	// workerCtx 派生自 WithoutCancel(ctx)：Run 返回后子协程仍可安全地完成
-	// 在途刷新/回收，随后由下面的等待顺序收束；父 ctx 取消只负责让主循环
-	// 停止读取新消息，不直接杀死仍在刷新 ClickHouse 的子协程。
+	// workerCtx derives from WithoutCancel(ctx): after Run returns the child
+	// goroutines can still safely finish in-flight flush/reclaim work, which
+	// the wait sequence below then joins; canceling the parent ctx only stops
+	// the main loop from reading new messages, without killing a goroutine
+	// that is still flushing ClickHouse.
 	workerCtx, stopWorkers := context.WithCancel(context.WithoutCancel(ctx))
 	defer stopWorkers()
 
@@ -196,8 +203,9 @@ func (w *Worker) Run(ctx context.Context) error {
 			case <-workerCtx.Done():
 				return
 			case <-ticker.C:
-				// flush 实现恒返回 nil（内部各失败路径均以 slog.Warn
-				// 记录后继续），err 分支不可达。
+				// The flush implementation always returns nil (every internal
+				// failure path is logged with slog.Warn and continues), so the
+				// err branch is unreachable.
 				w.flush(workerCtx)
 			}
 		}
@@ -242,20 +250,26 @@ func (w *Worker) Run(ctx context.Context) error {
 		}
 	}
 
-	// 有界退出顺序（DATA-015）：先停子协程（stopWorkers），再以
-	// shutdownTimeout 上界等它们完成在途刷新/回收，最后以带截止的独立
-	// flush 把剩余 pending 批次与聚合状态落盘。不再读 worker/测试配置
-	// （runFlushInterval 已固定为当前值），且不在刷新未结束时关资源。
+	// Bounded exit ordering (DATA-015): first stop the child goroutines
+	// (stopWorkers), then wait for them to finish in-flight flush/reclaim work
+	// with shutdownTimeout as the upper bound, and finally persist the remaining
+	// pending batches and aggregate state with a separate deadline-bounded
+	// flush. Worker/test configuration is no longer consulted (runFlushInterval
+	// is pinned to its current value), and resources are not closed while a
+	// flush is still running.
 	stopWorkers()
 	skipFinalFlush := false
 	if !waitGroupBounded(&flushWG, shutdownTimeout) {
 		slog.Warn("flush goroutine exceeded shutdown timeout", "timeout", shutdownTimeout)
-		// 审核发现 727：周期 flush 仍在执行时，如果此时再启动最终 flush，
-		// 两个 flush 会并发执行——aggMu 只保护共享状态转移，ClickHouse I/O
-		// 在锁外，同 key 双写会产生重复/竞态。正确做法：最终 flush 只在
-		// 周期 flush goroutine 已完全退出后才执行；如果它卡死超时，宁可
-		// 放弃本次最终 flush（剩余数据仍留在 Redis stream pending，由重启
-		// 后的 worker 继续处理），也不能并发双写。
+		// Review finding 727: if the periodic flush is still running and the
+		// final flush is started now, the two flushes execute concurrently --
+		// aggMu only protects the shared state transition, while ClickHouse I/O
+		// happens outside the lock, so double-writing the same key produces
+		// duplicates/races. Correct approach: run the final flush only after the
+		// periodic flush goroutine has fully exited; if it is stuck and times
+		// out, prefer dropping this final flush (the remaining data still sits in
+		// the Redis stream as pending for the restarted worker to pick up) over
+		// concurrent double-writing.
 		skipFinalFlush = true
 	}
 	if !waitGroupBounded(&reclaimWG, shutdownTimeout) {
@@ -266,9 +280,11 @@ func (w *Worker) Run(ctx context.Context) error {
 	}
 
 	flushCtx, cancelFlush := context.WithTimeout(context.WithoutCancel(ctx), finalFlushTimeout)
-	// cancelFlush 也作为阻塞 Send() 不吃 ctx 的兜底退出信号：主流程超时
-	// 返回后，后台 flush Goroutine仍能在 defer cancelFlush 时解除测试/
-	// 生产自持有锁的等待，不再永久泄漏。
+	// cancelFlush also serves as the fallback exit signal for a blocking
+	// Send() that does not honor ctx: after the main flow returns on timeout,
+	// the background flush goroutine can still release a test/production
+	// self-held lock wait when defer cancelFlush fires, so it no longer leaks
+	// permanently.
 	defer cancelFlush()
 	flushDone := make(chan struct{})
 	flushDoneWG := &sync.WaitGroup{}

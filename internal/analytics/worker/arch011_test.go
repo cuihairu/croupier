@@ -11,15 +11,17 @@ import (
 )
 
 // ===========================================================================
-// ARCH-011 — 分析 worker 持久化后确认（deferred XACK）
+// ARCH-011 — analytics worker acknowledgement after persistence (deferred XACK)
 //
-// 核心不变量：消息在 ClickHouse 批次 Send() 成功之前不得 XACK。消息行只被
-// append 进内存批次时仍保持 PENDING；Send 失败时批次与其 ack refs 一并
-// 丢弃，消息留在 PENDING 由 reclaim 重投（天然幂等，raw 表无服务端去重，
-// 消费端以 event_id/order_id 为去重键）。
+// Core invariant: a message must not be XACKed before the ClickHouse batch
+// Send() succeeds. While a message row is merely appended into the in-memory
+// batch it stays PENDING; when Send fails the batch and its ack refs are
+// dropped together, leaving the message PENDING for reclaim to redeliver
+// (naturally idempotent — the raw tables have no server-side dedup, and the
+// consumer dedups by event_id/order_id).
 // ===========================================================================
 
-// appendEventRow 记录 ackRef，且不立即 ACK（消息保持 PENDING）。
+// appendEventRow records an ackRef without ACKing immediately (message stays PENDING).
 func TestAppendEventRow_RecordsAckRef(t *testing.T) {
 	w, _ := testWorker(t)
 	ctx := context.Background()
@@ -38,7 +40,7 @@ func TestAppendEventRow_RecordsAckRef(t *testing.T) {
 	}
 }
 
-// appendPaymentRow 记录 payment ackRef，且不立即 ACK。
+// appendPaymentRow records a payment ackRef without ACKing immediately.
 func TestAppendPaymentRow_RecordsAckRef(t *testing.T) {
 	w, _ := testWorker(t)
 	ctx := context.Background()
@@ -57,7 +59,8 @@ func TestAppendPaymentRow_RecordsAckRef(t *testing.T) {
 	}
 }
 
-// 批次 Send 成功后 ACK 其 refs 并推进 checkpoint；此前消息保持 PENDING。
+// After a successful batch Send, its refs are ACKed and the checkpoint advances;
+// before that the message stays PENDING.
 func TestFlushEventBatch_AcksRefsAfterSend(t *testing.T) {
 	w, _ := testWorker(t)
 	ctx := context.Background()
@@ -113,8 +116,9 @@ func TestFlushEventBatch_AcksRefsAfterSend(t *testing.T) {
 	}
 }
 
-// advanceCheckpoint 必须单调：后 flush 的消息先 ACK 后，再 ACK 较早消息不得
-// 回退高水位（否则重启后会重读已解析消息）。
+// advanceCheckpoint must be monotonic: after the later-flushed message is ACKed,
+// ACKing an earlier message must not regress the high-water mark (otherwise a
+// restart would re-read already-processed messages).
 func TestAdvanceCheckpoint_Monotonic(t *testing.T) {
 	w, _ := testWorker(t)
 	ctx := context.Background()
@@ -131,7 +135,8 @@ func TestAdvanceCheckpoint_Monotonic(t *testing.T) {
 	}
 }
 
-// requeue XAdd 失败时必须返回错误且不 ACK——否则原消息被确认后其行从未落库。
+// A failed requeue XAdd must return an error and not ACK — otherwise the original
+// message gets confirmed although its row never landed in the database.
 func TestProcessMessage_RequeueFailureNoAck(t *testing.T) {
 	w, _ := testWorker(t)
 	w.rdb = deadRedisClientV9()
@@ -148,8 +153,8 @@ func TestProcessMessage_RequeueFailureNoAck(t *testing.T) {
 	}
 }
 
-// dead-letter XAdd 失败时必须返回错误且不 ACK——否则原消息被确认后其行从未
-// 进入死信流。
+// A failed dead-letter XAdd must return an error and not ACK — otherwise the
+// original message gets confirmed although its row never entered the dead-letter stream.
 func TestProcessMessage_DeadLetterFailureNoAck(t *testing.T) {
 	w, _ := testWorker(t)
 	w.rdb = deadRedisClientV9()
@@ -160,7 +165,8 @@ func TestProcessMessage_DeadLetterFailureNoAck(t *testing.T) {
 	}
 }
 
-// requeue 成功时 ACK 原消息（其行重投到 retry 副本），retry 副本留在流中。
+// A successful requeue ACKs the original message (its row is redelivered as a
+// retry copy), leaving the retry copy in the stream.
 func TestProcessMessage_RequeueSuccessAcksOriginal(t *testing.T) {
 	w, _ := testWorker(t)
 	ctx := context.Background()

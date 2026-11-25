@@ -17,8 +17,9 @@ func TestFlushDailyAggregatesAttempted(t *testing.T) {
 		"game_id": "e2e-game", "env": "dev", "user_id": "u1",
 		"event": "login", "ts": now.Format(time.RFC3339),
 	})
-	// touchRevenue 已移除（896de78e 后由 commitRevenue 在批 Send 成功时提交）；
-	// 这里直接填充 revAgg 以覆盖 flush 消费 daily_revenue 的路径。
+	// touchRevenue has been removed (since 896de78e, commitRevenue commits when the batch
+	// Send succeeds); fill revAgg directly here to cover the flush path that consumes
+	// daily_revenue.
 	w.revAgg[now.UTC().Format("2006-01-02")+"|e2e-game|dev"] = &revRow{revenue: 100}
 
 	if len(w.touchedDays) != 1 {
@@ -43,13 +44,13 @@ func TestFlushDailyAggregatesAttempted(t *testing.T) {
 func TestNormalizeTimestamp(t *testing.T) {
 	now := time.Now().Format("2006-01-02 15:04:05")
 	cases := []struct{ in, want string }{
-		{"", now}, // 空 → 当前时间（仅比对布局）
+		{"", now}, // empty -> current time (only the layout is compared)
 		{"2026-08-24T03:02:55Z", "2026-08-24 03:02:55"},
 		{"2026-08-24T11:02:55+08:00", "2026-08-24 03:02:55"},
-		{"2026-08-24 03:02:55", "2026-08-24 03:02:55"}, // 已是目标布局
+		{"2026-08-24 03:02:55", "2026-08-24 03:02:55"}, // already in the target layout
 		{"1787540575", time.Unix(1787540575, 0).UTC().Format("2006-01-02 15:04:05")},
-		{"1787540575000", time.Unix(1787540575, 0).UTC().Format("2006-01-02 15:04:05")}, // 毫秒
-		{"garbage", "garbage"}, // 未知格式透传（CH Append 报错走死信）
+		{"1787540575000", time.Unix(1787540575, 0).UTC().Format("2006-01-02 15:04:05")}, // milliseconds
+		{"garbage", "garbage"}, // unknown formats pass through (CH Append errors -> dead letter)
 	}
 	for _, tc := range cases {
 		got := normalizeTimestamp(tc.in)

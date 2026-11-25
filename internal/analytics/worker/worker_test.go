@@ -1199,7 +1199,8 @@ func TestFlush_RevAgg_SendError(t *testing.T) {
 
 func TestFlush_TouchedMinute_ValidKey(t *testing.T) {
 	w, _ := testWorker(t)
-	// key 墙钟串与 flush 侧 time.Parse 同为 UTC 基准（worker 写入侧归一 UTC）。
+	// The key's wall-clock string and the flush-side time.Parse share the same UTC baseline
+	// (the worker write side normalizes to UTC).
 	pastTime := time.Now().UTC().Add(-2 * time.Minute).Truncate(time.Minute)
 	k := fmt.Sprintf("hll:online:g1:prod:%s", pastTime.Format("200601021504"))
 	w.touchedMinutes[k] = struct{}{}

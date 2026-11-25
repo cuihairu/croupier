@@ -1,15 +1,17 @@
 package worker
 
-// worker.go 补测：Run 消费循环的 processMessage 错误告警臂（241）——经
-// redis hook 只让死信流 XAdd 失败（XReadGroup 与其余命令照常），令
-// retry 耗尽的 pending 消息在死信投递处返回错误，从而驱动
-// slog.Warn("process message", ...) 分支。先前诚实跳过记录该臂为
-// miniredis harness 限制，实际以「定向失败 hook」可稳定触达。
+// Additional coverage for worker.go: the processMessage error-warning arm (241) of the
+// Run consume loop — using a redis hook that fails only the dead-letter stream XAdd
+// (XReadGroup and the remaining commands behave normally), a pending message whose
+// retries are exhausted returns an error at dead-letter delivery, which drives the
+// slog.Warn("process message", ...) branch. The earlier honest skip recorded this arm as a
+// miniredis harness limitation; a "targeted failure hook" reaches it reliably instead.
 //
-// 诚实跳过（维持先前 judgment，时序竞速不可稳定触发）：Run 停机路径的
-// reclaim 协程超时告警（264-265）与最终 flush 超时两臂（286-287、
-// 289-290）——均需子协程真实慢于 shutdownTimeout/finalFlushTimeout 的
-// 调度时序，测试时长与稳定性不可控。
+// Honest skips (keeping the earlier judgment — the timing race cannot be triggered
+// stably): the reclaim goroutine timeout warning (264-265) on Run's shutdown path and
+// the two final-flush timeout arms (286-287, 289-290) — both need the child goroutine to
+// actually run slower than shutdownTimeout/finalFlushTimeout scheduling-wise, and the test
+// duration and stability are uncontrollable.
 
 import (
 	"context"
@@ -21,7 +23,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// deadStreamFailHook 只对死信流的 xadd 强制失败（其余命令透传）。
+// deadStreamFailHook forces failure only for xadd on the dead-letter stream (other
+// commands pass through).
 type deadStreamFailHook struct {
 	stream string
 	err    error
@@ -43,14 +46,16 @@ func (h deadStreamFailHook) ProcessHook(next redis.ProcessHook) redis.ProcessHoo
 func TestRunProcessMessageErrorWarnViaDeadLetterFail(t *testing.T) {
 	w, _ := testWorker(t)
 	w.rdb.AddHook(deadStreamFailHook{stream: w.deadEventsStream, err: errors.New("dead stream down")})
-	// ClickHouse 落库失败 + retry 耗尽 → 死信投递（XAdd 被 hook 拒绝）→
-	// processMessage 返回错误（非内部告警），Run 循环走 241 分支。
+	// ClickHouse write failure + retries exhausted -> dead-letter delivery (XAdd refused by
+	// the hook) -> processMessage returns an error (not an internal warning), taking the
+	// Run loop's branch at 241.
 	w.ch = &stubConnV9{mockConn: &mockConn{}, prepareErr: errors.New("ch down")}
 
 	ctx := context.Background()
 	w.rdb.XGroupCreateMkStream(ctx, w.streamEvents, w.group, "0")
 	w.rdb.XGroupCreateMkStream(ctx, w.streamPayments, w.group, "0")
-	// retry 耗尽 → 死信投递 → XAdd 被 hook 拒绝 → processMessage 返回错误
+	// retries exhausted -> dead-letter delivery -> XAdd refused by the hook -> processMessage
+	// returns an error
 	w.rdb.XAdd(ctx, &redis.XAddArgs{Stream: w.streamEvents, Values: map[string]any{
 		"data":        `{"ts":"2026-11-09T10:00:00Z","game_id":"demo","env":"prod","user_id":"u1","retry_count":5}`,
 		"retry_count": float64(5),
@@ -60,7 +65,8 @@ func TestRunProcessMessageErrorWarnViaDeadLetterFail(t *testing.T) {
 	done := make(chan error, 1)
 	go func() { done <- w.Run(runCtx) }()
 
-	// 死信投递失败 → 不 ack → 消息留在 PEL（即 Run 内 processMessage 已返回错误）
+	// Dead-letter delivery fails -> no ack -> the message stays in the PEL (i.e.
+	// processMessage inside Run has already returned an error)
 	deadline := time.Now().Add(5 * time.Second)
 	for {
 		p, err := w.rdb.XPending(context.Background(), w.streamEvents, w.group).Result()

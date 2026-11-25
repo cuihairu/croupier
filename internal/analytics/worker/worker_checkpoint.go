@@ -99,9 +99,11 @@ func (w *Worker) processMessage(ctx context.Context, stream string, msg redis.XM
 			return w.ackImmediate(ctx, stream, msg)
 		}
 		// Increment retry count and re-queue
-		// 归一化：无论原值类型，重试计数都写为 float64（JSON 数字），避免
-		// 下一次 processMessage 再走非 float64 分支（asRetryCount 已兜底，
-		// 但保持消息自洽，重试计数真实推进）。
+		// Normalization: regardless of the original value type, the retry
+		// count is written back as float64 (a JSON number) so the next
+		// processMessage does not take the non-float64 branch again
+		// (asRetryCount already falls back, but keeping the message
+		// self-consistent makes the retry count genuinely advance).
 		m["retry_count"] = float64(retries + 1)
 		retryData, _ := json.Marshal(m)
 		if rerr := w.rdb.XAdd(ctx, &redis.XAddArgs{

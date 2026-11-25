@@ -4,17 +4,19 @@ import (
 	"testing"
 )
 
-// 以下测试文档化 factory.go / kafka_pub.go 中不可达的防御分支：
+// The tests below document the unreachable defensive branches in
+// factory.go / kafka_pub.go:
 //
-//  1. factory.go:26/29：newRedisFromEnv 唯一返回语句为
-//     `return NewRedis(...), nil`，error 恒为 nil；NewRedis 解析失败时降级为
-//     NewNoop()（非 nil），成功时返回 &redisQueue{}。因此 (err != nil) 与
-//     (q == nil) 两个分支均不可触发。
-//  2. factory.go:35/38：newKafkaFromEnv 唯一返回语句为 `return q, nil`，
-//     NewKafka 在 brokers 为空时返回 NewNoop()（非 nil），否则返回
-//     &kafkaQueue{}（非 nil），两个分支同样不可触发。
-//  3. kafka_pub.go:50/55：kafka-go v0.4.50 的 Writer.Close 无条件
-//     `return nil`，Close 错误分支不可触发。
+//  1. factory.go:26/29: newRedisFromEnv's only return statement is
+//     `return NewRedis(...), nil`, so the error is always nil; NewRedis degrades to
+//     NewNoop() (non-nil) when parsing fails, and returns &redisQueue{} on
+//     success. Therefore neither the (err != nil) nor the
+//     (q == nil) branch can ever be triggered.
+//  2. factory.go:35/38: newKafkaFromEnv's only return statement is `return q, nil`;
+//     NewKafka returns NewNoop() (non-nil) when brokers is empty and
+//     otherwise returns &kafkaQueue{} (non-nil), so both branches are equally unreachable.
+//  3. kafka_pub.go:50/55: kafka-go v0.4.50's Writer.Close unconditionally
+//     `return nil`s, so the Close error branch cannot be triggered.
 func TestNewRedisFromEnv_NeverReturnsErrorOrNil(t *testing.T) {
 	t.Setenv("REDIS_URL", "://not-a-redis-url")
 	q, err := newRedisFromEnv()
@@ -51,7 +53,7 @@ func TestKafkaQueue_CloseAlwaysNil(t *testing.T) {
 	if err := q.Close(); err != nil {
 		t.Fatalf("kafka Writer.Close in kafka-go v0.4.50 always returns nil, got %v", err)
 	}
-	// 二次 Close 仍然为 nil：Writer.Close 的 closeOnce 语义。
+	// A second Close is still nil: the closeOnce semantics of Writer.Close.
 	if err := q.Close(); err != nil {
 		t.Fatalf("second Close should also be nil, got %v", err)
 	}

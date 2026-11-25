@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-// TestNewNoop 测试创建 Noop 发布者
+// TestNewNoop verifies that creating a Noop publisher works
 func TestNewNoop(t *testing.T) {
 	n := NewNoop()
 
@@ -13,7 +13,7 @@ func TestNewNoop(t *testing.T) {
 	}
 }
 
-// TestNoop_PublishEvent 测试发布事件
+// TestNoop_PublishEvent verifies publishing an event
 func TestNoop_PublishEvent(t *testing.T) {
 	n := NewNoop()
 
@@ -29,7 +29,7 @@ func TestNoop_PublishEvent(t *testing.T) {
 	}
 }
 
-// TestNoop_PublishEvent_Nil 测试发布 nil 事件
+// TestNoop_PublishEvent_Nil verifies publishing a nil event
 func TestNoop_PublishEvent_Nil(t *testing.T) {
 	n := NewNoop()
 
@@ -39,7 +39,7 @@ func TestNoop_PublishEvent_Nil(t *testing.T) {
 	}
 }
 
-// TestNoop_PublishEvent_Empty 测试发布空事件
+// TestNoop_PublishEvent_Empty verifies publishing an empty event
 func TestNoop_PublishEvent_Empty(t *testing.T) {
 	n := NewNoop()
 
@@ -49,7 +49,7 @@ func TestNoop_PublishEvent_Empty(t *testing.T) {
 	}
 }
 
-// TestNoop_PublishPayment 测试发布支付
+// TestNoop_PublishPayment verifies publishing a payment
 func TestNoop_PublishPayment(t *testing.T) {
 	n := NewNoop()
 
@@ -66,7 +66,7 @@ func TestNoop_PublishPayment(t *testing.T) {
 	}
 }
 
-// TestNoop_PublishPayment_Nil 测试发布 nil 支付
+// TestNoop_PublishPayment_Nil verifies publishing a nil payment
 func TestNoop_PublishPayment_Nil(t *testing.T) {
 	n := NewNoop()
 
@@ -76,7 +76,7 @@ func TestNoop_PublishPayment_Nil(t *testing.T) {
 	}
 }
 
-// TestNoop_Close 测试关闭
+// TestNoop_Close verifies closing
 func TestNoop_Close(t *testing.T) {
 	n := NewNoop()
 
@@ -85,14 +85,14 @@ func TestNoop_Close(t *testing.T) {
 		t.Errorf("Close() should not return error, got %v", err)
 	}
 
-	// 多次关闭应该安全
+	// Multiple closes should be safe
 	err = n.Close()
 	if err != nil {
 		t.Errorf("Close() called twice should not return error, got %v", err)
 	}
 }
 
-// TestNoop_PendingEvents 测试获取待处理事件数
+// TestNoop_PendingEvents verifies getting the pending events count
 func TestNoop_PendingEvents(t *testing.T) {
 	n := NewNoop()
 
@@ -106,7 +106,7 @@ func TestNoop_PendingEvents(t *testing.T) {
 	}
 }
 
-// TestNoop_PendingPayments 测试获取待处理支付数
+// TestNoop_PendingPayments verifies getting the pending payments count
 func TestNoop_PendingPayments(t *testing.T) {
 	n := NewNoop()
 
@@ -120,12 +120,12 @@ func TestNoop_PendingPayments(t *testing.T) {
 	}
 }
 
-// TestNoop_ConcurrentOperations 测试并发操作
+// TestNoop_ConcurrentOperations verifies concurrent operations
 func TestNoop_ConcurrentOperations(t *testing.T) {
 	n := NewNoop()
 	done := make(chan bool, 10)
 
-	// 并发发布事件
+	// Publish events concurrently
 	for i := 0; i < 5; i++ {
 		go func() {
 			_ = n.PublishEvent(map[string]any{"id": i})
@@ -133,7 +133,7 @@ func TestNoop_ConcurrentOperations(t *testing.T) {
 		}()
 	}
 
-	// 并发发布支付
+	// Publish payments concurrently
 	for i := 0; i < 5; i++ {
 		go func() {
 			_ = n.PublishPayment(map[string]any{"id": i})
@@ -141,12 +141,12 @@ func TestNoop_ConcurrentOperations(t *testing.T) {
 		}()
 	}
 
-	// 等待所有 goroutine
+	// Wait for all goroutines
 	for i := 0; i < 10; i++ {
 		<-done
 	}
 
-	// 验证没有错误
+	// Verify no errors occurred
 	if count, _ := n.PendingEvents(); count != 0 {
 		t.Errorf("PendingEvents() should return 0, got %d", count)
 	}
@@ -156,11 +156,11 @@ func TestNoop_ConcurrentOperations(t *testing.T) {
 	}
 }
 
-// TestNoop_SequentialOperations 测试顺序操作
+// TestNoop_SequentialOperations verifies sequential operations
 func TestNoop_SequentialOperations(t *testing.T) {
 	n := NewNoop()
 
-	// 发布多个事件
+	// Publish multiple events
 	for i := 0; i < 100; i++ {
 		err := n.PublishEvent(map[string]any{"seq": i})
 		if err != nil {
@@ -168,7 +168,7 @@ func TestNoop_SequentialOperations(t *testing.T) {
 		}
 	}
 
-	// 发布多个支付
+	// Publish multiple payments
 	for i := 0; i < 100; i++ {
 		err := n.PublishPayment(map[string]any{"seq": i})
 		if err != nil {
@@ -176,7 +176,7 @@ func TestNoop_SequentialOperations(t *testing.T) {
 		}
 	}
 
-	// 验证计数
+	// Verify the counts
 	if count, _ := n.PendingEvents(); count != 0 {
 		t.Errorf("PendingEvents() should return 0 after 100 publishes, got %d", count)
 	}
@@ -186,7 +186,7 @@ func TestNoop_SequentialOperations(t *testing.T) {
 	}
 }
 
-// BenchmarkPublishEvent 性能基准测试
+// BenchmarkPublishEvent is a benchmark for its performance
 func BenchmarkPublishEvent(b *testing.B) {
 	n := NewNoop()
 	event := map[string]any{
@@ -202,7 +202,7 @@ func BenchmarkPublishEvent(b *testing.B) {
 	}
 }
 
-// BenchmarkPublishPayment 性能基准测试
+// BenchmarkPublishPayment is a benchmark for its performance
 func BenchmarkPublishPayment(b *testing.B) {
 	n := NewNoop()
 	payment := map[string]any{
@@ -218,7 +218,7 @@ func BenchmarkPublishPayment(b *testing.B) {
 	}
 }
 
-// BenchmarkPendingEvents 性能基准测试
+// BenchmarkPendingEvents is a benchmark for its performance
 func BenchmarkPendingEvents(b *testing.B) {
 	n := NewNoop()
 	b.ResetTimer()
@@ -227,7 +227,7 @@ func BenchmarkPendingEvents(b *testing.B) {
 	}
 }
 
-// BenchmarkConcurrentPublish 性能基准测试 - 并发
+// BenchmarkConcurrentPublish is a benchmark for its performance - concurrent
 func BenchmarkConcurrentPublish(b *testing.B) {
 	n := NewNoop()
 	event := map[string]any{"id": 1}
