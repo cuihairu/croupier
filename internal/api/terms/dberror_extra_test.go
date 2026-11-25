@@ -1,4 +1,5 @@
-// 覆盖目标：Service.List/Upsert/Delete 的 DB 错误分支（gorm 回调注入）。
+// Coverage target: the DB error branches of Service.List/Upsert/Delete
+// (injected via gorm callbacks).
 package terms
 
 import (
@@ -20,8 +21,9 @@ import (
 	"gorm.io/gorm"
 )
 
-// newTermsFailService 建独立内存库并注入回调错误（ops 内列出要失败的
-// 回调类别："create"/"delete"）。
+// newTermsFailService builds an isolated in-memory database and injects
+// callback errors (ops names the callback class that should fail, e.g.
+// "create"/"delete").
 func newTermsFailService(t *testing.T, ops ...string) *Service {
 	t.Helper()
 	name := fmt.Sprintf("terms_fail_%s", strings.ReplaceAll(t.Name(), "/", "_"))

@@ -1,7 +1,8 @@
-// 覆盖目标：Handler.List 的 query 绑定失败分支（handler.go List 的
-// ShouldBindQuery err 分支）。TermsListRequest 仅含无校验 tag 的 string
-// 字段，mapForm 无法自然失败，因此注入失败 Validator 在 validate 阶段
-// 强制报错（与 node/console/config 包的 coverage_final 同法）。
+// Coverage target: the query-binding failure branch of Handler.List (the
+// ShouldBindQuery err branch in List, handler.go). TermsListRequest only has
+// string fields without validation tags, so mapForm cannot fail naturally;
+// a failing Validator is injected to force an error at the validate stage
+// (same approach as the coverage_final tests in the node/console/config packages).
 package terms
 
 import (
@@ -15,7 +16,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// termsFailValidator 让任意 Bind 的 validate 步骤返回错误。
+// termsFailValidator makes the validate step of any Bind return an error.
 type termsFailValidator struct{}
 
 func (termsFailValidator) ValidateStruct(any) error { return errors.New("forced bind failure") }

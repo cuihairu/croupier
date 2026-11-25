@@ -137,12 +137,13 @@ func TestHandler_Delete_InvalidJSON_BadRequest(t *testing.T) {
 	assertTermsErrorShape(t, rec)
 }
 
-// DB 故障 + 非法 domain：List/Upsert/Delete 的错误分支（此前 85.7%）。
+// DB failure + invalid domain: the error branches of List/Upsert/Delete
+// (coverage was 85.7% before).
 func TestTerms_ErrorBranches(t *testing.T) {
 	db := newTermsTestDB(t)
 	handler := newTermsHandler(db)
 
-	// 非法 domain → 400（BadRequest）
+	// invalid domain → 400 (BadRequest)
 	ctx, rec := newTermsRequest(http.MethodPost, "/terms",
 		`{"domain":"nope","alias":"a","content":"c"}`)
 	handler.Upsert(ctx)
@@ -153,7 +154,7 @@ func TestTerms_ErrorBranches(t *testing.T) {
 	handler.Delete(ctx2)
 	assert.Equal(t, http.StatusBadRequest, rec2.Code)
 
-	// 删表 → service 错误分支
+	// drop the table → service error branch
 	require.NoError(t, db.Migrator().DropTable("term_dictionary"))
 
 	ctx3, rec3 := newTermsRequest(http.MethodGet, "/terms?domain=champion", "")
