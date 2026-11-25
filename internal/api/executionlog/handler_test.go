@@ -14,7 +14,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// userMiddleware 把用户名注入请求上下文（模拟鉴权中间件）。
+// userMiddleware injects the username into the request context (simulating an
+// auth middleware).
 func userMiddleware(username string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Request = c.Request.WithContext(context.WithValue(c.Request.Context(), "username", username))
@@ -58,7 +59,8 @@ func TestHandlerListMineSuccess(t *testing.T) {
 
 func TestHandlerListPermissionError(t *testing.T) {
 	r, _ := newExecLogRouter(t, "alice")
-	// mine=false → 需要审计权限 → 403 经统一错误响应
+	// mine=false → audit permission required → 403 via the unified error
+	// response
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/execution-logs", nil)
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
@@ -69,7 +71,7 @@ func TestHandlerGetSuccessAndBadRequest(t *testing.T) {
 	r, svcCtx := newExecLogRouter(t, "alice")
 	seeded := seedExecLog(t, svcCtx, "alice", "mail.send")
 
-	// 成功
+	// Success
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/execution-logs/"+itoa(seeded.ID), nil)
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
@@ -78,7 +80,7 @@ func TestHandlerGetSuccessAndBadRequest(t *testing.T) {
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
 	assert.Equal(t, "mail.send", resp.FunctionID)
 
-	// 非法 ID → 服务层 BadRequest
+	// Invalid ID → service-layer BadRequest
 	req = httptest.NewRequest(http.MethodGet, "/api/v1/execution-logs/abc", nil)
 	rec = httptest.NewRecorder()
 	r.ServeHTTP(rec, req)

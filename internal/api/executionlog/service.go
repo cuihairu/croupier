@@ -21,10 +21,11 @@ func NewService(svcCtx *svc.ServiceContext) *Service {
 	return &Service{svcCtx: svcCtx}
 }
 
-// List 分页查询执行留痕。
+// List queries execution traces with pagination.
 //
-// 权限边界：mine=true 强制按当前登录用户过滤（无需审计权限）；
-// 否则需要 admin:all / audit:read。
+// Permission boundary: mine=true forces filtering to the current logged-in
+// user (no audit permission needed); otherwise admin:all / audit:read is
+// required.
 func (s *Service) List(ctx context.Context, req *ListRequest) (*ListResponse, error) {
 	if s.svcCtx.ExecutionLogModel == nil {
 		return nil, errors.New("execution log model unavailable")
@@ -53,7 +54,8 @@ func (s *Service) List(ctx context.Context, req *ListRequest) (*ListResponse, er
 	if req.Mine {
 		actor := currentUser(ctx)
 		if actor == "" {
-			// fail-safe：无法确定身份时返回空集，避免退化为全量
+			// fail-safe: return an empty set when the identity cannot be
+			// determined, avoiding degradation into the full listing
 			return &ListResponse{Items: []ExecutionLogItem{}, Page: 1, Size: req.PageSize}, nil
 		}
 		opts.Actor = actor
@@ -61,7 +63,8 @@ func (s *Service) List(ctx context.Context, req *ListRequest) (*ListResponse, er
 		if _, _, err := logicutils.RequireAnyPermission(ctx, s.svcCtx, "无权查看执行留痕", "admin:all", "audit:read"); err != nil {
 			return nil, err
 		}
-		// 审计视角：可按申请人过滤（mine 分支忽略该参数）
+		// Audit view: filtering by applicant is allowed (the mine branch
+		// ignores this parameter)
 		opts.Actor = strings.TrimSpace(req.Actor)
 	}
 
@@ -84,7 +87,8 @@ func (s *Service) List(ctx context.Context, req *ListRequest) (*ListResponse, er
 	return &ListResponse{Items: out, Total: total, Page: page, Size: size}, nil
 }
 
-// Get 单条详情：本人记录或具备审计权限。
+// Get returns one detail row: either the caller's own record or with audit
+// permission.
 func (s *Service) Get(ctx context.Context, req *GetRequest) (*ExecutionLogDetail, error) {
 	if s.svcCtx.ExecutionLogModel == nil {
 		return nil, errors.New("execution log model unavailable")
@@ -156,9 +160,11 @@ func toListItem(item model.ExecutionLog) ExecutionLogItem {
 	}
 }
 
-// OperatorOptions 操作人聚合选项（#33）：与 List 非 mine 分支同一权限边界
-// （admin:all / audit:read），当前 scope + 同过滤维度下 distinct actor 及
-// 留痕条数，供执行留痕页操作人下拉消费。
+// OperatorOptions builds the operator-aggregation options (#33): same
+// permission boundary as the non-mine branch of List (admin:all / audit:read);
+// under the current scope and the same filter dimensions it returns the
+// distinct actors and their trace counts, consumed by the operator dropdown on
+// the execution-trace page.
 func (s *Service) OperatorOptions(ctx context.Context, req *ListRequest) (*OperatorOptionsResponse, error) {
 	if s.svcCtx.ExecutionLogModel == nil {
 		return nil, errors.New("execution log model unavailable")

@@ -81,7 +81,7 @@ func TestListAllRequiresAuditPermission(t *testing.T) {
 	s, svcCtx, ctx := newExecLogTestService(t, "alice")
 	seedExecLog(t, svcCtx, "bob", "player.ban")
 
-	// 无权限 → 403
+	// No permission → 403
 	_, err := s.List(ctx, &ListRequest{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "无权查看执行留痕")
@@ -90,16 +90,17 @@ func TestListAllRequiresAuditPermission(t *testing.T) {
 func TestListScopeIsolation(t *testing.T) {
 	s, svcCtx, _ := newExecLogTestService(t, "alice")
 	item := seedExecLog(t, svcCtx, "bob", "player.ban")
-	// 另一 scope 的记录
+	// A record in another scope
 	other := item
 	other.ID = 0
 	other.GameID = "other-game"
 	require.NoError(t, svcCtx.ExecutionLogModel.Create(context.Background(), &other))
 
-	// alice 的 scope 是 demo-game（X-Game-ID 上下文）
+	// alice's scope is demo-game (the X-Game-ID context)
 	ctx := context.WithValue(context.Background(), "username", "alice")
 	ctx = svc.WithGameScope(ctx, svc.GameScope{GameID: "demo-game", Env: "development"})
-	// alice 无审计权限，这里直接用模型构造权限：给 alice 授 audit:read
+	// alice has no audit permission; build it directly via the model here:
+	// grant alice audit:read
 	grantAuditRead(t, svcCtx)
 
 	resp, err := s.List(ctx, &ListRequest{})
@@ -134,7 +135,7 @@ func grantAuditRead(t *testing.T, svcCtx *svc.ServiceContext) {
 	t.Helper()
 	perm := model.Permission{ID: "audit:read", Name: "audit read"}
 	require.NoError(t, svcCtx.DB.Where("id = ?", perm.ID).FirstOrCreate(&perm).Error)
-	// 找到 alice 的角色或直接建角色绑定
+	// Find alice's role or create the role binding directly
 	role := model.Role{Name: "auditor", Description: "auditor"}
 	require.NoError(t, svcCtx.DB.Where("name = ?", role.Name).FirstOrCreate(&role).Error)
 	var admin model.Admin
@@ -153,13 +154,13 @@ func TestListActorFilterRequiresPermission(t *testing.T) {
 	ctx := svc.WithGameScope(context.WithValue(context.Background(), "username", "alice"),
 		svc.GameScope{GameID: "demo-game", Env: "development"})
 
-	// 审计权限 + actor 过滤
+	// Audit permission + actor filter
 	resp, err := s.List(ctx, &ListRequest{Actor: "bob"})
 	require.NoError(t, err)
 	require.Len(t, resp.Items, 1)
 	assert.Equal(t, "bob", resp.Items[0].Actor)
 
-	// mine 分支忽略 actor 参数，强制当前用户
+	// The mine branch ignores the actor parameter and forces the current user
 	respMine, err := s.List(ctx, &ListRequest{Mine: true, Actor: "bob"})
 	require.NoError(t, err)
 	require.Len(t, respMine.Items, 1)
@@ -179,7 +180,8 @@ func TestServiceListModelUnavailable(t *testing.T) {
 func TestServiceListNilRequest(t *testing.T) {
 	s, svcCtx, ctx := newExecLogTestService(t, "alice")
 	grantAuditRead(t, svcCtx)
-	// req=nil 走默认值分支（Mine=false → 需要审计权限，已授予）
+	// req=nil takes the defaults branch (Mine=false → audit permission
+	// required, already granted)
 	resp, err := s.List(withUser(ctx, "alice"), nil)
 	require.NoError(t, err)
 	assert.Empty(t, resp.Items)
@@ -223,17 +225,18 @@ func TestServiceGetValidation(t *testing.T) {
 	s, svcCtx, ctx := newExecLogTestService(t, "alice")
 	seeded := seedExecLog(t, svcCtx, "alice", "mail.send")
 
-	// 非法 ID
+	// Invalid ID
 	_, err := s.Get(withUser(ctx, "alice"), &GetRequest{ID: 0})
 	require.Error(t, err)
 	_, err = s.Get(withUser(ctx, "alice"), nil)
 	require.Error(t, err)
 
-	// 不存在的 ID
+	// Non-existent ID
 	_, err = s.Get(withUser(ctx, "alice"), &GetRequest{ID: seeded.ID + 999})
 	require.Error(t, err)
 
-	// scope 隔离：记录属于 demo-game，请求 scope 是 other-game → 404
+	// Scope isolation: the record belongs to demo-game and the request scope
+	// is other-game → 404
 	scoped := svc.WithGameScope(withUser(ctx, "alice"), svc.GameScope{GameID: "other-game", Env: "development"})
 	_, err = s.Get(scoped, &GetRequest{ID: seeded.ID})
 	require.Error(t, err)

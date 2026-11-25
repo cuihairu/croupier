@@ -1,8 +1,9 @@
-// 覆盖目标：executionlog service.List 的 ExecutionLogModel.List 存储错误
-// 分支（service.go:69-71）。
+// Coverage target: the ExecutionLogModel.List store-error branch of
+// executionlog service.List (service.go:69-71).
 //
-// mine=true 且 ctx 已注入 username 时不触发权限查询，模型 List 即首个
-// query，注册 fail-all query 回调可稳定命中该分支。
+// With mine=true and a username already injected into ctx no permission query
+// fires, so the model List is the first query; registering a fail-all query
+// callback hits that branch reliably.
 package executionlog
 
 import (

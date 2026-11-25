@@ -1,6 +1,7 @@
 package executionlog
 
-// #33：执行留痕操作人聚合选项端点（GET /api/v1/execution-logs/operator-options）。
+// #33: the execution-trace operator-aggregation options endpoint
+// (GET /api/v1/execution-logs/operator-options).
 
 import (
 	"context"
@@ -23,7 +24,8 @@ func TestOperatorOptions_AggregatesScopedDistinctActors(t *testing.T) {
 	seedExecLog(t, svcCtx, "alice", "mail.send")
 	seedExecLog(t, svcCtx, "alice", "mail.send")
 	seedExecLog(t, svcCtx, "bob", "player.ban")
-	// scope 外不进聚合（直接构造，不动 seedExecLog 已落库的行）
+	// Out-of-scope rows are excluded from the aggregation (constructed
+	// directly, leaving the rows already landed by seedExecLog untouched)
 	outside := model.ExecutionLog{GameID: "other-game", Env: "development", Source: "invoke",
 		FunctionID: "mail.send", Actor: "carol", Status: "ok"}
 	require.NoError(t, svcCtx.ExecutionLogModel.Create(context.Background(), &outside))
@@ -85,7 +87,8 @@ func newOperatorOptionsRouter(t *testing.T, username string) *gin.Engine {
 
 func TestHandlerOperatorOptions_BindError(t *testing.T) {
 	r := newOperatorOptionsRouter(t, "alice")
-	// ListRequest.Page 为 int，非数字查询值使 ShouldBindQuery 失败 → 400
+	// ListRequest.Page is an int, so a non-numeric query value makes
+	// ShouldBindQuery fail → 400
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/execution-logs/operator-options?page=abc", nil)
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
@@ -93,7 +96,8 @@ func TestHandlerOperatorOptions_BindError(t *testing.T) {
 }
 
 func TestHandlerOperatorOptions_ServiceError(t *testing.T) {
-	// 未授予 audit:read：service 翼权限错经 handler 统一错误出口 → 403
+	// audit:read not granted: the service-side permission error exits through
+	// the handler's unified error outlet → 403
 	r := newOperatorOptionsRouter(t, "alice")
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/execution-logs/operator-options", nil)
 	rec := httptest.NewRecorder()
@@ -112,7 +116,8 @@ func TestServiceOperatorOptions_ModelUnavailable(t *testing.T) {
 func TestServiceOperatorOptions_NilRequest(t *testing.T) {
 	s, svcCtx, _ := newExecLogTestService(t, "alice")
 	grantAuditRead(t, svcCtx)
-	// req=nil 走默认值分支（Mine=false → 需要审计权限，已授予）
+	// req=nil takes the defaults branch (Mine=false → audit permission
+	// required, already granted)
 	ctx := svc.WithGameScope(context.WithValue(context.Background(), "username", "alice"),
 		svc.GameScope{GameID: "demo-game", Env: "development"})
 	resp, err := s.OperatorOptions(ctx, nil)
@@ -131,18 +136,20 @@ func TestServiceOperatorOptions_InvalidTimeParams(t *testing.T) {
 	require.Error(t, err)
 }
 
-// 覆盖 OperatorOptions 的模型聚合查询错误分支：只对 execution_logs 表的
-// 查询加错——权限检查也走 SQL，fail-all 会先炸在 RequireAnyPermission
-// 而到不了聚合查询（区别于 TestService_List_StoreErrorGroupE 的 mine=true
-// 免权限路径）。
+// Covers the model aggregation-query error branch of OperatorOptions: the
+// fault is added only to queries on the execution_logs table -- the permission
+// check also runs SQL, so a fail-all would blow up in RequireAnyPermission
+// before ever reaching the aggregation query (unlike the mine=true
+// permission-free path of TestService_List_StoreErrorGroupE).
 func TestServiceOperatorOptions_StoreError(t *testing.T) {
 	s, svcCtx, _ := newExecLogTestService(t, "alice")
 	seedExecLog(t, svcCtx, "alice", "mail.send")
 	grantAuditRead(t, svcCtx)
 
-	// model.OperatorOptions 用 Scan 聚合（内部走 Rows → Row processor，不经
-	// gorm:query），故注册在 Row 上；权限检查的 Find/First 不走此 processor，
-	// 天然不受影响。
+	// model.OperatorOptions aggregates with Scan (internally Rows → Row
+	// processor, bypassing gorm:query), so the callback is registered on Row;
+	// the Find/First in the permission check do not go through that processor
+	// and are naturally unaffected.
 	require.NoError(t, svcCtx.DB.Callback().Row().Before("gorm:row").
 		Register("opopts_fail_row", func(tx *gorm.DB) {
 			_ = tx.AddError(errors.New("forced query failure"))

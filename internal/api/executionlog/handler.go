@@ -40,8 +40,9 @@ func (h *Handler) Get(c *gin.Context) {
 	response.Success(c, resp)
 }
 
-// OperatorOptions handles GET /api/v1/execution-logs/operator-options（#33）：
-// 当前 scope 下操作人 distinct 聚合，供执行留痕页过滤下拉消费。
+// OperatorOptions handles GET /api/v1/execution-logs/operator-options (#33):
+// a distinct operator aggregation under the current scope, consumed by the
+// filter dropdown on the execution-trace page.
 func (h *Handler) OperatorOptions(c *gin.Context) {
 	var req ListRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
