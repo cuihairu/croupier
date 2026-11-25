@@ -171,6 +171,14 @@ Server 从 input JSON Schema 生成默认 FormPresentationSpec；管理员只能
 
 历史表单展示数据不提供转换或导入路径；只能在删除旧路径前导出、备份，并由管理员在 Page Studio 按当前 FormPresentationSpec 人工重建。旧数据不得进入新页面发布流程。
 
+### 非对象根请求的 JSON 编辑（SUI-026）
+
+结构化表单控件只能表达对象根。函数契约声明非对象根类型（`array`、裸标量或 `null`——SUI-011 请求兼容性分级的 `degraded` 形态）时，`SchemaFormRenderer` 切换到 JSON 编辑形态（`JsonRootEditor`）而非无法渲染：种子来自 SUI-017/018 默认值层（根数组 `[]`/items 骨架、标量类型占位）或显式初值，整段文本即完整请求 payload，提交与对象表单走同一份 handle 契约（`validate`/`getSubmitValues`/`submit`）——同一 `@rjsf/validator-ajv8` 校验器把 payload 按契约 schema 校验，解析值原样发出（数组/标量不套对象壳，保持 SUI-017 往返语义）。界面同时给出不能渲染结构化表单的具体原因（声明的根类型）与实际可用入口（本编辑器）。非对象根形态下普通对象初值被忽略（调用方常用 `|| {}` 兜底，那里永远不可能是合法种子），改用 schema 派生种子。
+
+组合页区块同样适用：`form.jsonSchema` 声明非对象根的区块计入有表单（`sectionHasForm`），渲染 JSON 编辑器而非裸执行按钮；提交路径把数组/标量原样送入执行链，page_state 合并只记 `{ values: <payload> }`（数组无法对象展开成扁平键）。
+
+边界：JSON 编辑器只覆盖已声明的非对象根——`degraded` 的对象根（条件关键字、元组、联合）仍走结构化表单，变体渲染属于 SUI-042/043；JSON 形态下 `externalErrors` 字段级注入不适用（整体校验一次失败）；manual 层级（缺少请求映射）仍产出 `needs_review` 提案——具体原因作为按 `functionId` 关联的 `openapi_schema_compatibility*` 诊断展示在 OpenAPI Sources operations 表（`requestCompatibility` 列，层级 Tag + 至多三条原因行）与 Functions 详情诊断中。
+
 ### 展示与调用参数的边界（SUI-045）
 
 操作者看到的表单与最终发出的请求是两个不同对象，中间由三层正交职责连接：

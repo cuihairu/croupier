@@ -171,6 +171,14 @@ The Server generates a default FormPresentationSpec from the input JSON Schema; 
 
 Historical form presentation data offers no conversion or import path; the only option is export/backup before the old path is deleted, followed by manual reconstruction in Page Studio against the current FormPresentationSpec. Old data must never enter the new page publish flow.
 
+### JSON editing for non-object-root requests (SUI-026)
+
+Structured form controls can only express an object root. When a function contract declares a non-object root type (`array`, a bare scalar, or `null` — the `degraded` tier of the SUI-011 request-compatibility grading), `SchemaFormRenderer` switches to a JSON editing form (`JsonRootEditor`) instead of failing to render: the seed comes from the SUI-017/018 defaults layer (root array `[]`/items skeleton, scalar type placeholder) or explicit initial values, the text is edited as the whole request payload, and submit goes through the same handle contract (`validate`/`getSubmitValues`/`submit`) as the object form — the same `@rjsf/validator-ajv8` validator runs the payload against the contract schema, and the parsed value is sent verbatim (arrays/scalars never get an object shell, preserving the SUI-017 roundtrip semantics). The UI states the concrete reason (the declared root type) and the actual available entry (this editor). A plain-object initial value is ignored for a non-object root (callers fall back to `|| {}` seeds that can never be valid there) and the schema-derived seed takes over.
+
+The same applies to composite sections: a section whose `form.jsonSchema` declares a non-object root counts as having a form (`sectionHasForm`) and renders the JSON editor instead of the bare execute button; the submit path sends the array/scalar verbatim to the execute chain, and the page-state merge records it as `{ values: <payload> }` only (an array cannot object-spread into flat keys).
+
+Boundaries: the JSON editor covers declared non-object roots only — a `degraded` object root (conditional keywords, tuples, unions) keeps the structured form, and variant rendering belongs to SUI-042/043; `externalErrors` field-level injection does not apply in JSON mode (the whole payload fails as one); the manual tier (missing request mapping) still produces `needs_review` proposals — its concrete reasons surface as `openapi_schema_compatibility*` diagnostics keyed by `functionId` in the OpenAPI Sources operations table (`requestCompatibility` column, tier tag + up to three reason lines) and Functions detail diagnostics.
+
 ### Display-vs-call parameter boundary (SUI-045)
 
 The form an operator sees and the request that is finally sent are two different objects, joined by three orthogonal responsibilities:

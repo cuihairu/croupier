@@ -152,7 +152,7 @@ Console 执行与函数直接调用用同一个判定引擎（`internal/validati
 
 执行器始终发送 `application/json` 请求体，请求体类型配置为表单时发送 `application/x-www-form-urlencoded`（SUI-012），配置为 multipart 时发送 `multipart/form-data`（SUI-013），因此缺少 JSON 媒体类型只有在生成页面无法交付载荷时才属于无法发送：`manual` 的 operation 不得生成可直接执行的默认提案。form-urlencoded 请求体不在该列 —— 它可以发送，但生成的页面无法表达执行器使用哪种序列化方式，因此不进入可直接执行层级。multipart 请求体执行器本身可发送，但 Web Upload 控件仍产出文件 URL 而非文件字节，页面无法提供序列化所需载荷，在上传控件值契约扩展出上传对象之前该 operation 保持 `manual`。
 
-Web 表单渲染器目前没有任何变体渲染，因此在 SUI-043 落地前，`allOf` / `oneOf` / `anyOf` / `discriminator` 只能通过 JSON 载荷编辑器交给运维处理。
+自 SUI-026 起，已声明非对象根的页内 JSON 编辑入口已经存在：契约根为 `array`、裸标量或 `null` 的生成页面（或组合页区块）渲染 `JsonRootEditor`——与结构化表单同一 handle 契约、校验器与执行链，payload 原样提交——而不再没有可编辑入口。变体 schema（`allOf` / `oneOf` / `anyOf` / `discriminator` 且根为对象）仍无结构化渲染，SUI-042/043 落地前保持结构化表单路径不变；层级原因持续展示在 OpenAPI Sources 的 `requestCompatibility` 列（按 `functionId` 关联的 `openapi_schema_compatibility*` 诊断）。
 
 ## OpenAPI Source 与执行绑定
 

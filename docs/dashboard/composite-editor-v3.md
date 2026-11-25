@@ -97,6 +97,10 @@ Section form copy — field titles, descriptions, placeholders, group titles, en
 
 Section forms with no presentation config render as the standard vertical form: the derivation shared by the Go generator and the debug page emits no `fields`/`groups` for a hintless schema (the wire carries only `layout: vertical`), and the renderer fills in type-default widgets at render time (numbers, switches, date pickers, dropdowns, long-text areas) via `deriveDefaultPresentationSpec`. Debug preview and published rendering hit the same fallback, so what you preview is what publishes. Placeholders no longer appear automatically — declare `x-placeholder`; titles still fall back to the field key's humanized form. See the [PageSpec protocol](../architecture/pagespec-protocol.md#default-form-derivation-parity-sui-025).
 
+## JSON editing for non-object-root requests (SUI-026)
+
+A section whose bound contract declares a non-object root (`array`, a bare scalar, `null`) can no longer be expressed, so the section renders the JSON editor instead of the bare execute button: the operator edits the whole request payload as one text block, sees the concrete reason (the declared root type), and submits through the same validator and execute chain as structured forms — the array/scalar goes to the binding verbatim and merges into page state as `{ values: payload }`. The same editor backs operation pages and dialogs via the shared `SchemaFormRenderer`. See the [PageSpec protocol](../architecture/pagespec-protocol.md#json-editing-for-non-object-root-requests-sui-026).
+
 ## Known boundaries
 
 - No new widget implementations landed in SUI-020: `DateRange` and `RichText` remain declared-only and silently fall back to the type default; `Code`/`JSON` remain plain textarea strings and do not parse or validate content. Capability hints are informational only and do not change submission values.

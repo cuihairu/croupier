@@ -526,6 +526,8 @@ PageSpec 必须与组件库解耦。未来更换表单或图表库时只替换 r
 
 **默认表单派生对齐（SUI-025）**：Go 页面生成器与 Web 调试页按同一份契约派生默认表单呈现，由共享 fixture（`testdata/form_presentation_parity.json`）两侧测试同证：声明序字段按 `x-order` 稳定排序、`x-widget` 覆盖加类型缺省控件表、声明/自动/落空丢弃的分组、校验后的 `x-ui-layout`。完全无 hints 的 schema 不产出 `fields`/`groups`（wire 只有 `layout: vertical`——标准纵向表单），渲染端对无 fields 的 spec 经 `deriveDefaultPresentationSpec` 合成标准字段，调试预览与发布渲染因此一致；派生 `DatePicker` 按 schema format 分派到 `date-time` 控件，保持 SUI-022 序列化。派生不再内嵌人性化标签与占位——显示由渲染器标题链兜底，占位需显式 `x-placeholder`。见 [PageSpec 协议](./pagespec-protocol.md#默认表单派生对齐sui-025)。
 
+**非对象根请求的 JSON 编辑（SUI-026）**：声明非对象根（`array`/裸标量/`null`，SUI-011 `degraded` 层级）的契约在生成页面与组合页区块经 `JsonRootEditor` 渲染而非结构化表单：同一编辑器以 schema 默认值或显式初值为种子，走与对象表单相同的 handle 契约、校验器、绑定与执行链，解析后的 payload 原样发出、不套对象壳。操作者能看到不能渲染结构化表单的具体原因（根类型）与实际编辑入口；组合页数组/标量 payload 以 `{ values: payload }` 并入页面状态并原样到达执行。边界：对象根的 `degraded` 形态仍走结构化表单（变体渲染属 SUI-042/043），JSON 形态下 `externalErrors` 注入不适用，manual 层级仍需评审提案、原因展示在 OpenAPI Sources 兼容性列。见 [PageSpec 协议](./pagespec-protocol.md#非对象根请求的json-编辑sui-026)。
+
 JSON Schema 是函数输入/输出的持久化标准；表单展示由 `FormPresentationSpec` 表达，协议定义见 [PageSpec 协议规范](./pagespec-protocol.md)，渲染链路与唯一 runtime 约束见 ProComponents 页面生成与运行时。
 
 `FormPresentationSpec` 只负责表单展示，不改变 FunctionContract payload；保存和发布都必须经过服务端结构校验，校验失败必须报错并要求管理员修复。表单 runtime 固定为 `@rjsf/antd + @rjsf/validator-ajv8`，项目内禁止并行保留第二套表单运行时。

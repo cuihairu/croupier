@@ -531,6 +531,10 @@ wire 契约见 [PageSpec 协议规范](../architecture/pagespec-protocol.md)「�
 
 不带呈现配置的区块表单渲染为标准纵向表单：Go 生成器与调试页共用的派生对无 hints schema 不产出 `fields`/`groups`（wire 只有 `layout: vertical`），渲染端在渲染时经 `deriveDefaultPresentationSpec` 按 schema 补齐类型缺省控件（数字、开关、日期选择、下拉、长文本）。调试预览与发布渲染走同一兜底，所见即所发。占位不再自动出现——需声明 `x-placeholder`；标题仍回退到字段 key 的人性化形态。见 [PageSpec 协议](../architecture/pagespec-protocol.md#默认表单派生对齐sui-025)。
 
+## 非对象根请求的 JSON 编辑（SUI-026）
+
+绑定契约声明非对象根（`array`、裸标量、`null`）的区块无法用结构化控件表达，因此渲染 JSON 编辑器而非裸执行按钮：操作者把整段请求 payload 当一个文本块编辑，能看到具体原因（声明的根类型），提交与结构化表单走同一校验器与执行链——数组/标量原样送达绑定，并以 `{ values: payload }` 并入页面状态。操作页与弹窗共用 `SchemaFormRenderer`，同一编辑器自动生效。见 [PageSpec 协议](../architecture/pagespec-protocol.md#非对象根请求的json-编辑sui-026)。
+
 ## 9. 已知边界
 
 - SUI-020 未新增任何 widget 实现：`DateRange` 与 `RichText` 仍仅声明、未实现，静默回退到类型默认控件；`Code`/`JSON` 仍是普通 textarea 字符串，不解析也不校验内容。能力提示仅为提示信息，不改变提交值。
