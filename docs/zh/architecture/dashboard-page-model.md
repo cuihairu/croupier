@@ -524,6 +524,8 @@ JSON Schema 是函数输入/输出的持久化标准；表单展示由 `FormPres
 
 **无 schema 兜底（单 payload 字段）**：函数没有 `inputSchema` 时，页面生成器不再产出空表单（渲染为空白废页），而是兑现 normalizer 诊断（`input_schema_missing`）的承诺——生成单 `payload` 字段的表单（JSON 文本域，`widget: JSON`，双语 label/描述）。已知边界：payload 是包裹键，提交的请求体为 `{"payload": "<用户输入 JSON 文本>"}`，执行链不解包；要获得真表单应在注册侧补 schema（openapi provider 已自动推导，见 [Agent Providers](../guide/integrations/agent-providers.md)）。
 
+**根值类型经往返保持原 JSON 类型（SUI-017）**：`deriveSchemaDefaults` 按 schema 根类型派生参数骨架——根数组种子为 `[]`（或一件 items 骨架），根标量为类型占位值（`''`/`0`/`false`，优先级 `default` > `example` > `enum` 首项），显式 `default: null` 原样保留；旧对象根保持按 properties 逐字段派生不变。调用工作台（Functions Invoke）中结构化表单只表达对象根：根数组/标量的函数只保留原始 JSON 页签，提交直接取 JSON 编辑器文本，因此 `[]`、`false`、`0`、`null` 经编辑 → 取值 → 提交往返不套对象壳。生成的页面表单（PageSpec `FormPresentationSpec`）按构造即对象根；其中的根数组与裸标量由请求兼容性分级归入降级形态（JSON 编辑）。
+
 ## Scope、菜单、发布与演进
 
 页面身份固定为：
