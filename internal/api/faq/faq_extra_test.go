@@ -1,6 +1,7 @@
-// 覆盖目标：handler.go 的 List/Update/Vote/Categories 错误与成功分支、
-// Vote 完整链路；service.go 的模型层错误分支（List/Vote/Create/Update/
-// Categories 失败）；decodeTags/normalizeTags 的异常输入分支。
+// Coverage target: the error and success branches of List/Update/Vote/Categories
+// in handler.go, the full Vote flow; the model-layer error branches of
+// service.go (List/Vote/Create/Update/Categories failures); and the
+// invalid-input branches of decodeTags/normalizeTags.
 package faq
 
 import (
@@ -15,7 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// ---- handler 层 ----
+// ---- handler layer ----
 
 func TestHandler_List_QueryBindError(t *testing.T) {
 	handler := newFAQHandler(newFAQTestDB(t))
@@ -23,7 +24,8 @@ func TestHandler_List_QueryBindError(t *testing.T) {
 	ctx, rec := newFAQRequest(http.MethodGet, "/api/v1/faqs?page=abc", "")
 	handler.List(ctx)
 
-	// form 数值转换失败走 response.Error 兜底（非 200 且带统一错误体）。
+	// A failed form numeric conversion falls back to response.Error (non-200
+	// status with the unified error body).
 	assert.NotEqual(t, http.StatusOK, rec.Code, rec.Body.String())
 	assertFAQErrorShape(t, rec)
 }
@@ -123,7 +125,7 @@ func TestHandler_Categories_ServiceError(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, rec.Code, rec.Body.String())
 }
 
-// ---- service 层错误分支 ----
+// ---- service-layer error branches ----
 
 func TestService_List_ModelError(t *testing.T) {
 	db := newFAQServiceTestDB(t)
@@ -195,7 +197,7 @@ func TestService_Categories_ModelError(t *testing.T) {
 	require.Error(t, err)
 }
 
-// ---- 纯函数分支 ----
+// ---- pure function branches ----
 
 func TestDecodeTags_InvalidJSON(t *testing.T) {
 	assert.Nil(t, decodeTags(model.JSON([]byte(`not-json`))))

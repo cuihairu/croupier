@@ -1,10 +1,12 @@
-// 覆盖目标：service.go 中 Vote/Update 的剩余未覆盖分支——
-// 1) Vote 成功写库后 FindOne 失败（service.go:61-63）；
-// 2) Update 的 Summary 指针字段分支（service.go:142-144）；
-// 3) Update 成功写库后 FindOne 失败（service.go:155-157）。
-// FAQModel 为具体类型（非接口），沿用包内既有"内存 sqlite + 故障注入"方案：
-// 这里通过 gorm Query 回调注入错误，使 SELECT（FindOne）确定性失败而
-// UPDATE/CREATE 仍成功，从而精确触发"写库成功、回读失败"的错误路径。
+// Coverage target: the remaining uncovered branches of Vote/Update in service.go --
+// 1) FindOne fails after a successful Vote write (service.go:61-63);
+// 2) the Summary pointer field branch of Update (service.go:142-144);
+// 3) FindOne fails after a successful Update write (service.go:155-157).
+// FAQModel is a concrete type (not an interface), so this reuses the package's
+// existing "in-memory sqlite + fault injection" approach: a gorm Query callback
+// injects an error so SELECT (FindOne) fails deterministically while
+// UPDATE/CREATE still succeed, precisely triggering the "write ok, read-back
+// failed" error path.
 package faq
 
 import (
