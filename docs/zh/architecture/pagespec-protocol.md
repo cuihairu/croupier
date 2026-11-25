@@ -245,6 +245,73 @@ Page Studio 的 `FormPresentationEditor` 对所有含表单的页面（操作页
 }
 ```
 
+### 命名展示变体（SUI-031）
+
+一个表单可以携带多个命名的呈现形态——典型的一对是标准纵向表单与紧凑栅格——而不分叉调用契约。本节定义协议（设计任务）：存储落地在 SUI-032，发布前校验在 SUI-033，Page Studio 管理在 SUI-034，生效默认解析在 SUI-035，已发布表单切换在 SUI-036。在这些任务落地前，渲染器、校验器与编辑器均不消费新字段——以下内容是它们要实现的契约。
+
+**稳定表单标识。** PageSpec 中每个携带表单的位置都由稳定段 key 组成的规范路径寻址，绝不使用数组下标：`resource.createForm`、`resource.updateForm`、`resource.actions.<actionKey>.form`（ActionSpec 的 `key`）、`operation.form`、`task.form`、`report.queryForm`、`composite.sections.<sectionKey>.form`（CompositeSection 的 `key`）。区块与动作重排不改变标识。数组下标路径（如 `composite.sections[2].form.fields[0].width`）仍是校验错误的定位惯例，不是标识。变体存放在它所覆盖的表单节点内部，因此变体继承表单标识，在草稿、快照与回滚之间永不悬空。
+
+**wire 形态（additive；`page-spec:1` 不变）。** `FormPresentationSpec` 新增两个可选字段：
+
+```ts
+interface FormPresentationSpec {
+  // …既有字段（jsonSchema/layout/groups/fields/submitButton/cancelButton）…
+  variants?: FormVariantSpec[]; // 命名展示变体（SUI-031）；数组顺序 = 管理列表顺序
+  defaultVariant?: string;      // 生效默认变体 key；未声明 = 基础呈现（原表单）生效
+}
+
+interface FormVariantSpec {
+  key: string;            // 变体 key：本表单内唯一
+  title?: LocalizedText;  // 操作者可见名称（风格列表 / 切换 UI）
+  layout?: "vertical" | "horizontal" | "inline" | "grid";
+  groups?: FormGroupSpec[];
+  fields?: FormVariantFieldSpec[]; // 逐字段纯展示覆盖（键同 SUI-019）
+  submitButton?: FormButtonSpec;
+  cancelButton?: FormButtonSpec;
+}
+
+interface FormVariantFieldSpec {
+  key: string;
+  label?: LocalizedText;
+  description?: LocalizedText;
+  placeholder?: LocalizedText;
+  role?: "identity" | "status" | "reason" | "expiry" | "amount" | "quantity";
+  unit?: LocalizedText;
+  perTarget?: boolean;
+  widget?: FormWidget;
+  width?: number; // 1-12，同 SUI-028
+  order?: number;
+  enumOptions?: EnumOption[];
+  remoteOptions?: RemoteOptionsSpec;
+  widgetProps?: Record<string, JSONValue>;
+}
+```
+
+变体字段类型在结构上不含 `required`/`defaultValue`/`visible`/`visibleWhen`/`disabled`/`validationRules`——调用相关覆盖无法在变体中表达（见下）。先于这些字段的渲染器忽略它们、按基础呈现渲染（additive 可选字段；运行时绝不降级、猜测或转换——ABI 规则不变）。
+
+**变体允许覆盖什么。** 恰好是 SUI-045 的纯展示集合：逐字段 `label`/`description`/`placeholder`/`role`/`unit`/`perTarget`/`widget`/`width`/`order`/`enumOptions`/`remoteOptions`/`widgetProps`；页面级 `layout`/`groups`/`submitButton`/`cancelButton`。调用契约不可被任何变体覆盖：`jsonSchema`、`required`（两个方向）、`validationRules`、`defaultValue`、`visible`/`visibleWhen`、`disabled`，以及表单的 `PageBinding` assignments。发布校验对变体内出现的调用相关键返回定位错误（`form_variant_illegal_override`），变体因此永远无法改变提交内容、校验方式或调用治理。
+
+**覆盖合并语义。** 基础呈现即现有 `FormPresentationSpec`，保持不变、始终生效。变体 V 的生效呈现 = 基础 + V 的覆盖：
+
+- `jsonSchema` 与全部调用相关覆盖永远来自基础。
+- `layout`/`groups`/`submitButton`/`cancelButton`：V 声明则整体替换基础值；未声明则继承基础。
+- `fields`：按 key 合并。V 的条目覆盖基础同 key 条目的纯展示属性（逐属性取胜；V 未声明的属性保留基础值）。V 独有的 key 合法，只要能在 `jsonSchema` 中解析（SUI-019 规则），其余呈现走 schema 默认。仅基础声明的条目原样透传。
+- 不支持「撤销」：变体不能收回基础的展示覆盖（v1 无 null 删除语义）。要对某个变体「取消」基础覆盖，请修正基础——这让合并规则保持可预测。
+
+只声明 `key`（可加 `title`）的变体合法，渲染与基础完全一致——这是给「标准」风格命名、与紧凑风格并列的推荐方式。没有保留变体 key；验收标准中的 "standard"/"compact" 是普通用户自选 key。
+
+**默认项。** `defaultVariant` 声明操作者未选择时生效的变体。声明时必须解析到已声明的变体 key，否则发布失败并定位（`form_variant_default_unknown`，SUI-033）；未声明——包括 `variants` 为空或缺失时——基础呈现即生效默认；无变体的节点上声明 `defaultVariant` 本身也是定位错误。基础呈现因此始终可用且无名：它是零配置地板。
+
+**共用一切调用面。** 同一表单的所有变体共用一份 `jsonSchema`、一套 Binding、一套调用治理（权限、风险、审批、危险确认、幂等——全部挂在绑定/函数层，无一挂在变体层）。同 schema、同 Binding、同输入下，一个表单的每个变体产出完全相同的请求 payload；切换变体按构造就是展示操作（SUI-045 的前提，现在由允许覆盖集合强制）。这也是切换能保留操作者输入与错误状态的原因：表单状态按 schema 路径键控，变体从不触碰路径。
+
+**解析语义（SUI-035 实现）。** 渲染表单的生效变体依次为：操作者的会话内显式选择（运行时 UI 态，SUI-036）→ 发布的 `defaultVariant` → 基础呈现 → `deriveDefaultPresentationSpec` 的标准纵向表单（基础不带 `fields` 的表单，SUI-025）。运行时解析失败的 key（陈旧缓存）沿同一链回退；发布校验使其在实践中不可达。
+
+**发布快照与回滚。** 变体与 `defaultVariant` 位于表单节点内部，因此随同一份发布快照落库——一份 digest、沿用现有表、无旁表（SUI-032）。回滚原子恢复上一快照：其变体与默认项按发布时原样回来，绝不做跨版本合并。回滚预检已在跑 `ValidatePublishablePageShape`（SUI-021）；SUI-033 把校验扩展到变体并对照**当前**函数契约，因此回滚一个变体引用了已删除/已改名契约字段的快照会在预检失败并定位到受影响变体——陈旧快照被暴露，而不是被静默发布。
+
+**旧页面与新页面。** 本协议之前发布的页面不带 `variants`，原呈现逐字渲染——不为它们发明伪变体。无变体配置的新页面同样不产出变体字段；其不带 `fields` 的基础表单即派生的标准纵向表单（SUI-025），也是本协议的零配置默认。操作者所选变体是运行时展示状态；协议只持久化发布默认——按用户/会话持久化选择不在范围内。
+
+**校验规则（此处定义，SUI-033 实现）。** `ValidateFormPresentations` 按既有 `{field, message}` details 契约新增变体检查：变体 key 非空且表单内唯一（`form_variant_key_conflict`）；`defaultVariant` 解析（`form_variant_default_unknown`）；变体字段 key 能在表单 `jsonSchema` 中解析且只携带纯展示属性（`form_variant_illegal_override`）；`widget` 类型兼容与 `width` 范围沿用基础字段的 SUI-020/SUI-021/SUI-028 规则。作用域无需新机制：变体在页面快照内部，快照已按 (game, env) + pageKey 作用域隔离——同 pageKey 在不同游戏/环境下变体互相独立。
+
 ### Descriptor 呈现 hints（x-ui-\*）
 
 SDK/游戏方可在 `input_schema` 的字段 schema 上声明 `x-ui-*` 扩展字段（widget/label/
@@ -775,5 +842,5 @@ PageProposal 根据 resource/page key 提供默认值；PageDraft 保存最终�
 
 - PageSpec 不存储 route、target service、scope 覆盖、Secret 或任意 HTTP 参数。
 - 未知 JSON 只能存在于 JSON Schema 的标准扩展边界；核心 DTO 使用明确类型和 `JSONValue`，禁止 `any`。
-- 表单展示变化不允许静默改变已发布页面；发布快照必须包含 FormPresentationSpec。
+- 表单展示变化不允许静默改变已发布页面；发布快照必须包含 FormPresentationSpec 及其命名展示变体（`variants`/`defaultVariant`，SUI-031）——回滚原子恢复并对照当前契约重新校验。
 - 运行控制台只消费 PublishedPageSpec；未发布草稿不得暴露到执行路径，人工草稿领先发布时仍以发布快照执行。

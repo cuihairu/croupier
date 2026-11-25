@@ -245,6 +245,73 @@ Display overrides never modify the jsonSchema, and bindings never modify the pre
 }
 ```
 
+### Named display variants (SUI-031)
+
+One form can carry several named presentations — the canonical pair is a standard vertical form and a compact grid — without forking the call contract. This section defines the protocol (design task): storage lands with SUI-032, publish validation with SUI-033, Page Studio management with SUI-034, default resolution with SUI-035, and published-form switching with SUI-036. Until those land, no renderer, validator, or editor consumes the new fields — what follows is the contract they implement.
+
+**Stable form identity.** Every form-bearing position in a PageSpec is addressed by a canonical path built from stable segment keys, never array indexes: `resource.createForm`, `resource.updateForm`, `resource.actions.<actionKey>.form` (ActionSpec `key`), `operation.form`, `task.form`, `report.queryForm`, and `composite.sections.<sectionKey>.form` (CompositeSection `key`). Reordering sections or actions does not change the identity. Array-index paths (e.g. `composite.sections[2].form.fields[0].width`) remain the diagnostics convention for validation errors, not identity. Variants live inside the form node they overlay, so a variant inherits its form's identity and can never dangle across drafts, snapshots, or rollbacks.
+
+**Wire shape (additive; `page-spec:1` unchanged).** `FormPresentationSpec` gains two optional fields:
+
+```ts
+interface FormPresentationSpec {
+  // …既有字段（jsonSchema/layout/groups/fields/submitButton/cancelButton）…
+  variants?: FormVariantSpec[]; // 命名展示变体（SUI-031）；数组顺序 = 管理列表顺序
+  defaultVariant?: string;      // 生效默认变体 key；未声明 = 基础呈现（原表单）生效
+}
+
+interface FormVariantSpec {
+  key: string;            // 变体 key：本表单内唯一
+  title?: LocalizedText;  // 操作者可见名称（风格列表 / 切换 UI）
+  layout?: "vertical" | "horizontal" | "inline" | "grid";
+  groups?: FormGroupSpec[];
+  fields?: FormVariantFieldSpec[]; // 逐字段纯展示覆盖（键同 SUI-019）
+  submitButton?: FormButtonSpec;
+  cancelButton?: FormButtonSpec;
+}
+
+interface FormVariantFieldSpec {
+  key: string;
+  label?: LocalizedText;
+  description?: LocalizedText;
+  placeholder?: LocalizedText;
+  role?: "identity" | "status" | "reason" | "expiry" | "amount" | "quantity";
+  unit?: LocalizedText;
+  perTarget?: boolean;
+  widget?: FormWidget;
+  width?: number; // 1-12，同 SUI-028
+  order?: number;
+  enumOptions?: EnumOption[];
+  remoteOptions?: RemoteOptionsSpec;
+  widgetProps?: Record<string, JSONValue>;
+}
+```
+
+The variant field type structurally omits `required`/`defaultValue`/`visible`/`visibleWhen`/`disabled`/`validationRules` — call-affecting overrides cannot be expressed in a variant (see below). A renderer predating these fields ignores them and renders the base presentation (additive optional fields; the runtime never downgrades, guesses, or converts — ABI rules unchanged).
+
+**What a variant may override.** Exactly the SUI-045 display-only set: per field `label`/`description`/`placeholder`/`role`/`unit`/`perTarget`/`widget`/`width`/`order`/`enumOptions`/`remoteOptions`/`widgetProps`; page-level `layout`/`groups`/`submitButton`/`cancelButton`. The call contract is not overridable by any variant: `jsonSchema`, `required` (both directions), `validationRules`, `defaultValue`, `visible`/`visibleWhen`, `disabled`, and the form's `PageBinding` assignments. Publish validation rejects call-affecting keys inside a variant with a located error (`form_variant_illegal_override`), so a variant can never change what is submitted, how it is validated, or how the call is governed.
+
+**Overlay semantics.** The base presentation is the existing `FormPresentationSpec`, unchanged and always effective. The effective presentation of variant V is the base overlaid by V:
+
+- `jsonSchema` and every call-affecting override always come from the base.
+- `layout`/`groups`/`submitButton`/`cancelButton`: present on V replaces the base value wholesale; absent on V inherits the base.
+- `fields`: per-key merge. A V entry overlays the display-only properties of the base entry with the same key (V wins per declared property; properties V does not declare keep the base value). Keys declared only on V are legal when they resolve in `jsonSchema` (SUI-019 rules); the rest of their presentation comes from schema defaults. Base-only entries pass through untouched.
+- Removal is not expressible: a variant cannot retract a base display override (no null-to-delete semantics in v1). To "undo" a base override for one variant, correct the base — this keeps the merge rule predictable.
+
+A variant that declares nothing but `key` (plus optionally `title`) is legal and renders identically to the base — the recommended way to name the "standard" style alongside a compact one. There are no reserved variant keys; "standard"/"compact" in acceptance criteria are ordinary user-chosen keys.
+
+**Default variant.** `defaultVariant` names the variant that renders when the operator has not chosen one. When set it must resolve to a declared variant key, else publish fails with a located error (`form_variant_default_unknown`, SUI-033); when unset — including when `variants` is empty or absent — the base presentation is the effective default, and `defaultVariant` set on a node without variants is itself a located error. The base presentation is therefore always available and unnamed: it is the zero-config floor.
+
+**Shared everything that matters.** All variants of one form share one `jsonSchema`, one set of bindings, and one call governance (permission, risk, approval, danger confirmation, idempotency — all attach at binding/function level, none at variant level). Under the same schema, binding, and input, every variant of a form produces the identical request payload; switching variants is a display operation by construction (the SUI-045 premise, now enforced by the allowed-override set). This is also why switching preserves the operator's input and error state: form state is keyed by schema paths, which variants never touch.
+
+**Resolution semantics (SUI-035 implements).** The effective variant of a rendered form is, in order: the operator's explicit in-session choice (runtime UI state, SUI-036) → the published `defaultVariant` → the base presentation → `deriveDefaultPresentationSpec`'s standard vertical form (a base form carrying no `fields`, per SUI-025). A key that fails to resolve at runtime (stale cache) falls down the same chain; publish validation makes that unreachable in practice.
+
+**Publish snapshot and rollback.** The variants and `defaultVariant` live inside the form node and therefore inside the same publish snapshot — one digest, existing tables, no side stores (SUI-032). Rollback restores the previous snapshot atomically: its variants and default come back exactly as published, never merged across versions. Rollback preflight already re-runs `ValidatePublishablePageShape` (SUI-021); SUI-033 extends that validation to variants and to the **current** function contract, so rolling back a snapshot whose variants reference a since-removed or renamed contract field fails preflight with located errors naming the affected variant — a stale snapshot is surfaced, not silently published.
+
+**Old pages and new pages.** Pages published before this protocol carry no `variants` and keep rendering their original presentation verbatim — no pseudo-variant is invented for them. A newly generated page with no variant config emits no variants either; its base form without `fields` is the derived standard vertical form (SUI-025), which is this protocol's zero-config default. The operator's selected variant is runtime display state; the protocol persists only the published default — per-user/per-session persistence of the choice is out of scope.
+
+**Validation rules (defined here, implemented in SUI-033).** `ValidateFormPresentations` gains variant checks under the existing `{field, message}` details contract: variant keys non-empty and unique within the form (`form_variant_key_conflict`); `defaultVariant` resolution as above (`form_variant_default_unknown`); variant field keys resolvable in the form's `jsonSchema` and carrying display-only properties only (`form_variant_illegal_override`); `widget` type compatibility and `width` range under the same SUI-020/SUI-021/SUI-028 rules as base fields. Scoping needs nothing new: variants live inside the page snapshot, already scoped by (game, env) + pageKey — the same pageKey in different games/envs has independent variants.
+
 ### Descriptor presentation hints (x-ui-\*)
 
 Game/SDK sides may declare `x-ui-*` extension fields on field schemas inside `input_schema`
@@ -661,4 +728,4 @@ Endpoints and DTO definitions are in the component template API docs.
 
 - A PageSpec never stores routes, target services, scope overrides, secrets, or arbitrary HTTP parameters.
 - Unknown JSON may exist only at JSON Schema's standard extension boundary; core DTOs use explicit types and `JSONValue`, never `any`.
-- Form presentation changes must never silently alter a published page; a publish snapshot must include the FormPresentationSpec.
+- Form presentation changes must never silently alter a published page; a publish snapshot must include the FormPresentationSpec and its named display variants (`variants`/`defaultVariant`, SUI-031) — rollback restores them atomically and re-validates them against the current contract.

@@ -547,6 +547,10 @@ wire 契约见 [PageSpec 协议规范](../architecture/pagespec-protocol.md)「�
 
 FormPresentationEditor（操作/任务/报表/资源页的表单页签与组合页区块表单）现在接管分组呈现：新增分组、编辑 key 与多语言标题、拖拽排序、删除、切换 `collapsible`/`collapsed`，以及用多选指派字段（已被其他分组认领的字段置灰）。编辑随草稿 `form.groups` 写回，草稿重开原序回读；SUI-021 校验仍阻断重复 key、未知字段或字段被两组认领的配置保存。见 [PageSpec 协议](../architecture/pagespec-protocol.md#在-page-studio-编辑表单分组sui-029)。
 
+## 命名展示变体（SUI-031，仅协议）
+
+命名展示变体协议已在 [PageSpec 协议](../architecture/pagespec-protocol.md#命名展示变体sui-031) 定义：一个表单可携带多个命名呈现形态（标准纵向与紧凑栅格为典型一对），共用 schema、Binding 与全部调用治理，只在 SUI-045 纯展示覆盖上不同。本任务仅设计——编辑器尚未提供变体管理（存储在 SUI-032、发布校验在 SUI-033、编辑器管理在 SUI-034、默认解析在 SUI-035、已发布切换在 SUI-036）；编辑器继续编辑基础呈现，无变体配置的页面渲染与今天完全一致（不带 `fields` 的基础表单渲染派生的标准纵向布局，SUI-025）。
+
 ## 9. 已知边界
 
 - SUI-020 未新增任何 widget 实现：`DateRange` 与 `RichText` 仍仅声明、未实现，静默回退到类型默认控件；`Code`/`JSON` 仍是普通 textarea 字符串，不解析也不校验内容。能力提示仅为提示信息，不改变提交值。

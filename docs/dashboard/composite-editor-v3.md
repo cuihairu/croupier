@@ -113,6 +113,10 @@ Field `width` in a section's form presentation is a 12-column protocol value; th
 
 FormPresentationEditor (the form tab of operation/task/report/resource pages and composite section forms) now owns group presentation: add a group, edit its key and localized title, drag to reorder, delete it, toggle `collapsible`/`collapsed`, and assign fields by multi-select (a field already owned by another group is disabled). Edits go into the draft's `form.groups` and read back in the same order when the draft is reopened; SUI-021 validation still blocks saving a duplicate key, unknown field, or field claimed by two groups. See the [PageSpec protocol](../architecture/pagespec-protocol.md#editing-form-groups-in-page-studio-sui-029).
 
+## Named display variants (SUI-031, protocol only)
+
+The named display-variant protocol is now defined in the [PageSpec protocol](../architecture/pagespec-protocol.md#named-display-variants-sui-031): one form can carry several named presentations (the canonical pair is a standard vertical form and a compact grid) that share the schema, the bindings, and all call governance, differing only in SUI-045 display-only overrides. This task is design-only — the editor does not yet expose variant management (storage SUI-032, publish validation SUI-033, editor management SUI-034, default resolution SUI-035, published-form switching SUI-036); the editor keeps editing the base presentation, and pages without variant configuration render exactly as today (a fields-less base form renders the derived standard vertical layout, SUI-025).
+
 ## Known boundaries
 
 - No new widget implementations landed in SUI-020: `DateRange` and `RichText` remain declared-only and silently fall back to the type default; `Code`/`JSON` remain plain textarea strings and do not parse or validate content. Capability hints are informational only and do not change submission values.
