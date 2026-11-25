@@ -524,6 +524,8 @@ PageSpec 必须与组件库解耦。未来更换表单或图表库时只替换 r
 
 **表单文案跟随当前语言（SUI-024）**：字段名称、说明、占位、分组标题、枚举标签、提交按钮文字统一经单一 locale 来源（`web/src/utils/uiLocale.ts` 的 `currentUiLocale()`；非 umi 上下文回退 `zh-CN`）与 `localizedText` 统一回退链（当前 locale → zh/en 互备 → 遗留短 key → 显式 fallback，如字段 key）渲染为平台当前语言。不刷新页面的语言切换（`languagechange` 事件广播）就地重算派生 schema/uiSchema；已填写数据不重置——渲染器表单态就是实时值镜像，initialValues 回种以 initialValues JSON 为键、与 locale 无关。见 [PageSpec 协议](./pagespec-protocol.md#表单文案跟随当前语言sui-024)。
 
+**默认表单派生对齐（SUI-025）**：Go 页面生成器与 Web 调试页按同一份契约派生默认表单呈现，由共享 fixture（`testdata/form_presentation_parity.json`）两侧测试同证：声明序字段按 `x-order` 稳定排序、`x-widget` 覆盖加类型缺省控件表、声明/自动/落空丢弃的分组、校验后的 `x-ui-layout`。完全无 hints 的 schema 不产出 `fields`/`groups`（wire 只有 `layout: vertical`——标准纵向表单），渲染端对无 fields 的 spec 经 `deriveDefaultPresentationSpec` 合成标准字段，调试预览与发布渲染因此一致；派生 `DatePicker` 按 schema format 分派到 `date-time` 控件，保持 SUI-022 序列化。派生不再内嵌人性化标签与占位——显示由渲染器标题链兜底，占位需显式 `x-placeholder`。见 [PageSpec 协议](./pagespec-protocol.md#默认表单派生对齐sui-025)。
+
 JSON Schema 是函数输入/输出的持久化标准；表单展示由 `FormPresentationSpec` 表达，协议定义见 [PageSpec 协议规范](./pagespec-protocol.md)，渲染链路与唯一 runtime 约束见 ProComponents 页面生成与运行时。
 
 `FormPresentationSpec` 只负责表单展示，不改变 FunctionContract payload；保存和发布都必须经过服务端结构校验，校验失败必须报错并要求管理员修复。表单 runtime 固定为 `@rjsf/antd + @rjsf/validator-ajv8`，项目内禁止并行保留第二套表单运行时。

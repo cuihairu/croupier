@@ -527,6 +527,10 @@ wire 契约见 [PageSpec 协议规范](../architecture/pagespec-protocol.md)「�
 
 区块表单文案——字段名称、说明、占位、分组标题、枚举标签、提交按钮——以操作者当前语言渲染，并走同一条统一回退链（当前 locale → zh/en 互备 → 显式 fallback）。不刷新页面的语言切换就地换掉可见文案（渲染器监听 locale 切换广播）；表单里已填写的值在切换后原样保留。见 [PageSpec 协议](../architecture/pagespec-protocol.md#表单文案跟随当前语言sui-024)。
 
+## 默认表单派生对齐（SUI-025）
+
+不带呈现配置的区块表单渲染为标准纵向表单：Go 生成器与调试页共用的派生对无 hints schema 不产出 `fields`/`groups`（wire 只有 `layout: vertical`），渲染端在渲染时经 `deriveDefaultPresentationSpec` 按 schema 补齐类型缺省控件（数字、开关、日期选择、下拉、长文本）。调试预览与发布渲染走同一兜底，所见即所发。占位不再自动出现——需声明 `x-placeholder`；标题仍回退到字段 key 的人性化形态。见 [PageSpec 协议](../architecture/pagespec-protocol.md#默认表单派生对齐sui-025)。
+
 ## 9. 已知边界
 
 - SUI-020 未新增任何 widget 实现：`DateRange` 与 `RichText` 仍仅声明、未实现，静默回退到类型默认控件；`Code`/`JSON` 仍是普通 textarea 字符串，不解析也不校验内容。能力提示仅为提示信息，不改变提交值。

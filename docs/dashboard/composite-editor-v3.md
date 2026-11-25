@@ -93,6 +93,10 @@ Enum dropdown labels in section forms attach to values, never positions: numeric
 
 Section form copy — field titles, descriptions, placeholders, group titles, enum labels, the submit button — renders in the operator's current language and falls back through one unified chain (current locale → zh/en cross-fallback → the explicit fallback). Switching language without a page reload swaps the visible copy in place (the renderer listens for the locale-change broadcast); values already typed into the form survive the switch. See the [PageSpec protocol](../architecture/pagespec-protocol.md#form-copy-follows-the-current-locale-sui-024).
 
+## Default form derivation parity (SUI-025)
+
+Section forms with no presentation config render as the standard vertical form: the derivation shared by the Go generator and the debug page emits no `fields`/`groups` for a hintless schema (the wire carries only `layout: vertical`), and the renderer fills in type-default widgets at render time (numbers, switches, date pickers, dropdowns, long-text areas) via `deriveDefaultPresentationSpec`. Debug preview and published rendering hit the same fallback, so what you preview is what publishes. Placeholders no longer appear automatically — declare `x-placeholder`; titles still fall back to the field key's humanized form. See the [PageSpec protocol](../architecture/pagespec-protocol.md#default-form-derivation-parity-sui-025).
+
 ## Known boundaries
 
 - No new widget implementations landed in SUI-020: `DateRange` and `RichText` remain declared-only and silently fall back to the type default; `Code`/`JSON` remain plain textarea strings and do not parse or validate content. Capability hints are informational only and do not change submission values.

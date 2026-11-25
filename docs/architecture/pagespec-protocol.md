@@ -137,6 +137,22 @@ Locale switching without page reload (umi `setLocale(lang, false)`) broadcasts a
 
 Boundaries: copy declared with only `zh-CN` renders the zh text in an en UI (cross-fallback, no invented translations); static schema-embedded copy (`title`/`description` written directly into `jsonSchema` by the generator) is served as-is — locale-following applies to the presentation layer (`FormPresentationSpec` labels, placeholders, group titles, enum hints) that sits on top of it; templates that embed their own copy follow the platform locale through the same chain elsewhere.
 
+### Default form derivation parity (SUI-025)
+
+When a function contract ships no form presentation config, the form is not lost — it is derived, and the derivation is one contract on both sides. The Go generator (`internal/dashboard/generator` `deriveFormPresentation`) and the web debug page (`web/src/utils/schemaHints.ts` `derivePresentationSpec`) share one expected-result fixture (`testdata/form_presentation_parity.json`); both sides' test suites read the same file and assert identical output per case, covering top-level field order, widgets, groups, and layout hints.
+
+Derivation rules (identical on both sides):
+
+- **Field order**: top-level properties emit in JSON declaration order, then stable-sort by declared `x-order` (any finite number; undeclared sorts last, insertion order breaks ties). Nested object/array-item properties emit only when they carry hints, located by JSON Pointer (`/address/city`, `/tags/-/name`, `~0`/`~1` escaping, depth-capped). A schema carrying any hint emits all top-level fields plus the hinted nested children; a schema with no hints emits none.
+- **Widgets**: a valid `x-widget` overrides; otherwise the type-default table fills in without changing the hint state — `integer`/`number` → `InputNumber` (an integer with `enum` still derives `InputNumber`; declare `x-widget: Select` to get the dropdown), `boolean` → `Switch`, `format: date`/`date-time` → `DatePicker`, `format: time` → `TimePicker`, `maxLength > 120` → `TextArea`, array with `items.enum` → `MultiSelect`, `enum` → `Select`.
+- **Groups**: declared via `x-ui-groups` (localized title, `collapsible`/`collapsed`), fields joined by `x-group`; an auto-group appends when `x-group` names an undeclared group (title is the humanized key); groups that end up with no fields are dropped.
+- **Layout**: `x-ui-layout` validates to `vertical` (default) / `horizontal` / `inline` / `grid`; invalid values fall back to `vertical`.
+- **No configuration = the standard vertical form**: a schema with no hints at all emits no `fields` and no `groups` — the wire carries only `layout: vertical`. The renderer fills the gap (`SchemaFormRenderer` → `deriveDefaultPresentationSpec`): a fields-less spec merges the derived standard fields (including type-default widgets) and backfills `layout`/`groups` only when the spec does not declare them. Debug preview and published rendering stay identical because both hit the same fallback. The renderer resolves a derived `DatePicker` to the `date-time` registry widget when the schema format is `date-time`, preserving the SUI-022 serialization.
+
+The derivation no longer emits display fallbacks the renderer already owns: humanized labels (`x-label` > `schema.title` > humanized key covers display) and `请输入X` placeholders are gone from the derived output — a placeholder now requires an explicit `x-placeholder`.
+
+Boundaries: digit-adjacent keys humanize differently on the two sides (Go `Auto 1` vs web `Auto1`) — visible only in auto-group titles; declared `x-order: 0` sorts first on both sides but Go's wire omits `order: 0` (`omitempty` int); non-integer `x-order` values live only in web editor state (Go stores integers); legacy published specs that carry explicit `fields` are untouched — the fallback applies only to specs without fields. Verification: the shared fixture drives `TestFormPresentationParityFixture` (Go) and `form-presentation-parity.test.ts` (web); the renderer fallback is exercised by a real-rjsf e2e (`form-default-fallback.test.tsx`).
+
 Visibility conditions are restricted expressions: they cannot read row/detail data or call functions:
 
 ```ts

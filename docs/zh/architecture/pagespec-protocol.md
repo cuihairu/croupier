@@ -137,6 +137,22 @@ interface RemoteOptionsSpec {
 
 边界：只声明 `zh-CN` 的文案在 en 界面渲染 zh 文本（互备回退，不伪造翻译）；生成器直接写进 `jsonSchema` 的静态 `title`/`description` 原样输出——跟随 locale 的是叠加其上的呈现层（`FormPresentationSpec` 的 label、placeholder、分组标题、枚举 hints）；自带文案的页面模板经同一回退链在各自渲染处跟随平台 locale。
 
+### 默认表单派生对齐（SUI-025）
+
+函数契约不带表单呈现配置时，表单不会丢——它是派生出来的，而派生现在是两侧同一份契约。Go 生成器（`internal/dashboard/generator` 的 `deriveFormPresentation`）与 Web 调试页（`web/src/utils/schemaHints.ts` 的 `derivePresentationSpec`）共用一份预期结果 fixture（`testdata/form_presentation_parity.json`），两侧测试读同一文件、逐 case 断言输出完全一致，覆盖顶层字段顺序、控件、分组与 layout hints。
+
+派生规则（两侧一致）：
+
+- **字段顺序**：顶层 properties 按 JSON 声明序产出，再按声明的 `x-order` 稳定排序（任意有限数值；未声明排最后，并列回声明序）。嵌套 object/数组项仅在携带 hints 时产出，以 JSON Pointer 定位（`/address/city`、`/tags/-/name`，`~0`/`~1` 转义，深度封顶）。携带任一 hint 的 schema 产出全部顶层字段加带 hints 的嵌套子字段；完全无 hints 的 schema 不产出任何字段。
+- **控件**：合法的 `x-widget` 覆盖；否则类型缺省表补位，且不改变「是否有 hints」的判定——`integer`/`number` → `InputNumber`（integer 带 `enum` 仍派生 `InputNumber`，要下拉须显式 `x-widget: Select`）、`boolean` → `Switch`、`format: date`/`date-time` → `DatePicker`、`format: time` → `TimePicker`、`maxLength > 120` → `TextArea`、数组 `items.enum` → `MultiSelect`、`enum` → `Select`。
+- **分组**：`x-ui-groups` 声明（本地化标题、`collapsible`/`collapsed`），字段用 `x-group` 归组；`x-group` 指向未声明组时自动追加一个组（标题为人性化 key）；落空（无字段）的组丢弃。
+- **布局**：`x-ui-layout` 校验为 `vertical`（默认）/`horizontal`/`inline`/`grid`；非法值回退 `vertical`。
+- **无配置 = 标准纵向表单**：完全无 hints 的 schema 不产出 `fields`/`groups`，wire 上只有 `layout: vertical`。渲染端补位（`SchemaFormRenderer` → `deriveDefaultPresentationSpec`）：无 fields 的 spec 合并派生的标准字段（含类型缺省控件），`layout`/`groups` 仅在 spec 未声明时回填。调试预览与发布渲染一致，因为两者走同一个兜底。渲染器把派生 `DatePicker` 按 schema `format: date-time` 解析到 `date-time` 注册控件，保持 SUI-022 序列化。
+
+派生不再下发渲染端已有的显示兜底：人性化标签（`x-label` > `schema.title` > 人性化 key 已覆盖显示）与 `请输入X` 占位从派生输出移除——占位现在必须显式 `x-placeholder`。
+
+边界：数字相邻的 key 两侧人性化结果不同（Go `Auto 1` vs Web `Auto1`）——只影响自动分组标题；声明的 `x-order: 0` 两侧都排最前，但 Go wire 省略 `order: 0`（`omitempty` int）；非整数 `x-order` 只存在于 Web 编辑器态（Go 存整数）；携带显式 `fields` 的存量发布 spec 不受影响——兜底只作用于无 fields 的 spec。验证：共享 fixture 驱动 `TestFormPresentationParityFixture`（Go）与 `form-presentation-parity.test.ts`（Web）；渲染端兜底由真实 rjsf e2e（`form-default-fallback.test.tsx`）覆盖。
+
 可见性条件是受限表达式，不能读 row/详情数据或调用函数：
 
 ```ts
