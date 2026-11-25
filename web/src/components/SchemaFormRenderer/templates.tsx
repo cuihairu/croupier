@@ -16,6 +16,7 @@ import type {
 } from '@rjsf/utils';
 import type { FormGroupSpec } from '@/types/dashboard';
 import { localizedText } from '@/utils/localizedText';
+import { currentUiLocale } from '@/utils/uiLocale';
 import { primarySchemaType } from '@/utils/schemaDialect';
 
 type TemplateProps = ObjectFieldTemplateProps;
@@ -114,7 +115,8 @@ export function GroupedObjectFieldTemplate(props: TemplateProps) {
         .map((group) => {
           const elements = byGroup.get(group.key) ?? [];
           const body = renderRow(elements, ctx, group.key);
-          const title = localizedText(group.title, 'zh-CN', group.key);
+          // SUI-024：分组标题跟随当前语言（统一回退链见 localizedText）
+          const title = localizedText(group.title, currentUiLocale(), group.key);
           if (group.collapsible) {
             // antd v6 Card 无 collapsible，折叠分组用 Collapse
             return (

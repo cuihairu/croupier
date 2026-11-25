@@ -600,6 +600,81 @@ describe('deriveRuntimeSchema：字段呈现（applyFieldPresentation）', () =>
     });
   });
 
+  it('SUI-024：字段名称/说明/占位/枚举标签取当前 locale（en-US）', () => {
+    umiMock.getLocale = (): string => 'en-US';
+    const { schema, uiSchema } = build(
+      {
+        mode: { type: 'string', enum: ['mail', 'broadcast'] },
+      },
+      [
+        {
+          key: 'mode',
+          label: { 'zh-CN': '类型', 'en-US': 'Mode' },
+          description: { 'zh-CN': '类型说明', 'en-US': 'Mode description' },
+          placeholder: { 'zh-CN': '请选择', 'en-US': 'Select one' },
+          enumOptions: [
+            { value: 'mail', label: { 'zh-CN': '邮件', 'en-US': 'Mail' } },
+            { value: 'broadcast', label: { 'zh-CN': '全服广播', 'en-US': 'Broadcast' } },
+          ],
+        },
+      ],
+    );
+    const props = propsOf(schema, 'mode');
+    expect(props.title).toBe('Mode');
+    expect(props.description).toBe('Mode description');
+    expect(props.enumNames).toEqual(['Mail', 'Broadcast']);
+    expect(uiOf(uiSchema as Record<string, unknown>, 'mode')).toMatchObject({
+      'ui:placeholder': 'Select one',
+      'ui:options': { enumNames: ['Mail', 'Broadcast'] },
+    });
+  });
+
+  it('SUI-024：统一回退链——en-US 缺翻译回退 zh-CN，再回退 fallback 实参', () => {
+    umiMock.getLocale = (): string => 'en-US';
+    const { schema } = build(
+      { mode: { type: 'string' } },
+      [
+        {
+          key: 'mode',
+          label: { 'zh-CN': '仅中文' },
+          description: {},
+          placeholder: undefined,
+        },
+      ],
+    );
+    const props = propsOf(schema, 'mode');
+    // label 缺 en → zh-CN（互备）；description 空 → ''（回退到空 fallback 实参）
+    expect(props.title).toBe('仅中文');
+    expect(props.description).toBe('');
+    // hint 标签缺翻译：枚举标签同链回退
+    const hinted = deriveRuntimeSchema(
+      {
+        jsonSchema: schemaOf({
+          type: 'object',
+          properties: {
+            s: {
+              type: 'string',
+              enum: ['a'],
+              'x-enum-options': [{ value: 'a', label: { 'zh-CN': '甲' } }],
+            },
+          },
+        }),
+      } as FormPresentationSpec,
+      {},
+    );
+    expect(uiOf(hinted.uiSchema as Record<string, unknown>, 's')).toMatchObject({
+      'ui:options': { enumNames: ['甲'] },
+    });
+  });
+
+  it('SUI-024：zh-CN（缺省 locale）文案不受影响', () => {
+    umiMock.getLocale = (): string => 'zh-CN';
+    const { schema } = build({ mode: { type: 'string' } }, [
+      { key: 'mode', label: { 'zh-CN': '类型', 'en-US': 'Mode' } },
+    ]);
+    expect(propsOf(schema, 'mode').title).toBe('类型');
+  });
+
   it('jsonSchema 无 properties 时字段呈现安全兜底（fieldSchema 落空对象）', () => {
     const { schema, uiSchema } = deriveRuntimeSchema(
       {

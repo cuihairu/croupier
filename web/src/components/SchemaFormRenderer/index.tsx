@@ -18,7 +18,7 @@ import Form from '@rjsf/antd';
 import type CoreForm from '@rjsf/core';
 import type { IChangeEvent } from '@rjsf/core';
 import validator from '@rjsf/validator-ajv8';
-import { getLocale, getIntl } from '@umijs/max';
+import { getIntl } from '@umijs/max';
 import type { ErrorSchema, RJSFValidationError, RJSFSchema, UiSchema } from '@rjsf/utils';
 import type {
   FormFieldSpec,
@@ -28,6 +28,7 @@ import type {
   JSONSchema,
   JSONValue,
 } from '@/types/dashboard';
+import { currentUiLocale } from '@/utils/uiLocale';
 import { localizedText } from '@/utils/localizedText';
 import { humanizeFieldKey } from '@/utils/humanize';
 import { primarySchemaType } from '@/utils/schemaDialect';
@@ -127,7 +128,7 @@ function getEnumNames(
   if (!field?.enumOptions?.length) return undefined;
   const labelByValue = new Map<string, string>();
   for (const option of field.enumOptions) {
-    labelByValue.set(String(option.value), localizedText(option.label, 'zh-CN', String(option.value)));
+    labelByValue.set(String(option.value), localizedText(option.label, currentLocale(), String(option.value)));
   }
   if (!schemaEnum?.length) {
     return field.enumOptions.map((option) => labelByValue.get(String(option.value)) ?? String(option.value));
@@ -151,7 +152,7 @@ function asEnumNamesFromSchemaHints(child: Record<string, unknown>): string[] | 
     if (!['string', 'number', 'boolean'].includes(typeof entry.value)) continue;
     const label = localizedText(
       entry.label as string | Record<string, string>,
-      'zh-CN',
+      currentLocale(),
       String(entry.value),
     );
     if (label) labelByValue.set(String(entry.value), label);
@@ -209,13 +210,9 @@ function resolveFieldTitle(error: RJSFValidationError, schema: RJSFSchema): stri
   return title || leafKey || '该字段';
 }
 
-/** 平台当前 locale；umi 运行时外（单测/异常）回退 zh-CN。 */
+/** 平台当前 locale；统一走 @/utils/uiLocale（SUI-024，renderer 内外同一入口）。 */
 function currentLocale(): string {
-  try {
-    return getLocale() || 'zh-CN';
-  } catch {
-    return 'zh-CN';
-  }
+  return currentUiLocale();
 }
 
 /** 读取 Form 实时值：优先 rjsf class 内部 state（规避延迟 onChange 回调竞态），回退镜像。 */
@@ -320,13 +317,13 @@ function applyFieldPresentation(
   if (field.label && target.container && target.property) {
     target.container[target.property] = {
       ...(target.container[target.property] as Record<string, unknown>),
-      title: localizedText(field.label, 'zh-CN', field.key),
+      title: localizedText(field.label, currentLocale(), field.key),
     };
   }
   if (field.description && target.container && target.property) {
     target.container[target.property] = {
       ...(target.container[target.property] as Record<string, unknown>),
-      description: localizedText(field.description, 'zh-CN', ''),
+      description: localizedText(field.description, currentLocale(), ''),
     };
   }
   if (field.enumOptions?.length && target.container && target.property) {
@@ -344,7 +341,7 @@ function applyFieldPresentation(
     };
   }
   if (field.disabled) nextUi['ui:disabled'] = true;
-  if (field.placeholder) nextUi['ui:placeholder'] = localizedText(field.placeholder, 'zh-CN', '');
+  if (field.placeholder) nextUi['ui:placeholder'] = localizedText(field.placeholder, currentLocale(), '');
   if (widget) nextUi['ui:widget'] = widget;
   if (field.widget === 'KeyValue') nextUi['ui:field'] = 'keyValue';
   if (field.widget === 'MultiSelect') {
@@ -574,7 +571,7 @@ export function deriveRuntimeSchema(
       // 纯函数无法 useIntl：getIntl 调用点求值（测试 mock 返回 defaultMessage）
       submitText: localizedText(
         spec.submitButton?.text,
-        'zh-CN',
+        currentLocale(),
         getIntl().formatMessage({
           id: 'component.schemaFormRenderer.submitFallback',
           defaultMessage: '提交',
@@ -761,6 +758,17 @@ const SchemaFormRenderer = forwardRef<SchemaFormRendererHandle, SchemaFormRender
       setFormValues(currentValuesRef.current);
     }, [initialValuesJson, seededInitial]);
 
+    // SUI-024：reload=false 的语言切换经 languagechange 事件广播（umi
+    // plugin-locale setLocale 非刷新路径发系统事件）；订阅后派生 schema/uiSchema
+    // 随 locale 重算（文案换语言），formData 镜像不动（镜像即实时值），已填写
+    // 数据不重置。刷新式切换（默认）整页重载，本机制不参与。
+    const [localeTick, setLocaleTick] = useState(0);
+    useEffect(() => {
+      const bump = (): void => setLocaleTick((tick) => tick + 1);
+      window.addEventListener('languagechange', bump);
+      return () => window.removeEventListener('languagechange', bump);
+    }, []);
+
     const { schema, uiSchema, formContext } = useMemo(() => {
       const derived = deriveRuntimeSchema(spec, formValues);
       if (hideSubmit || readonly) {
@@ -770,7 +778,9 @@ const SchemaFormRenderer = forwardRef<SchemaFormRendererHandle, SchemaFormRender
         };
       }
       return derived;
-    }, [formValues, hideSubmit, readonly, spec]);
+      // localeTick 入参：语言切换 tick 触发派生重算（currentLocale() 在纯函数内读取）
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- localeTick 是刻意的失效触发器
+    }, [formValues, hideSubmit, readonly, spec, localeTick]);
     // handler 引用稳定（见下方 rjsf 注释），spec 经 ref 读取当前值
     const specRef = useRef(spec);
     specRef.current = spec;

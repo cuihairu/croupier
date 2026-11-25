@@ -1,11 +1,13 @@
 /**
  * F7 验收测试：FormGroupSpec 分组渲染（自定义根级 ObjectFieldTemplate）
  */
+import * as umiMax from '@umijs/max';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { deriveRuntimeSchema } from '@/components/SchemaFormRenderer';
 import SchemaFormRenderer from '@/components/SchemaFormRenderer';
 import type { FormPresentationSpec, JSONSchema } from '@/types/dashboard';
 
+const umiMock = umiMax as unknown as { getLocale?: () => string };
 const schemaOf = (value: Record<string, unknown>): JSONSchema => value as unknown as JSONSchema;
 
 describe('F7: formContext 分组元数据', () => {
@@ -53,6 +55,16 @@ describe('F7: 分组渲染', () => {
     const card = container.querySelector('[data-testid="group-basic"]');
     expect(card).toBeTruthy();
     expect(screen.getByText('基本信息')).toBeTruthy();
+    // SUI-024：分组标题跟随当前语言
+    const specEn: FormPresentationSpec = {
+      jsonSchema: spec.jsonSchema,
+      groups: [{ key: 'basic', title: { 'zh-CN': '基本信息', 'en-US': 'Basic info' }, fields: ['title', 'level'] }],
+    };
+    umiMock.getLocale = (): string => 'en-US';
+    const en = render(<SchemaFormRenderer spec={specEn} onFinish={jest.fn()} />);
+    expect(en.getByText('Basic info')).toBeTruthy();
+    en.unmount();
+    delete umiMock.getLocale;
     // title/level 在卡内，solo 在卡外
     expect(within(card as HTMLElement).getByLabelText('标题')).toBeTruthy();
     expect(within(card as HTMLElement).getByLabelText('等级')).toBeTruthy();
