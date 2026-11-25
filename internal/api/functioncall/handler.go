@@ -10,9 +10,11 @@ import (
 type Handler struct {
 	service *Service
 
-	// rerun 是 Rerun handler 的注入点：生产为 nil（走 service.Rerun，目前
-	// 是有意的功能 stub、恒返回 BadRequest），测试注入成功实现以驱动本
-	// handler 的成功响应分支（stub 落地后自然回归真实现）。
+	// rerun is the injection point of the Rerun handler: nil in production
+	// (delegates to service.Rerun, currently an intentional feature stub that
+	// always returns BadRequest); tests inject a success implementation to
+	// drive this handler's success response branch (once the stub is
+	// implemented, the real implementation takes over naturally).
 	rerun func(ctx context.Context, req *RerunRequest) (*RerunResponse, error)
 }
 

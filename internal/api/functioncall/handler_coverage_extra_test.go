@@ -1,5 +1,6 @@
-// 覆盖目标：functioncall 包 handler 层缺失分支——service 错误（DB 关闭）、
-// Detail/Cancel/Rerun 的 URI 绑定错误、Rerun 的 JSON 绑定错误（ContentLength>0）。
+// Coverage target: missing branches of the handler layer in the functioncall
+// package -- service errors (closed DB), URI binding errors for
+// Detail/Cancel/Rerun, and Rerun's JSON binding error (ContentLength>0).
 package functioncall
 
 import (
@@ -12,7 +13,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// newClosedDBService 返回底层 sql.DB 已关闭的 service，用于触发 gorm 查询错误。
+// newClosedDBService returns a service whose underlying sql.DB is already
+// closed, used to trigger a gorm query error.
 func newClosedDBService(t *testing.T) *Service {
 	t.Helper()
 	svcCtx := setupSvcCtx(t)
@@ -47,7 +49,7 @@ func TestHandler_Detail_URIbindError(t *testing.T) {
 	handler := setupHandler(t)
 
 	ctx, rec := newTestContext(http.MethodGet, "/calls", "")
-	ctx.Params = nil // 缺少 :id URI 参数
+	ctx.Params = nil // missing the :id URI parameter
 	handler.Detail(ctx)
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }
@@ -109,9 +111,11 @@ func TestService_Cancel_DatabaseClosed(t *testing.T) {
 	require.Error(t, err)
 }
 
-// TestHandler_Rerun_SuccessViaInjection 经 rerun 注入点注入成功实现，驱动
-// Rerun handler 的成功响应分支（service.Rerun 是有意的功能 stub、恒返回
-// BadRequest，生产成功路径在 stub 落地前不可达，见 Handler.rerun 注释）。
+// TestHandler_Rerun_SuccessViaInjection injects a success implementation
+// through the rerun injection point to drive the Rerun handler's success
+// response branch (service.Rerun is an intentional feature stub that always
+// returns BadRequest, so the production success path is unreachable until the
+// stub is implemented; see the Handler.rerun comment).
 func TestHandler_Rerun_SuccessViaInjection(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	handler := setupHandler(t)

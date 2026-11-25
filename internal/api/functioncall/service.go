@@ -119,8 +119,10 @@ func fromTask(task taskapi.Item) Item {
 	if status == "" {
 		status = "unknown"
 	}
-	// actor 透传：async 调用发起时写入 task_runs.actor（登录账号），
-	// 前端调用历史要展示真实操作人而非空值（SDK 直连调用无控制台身份时为空）。
+	// actor pass-through: written to task_runs.actor when the async call is
+	// initiated (the logged-in account), so the frontend call history shows
+	// the real operator instead of an empty value (empty for direct SDK
+	// calls that carry no console identity).
 	item := Item{
 		ID:         task.ID,
 		TaskID:     task.ID,
