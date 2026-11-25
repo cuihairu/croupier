@@ -232,7 +232,8 @@ func TestService_Logout_Success(t *testing.T) {
 	db := setupTestDB(t)
 	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret-key").WithRecoveryDB(db).WithRecoveryDB(db)
 
-	// Logout 已收紧签名（实现无出错路径），不再返回 error。
+	// Logout has a tightened signature (the implementation has no failure
+	// path) and no longer returns an error.
 	resp := service.Logout(context.Background(), &LogoutRequest{})
 
 	assert.NotNil(t, resp)

@@ -1,15 +1,20 @@
 package auth
 
-// 覆盖率巡检补测（auth 包 handler.go 53 块 / service.go 18 块残余中的大
-// 头）：此前 auth 包的服务层 OAuth 用例只覆盖 OIDC 与微信/自定义 OAuth 的
-// **回调**，GitHub 一路（WithGitHubProvider 装配 + AuthCodeURL + SuccessURL
-// + LoginCallback）完全没被调用，三个「登录入口」handler（GitHubLogin/
-// WeChatLogin/GenericOAuthLogin）与三个「回调」handler 也从无直调用例；
-// 注册/验证邮箱/重发验证三个 handler 同样只有服务层覆盖。
+// Coverage-audit follow-up tests (the bulk of the auth package's remaining 53
+// blocks in handler.go / 18 blocks in service.go): previously the auth
+// package's service-layer OAuth cases covered only OIDC and the WeChat/custom
+// OAuth **callbacks**; the whole GitHub path (WithGitHubProvider wiring +
+// AuthCodeURL + SuccessURL + LoginCallback) was never invoked, and the three
+// "login entry" handlers (GitHubLogin/WeChatLogin/GenericOAuthLogin) plus the
+// three "callback" handlers had no direct-call cases either; the register /
+// verify-email / resend-verification handlers likewise had only service-layer
+// coverage.
 //
-// 本文件只补测试、不改源码，逐 handler 锁四态：绑定失败 / 未启用 /
-// 业务拒绝 / 成功。夹具复用包内既有 newOIDCService、registerFixture、
-// verificationFixture、newAuthTestContext、hookVerificationSender。
+// This file adds tests only and changes no source. Each handler is pinned
+// across four states: bind failure / not enabled / business rejection /
+// success. Fixtures reuse the existing in-package newOIDCService,
+// registerFixture, verificationFixture, newAuthTestContext, and
+// hookVerificationSender.
 
 import (
 	"context"
@@ -27,7 +32,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// ---- 注册 handler：403 关闭态与 400 业务校验的分野 ----
+// ---- register handler: where the 403 disabled state ends and 400 business
+// validation begins ----
 
 func TestHandler_Register_FullContract(t *testing.T) {
 	gin.SetMode(gin.TestMode)
@@ -37,13 +43,14 @@ func TestHandler_Register_FullContract(t *testing.T) {
 		return rec
 	}
 
-	// 开关关闭（默认）：合法负载仍被业务拒 → 403 + registration_disabled
+	// switch off (default): a valid payload is still rejected by business
+	// rules → 403 + registration_disabled
 	disabled := NewHandler(registerFixture(t, config.AuthProvidersConfig{}))
 	rec := post(disabled, `{"username":"newuser1","password":"Str0ngPass!x"}`)
 	assertHTTPStatus(t, rec, 403)
 	assertErrorCode(t, rec, "registration_disabled")
 
-	// 开关开启：弱密码 → 400 业务校验（不是 403）
+	// switch on: weak password → 400 business validation (not 403)
 	enabled := NewHandler(registerFixture(t, config.AuthProvidersConfig{
 		Register: config.RegisterConfig{Enabled: true},
 	}))
@@ -51,19 +58,20 @@ func TestHandler_Register_FullContract(t *testing.T) {
 	assertHTTPStatus(t, rec, 400)
 	assert.Contains(t, rec.Body.String(), "密码长度至少为8个字符", "开关开启时是业务校验失败")
 
-	// 绑定失败（非法 JSON）→ 400 参数错误（先于开关/业务判定）
+	// bind failure (invalid JSON) → 400 bad parameters (ahead of the switch
+	// and business checks)
 	rec = post(disabled, `{"username":`)
 	assertHTTPStatus(t, rec, 400)
 	assert.Contains(t, rec.Body.String(), "参数错误")
 
-	// 成功：回 username + nickname（昵称已 trim）
+	// success: echoes username + nickname (nickname already trimmed)
 	rec = post(enabled, `{"username":"newuser3","password":"Str0ngPass!x","nickname":"  新号  "}`)
 	assertHTTPStatus(t, rec, 200)
 	assert.Contains(t, rec.Body.String(), `"username":"newuser3"`)
 	assert.Contains(t, rec.Body.String(), "新号")
 }
 
-// ---- 验证邮箱 handler：空/无效/有效三态 ----
+// ---- verify-email handler: the empty / invalid / valid three states ----
 
 func TestHandler_VerifyEmail_FullContract(t *testing.T) {
 	gin.SetMode(gin.TestMode)
@@ -84,15 +92,16 @@ func TestHandler_VerifyEmail_FullContract(t *testing.T) {
 		return rec
 	}
 
-	assertHTTPStatus(t, verify(""), 400)                // token 缺省
-	assertHTTPStatus(t, verify("?token=deadbeef"), 400) // 未知令牌（不区分原因）
+	assertHTTPStatus(t, verify(""), 400)                // token absent
+	assertHTTPStatus(t, verify("?token=deadbeef"), 400) // unknown token (reason not distinguished)
 
 	rec := verify("?token=" + url.QueryEscape(token))
 	assertHTTPStatus(t, rec, 200)
 	assert.Contains(t, rec.Body.String(), `"verified":true`)
 }
 
-// ---- 重发验证 handler：绑定失败 / 参数缺失 / 真实发信 / 防枚举静默 ----
+// ---- resend-verification handler: bind failure / missing parameters / real
+// mail-out / anti-enumeration silence ----
 
 func TestHandler_ResendVerification_FullContract(t *testing.T) {
 	gin.SetMode(gin.TestMode)
@@ -100,7 +109,8 @@ func TestHandler_ResendVerification_FullContract(t *testing.T) {
 	sent, restore := hookVerificationSender(t, nil)
 	defer restore()
 
-	// 直接建号（绕开注册自动签发），保证重发不在频控窗口内
+	// create the account directly (bypassing registration's automatic issue)
+	// so the resend is not inside the rate-limit window
 	require.NoError(t, svc.adminModel.Create(context.Background(),
 		&model.Admin{Username: "resend1", Email: "resend1@example.com", Status: 1}, "Str0ngPass!x"))
 	before := len(*sent)
@@ -111,22 +121,23 @@ func TestHandler_ResendVerification_FullContract(t *testing.T) {
 		return rec
 	}
 
-	assertHTTPStatus(t, resend(`{"username":`), 400)                                     // 绑定失败
-	assertHTTPStatus(t, resend(`{"username":"resend1"}`), 400)                           // 缺 email → 400
-	assertHTTPStatus(t, resend(`{"username":"ghost","email":"ghost@example.com"}`), 200) // 防枚举：静默 200
+	assertHTTPStatus(t, resend(`{"username":`), 400)                                     // bind failure
+	assertHTTPStatus(t, resend(`{"username":"resend1"}`), 400)                           // missing email → 400
+	assertHTTPStatus(t, resend(`{"username":"ghost","email":"ghost@example.com"}`), 200) // anti-enumeration: silent 200
 
 	rec := resend(`{"username":"resend1","email":"resend1@example.com"}`)
 	assertHTTPStatus(t, rec, 200)
 	assert.Contains(t, rec.Body.String(), `"resent":true`)
 	assert.Len(t, *sent, before+1, "真实匹配且未验证时确实发信")
 
-	// 频控窗口内再发：静默成功但不重复发信
+	// resending inside the rate-limit window: silent success, no duplicate
+	// mail
 	rec = resend(`{"username":"resend1","email":"resend1@example.com"}`)
 	assertHTTPStatus(t, rec, 200)
 	assert.Len(t, *sent, before+1, "频控内静默：不重复发信")
 }
 
-// ---- GitHub 一路服务层装配（此前完全无调用）----
+// ---- the GitHub path's service-layer wiring (previously never invoked) ----
 
 func TestService_GitHubProviderWiring(t *testing.T) {
 	fake := &fakeOAuthProvider{
@@ -147,14 +158,15 @@ func TestService_GitHubProviderWiring(t *testing.T) {
 	assert.NotEmpty(t, resp.Token)
 	assert.Equal(t, "octocat", resp.User.Username)
 
-	// Exchange 失败：kind label 进错误文案
+	// Exchange failure: the kind label lands in the error text
 	failing := &fakeOAuthProvider{err: errors.New("bad_verification_code")}
 	s2 := newOIDCService(t, nil, "").WithGitHubProvider(failing, nil, "")
 	_, err = s2.GitHubLoginCallback(context.Background(), "code", s2.newOIDCState(), &LoginRequest{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "GitHub 登录失败")
 
-	// 未启用：授权 URL 与回调都报「未启用」
+	// not enabled: both the authorization URL and the callback report "not
+	// enabled"
 	s3 := newOIDCService(t, nil, "")
 	_, err = s3.GitHubAuthCodeURL()
 	require.Error(t, err)
@@ -165,12 +177,12 @@ func TestService_GitHubProviderWiring(t *testing.T) {
 	assert.Empty(t, s3.GitHubSuccessURL())
 }
 
-// ---- 三个「登录入口」handler：未启用 400 / 已启用 302 ----
+// ---- the three "login entry" handlers: 400 when disabled / 302 when enabled ----
 
 func TestHandler_OAuthLoginEndpoints_FullContract(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	// 未启用 → 400 且不重定向
+	// disabled → 400 and no redirect
 	off := NewHandler(newOIDCService(t, nil, ""))
 	for name, call := range map[string]func(*gin.Context){
 		"github":       off.GitHubLogin,
@@ -183,7 +195,7 @@ func TestHandler_OAuthLoginEndpoints_FullContract(t *testing.T) {
 		assert.Contains(t, rec.Body.String(), "未启用")
 	}
 
-	// 已启用 → 302 且 Location 指向授权地址
+	// enabled → 302 with Location pointing at the authorization URL
 	fake := &fakeOAuthProvider{
 		authURL: "https://idp.example.com/authorize",
 		ident:   &identity.Identity{Provider: identity.KindOIDC, Username: "alice"},
@@ -206,8 +218,8 @@ func TestHandler_OAuthLoginEndpoints_FullContract(t *testing.T) {
 	}
 }
 
-// ---- 三个「回调」handler：JSON 200 / 配了 loginSuccessUrl 则 302 携 token /
-// 无效 state 401 ----
+// ---- the three "callback" handlers: JSON 200 / 302 carrying the token when
+// loginSuccessUrl is configured / 401 on an invalid state ----
 
 func TestHandler_OAuthCallbackEndpoints_FullContract(t *testing.T) {
 	gin.SetMode(gin.TestMode)
@@ -228,7 +240,7 @@ func TestHandler_OAuthCallbackEndpoints_FullContract(t *testing.T) {
 		"genericoauth": h.GenericOAuthCallback,
 	}
 
-	// 未配 loginSuccessUrl → 返回 JSON 响应体
+	// no loginSuccessUrl configured → returns a JSON response body
 	for name, call := range callbacks {
 		c, rec := newAuthTestContext(http.MethodGet,
 			"/"+name+"/callback?code=abc&state="+s.newOIDCState(), "")
@@ -237,7 +249,7 @@ func TestHandler_OAuthCallbackEndpoints_FullContract(t *testing.T) {
 		assert.Contains(t, rec.Body.String(), `"token"`)
 	}
 
-	// 配了 loginSuccessUrl → 302 且 token 进 query
+	// loginSuccessUrl configured → 302 with the token in the query
 	withJump := newOIDCService(t, nil, "")
 	withJump.WithGitHubProvider(fake, nil, "https://gm.example.com/done?from=github")
 	c, rec := newAuthTestContext(http.MethodGet,
@@ -250,7 +262,7 @@ func TestHandler_OAuthCallbackEndpoints_FullContract(t *testing.T) {
 	assert.NotEmpty(t, loc.Query().Get("token"), "跳转须携带签发的 token")
 	assert.Equal(t, "github", loc.Query().Get("from"), "原有 query 保留")
 
-	// state 非法 → 401
+	// an invalid state → 401
 	for name, call := range callbacks {
 		c, rec := newAuthTestContext(http.MethodGet, "/"+name+"/callback?code=abc&state=bogus", "")
 		call(c)

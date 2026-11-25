@@ -1,11 +1,12 @@
 package auth
 
-// R51 覆盖率补缺：email_verification.go 两翼
-// - :78-79 siteServerURL() 当 settings.Current()=nil → 空串
-//   由 resetForTest() 置 layered=nil 触发，无需额外搭建
-// - :162-164 VerifyEmailToken Consume 返回 false（并发消费/已用）分支
-//   用 sqlite BEFORE UPDATE TRIGGER + RAISE(IGNORE) 让 UPDATE 静默跳过
-//   → RowsAffected=0 → Consume 返回 false → 走 :162-164 报错
+// R51 coverage gap fill: the two flanks of email_verification.go
+// - :78-79 siteServerURL() when settings.Current()=nil → empty string,
+//   triggered by resetForTest() setting layered=nil; no extra scaffolding
+// - :162-164 VerifyEmailToken Consume returning false (concurrent consume /
+//   already used) branch: a sqlite BEFORE UPDATE TRIGGER + RAISE(IGNORE)
+//   makes the UPDATE silently skip → RowsAffected=0 → Consume returns false
+//   → the error path at :162-164
 
 import (
 	"context"
@@ -21,10 +22,10 @@ import (
 )
 
 func TestSiteServerURL_ReturnsEmptyWhenSettingsNil(t *testing.T) {
-	// resetForTest 置 layered=nil，覆盖 :78-79
+	// resetForTest sets layered=nil, covering :78-79
 	settings.ResetForTest()
 	defer func() {
-		// 恢复默认层，避免污染后续测试
+		// restore the default layer so later tests are not polluted
 		settings.ResetForTest()
 	}()
 
@@ -33,7 +34,7 @@ func TestSiteServerURL_ReturnsEmptyWhenSettingsNil(t *testing.T) {
 }
 
 func TestVerifyEmailToken_ConsumeReturnsFalse_RaisesError(t *testing.T) {
-	// 构造带验证模型的注册服务
+	// build a registration service with the verification model
 	seedEmailPolicy(t, map[string]string{settings.KeyAuthEmailVerificationRequired: `true`})
 	db := setupTestDB(t)
 	verifModel := model.NewEmailVerificationModel(db)
@@ -47,7 +48,7 @@ func TestVerifyEmailToken_ConsumeReturnsFalse_RaisesError(t *testing.T) {
 	require.NoError(t, err)
 	svc = ip.Attach(svc)
 
-	// 注册一个用户并获取明文 token
+	// register a user and capture the plaintext token
 	sent, restore := hookVerificationSender(t, nil)
 	defer restore()
 	_, err = svc.Register(context.Background(), &RegisterRequest{
@@ -57,19 +58,21 @@ func TestVerifyEmailToken_ConsumeReturnsFalse_RaisesError(t *testing.T) {
 	require.Len(t, *sent, 1)
 	token := (*sent)[0].token
 
-	// 注入 BEFORE UPDATE TRIGGER + RAISE(IGNORE) 让 Consume 的 UPDATE 静默跳过
-	// UPDATE 语句：UPDATE email_verifications SET used_at = ? WHERE id = ? AND used_at IS NULL
+	// inject a BEFORE UPDATE TRIGGER + RAISE(IGNORE) so Consume's UPDATE is
+	// silently skipped. The UPDATE statement is:
+	// UPDATE email_verifications SET used_at = ? WHERE id = ? AND used_at IS NULL
 	require.NoError(t, db.Exec(`CREATE TRIGGER ev_ignore_consume BEFORE UPDATE ON email_verifications
 		WHEN NEW.used_at IS NOT NULL AND OLD.used_at IS NULL
 		BEGIN SELECT RAISE(IGNORE); END`).Error)
 
-	// 再次验证同一 token → FindValidByTokenHash 能查到行（未被标记 used_at）
-	// 但 Consume 的 UPDATE 被 trigger 跳过 → RowsAffected=0 → Consume 返回 false
-	// → VerifyEmailToken 走 :162-164 返回 "验证链接无效或已过期"
+	// verifying the same token again → FindValidByTokenHash still finds the
+	// row (used_at not stamped), but Consume's UPDATE is skipped by the trigger
+	// → RowsAffected=0 → Consume returns false → VerifyEmailToken takes
+	// :162-164 and returns the "verification link invalid or expired" message
 	err = svc.VerifyEmailToken(context.Background(), token)
 	require.Error(t, err, "Consume 返回 false 时应报错（:162-164）")
 	assert.Contains(t, err.Error(), "验证链接无效或已过期")
 
-	// 清理 trigger（同库后续用例不受影响）
+	// drop the trigger so later cases sharing this DB are unaffected
 	require.NoError(t, db.Exec("DROP TRIGGER ev_ignore_consume").Error)
 }

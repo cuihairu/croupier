@@ -1,16 +1,23 @@
 package auth
 
-// AUD-052 刷新令牌轮换：opt-in（登录请求 useRefresh=true）的客户端获得
-// 短寿命 access（2h）+ 一次性刷新令牌（7d，兑换即轮换）；legacy 客户端
-// （缺省请求，含移动端 Flutter）继续拿 24h 单 token，行为完全不变。
+// AUD-052 refresh-token rotation: opt-in clients (login request
+// useRefresh=true) get a short-lived access token (2h) plus a one-time refresh
+// token (7d, rotated on redemption); legacy clients (default request, including
+// the Flutter mobile app) keep receiving the 24h single token, with behavior
+// completely unchanged.
 //
-// 刷新令牌兑换（Refresh）的一次性语义依赖 admin_refresh_tokens 持久状态：
-// UsedAt 非空 = 已兑换过，再次出现即为重放，触发该账号名下全部刷新令牌
-// 吊销（reuse detection）。权限面：typ=refresh 的 JWT 被 jwtutil.Parse 拒绝，
-// 无法当 API 访问凭据；typ≠refresh 的令牌也被 ParseRefresh 拒绝，双方向收口。
+// The one-time semantics of refresh-token redemption (Refresh) rely on the
+// persistent state in admin_refresh_tokens: a non-empty UsedAt means already
+// redeemed, so a second appearance is a replay and triggers revocation of every
+// refresh token under that account (reuse detection). On the permission side:
+// JWTs with typ=refresh are rejected by jwtutil.Parse, so they cannot serve as
+// API access credentials; tokens with typ≠refresh are likewise rejected by
+// ParseRefresh — closed out in both directions.
 //
-// 传输层沿用 JSON body + 客户端存储，刻意不走 httpOnly cookie——cookie 化
-// 属 C-005 延期项（鉴权门架构级改动，需用户确认方向），本任务不碰。
+// The transport layer keeps JSON body + client-side storage and deliberately
+// avoids httpOnly cookies — cookification is a deferred C-005 item (an
+// architecture-level change to the auth gate that needs the user to confirm the
+// direction) and is out of scope here.
 
 import (
 	"context"
@@ -27,9 +34,11 @@ import (
 	"github.com/cuihairu/croupier/internal/security/jwtutil"
 )
 
-// refreshTokenModel 返回刷新令牌存储；未注入时从 recoveryDB（routes 装配
-// 传入的业务 DB）懒建。两者皆 nil（纯单元测试装配）返回 nil，登录回退
-// legacy 单 token、兑换端点报内部错误。
+// refreshTokenModel returns the refresh-token store; when not injected, it is
+// lazily built from recoveryDB (the business DB wired in by routes assembly).
+// When both are nil (a pure unit-test assembly) it returns nil: login falls
+// back to the legacy single token and the redemption endpoint reports an
+// internal error.
 func (s *Service) refreshTokenModel() *model.AdminRefreshTokenModel {
 	if s.refreshTokens != nil {
 		return s.refreshTokens
@@ -41,16 +50,19 @@ func (s *Service) refreshTokenModel() *model.AdminRefreshTokenModel {
 	return s.refreshTokens
 }
 
-// WithRefreshTokenModel 注入刷新令牌存储（测试用；生产走 recoveryDB 懒建）。
+// WithRefreshTokenModel injects the refresh-token store (for tests; production
+// lazily builds it from recoveryDB).
 func (s *Service) WithRefreshTokenModel(m *model.AdminRefreshTokenModel) *Service {
 	s.refreshTokens = m
 	return s
 }
 
-// issueRefreshableLogin 签发 access+refresh 对并落轮换状态（AUD-052）。
-//   - ok=false 且 err==nil：刷新存储不可用，调用方回退 legacy 单 token
-//     （无持久状态的 refresh 无法做重放检测，宁降级不发）。
-//   - err!=nil：硬失败（签发失败），登录整体失败。
+// issueRefreshableLogin issues the access+refresh pair and persists the
+// rotation state (AUD-052).
+//   - ok=false and err==nil: the refresh store is unavailable; the caller falls
+//     back to the legacy single token (a refresh flow without persistent state
+//     cannot do replay detection — rather degrade than issue one).
+//   - err!=nil: a hard failure (issuance failed) and the whole login fails.
 func (s *Service) issueRefreshableLogin(ctx context.Context, admin *model.Admin, ident *identity.Identity, req *LoginRequest, roles []string, issuedAt time.Time, lastGameID, lastEnv string) (*LoginResponse, bool, error) {
 	m := s.refreshTokenModel()
 	if m == nil {
@@ -74,7 +86,8 @@ func (s *Service) issueRefreshableLogin(ctx context.Context, admin *model.Admin,
 		UserAgent: req.UserAgent,
 	}
 	if err := m.Create(ctx, row); err != nil {
-		// 存储不可用（库故障）：回退 legacy 单 token，保持登录可用。
+		// Store unavailable (database failure): fall back to the legacy single
+		// token so login stays usable.
 		slog.Default().Warn("persist refresh token failed; falling back to legacy token",
 			"username", admin.Username, "error", err)
 		return nil, false, nil
@@ -96,9 +109,11 @@ func (s *Service) issueRefreshableLogin(ctx context.Context, admin *model.Admin,
 	}, true, nil
 }
 
-// Refresh 兑换刷新令牌：校验 typ/账号状态/token 版本/一次性语义 → 标记
-// 旧令牌已兑换（轮换）→ 签发新 access+refresh 对。重放（已兑换/已吊销）
-// 吊销该账号全部刷新令牌并审计 auth.token_refresh_reuse。
+// Refresh redeems a refresh token: verify typ/account status/token
+// version/one-time semantics → mark the old token as redeemed (rotation) →
+// issue a new access+refresh pair. A replay (already redeemed/revoked) revokes
+// every refresh token for the account and audits
+// auth.token_refresh_reuse.
 func (s *Service) Refresh(ctx context.Context, req *RefreshRequest) (*RefreshResponse, error) {
 	m := s.refreshTokenModel()
 	if m == nil {
@@ -114,8 +129,9 @@ func (s *Service) Refresh(ctx context.Context, req *RefreshRequest) (*RefreshRes
 	if err != nil || admin == nil || admin.Status != 1 {
 		return nil, errors.New("刷新令牌无效或已过期")
 	}
-	// 与访问令牌同源校验：改密码/禁用/登出会 bump token_version，旧刷新
-	// 令牌族立即失效（含已落库未兑换的行）。
+	// Same-origin check as the access token: password change/disable/logout
+	// bumps token_version, immediately invalidating the old refresh-token family
+	// (including rows already persisted but not yet redeemed).
 	if admin.TokenVersion != claims.TokenVersion {
 		return nil, errors.New("刷新令牌无效或已过期")
 	}
@@ -126,8 +142,9 @@ func (s *Service) Refresh(ctx context.Context, req *RefreshRequest) (*RefreshRes
 	}
 
 	if row.Revoked || row.UsedAt != nil {
-		// 重放：一次性令牌第二次出现。吊销该账号名下全部刷新令牌
-		// （整族保守吊销），攻击者手里的后续链条一并作废。
+		// Replay: a one-time token appearing a second time. Revoke every refresh
+		// token under the account (conservative family-wide revocation), so the
+		// attacker's downstream chain is voided along with it.
 		if err := m.RevokeAllForAdmin(ctx, admin.ID); err != nil {
 			slog.Default().Warn("revoke refresh tokens on reuse failed", "username", admin.Username, "error", err)
 		}
@@ -170,8 +187,9 @@ func (s *Service) Refresh(ctx context.Context, req *RefreshRequest) (*RefreshRes
 		UserAgent:     req.UserAgent,
 	}
 	if err := m.Create(ctx, newRow); err != nil {
-		// 旧令牌已兑换、新令牌未落库：客户端只能重新登录（fail-closed，
-		// 不回退旧令牌——回退会破坏一次性语义）。
+		// Old token redeemed, new token not persisted: the client can only log
+		// in again (fail-closed, no falling back to the old token — falling back
+		// would break the one-time semantics).
 		slog.Default().Warn("persist rotated refresh token failed", "username", admin.Username, "error", err)
 		return nil, errorx.NewInternalError("refresh rotation failed")
 	}
@@ -185,8 +203,9 @@ func (s *Service) Refresh(ctx context.Context, req *RefreshRequest) (*RefreshRes
 	}, nil
 }
 
-// recordRefreshAudit 与 recordLoginAudit 同构（audit_records 持久留痕）：
-// tokenID 是落库行 ID，供审计回溯兑换链（RotatedFromID）。
+// recordRefreshAudit mirrors recordLoginAudit (persistent trail in
+// audit_records): tokenID is the persisted row ID, letting audit trace the
+// redemption chain (RotatedFromID).
 func (s *Service) recordRefreshAudit(ctx context.Context, username string, event audit.AuditEventType, req *RefreshRequest, tokenID uint) {
 	if s == nil || s.auditSvc == nil {
 		return

@@ -13,8 +13,9 @@ import (
 	"gorm.io/gorm"
 )
 
-// setMFAPolicy 构造真实 Layered 单例并写入 security.mfaRequired（生产读取
-// 路径：settings.Current()），用后复位避免污染同包其他用例。
+// setMFAPolicy builds a real Layered singleton and writes
+// security.mfaRequired (the production read path: settings.Current()), then
+// resets it afterwards to avoid polluting other cases in this package.
 func setMFAPolicy(t *testing.T, required bool) {
 	t.Helper()
 	dsn := "file:" + t.TempDir() + "/authpolicy.db?_pragma=synchronous(OFF)"
@@ -33,9 +34,10 @@ func setMFAPolicy(t *testing.T, required bool) {
 	t.Cleanup(settings.ResetForTest)
 }
 
-// TestMFASetupRequired_Matrix mfaSetupRequired 判定矩阵：仅 local + 未绑定
-// TOTP + 策略开启三者同时成立才强制绑定；LDAP/OIDC 账号（MFA 由 IdP 负责）
-// 与已绑定账号永不强制。
+// TestMFASetupRequired_Matrix is the decision matrix for mfaSetupRequired:
+// binding is enforced only when local + TOTP not bound + policy on all hold at
+// the same time; LDAP/OIDC accounts (MFA is the IdP's responsibility) and
+// already-bound accounts are never forced.
 func TestMFASetupRequired_Matrix(t *testing.T) {
 	setMFAPolicy(t, false)
 	assert.False(t, mfaSetupRequired("local", false), "策略关闭 = 自助模式")

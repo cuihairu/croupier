@@ -12,7 +12,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestRefreshIdentityProviders_WeChatMissingConfig 微信开启但凭证缺失 → 拒绝（保存端回滚）。
+// TestRefreshIdentityProviders_WeChatMissingConfig WeChat enabled but credentials missing
+// -> rejected (the saving side rolls back).
 func TestRefreshIdentityProviders_WeChatMissingConfig(t *testing.T) {
 	_, err := refreshWith(t, config.AuthProvidersConfig{
 		WeChat: config.WeChatProviderConfig{Enabled: true},
@@ -21,8 +22,8 @@ func TestRefreshIdentityProviders_WeChatMissingConfig(t *testing.T) {
 	assert.Contains(t, err.Error(), "auth.providers.wechat")
 }
 
-// TestRefreshIdentityProviders_GenericOAuthMissingConfig 自定义 OAuth 开启但
-// 端点缺失 → 拒绝（保存端回滚）。
+// TestRefreshIdentityProviders_GenericOAuthMissingConfig Custom OAuth enabled but the
+// endpoints are missing -> rejected (the saving side rolls back).
 func TestRefreshIdentityProviders_GenericOAuthMissingConfig(t *testing.T) {
 	_, err := refreshWith(t, config.AuthProvidersConfig{
 		GenericOAuth: config.GenericOAuthProviderConfig{Enabled: true, ClientID: "cid", ClientSecret: "cs"},
@@ -31,8 +32,9 @@ func TestRefreshIdentityProviders_GenericOAuthMissingConfig(t *testing.T) {
 	assert.Contains(t, err.Error(), "auth.providers.genericoauth")
 }
 
-// TestRefreshIdentityProviders_LocalOffWithWeChatAllowed local 关 + 微信在 → 放行，
-// 扫码授权 URL 形态正确（qrconnect + #wechat_redirect）。
+// TestRefreshIdentityProviders_LocalOffWithWeChatAllowed local off + WeChat present ->
+// allowed through, and the QR authorization URL shape is correct (qrconnect +
+// #wechat_redirect).
 func TestRefreshIdentityProviders_LocalOffWithWeChatAllowed(t *testing.T) {
 	svc, err := refreshWith(t, config.AuthProvidersConfig{
 		Local: config.LocalProviderConfig{Enabled: localOff()},
@@ -58,8 +60,9 @@ func TestRefreshIdentityProviders_LocalOffWithWeChatAllowed(t *testing.T) {
 	require.NoError(t, err)
 }
 
-// TestRefreshIdentityProviders_LocalOffWithGenericOAuthAllowed local 关 +
-// 自定义 OAuth 在 → 放行；scopes 逗号串切分进授权 URL。
+// TestRefreshIdentityProviders_LocalOffWithGenericOAuthAllowed local off + custom OAuth
+// present -> allowed through; the comma-separated scopes string is split into the
+// authorization URL.
 func TestRefreshIdentityProviders_LocalOffWithGenericOAuthAllowed(t *testing.T) {
 	svc, err := refreshWith(t, config.AuthProvidersConfig{
 		Local: config.LocalProviderConfig{Enabled: localOff()},
@@ -83,10 +86,12 @@ func TestRefreshIdentityProviders_LocalOffWithGenericOAuthAllowed(t *testing.T) 
 	assert.Contains(t, url, "scope=openid+profile+email")
 }
 
-// TestWeChatGenericLoginCallback_Flows 微信/自定义 OAuth 回调走公共出口：
-// JIT 建号签发 token、Exchange 失败文案带提供方 label、未启用报错。
+// TestWeChatGenericLoginCallback_Flows WeChat/custom OAuth callbacks share the common
+// exit: JIT provisioning issues a token, an Exchange failure message carries the
+// provider label, and a disabled provider reports an error.
 func TestWeChatGenericLoginCallback_Flows(t *testing.T) {
-	// 复用 newOIDCService 的构造（角色模型齐备），分别挂微信/自定义 OAuth 假提供方。
+	// Reuse the newOIDCService construction (role model in place) and attach fake
+	// WeChat / custom OAuth providers.
 	fake := &fakeOAuthProvider{
 		authURL: "https://idp/auth",
 		ident:   &identity.Identity{Provider: identity.KindWeChat, Username: "oX-wechat-1", Nickname: "老王"},
@@ -100,7 +105,7 @@ func TestWeChatGenericLoginCallback_Flows(t *testing.T) {
 	assert.NotEmpty(t, resp.Token)
 	assert.Equal(t, "oX-wechat-1", resp.User.Username)
 
-	// Exchange 失败：label 进文案（微信）。
+	// Exchange failure: the label goes into the message (WeChat).
 	failing := &fakeOAuthProvider{err: errors.New("errcode=40029")}
 	svc2 := newOIDCService(t, nil, "")
 	svc2.WithWeChatProvider(failing, nil, "")
@@ -108,7 +113,7 @@ func TestWeChatGenericLoginCallback_Flows(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "微信 登录失败")
 
-	// 自定义 OAuth happy path + 未启用报错。
+	// Custom OAuth happy path + error for a provider that is not enabled.
 	fakeG := &fakeOAuthProvider{
 		authURL: "https://idp/auth",
 		ident:   &identity.Identity{Provider: identity.KindGenericOAuth, Username: "alice", Email: "a@ex.com"},

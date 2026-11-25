@@ -1,10 +1,13 @@
 package auth
 
-// 注册邮箱验证令牌链路测试（OPEN-ISSUES #51c 第二批）：required 必填、
-// 注册签发（哈希落库 + 明文经缝隙外发）、登录 403 拦截与验证放行、
-// VerifyEmailToken 一次性与重放拒绝、ResendVerification 防枚举静默 +
-// 频控 + 旧令牌作废。发信经 sendVerificationEmailFn 缝隙捕获（同包测试
-// 串行执行，替换/恢复安全）。
+// Email verification token chain tests (OPEN-ISSUES #51c, second batch):
+// required-mandatory enforcement, registration issue (hash landed in the
+// database + plaintext routed out through the seam), login 403 blocking and
+// release after verification, VerifyEmailToken single-use and replay
+// rejection, ResendVerification anti-enumeration silence + rate limiting +
+// old token invalidation. Mail-out is captured through the
+// sendVerificationEmailFn seam (tests in this package run serially, so
+// swap/restore is safe).
 
 import (
 	"context"
@@ -32,7 +35,8 @@ type capturedEmail struct {
 	token    string
 }
 
-// hookVerificationSender 替换发信缝隙并捕获入参；返回恢复函数。
+// hookVerificationSender replaces the mail seam and captures its arguments;
+// returns a restore function.
 func hookVerificationSender(t *testing.T, fail error) (*[]capturedEmail, func()) {
 	t.Helper()
 	sent := &[]capturedEmail{}
@@ -47,9 +51,10 @@ func hookVerificationSender(t *testing.T, fail error) (*[]capturedEmail, func())
 	return sent, func() { sendVerificationEmailFn = orig }
 }
 
-// verificationFixture 播种 required=true 并构造带验证模型的注册服务。
-// admins 与 email_verifications 必须同一个 :memory: 库（每次 setupTestDB
-// 都是独立实例——分开建库会让 Consume 的 admins 更新落空）。
+// verificationFixture seeds required=true and builds a registration service
+// carrying the verification model. admins and email_verifications must share
+// one :memory: database (every setupTestDB call is an independent instance —
+// separate databases would make Consume's admins update miss).
 func verificationFixture(t *testing.T) (*Service, *model.EmailVerificationModel, *gorm.DB) {
 	t.Helper()
 	seedEmailPolicy(t, map[string]string{settings.KeyAuthEmailVerificationRequired: `true`})
@@ -77,14 +82,14 @@ func findTokenRow(t *testing.T, m *model.EmailVerificationModel, token string) *
 func TestRegister_VerificationRequiredEmailMandatory(t *testing.T) {
 	svc, _, _ := verificationFixture(t)
 
-	// required 开 + 邮箱缺 → 400（errorx.NewBadRequest）
+	// required on + missing email → 400 (errorx.NewBadRequest)
 	_, err := svc.Register(context.Background(), &RegisterRequest{
 		Username: "noemail1", Password: "Str0ngPass!x",
 	})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "必须填写邮箱")
 
-	// required 开 + 邮箱填 → 成功且 email_verified=false
+	// required on + email provided → success with email_verified=false
 	admin, err := svc.Register(context.Background(), &RegisterRequest{
 		Username: "withemail1", Password: "Str0ngPass!x", Email: "withemail1@example.com",
 	})
@@ -108,7 +113,8 @@ func TestRegister_IssuesVerificationEmail(t *testing.T) {
 	assert.Equal(t, "mailuser1", cap.username)
 	assert.Regexp(t, regexp.MustCompile(`^[0-9a-f]{64}$`), cap.token, "令牌应为 64 位 hex 明文")
 
-	// 库里只存哈希：按明文 token 能查到行；行内无明文
+	// only the hash is stored: the row is found via the plaintext token, and
+	// the row itself holds no plaintext
 	row := findTokenRow(t, m, cap.token)
 	require.NotNil(t, row, "SHA-256(token) 应落库")
 	assert.Equal(t, admin.ID, row.AdminID)
@@ -116,7 +122,7 @@ func TestRegister_IssuesVerificationEmail(t *testing.T) {
 	assert.True(t, row.ExpiresAt.After(time.Now().Add(23*time.Hour)), "有效期约 24h")
 	assert.NotContains(t, row.TokenHash, cap.token)
 
-	// 发信失败不影响注册成功（仅日志）
+	// a mail-out failure does not affect registration success (logged only)
 	sent2, restore2 := hookVerificationSender(t, errors.New("smtp down"))
 	defer restore2()
 	_, err = svc.Register(context.Background(), &RegisterRequest{
@@ -127,7 +133,7 @@ func TestRegister_IssuesVerificationEmail(t *testing.T) {
 }
 
 func TestRegister_NoVerificationWhenDisabled(t *testing.T) {
-	// 不播种 required：开关默认关
+	// do not seed required: the switch defaults to off
 	seedEmailPolicy(t, nil)
 	sent, restore := hookVerificationSender(t, nil)
 	defer restore()
@@ -153,7 +159,7 @@ func TestLogin_BlockedUntilVerified(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, *sent, 1)
 
-	// 未验证登录 → ErrEmailNotVerified（403 + email_not_verified）
+	// login while unverified → ErrEmailNotVerified (403 + email_not_verified)
 	_, err = svc.Login(context.Background(), &LoginRequest{Username: "blockme1", Password: "Str0ngPass!x"})
 	require.Error(t, err)
 	require.ErrorIs(t, err, ErrEmailNotVerified)
@@ -162,13 +168,14 @@ func TestLogin_BlockedUntilVerified(t *testing.T) {
 		assert.Equal(t, "email_not_verified", ce.GetStableCode())
 	}
 
-	// 用注册时缝隙捕获的明文 token 验证 → 登录放行
+	// verify with the plaintext token captured through the seam at register
+	// time → login is released
 	token := (*sent)[0].token
 	require.NoError(t, svc.VerifyEmailToken(context.Background(), token))
 	_, err = svc.Login(context.Background(), &LoginRequest{Username: "blockme1", Password: "Str0ngPass!x"})
 	require.NoError(t, err, "验证后应放行")
 
-	// 存量无邮箱账号不受拦（无可验证之物）
+	// a pre-existing account without an email is not gated (nothing to verify)
 	admin := &model.Admin{Username: "legacyuser1", Nickname: "Legacy", Email: "", Status: 1}
 	require.NoError(t, svc.adminModel.Create(context.Background(), admin, "Str0ngPass!x"))
 	_, err = svc.Login(context.Background(), &LoginRequest{Username: "legacyuser1", Password: "Str0ngPass!x"})
@@ -187,22 +194,23 @@ func TestVerifyEmailToken_Matrices(t *testing.T) {
 	require.Len(t, *sent, 1)
 	token := (*sent)[0].token
 
-	// 空 token → 400
+	// empty token → 400
 	require.Error(t, svc.VerifyEmailToken(context.Background(), ""))
-	// 伪 token → 400 同文案（不区分原因防探测）
+	// bogus token → 400 with the same wording (reason not distinguished, to
+	// prevent probing)
 	err = svc.VerifyEmailToken(context.Background(), "deadbeef")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "无效或已过期")
 
-	// 有效 → 成功 + email_verified 落真
+	// valid token → success, and email_verified lands as true
 	require.NoError(t, svc.VerifyEmailToken(context.Background(), token))
 
-	// 重放（已用）→ 拒绝
+	// replay (already used) → rejected
 	err = svc.VerifyEmailToken(context.Background(), token)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "无效或已过期")
 
-	// 过期令牌直接落库 → 拒绝
+	// an already-expired token inserted directly → rejected
 	sum := sha256.Sum256([]byte("expiredtoken"))
 	require.NoError(t, m.CreateInvalidatingActive(context.Background(), &model.EmailVerification{
 		AdminID:   999,
@@ -227,19 +235,21 @@ func TestResendVerification_Matrices(t *testing.T) {
 	require.Len(t, *sent, 1)
 	oldToken := (*sent)[0].token
 
-	// 防枚举：用户名/邮箱不匹配 → 静默成功（nil）且不发
+	// anti-enumeration: username/email mismatch → silent success (nil) and no
+	// mail sent
 	require.NoError(t, svc.ResendVerification(context.Background(), "resendme1", "wrong@example.com"))
 	require.NoError(t, svc.ResendVerification(context.Background(), "ghost", "resendme1@example.com"))
 	assert.Len(t, *sent, 1)
 
-	// 频控内 → 静默不发
+	// within the rate limit → silently no mail
 	require.NoError(t, svc.ResendVerification(context.Background(), "resendme1", "resendme1@example.com"))
 	assert.Len(t, *sent, 1, "最小间隔内重发不应发信")
 
-	// 参数缺失 → 400
+	// missing parameters → 400
 	require.Error(t, svc.ResendVerification(context.Background(), "", ""))
 
-	// 绕过频控（直接回拨最近令牌时间）后重发：新 token + 旧 token 作废
+	// bypass the rate limit (rewind the latest token time directly), then
+	// resend: new token + old token invalidated
 	require.NoError(t, db.Exec("UPDATE email_verifications SET created_at = ?", time.Now().Add(-2*time.Minute)).Error)
 	require.NoError(t, svc.ResendVerification(context.Background(), "resendme1", "resendme1@example.com"))
 	require.Len(t, *sent, 2)
@@ -248,13 +258,14 @@ func TestResendVerification_Matrices(t *testing.T) {
 	assert.Nil(t, findTokenRow(t, m, oldToken), "重发后旧令牌应作废")
 	require.NotNil(t, findTokenRow(t, m, newToken), "新令牌应可用")
 
-	// 已验证账号重发 → 静默不发
+	// resend for an already-verified account → silently no mail
 	require.NoError(t, svc.VerifyEmailToken(context.Background(), newToken))
 	require.NoError(t, svc.ResendVerification(context.Background(), "resendme1", "resendme1@example.com"))
 	assert.Len(t, *sent, 2)
 }
 
-// GetStableCode 接口断言辅助：errorx.CodeError 的稳定码经 errors.As 读取。
+// GetStableCode interface assertion helper: the stable code of
+// errorx.CodeError is read via errors.As.
 func TestErrEmailNotVerified_Shape(t *testing.T) {
 	assert.Equal(t, 403, ErrEmailNotVerified.Code)
 	assert.Equal(t, "email_not_verified", ErrEmailNotVerified.StableCode)

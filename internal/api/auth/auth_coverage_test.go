@@ -1,7 +1,9 @@
-// 覆盖目标：handler 层 MFA 三个端点与 Login 的 mfa_required 分支、
-// mfa.go 全部错误分支与审计记录、RefreshIdentityProviders、
-// Login/Logout/Check/OIDC state 校验的错误与降级路径。
-// 错误注入手段：PRAGMA query_only（读成功写失败）、drop 表、测试替身。
+// Coverage targets: the three handler-layer MFA endpoints and the Login
+// mfa_required branch, all error branches and audit records of mfa.go,
+// RefreshIdentityProviders, and the error and fallback paths of
+// Login/Logout/Check/OIDC state verification.
+// Error injection tools: PRAGMA query_only (reads succeed, writes fail),
+// dropping tables, and test doubles.
 package auth
 
 import (
@@ -23,8 +25,9 @@ import (
 	"gorm.io/gorm"
 )
 
-// readOnlyDB 把连接池收敛到单连接并置 query_only：读操作照常、写操作
-// 必失败，用于覆盖"读成功后写失败"的告警分支。
+// readOnlyDB collapses the connection pool to a single connection and sets
+// query_only: reads work as usual, writes always fail — used to cover the
+// "read succeeds, write fails" warning branch.
 func readOnlyDB(t *testing.T, db *gorm.DB) {
 	t.Helper()
 	sqlDB, err := db.DB()
@@ -61,7 +64,7 @@ func TestMFAUsername_ContextBranches(t *testing.T) {
 	assert.Empty(t, mfaUsername(c), "no username in context")
 
 	c, _ = newAuthTestContext("POST", "/x", "")
-	c.Set("username", 12345) // 非字符串
+	c.Set("username", 12345) // not a string
 	assert.Empty(t, mfaUsername(c))
 
 	c, _ = newAuthTestContext("POST", "/x", "")
@@ -93,35 +96,35 @@ func TestHandler_MFAEndpoints(t *testing.T) {
 		return rec
 	}
 
-	// 未登录：401。
+	// Not logged in: 401.
 	for _, path := range []string{"/mfa/setup", "/mfa/confirm", "/mfa/disable"} {
 		rec := post(path, `{}`, nil)
 		assertHTTPStatus(t, rec, http.StatusUnauthorized)
 	}
 
-	// setup 成功：返回 secret。
+	// setup succeeds: returns the secret.
 	rec := post("/mfa/setup", ``, "mfaep")
 	assertHTTPStatus(t, rec, http.StatusOK)
 	var setup MFASetupResponse
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &setup))
 	require.NotEmpty(t, setup.Secret)
 
-	// confirm：缺 code 绑定失败 400；用户不存在 400；正确 code 200。
+	// confirm: missing code fails to bind → 400; user missing → 400; correct code → 200.
 	assertHTTPStatus(t, post("/mfa/confirm", `{}`, "mfaep"), http.StatusBadRequest)
 	assertHTTPStatus(t, post("/mfa/confirm", `{"code":"000000"}`, "ghost"), http.StatusBadRequest)
 	assertHTTPStatus(t, post("/mfa/confirm", `{"code":"`+currentTOTP(t, setup.Secret)+`"}`, "mfaep"), http.StatusOK)
 
-	// disable：缺字段 400；错 code 400；正确 code+密码 200。
+	// disable: missing field → 400; wrong code → 400; correct code+password → 200.
 	assertHTTPStatus(t, post("/mfa/disable", `{"code":"000000"}`, "mfaep"), http.StatusBadRequest)
 	assertHTTPStatus(t, post("/mfa/disable", `{"code":"000000","password":"x"}`, "mfaep"), http.StatusBadRequest)
 	assertHTTPStatus(t, post("/mfa/disable",
 		`{"code":"`+currentTOTP(t, setup.Secret)+`","password":"CorrectPass123"}`, "mfaep"), http.StatusOK)
 
-	// setup 时 service 错误（用户不存在）：400。
+	// setup with a service error (user missing): 400.
 	assertHTTPStatus(t, post("/mfa/setup", ``, "ghost"), http.StatusBadRequest)
 }
 
-// setup 端点在 body 为空时也能正常工作（无绑定字段）。
+// The setup endpoint also works with an empty body (no fields to bind).
 
 func TestMFAService_ErrorBranches(t *testing.T) {
 	db := setupTestDB(t)
@@ -130,7 +133,7 @@ func TestMFAService_ErrorBranches(t *testing.T) {
 	ctx := context.Background()
 	createTestAdminWithRole(t, db, "mfabranch", "CorrectPass123", "admin")
 
-	// 用户不存在。
+	// User missing.
 	_, err := svc.MFASetup(ctx, "ghost")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "用户不存在")
@@ -138,24 +141,24 @@ func TestMFAService_ErrorBranches(t *testing.T) {
 	require.Error(t, err)
 	require.Error(t, svc.MFADisable(ctx, "ghost", "000000", "pw"))
 
-	// 影子账号（外部身份源，PasswordHash 为空）。
+	// Shadow account (external identity source, PasswordHash empty).
 	shadow := &model.Admin{Username: "extshadow", Status: 1}
 	require.NoError(t, db.Create(shadow).Error)
 	_, err = svc.MFASetup(ctx, "extshadow")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "外部身份源账号")
 
-	// confirm 未先 setup：提示先获取密钥。
+	// confirm without a prior setup: prompts to fetch the secret first.
 	_, err = svc.MFAConfirm(ctx, "mfabranch", "000000")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "请先获取二次验证密钥")
 
-	// disable 未启用。
+	// disable when not enabled.
 	err = svc.MFADisable(ctx, "mfabranch", "000000", "pw")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "未启用二次验证")
 
-	// 启用后 disable 错误验证码。
+	// After enabling, disable with a wrong code.
 	setup, err := svc.MFASetup(ctx, "mfabranch")
 	require.NoError(t, err)
 	_, err = svc.MFAConfirm(ctx, "mfabranch", currentTOTP(t, setup.Secret))
@@ -191,16 +194,21 @@ func TestMFAService_StoreWriteFailures(t *testing.T) {
 		readOnlyDB(t, db)
 		_, err = svc.MFAConfirm(ctx, "enableme", currentTOTP(t, setup.Secret))
 		require.Error(t, err)
-		// 恢复码先于开关落库（写失败则不得开启 MFA，否则用户永远拿不到恢复码），
-		// 因此只读库上先撞到恢复码写入。
+		// Recovery codes land in the database before the toggle (if that write
+		// fails, MFA must not be enabled, or the user never gets recovery
+		// codes), so on a read-only database the recovery-code write is hit
+		// first.
 		assert.Contains(t, err.Error(), "保存备用恢复码失败")
 	})
 
-	// 恢复码已落库、但开启开关失败时，必须报「启用失败」并保持未启用。
-	// 手法：恢复码 store 走 DryRun（构造 SQL 但不执行 → 视为写成功），
-	// admins 表则真的只读，于是只撞 EnableOTP 的失败。
-	// （不能用「两个 *gorm.DB 句柄」来实现：SQLite 的 PRAGMA query_only 是
-	//   按连接的，共享同一个 *sql.DB 时两个句柄会一起变只读。）
+	// When recovery codes are already persisted but enabling the toggle fails,
+	// it must report the enablement failure message asserted below and stay disabled.
+	// Technique: the recovery-code store runs in DryRun (builds SQL without
+	// executing → counts as a successful write), while the admins table is
+	// genuinely read-only, so only the EnableOTP failure is hit.
+	// (This cannot be done with "two *gorm.DB handles": SQLite's PRAGMA
+	//   query_only is per-connection, and two handles sharing one *sql.DB
+	//   turn read-only together.)
 	t.Run("confirm recovery saved but enable fails", func(t *testing.T) {
 		db := setupTestDB(t)
 		writableAdmin := model.NewAdminModel(db)
@@ -257,7 +265,7 @@ func TestRecordMfaAudit_Branches(t *testing.T) {
 		svc := withTableAudit(t, db, NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret").WithRecoveryDB(db))
 		require.NoError(t, db.Migrator().DropTable("audit_records"))
 
-		// Log 失败：告警分支，不 panic。
+		// Log fails: the warning branch, no panic.
 		assert.NotPanics(t, func() {
 			svc.recordMfaAudit(ctx, "someone", audit.EventMFADisabled)
 		})
@@ -265,7 +273,7 @@ func TestRecordMfaAudit_Branches(t *testing.T) {
 }
 
 func TestBuildIdentityProviders_LDAPRequiresBindContext(t *testing.T) {
-	// LDAP 启用且有 addr，但 baseDn/bindDn/userDnTemplate 全缺：报错。
+	// LDAP enabled with an addr, but baseDn/bindDn/userDnTemplate all missing: error.
 	_, err := buildIdentityProviders(config.AuthProvidersConfig{
 		LDAP: config.LDAPProviderConfig{Enabled: true, Addr: "ldap://x:389"},
 	})
@@ -278,7 +286,7 @@ func TestRefreshIdentityProviders_RebuildAndInvalid(t *testing.T) {
 	svc := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret").WithRecoveryDB(db)
 	ctx := context.Background()
 
-	// 无效配置：返回错误且现状不变。
+	// Invalid config: returns an error and leaves the current state unchanged.
 	require.False(t, svc.LDAPEnabled())
 	err := svc.RefreshIdentityProviders(config.AuthProvidersConfig{
 		LDAP: config.LDAPProviderConfig{Enabled: true, Addr: "ldap://x:389"},
@@ -286,7 +294,8 @@ func TestRefreshIdentityProviders_RebuildAndInvalid(t *testing.T) {
 	require.Error(t, err)
 	assert.False(t, svc.LDAPEnabled(), "failed refresh must not change providers")
 
-	// 合法 LDAP 配置：级联重建（本地保留首位），默认角色生效。
+	// Valid LDAP config: cascading rebuild (local stays first), default roles
+	// take effect.
 	err = svc.RefreshIdentityProviders(config.AuthProvidersConfig{
 		LDAP: config.LDAPProviderConfig{
 			Enabled:      true,
@@ -302,12 +311,14 @@ func TestRefreshIdentityProviders_RebuildAndInvalid(t *testing.T) {
 	assert.True(t, svc.LDAPEnabled())
 	_, _, _, roles := svc.snapshotProviders()
 	assert.Equal(t, []string{"viewer"}, roles[identity.KindLDAP])
-	// 本地提供方仍是级联首位，本地登录不受刷新影响。
+	// The local provider stays first in the cascade; local login is unaffected
+	// by the refresh.
 	createTestAdminWithRole(t, db, "refreshlocal", "pw", "ops")
 	_, err = svc.Login(ctx, &LoginRequest{Username: "refreshlocal", Password: "pw"})
 	require.NoError(t, err)
 
-	// OIDC 装配成功路径（本地假发现服务器，无外部网络依赖）。
+	// OIDC assembly success path (a local fake discovery server, no external
+	// network dependency).
 	srv := fakeDiscoveryServer(t)
 	err = svc.RefreshIdentityProviders(config.AuthProvidersConfig{
 		OIDC: config.OIDCProviderConfig{
@@ -333,7 +344,8 @@ func TestLogin_LocalWriteFailuresStillSucceedOrFailCleanly(t *testing.T) {
 		createTestAdminWithRole(t, db, "resetwarn", "pw", "ops")
 		readOnlyDB(t, db)
 
-		// 密码正确：ResetLoginFailures 写失败仅告警，登录仍成功。
+		// Correct password: ResetLoginFailures write failure only warns; login
+		// still succeeds.
 		resp, err := svc.Login(ctx, &LoginRequest{Username: "resetwarn", Password: "pw"})
 		require.NoError(t, err)
 		assert.NotEmpty(t, resp.Token)
@@ -345,7 +357,8 @@ func TestLogin_LocalWriteFailuresStillSucceedOrFailCleanly(t *testing.T) {
 		createTestAdminWithRole(t, db, "recordwarn", "pw", "ops")
 		readOnlyDB(t, db)
 
-		// 密码错误：RecordLoginFailure 写失败仅告警，仍返回通用错误。
+		// Wrong password: RecordLoginFailure write failure only warns; the
+		// generic error is still returned.
 		_, err := svc.Login(ctx, &LoginRequest{Username: "recordwarn", Password: "bad"})
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "用户名或密码错误")
@@ -356,7 +369,8 @@ func TestLogin_LocalProviderRecordVanished(t *testing.T) {
 	db := setupTestDB(t)
 	svc := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret").WithRecoveryDB(db)
 
-	// 本地 kind 的替身认证通过，但库里无此记录：视为凭证失效。
+	// A local-kind stub authenticates, but no record exists in the database:
+	// treated as invalid credentials.
 	svc.WithPasswordProvider(stubPasswordProvider{kind: identity.KindLocal, username: "vanish"})
 	_, err := svc.Login(context.Background(), &LoginRequest{Username: "vanish", Password: "pw"})
 	require.Error(t, err)
@@ -380,7 +394,7 @@ func TestLogin_BackfillUpdateFailsWarnsOnly(t *testing.T) {
 	})
 
 	readOnlyDB(t, db)
-	// Update 写失败仅告警，登录成功。
+	// Update write failure only warns; login succeeds.
 	resp, err := svc.Login(context.Background(), &LoginRequest{Username: "backfill", Password: "ldappw"})
 	require.NoError(t, err)
 	assert.NotEmpty(t, resp.Token)
@@ -391,7 +405,7 @@ func TestLogin_AssignDefaultRoles_Branches(t *testing.T) {
 
 	t.Run("nil role model skips assignment", func(t *testing.T) {
 		db := setupTestDB(t)
-		// 未 WithRoleModel：JIT 建号后直接跳过角色赋权。
+		// No WithRoleModel: after JIT provisioning, role assignment is skipped.
 		svc := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret").WithRecoveryDB(db)
 		svc.WithPasswordProvider(stubPasswordProvider{kind: identity.KindLDAP, username: "norolemodel"})
 		resp, err := svc.Login(ctx, &LoginRequest{Username: "norolemodel", Password: "x"})
@@ -407,8 +421,9 @@ func TestLogin_AssignDefaultRoles_Branches(t *testing.T) {
 		svc.WithProviderDefaultRoles(identity.KindLDAP, []string{"viewer"})
 		require.NoError(t, db.Migrator().DropTable("roles"))
 
-		// findRoleByName 查询失败仅告警跳过；随后 GetAdminRoles 因同一
-		// 缺表失败，登录整体报错（目标分支已执行）。
+		// findRoleByName query failure only warns and skips; then GetAdminRoles
+		// fails on the same missing table and login errors out entirely (the
+		// target branch has executed).
 		_, err := svc.Login(ctx, &LoginRequest{Username: "listfail", Password: "x"})
 		require.Error(t, err)
 	})
@@ -423,8 +438,8 @@ func TestLogin_AssignDefaultRoles_Branches(t *testing.T) {
 		require.NoError(t, model.NewRoleModel(db).Create(ctx, &model.Role{Name: "viewer"}))
 		require.NoError(t, db.Migrator().DropTable("admin_roles"))
 
-		// AssignRole 写失败仅告警；GetAdminRoles 读同一缺表导致登录报错
-		//（目标分支已执行）。
+		// AssignRole write failure only warns; GetAdminRoles reading the same
+		// missing table makes login error out (the target branch has executed).
 		_, err := svc.Login(ctx, &LoginRequest{Username: "assignfail", Password: "x"})
 		require.Error(t, err)
 	})
@@ -449,7 +464,7 @@ func TestOIDCLoginCallback_ProvisionFails(t *testing.T) {
 	}
 	svc.WithOIDCProvider(fake, nil, "")
 
-	// admins 表不可用：JIT 解析失败 → 登录失败。
+	// admins table unavailable: JIT provisioning fails → login fails.
 	require.NoError(t, db.Migrator().DropTable("admins"))
 	state := svc.newOIDCState()
 
@@ -461,17 +476,17 @@ func TestOIDCLoginCallback_ProvisionFails(t *testing.T) {
 func TestVerifyOIDCState_MalformedPayloads(t *testing.T) {
 	svc := newOIDCService(t, nil, "")
 
-	// payload 非法 base64url。
+	// payload is not valid base64url.
 	assert.False(t, svc.verifyOIDCState("!!!.deadbeef"))
 
 	b64 := base64.RawURLEncoding.EncodeToString([]byte("abc"))
 	sig := svc.signState("abc")
-	// payload 合法 base64 但缺 nonce.timestamp 结构。
+	// payload is valid base64 but lacks the nonce.timestamp structure.
 	assert.False(t, svc.verifyOIDCState(b64+"."+sig))
 
 	b64 = base64.RawURLEncoding.EncodeToString([]byte("abc.xyz"))
 	sig = svc.signState("abc.xyz")
-	// timestamp 非数字。
+	// timestamp is not numeric.
 	assert.False(t, svc.verifyOIDCState(b64+"."+sig))
 }
 
@@ -492,7 +507,7 @@ func TestValidLastScope_EnvScopeQueryFails(t *testing.T) {
 	require.NoError(t, db.Create(role).Error)
 	require.NoError(t, adminModel.AssignRole(context.Background(), admin.ID, role.ID))
 
-	// scope 表查询失败：回落空 scope，不 panic。
+	// scope table query failure: falls back to empty scope, no panic.
 	require.NoError(t, db.Migrator().DropTable("admin_game_env_scopes"))
 	gameID, env := svc.validLastScope(context.Background(), admin.ID, []string{"viewer"}, game.GameID, "prod")
 	assert.Empty(t, gameID)
@@ -515,11 +530,13 @@ func TestLogout_BumpsTokenVersion(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, before.TokenVersion+1, after.TokenVersion)
 
-	// 用户不存在的 Logout：跳过 bump，正常返回。
+	// Logout for a missing user: skips the bump and returns normally.
 	svc.Logout(ctx, &LogoutRequest{Username: "ghost"})
 
-	// bump 写失败：仅告警，不返回错误（换角色名避开 name 唯一冲突）。
-	// Logout 已收紧签名（无出错路径），此处验证只读库也不 panic。
+	// bump write failure: only warns, no error returned (a different role name
+	// avoids the name unique conflict).
+	// Logout's signature was tightened (no failure path); this verifies it does
+	// not panic on a read-only database either.
 	createTestAdminWithRole(t, db, "bumpfail", "pw", "ops2")
 	readOnlyDB(t, db)
 	svc.Logout(ctx, &LogoutRequest{Username: "bumpfail"})
@@ -530,7 +547,8 @@ func TestCheck_PermissionServiceError(t *testing.T) {
 	svc := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret").WithRecoveryDB(db)
 	createTestAdminWithRole(t, db, "permerr", "pw", "ops")
 
-	// 非法 resource：CheckPermission 返回错误，Check 转 allowed=false + reason。
+	// Invalid resource: CheckPermission returns an error, and Check converts it
+	// to allowed=false + reason.
 	resp, err := svc.Check(context.Background(), "permerr", &CheckRequest{
 		Resource: "not a valid resource!",
 		Action:   "read",
@@ -546,7 +564,8 @@ func TestCheck_ValidResourceButDenied(t *testing.T) {
 	svc := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret").WithRecoveryDB(db)
 	createTestAdminWithRole(t, db, "deniedvalid", "pw", "ops")
 
-	// 合法 resource/action 但账号无任何授权：走 permission denied 分支。
+	// Valid resource/action but the account has no grants: takes the
+	// permission denied branch.
 	resp, err := svc.Check(context.Background(), "deniedvalid", &CheckRequest{
 		Resource: "game",
 		Action:   "restart",

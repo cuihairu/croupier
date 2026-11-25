@@ -12,7 +12,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// registerFixture 构造带角色模型的最小 Service（走 Attach 生产装配路径）。
+// registerFixture builds a minimal Service wired with a role model (via the
+// Attach production assembly path).
 func registerFixture(t *testing.T, cfg config.AuthProvidersConfig) *Service {
 	t.Helper()
 	db := setupTestDB(t)
@@ -25,7 +26,7 @@ func registerFixture(t *testing.T, cfg config.AuthProvidersConfig) *Service {
 	return ip.Attach(svc)
 }
 
-// TestRegister_DisabledByDefault 未开启时注册被拒且不建号。
+// TestRegister_DisabledByDefault Registration is rejected while disabled and no account is created.
 func TestRegister_DisabledByDefault(t *testing.T) {
 	svc := registerFixture(t, config.AuthProvidersConfig{})
 	assert.False(t, svc.RegisterEnabled(), "注册默认关闭")
@@ -34,7 +35,8 @@ func TestRegister_DisabledByDefault(t *testing.T) {
 	assert.Contains(t, err.Error(), "未开启")
 }
 
-// TestRegister_HappyPath 开启后注册成功：建号 + 默认角色 + 本地登录可用。
+// TestRegister_HappyPath With registration enabled, signup succeeds: account + default role
+// + local login available.
 func TestRegister_HappyPath(t *testing.T) {
 	svc := registerFixture(t, config.AuthProvidersConfig{
 		Register: config.RegisterConfig{Enabled: true, DefaultRoles: []string{"viewer"}},
@@ -59,14 +61,14 @@ func TestRegister_HappyPath(t *testing.T) {
 	require.Len(t, roles, 1)
 	assert.Equal(t, "viewer", roles[0].Name, "注册默认角色已绑定")
 
-	// 注册账号可用密码正常登录（无 mustChangePassword 标记）
+	// A registered account can log in normally with its password (no mustChangePassword flag)
 	resp, loginErr := svc.Login(context.Background(), &LoginRequest{Username: "newuser", Password: "Str0ngPass!x"})
 	require.NoError(t, loginErr)
 	assert.NotEmpty(t, resp.Token)
 	assert.False(t, resp.MustChangePassword)
 }
 
-// TestRegister_NicknameDefaultsToUsername 昵称缺省回落用户名。
+// TestRegister_NicknameDefaultsToUsername Falls back to the username when nickname is absent.
 func TestRegister_NicknameDefaultsToUsername(t *testing.T) {
 	svc := registerFixture(t, config.AuthProvidersConfig{Register: config.RegisterConfig{Enabled: true}})
 	admin, err := svc.Register(context.Background(), &RegisterRequest{Username: "nickless", Password: "Str0ngPass!x"})
@@ -74,7 +76,7 @@ func TestRegister_NicknameDefaultsToUsername(t *testing.T) {
 	assert.Equal(t, "nickless", admin.Nickname)
 }
 
-// TestRegister_Rejections 拒绝面：非法用户名/弱密码/重名。
+// TestRegister_Rejections Rejection surface: invalid username / weak password / duplicate name.
 func TestRegister_Rejections(t *testing.T) {
 	svc := registerFixture(t, config.AuthProvidersConfig{Register: config.RegisterConfig{Enabled: true}})
 
@@ -87,7 +89,7 @@ func TestRegister_Rejections(t *testing.T) {
 		require.Error(t, err, name)
 	}
 
-	// 重名
+	// Duplicate username
 	_, err := svc.Register(context.Background(), &RegisterRequest{Username: "dup", Password: "Str0ngPass!x"})
 	require.NoError(t, err)
 	_, err = svc.Register(context.Background(), &RegisterRequest{Username: "dup", Password: "An0therPass!x"})
@@ -95,7 +97,8 @@ func TestRegister_Rejections(t *testing.T) {
 	assert.Contains(t, err.Error(), "已存在")
 }
 
-// TestRegister_UnknownRoleSkipped 默认角色名不存在时告警跳过、建号不受影响。
+// TestRegister_UnknownRoleSkipped Unknown default role names are skipped with a warning and
+// account creation is unaffected.
 func TestRegister_UnknownRoleSkipped(t *testing.T) {
 	svc := registerFixture(t, config.AuthProvidersConfig{
 		Register: config.RegisterConfig{Enabled: true, DefaultRoles: []string{"ghost-role"}},
@@ -107,7 +110,7 @@ func TestRegister_UnknownRoleSkipped(t *testing.T) {
 	assert.Empty(t, roles, "未知角色跳过不阻塞注册")
 }
 
-// TestRefreshIdentityProviders_RegisterToggle 注册开关经热刷新级联更新。
+// TestRefreshIdentityProviders_RegisterToggle The register toggle cascades through a hot refresh.
 func TestRefreshIdentityProviders_RegisterToggle(t *testing.T) {
 	svc := registerFixture(t, config.AuthProvidersConfig{})
 	assert.False(t, svc.RegisterEnabled())

@@ -11,10 +11,12 @@ import (
 	"time"
 )
 
-// newOIDCState 生成 "payload.signature" 形式的 state；
-// payload 为 base64url("nonce.timestamp")，签名为 HMAC-SHA256(jwtSecret, payload)。
-// crypto/rand.Read 自 Go 1.24 起永不返回错误（失败即进程内 fatal），
-// 实现无出错路径，已收紧签名去掉 error 返回。
+// newOIDCState generates a state in "payload.signature" form;
+// payload is base64url("nonce.timestamp") and the signature is
+// HMAC-SHA256(jwtSecret, payload).
+// crypto/rand.Read never returns an error since Go 1.24 (failure is fatal
+// in-process), so the implementation has no failure path and the signature was
+// tightened to drop the error return.
 func (s *Service) newOIDCState() string {
 	nonce := make([]byte, 16)
 	_, _ = rand.Read(nonce)
@@ -35,7 +37,7 @@ func (s *Service) verifyOIDCState(state string) bool {
 	if !hmac.Equal([]byte(parts[1]), []byte(s.signState(string(payload)))) {
 		return false
 	}
-	// 有效期 10 分钟。
+	// Validity window is 10 minutes.
 	fields := strings.Split(string(payload), ".")
 	if len(fields) != 2 {
 		return false

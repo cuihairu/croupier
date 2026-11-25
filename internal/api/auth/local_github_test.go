@@ -12,8 +12,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// refreshWith 构造最小 Service 并应用给定身份源配置（走 RefreshIdentityProviders
-// 生产路径：防锁死守卫与级联重建都在这里）。
+// refreshWith builds a minimal Service and applies the given identity provider
+// config (driving the production RefreshIdentityProviders path: the anti-lockout
+// guard and the cascading rebuild both live there).
 func refreshWith(t *testing.T, cfg config.AuthProvidersConfig) (*Service, error) {
 	t.Helper()
 	db := setupTestDB(t)
@@ -28,7 +29,8 @@ func localOff() *bool {
 	return &f
 }
 
-// TestRefreshIdentityProviders_AntiLockoutGuard 全部登录方式关闭 → 拒绝且现状不变。
+// TestRefreshIdentityProviders_AntiLockoutGuard all login methods disabled →
+// rejected, and the current state is unchanged.
 func TestRefreshIdentityProviders_AntiLockoutGuard(t *testing.T) {
 	svc, err := refreshWith(t, config.AuthProvidersConfig{
 		Local:  config.LocalProviderConfig{Enabled: localOff()},
@@ -38,12 +40,13 @@ func TestRefreshIdentityProviders_AntiLockoutGuard(t *testing.T) {
 	})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "不能停用所有登录方式")
-	// 现状保持：本地登录仍可用（默认未停用）
+	// current state preserved: local login is still usable (not disabled by
+	// default)
 	assert.True(t, svc.LocalEnabled())
 }
 
-// TestRefreshIdentityProviders_LocalOffWithGitHubAllowed local 关 + GitHub 在 → 放行，
-// 本地级联移除、GitHub 生效。
+// TestRefreshIdentityProviders_LocalOffWithGitHubAllowed local off + GitHub
+// on → allowed, local is cascade-removed and GitHub takes effect.
 func TestRefreshIdentityProviders_LocalOffWithGitHubAllowed(t *testing.T) {
 	svc, err := refreshWith(t, config.AuthProvidersConfig{
 		Local: config.LocalProviderConfig{Enabled: localOff()},
@@ -61,7 +64,8 @@ func TestRefreshIdentityProviders_LocalOffWithGitHubAllowed(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, url, "github.com/login/oauth/authorize")
 
-	// 本地账号密码登录被拒：级联无 local provider，任何凭据都拿不到身份
+	// local account/password login is rejected: no local provider after the
+	// cascade, so no credential can obtain an identity
 	adminModel := svc.adminModel
 	seed := &model.Admin{Username: "was-local", Nickname: "w", Status: 1}
 	require.NoError(t, adminModel.Create(context.Background(), seed, "Str0ngPass!x"))
@@ -69,7 +73,8 @@ func TestRefreshIdentityProviders_LocalOffWithGitHubAllowed(t *testing.T) {
 	require.Error(t, loginErr)
 }
 
-// TestRefreshIdentityProviders_LocalToggleRestore 重新开启 local → 级联恢复。
+// TestRefreshIdentityProviders_LocalToggleRestore re-enabling local → the
+// cascade is restored.
 func TestRefreshIdentityProviders_LocalToggleRestore(t *testing.T) {
 	off := config.AuthProvidersConfig{
 		Local: config.LocalProviderConfig{Enabled: localOff()},
@@ -83,13 +88,15 @@ func TestRefreshIdentityProviders_LocalToggleRestore(t *testing.T) {
 	assert.False(t, svc.LocalEnabled())
 
 	on := config.AuthProvidersConfig{Local: config.LocalProviderConfig{Enabled: nil}}
-	// nil = 默认启用；重新挂上 GitHub 关闭——GitHub 关了但 local 在，不触锁死守卫
+	// nil = enabled by default; re-attach with GitHub off — GitHub off while
+	// local is on does not trip the lockout guard
 	require.NoError(t, svc.RefreshIdentityProviders(on))
 	assert.True(t, svc.LocalEnabled())
 	assert.False(t, svc.GitHubEnabled())
 }
 
-// TestGitHubFlow_DisabledByDefault 未配置时 GitHub 关闭，URL 生成报错。
+// TestGitHubFlow_DisabledByDefault with no config GitHub is off, and URL
+// generation errors.
 func TestGitHubFlow_DisabledByDefault(t *testing.T) {
 	svc, err := refreshWith(t, config.AuthProvidersConfig{})
 	require.NoError(t, err)
@@ -100,7 +107,8 @@ func TestGitHubFlow_DisabledByDefault(t *testing.T) {
 	assert.Contains(t, urlErr.Error(), "未启用")
 }
 
-// TestRefreshIdentityProviders_GitHubMissingConfig GitHub 开启但凭证缺失 → 拒绝（保存端回滚）。
+// TestRefreshIdentityProviders_GitHubMissingConfig GitHub on but credentials
+// missing → rejected (rolled back on the save side).
 func TestRefreshIdentityProviders_GitHubMissingConfig(t *testing.T) {
 	_, err := refreshWith(t, config.AuthProvidersConfig{
 		GitHub: config.GitHubProviderConfig{Enabled: true},

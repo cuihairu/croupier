@@ -1,32 +1,43 @@
 package auth
 
-// 覆盖率巡检补测·第二批（auth 包残余 23 块中的 13 块）：本文件只补测试、
-// 不改源码，按「缺口类型」分三组：
+// Coverage sweep follow-up tests, batch 2 (13 of the 23 remaining blocks in the auth
+// package): this file only adds tests and does not change source code. Grouped into
+// three buckets by gap type:
 //
-//  1. 装配翼（providers.go Attach 的 GitHub/WeChat/自定义 OAuth 三路接线；
-//     service.go 本地停用但 LDAP 在 → 密码级联只剩 LDAP）；
-//  2. 注册失败翼（admins 表缺 → 建号失败走审计 + 兜底文案；默认角色绑定
-//     表缺 → 告警跳过；邮箱域白名单里的空条目；别名比对时同域脏数据）；
-//  3. 邮箱验证翼（验证模型未装配 / 令牌表缺 / admins 表缺导致消费事务失败）。
+//  1. Wiring wing (the GitHub/WeChat/custom OAuth three-way wiring in providers.go
+//     Attach; service.go with local disabled but LDAP present -> the password cascade
+//     is reduced to LDAP only);
+//  2. Registration failure wing (missing admins table -> account creation fails via
+//     audit + fallback text; missing default role binding table -> skip with a
+//     warning; empty entries in the email domain whitelist; same-domain dirty rows
+//     during alias comparison);
+//  3. Email verification wing (verification model not wired / missing token table /
+//     missing admins table causing the consume transaction to fail).
 //
-// 明确登记为**确定性不可达**（不在此造例，防线保留）：
-//   - providers.go 三处「provider init failed 降级」：上游已在同函数内先行
-//     拦截空凭证返回错误，构造器在唯一调用点不可能再失败；
-//   - email_verification.go「生成验证令牌失败」：crypto/rand.Read 在 Go≥1.24
-//     合同上不再返回错误（go.mod go 1.26.6），属 dead-by-contract——比原
-//     「无注入点」登记更强的判死，误报风险清零；
-//   - VerifyEmailToken 的「!ok（并发消费）」：R51 翻案收口——sqlite
-//     BEFORE UPDATE TRIGGER + RAISE(IGNORE) 让 Consume 的条件 UPDATE 静默
-//     0 行（RowsAffected=0 → consumed=false），确定性触达（见
-//     email_verification_r51_test.go，原「无钩子」登记被 RAISE(IGNORE) 技法
-//     击破）；
-//   - siteServerURL 的 settings 单例为空翼：R51 收口——ResetForTest 置
-//     layered=nil 后调用即得空串，包内 t.Parallel 用例不读 settings 单例
-//     （零引用），互扰前提不成立（见 email_verification_r51_test.go）；
-//   - service.go 别名查重里的「同域行缺 @ → continue」：FindEmailsByDomain
-//     的 SQL 谓词是 email LIKE '%@'||domain，每条返回行必然含 '@'，
-//     strings.Cut 恒成功；脏数据在 SQL 层就被挡掉（本文件用例会证明它
-//     不会误判邮箱已占用）。
+// Explicitly registered as **deterministically unreachable** (no test cases built
+// here; the defense lines are kept):
+//   - The three "provider init failed" degradations in providers.go: upstream already
+//     intercepts empty credentials earlier in the same function and returns an error,
+//     so the constructor cannot fail again at its only call site;
+//   - "failed to generate verification token" in email_verification.go: crypto/rand.Read
+//     no longer returns an error per contract on Go>=1.24 (go.mod go 1.26.6), which is
+//     dead-by-contract - a stronger verdict than the earlier "no injection point"
+//     registration, with false-positive risk eliminated;
+//   - VerifyEmailToken's "!ok (concurrent consume)": R51 overturns and closes out the
+//     original registration - a sqlite BEFORE UPDATE TRIGGER + RAISE(IGNORE) makes
+//     Consume's conditional UPDATE silently affect 0 rows (RowsAffected=0 ->
+//     consumed=false), deterministically reachable (see email_verification_r51_test.go;
+//     the original "no hook" registration was broken open by the RAISE(IGNORE)
+//     technique);
+//   - The "empty settings singleton" wing for siteServerURL: closed out in R51 -
+//     calling after ResetForTest sets layered=nil yields an empty string; in-package
+//     t.Parallel cases do not read the settings singleton (zero references), so the
+//     premise for interference does not hold (see email_verification_r51_test.go);
+//   - The "same-domain row missing @ -> continue" branch in service.go alias
+//     deduplication: FindEmailsByDomain's SQL predicate is email LIKE '%@'||domain,
+//     so every returned row necessarily contains '@' and strings.Cut always succeeds;
+//     dirty data is blocked at the SQL layer (the cases in this file prove it does
+//     not falsely judge an email as taken).
 
 import (
 	"context"
@@ -42,10 +53,11 @@ import (
 	"gorm.io/gorm"
 )
 
-// ---- 1. 装配翼 ----
+// ---- 1. Wiring wing ----
 
-// Attach 把三个重定向型提供方挂到 Service：此前只有 LDAP/OIDC 两路被装配
-// 过，GitHub/WeChat/自定义 OAuth 三路在生产装配路径上无任何用例。
+// Attach wires the three redirect-type providers onto the Service: previously only
+// the LDAP/OIDC two paths were ever wired, and GitHub/WeChat/custom OAuth had no
+// coverage on the production assembly path.
 func TestIdentityProviders_AttachRedirectProviders(t *testing.T) {
 	db := setupTestDB(t)
 	svc := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), jwtutil.DevSecret()).
@@ -82,8 +94,8 @@ func TestIdentityProviders_AttachRedirectProviders(t *testing.T) {
 	assert.Equal(t, "https://gm.example.com/g-done", attached.GenericOAuthSuccessURL())
 }
 
-// 本地停用但 LDAP 在：密码级联只剩 LDAP（本地提供方整体移除，登录由外部
-// 身份源承担）。
+// Local disabled but LDAP present: the password cascade is reduced to LDAP only (the
+// local provider is removed wholesale; login is carried by the external identity source).
 func TestRefreshIdentityProviders_LocalOffKeepsLDAPOnly(t *testing.T) {
 	svc, err := refreshWith(t, config.AuthProvidersConfig{
 		Local: config.LocalProviderConfig{Enabled: localOff()},
@@ -101,10 +113,10 @@ func TestRefreshIdentityProviders_LocalOffKeepsLDAPOnly(t *testing.T) {
 	assert.Equal(t, []string{"viewer"}, roles["ldap"])
 }
 
-// ---- 2. 注册失败翼 ----
+// ---- 2. Registration failure wing ----
 
-// registerGapFixture 与包内 registerFixture 同构，但额外返回 db 句柄——
-// 缺表注入需要直接操作 schema。
+// registerGapFixture mirrors the in-package registerFixture but additionally returns
+// the db handle - missing-table injection needs direct schema manipulation.
 func registerGapFixture(t *testing.T, cfg config.AuthProvidersConfig) (*Service, *gorm.DB) {
 	t.Helper()
 	db := setupTestDB(t)
@@ -117,8 +129,9 @@ func registerGapFixture(t *testing.T, cfg config.AuthProvidersConfig) (*Service,
 	return ip.Attach(svc), db
 }
 
-// admins 表缺：查重跳过（err != nil 不算已存在）→ 建号失败 → 记失败审计
-// 并返回兜底文案（不把底层 DB 错误原样抛给匿名端点）。
+// Missing admins table: dedup is skipped (err != nil does not count as existing) ->
+// account creation fails -> a failure audit is recorded and the fallback text is
+// returned (the raw underlying DB error is not thrown at the anonymous endpoint).
 func TestRegister_AdminTableMissing(t *testing.T) {
 	svc, db := registerGapFixture(t, config.AuthProvidersConfig{
 		Register: config.RegisterConfig{Enabled: true},
@@ -133,8 +146,9 @@ func TestRegister_AdminTableMissing(t *testing.T) {
 	assert.Contains(t, err.Error(), "注册失败")
 }
 
-// 默认角色存在但绑定表缺：角色查找成功、绑定失败 → 仅告警，注册本身成功
-// （绑定失败不得回滚建号）。
+// Default role exists but the binding table is missing: role lookup succeeds, binding
+// fails -> warning only, and registration itself succeeds (a binding failure must not
+// roll back account creation).
 func TestRegister_DefaultRoleAssignFailureIsNonFatal(t *testing.T) {
 	svc, db := registerGapFixture(t, config.AuthProvidersConfig{
 		Register: config.RegisterConfig{Enabled: true, DefaultRoles: []string{"viewer"}},
@@ -148,7 +162,8 @@ func TestRegister_DefaultRoleAssignFailureIsNonFatal(t *testing.T) {
 	assert.Equal(t, "rolefail1", admin.Username)
 }
 
-// 白名单串里的空条目（", ,example.com"）被跳过而非误判为不允许的域。
+// Empty entries in the whitelist string (", ,example.com") are skipped rather than
+// misjudged as disallowed domains.
 func TestRegister_EmailWhitelistSkipsEmptyEntries(t *testing.T) {
 	seedEmailPolicy(t, map[string]string{
 		settings.KeyAuthEmailDomainWhitelist: `" , ,example.com"`,
@@ -170,15 +185,17 @@ func TestRegister_EmailWhitelistSkipsEmptyEntries(t *testing.T) {
 	assert.Contains(t, err.Error(), "不在允许清单内")
 }
 
-// 别名限制开启时，库里同域之外的脏邮箱行（无 @）不会污染查重结果：新邮箱仍
-// 可注册，不被误判成「已被其他账号占用」。
+// With alias restriction enabled, dirty email rows in the database outside the same
+// domain (no @) do not pollute the dedup result: a new email can still register and is
+// not misjudged as "already taken by another account".
 func TestRegister_EmailAliasRestrictionIgnoresNonMatchingDomainRows(t *testing.T) {
 	seedEmailPolicy(t, map[string]string{settings.KeyAuthEmailAliasRestriction: `true`})
 	svc := registerFixture(t, config.AuthProvidersConfig{
 		Register: config.RegisterConfig{Enabled: true},
 	})
-	// 直写一条无 @ 的脏邮箱：同域 LIKE 谓词挡在 SQL 层，别名比对拿不到它，
-	// 也就不会把别的域/脏行误判成「该邮箱已被占用」。
+	// Write a dirty email without '@' directly: the same-domain LIKE predicate blocks it
+	// at the SQL layer, so the alias comparison never sees it and cannot misjudge other
+	// domains/dirty rows as "this email is already taken".
 	require.NoError(t, svc.adminModel.Create(context.Background(),
 		&model.Admin{Username: "dirtymail", Email: "corrupted", Status: 1}, "Str0ngPass!x"))
 
@@ -189,10 +206,11 @@ func TestRegister_EmailAliasRestrictionIgnoresNonMatchingDomainRows(t *testing.T
 	assert.Equal(t, "real.user@example.com", admin.Email)
 }
 
-// ---- 3. 邮箱验证翼 ----
+// ---- 3. Email verification wing ----
 
-// 验证模型未装配（早期部署/未接表）：签发静默返回 nil，校验报「验证服务
-// 不可用」——不得 panic，也不得放行任何令牌。
+// Verification model not wired (early deployments / table not attached): issuing
+// silently returns nil and verification reports "verification service unavailable" -
+// no panic, and no token is ever accepted.
 func TestEmailVerification_ModelNotWired(t *testing.T) {
 	svc := registerFixture(t, config.AuthProvidersConfig{
 		Register: config.RegisterConfig{Enabled: true},
@@ -208,7 +226,8 @@ func TestEmailVerification_ModelNotWired(t *testing.T) {
 	assert.Contains(t, err.Error(), "验证服务不可用")
 }
 
-// 令牌表缺：签发与校验都失败；注册后的自动签发仅告警不阻断注册。
+// Missing token table: both issuing and verification fail; the automatic issue after
+// registration only warns and does not block registration.
 func TestEmailVerification_TokenTableMissing(t *testing.T) {
 	svc, _, db := verificationFixture(t)
 	sent, restore := hookVerificationSender(t, nil)
@@ -227,8 +246,9 @@ func TestEmailVerification_TokenTableMissing(t *testing.T) {
 	require.Error(t, err, "令牌表缺时校验失败（不得放行）")
 }
 
-// admins 表缺：Consume 的事务里回写 admins.email_verified 失败 → 整体回滚
-// 且错误上抛（令牌不会被消费掉，等价于验证未完成）。
+// Missing admins table: writing back admins.email_verified inside Consume's
+// transaction fails -> everything rolls back and the error propagates (the token is
+// not consumed; equivalent to verification not completed).
 func TestEmailVerification_ConsumeFailureRollsBack(t *testing.T) {
 	svc, _, db := verificationFixture(t)
 	sent, restore := hookVerificationSender(t, nil)

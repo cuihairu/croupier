@@ -15,7 +15,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// fakePasswordProvider 是密码提供方测试替身。
+// fakePasswordProvider is a test double for a password provider.
 type fakePasswordProvider struct {
 	kind        string
 	validUsers  map[string]string // username -> password
@@ -62,7 +62,8 @@ func TestLogin_LocalStillWorks(t *testing.T) {
 	svc := NewService(adminModel, permissionservice.NewPermissionService(db), jwtutil.DevSecret()).WithRecoveryDB(db).
 		WithRoleModel(roleModel)
 
-	// 外部源配置为空时，仅本地提供方可用。
+	// with the external sources unconfigured, only the local provider is
+	// available.
 	assert.False(t, svc.LDAPEnabled())
 	assert.False(t, svc.OIDCEnabled())
 
@@ -81,24 +82,26 @@ func TestLogin_LDAPFallback_JITProvision(t *testing.T) {
 	svc, db := newCascadeService(t, ldap)
 	assert.True(t, svc.LDAPEnabled())
 
-	// 准备默认角色。
+	// prepare the default roles.
 	roleModel := model.NewRoleModel(db)
 	role := &model.Role{Name: "viewer"}
 	require.NoError(t, roleModel.Create(context.Background(), role))
 	svc.WithProviderDefaultRoles(identity.KindLDAP, []string{"viewer", "missing-role"})
 
-	// 本地不存在 bob：级联到 LDAP 成功，并 JIT 建号 + 赋默认角色。
+	// bob does not exist locally: the cascade succeeds on LDAP and JIT
+	// provisions the account + assigns the default roles.
 	resp, err := svc.Login(context.Background(), &LoginRequest{Username: "bob", Password: "ldappw"})
 	require.NoError(t, err)
 	assert.NotEmpty(t, resp.Token)
 	assert.Contains(t, resp.User.Roles, "viewer")
 	assert.NotContains(t, resp.User.Roles, "missing-role")
 
-	// 影子账号密码为随机值，不能用本地密码登录。
+	// the shadow account's password is a random value, so the local password
+	// cannot log in.
 	_, err = svc.Login(context.Background(), &LoginRequest{Username: "bob", Password: "anything"})
 	require.Error(t, err)
 
-	// LDAP 密码错误 → 整体凭证失败。
+	// wrong LDAP password → the whole credential check fails.
 	_, err = svc.Login(context.Background(), &LoginRequest{Username: "bob", Password: "nope"})
 	require.Error(t, err)
 }
@@ -134,7 +137,7 @@ func TestOIDCState_RoundTrip(t *testing.T) {
 	assert.False(t, svc.verifyOIDCState(""))
 	assert.False(t, svc.verifyOIDCState(state+"x"))
 
-	// 篡改 payload 后签名不匹配。
+	// tampering with the payload makes the signature mismatch.
 	parts := splitState(state)
 	assert.False(t, svc.verifyOIDCState("YWJj.13.37."+parts[1]))
 }
@@ -152,16 +155,16 @@ func splitState(state string) []string {
 }
 
 func TestProviders_ConfigValidation(t *testing.T) {
-	// LDAP 缺关键配置：报错。
+	// LDAP missing key configuration: error.
 	_, err := buildIdentityProviders(authProvidersConfigLDAP(true, "", "", ""))
 	require.Error(t, err)
 
-	// 合法 LDAP 配置：装配成功。
+	// a valid LDAP configuration: assembly succeeds.
 	ips, err := buildIdentityProviders(authProvidersConfigLDAP(true, "ldap://x:389", "dc=e,dc=c", "(uid=%s)"))
 	require.NoError(t, err)
 	require.NotNil(t, ips.ldap)
 
-	// 未启用：不装配。
+	// disabled: nothing is assembled.
 	ips, err = buildIdentityProviders(authProvidersConfigLDAP(false, "ldap://x:389", "dc=e,dc=c", "(uid=%s)"))
 	require.NoError(t, err)
 	assert.Nil(t, ips.ldap)

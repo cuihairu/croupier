@@ -14,21 +14,24 @@ import (
 	"github.com/cuihairu/croupier/internal/platform/settings"
 )
 
-// LocalEnabled 报告账号密码登录是否启用（auth.local.enabled，默认启用）。
+// LocalEnabled reports whether username/password login is enabled
+// (auth.local.enabled, enabled by default).
 func (s *Service) LocalEnabled() bool {
 	s.providersMu.RLock()
 	defer s.providersMu.RUnlock()
 	return !s.localDisabled
 }
 
-// RegisterEnabled 报告自助注册是否开启（auth.register.enabled，默认关闭）。
+// RegisterEnabled reports whether self-service registration is on
+// (auth.register.enabled, off by default).
 func (s *Service) RegisterEnabled() bool {
 	s.providersMu.RLock()
 	defer s.providersMu.RUnlock()
 	return s.registerEnabled
 }
 
-// RegisterRequest 是自助注册入参（POST /api/v1/auth/register，匿名可访问）。
+// RegisterRequest is the self-service registration input (POST
+// /api/v1/auth/register, accessible anonymously).
 type RegisterRequest struct {
 	Username  string `json:"username"`
 	Password  string `json:"password"`
@@ -38,9 +41,11 @@ type RegisterRequest struct {
 	UserAgent string `json:"-"`
 }
 
-// Register 自助注册本地账号（OPEN-ISSUES #51b，默认关闭）。密码经
-// security.* 策略校验（与建号/改密同链）；成功后赋默认角色。不签发
-// token——注册完成走正常登录（mustChangePassword/MFA 门控照常生效）。
+// Register self-service registers a local account (OPEN-ISSUES #51b, off by
+// default). The password is checked by security.* policy (the same chain as
+// account creation/password change); default roles are granted on success. No
+// token is issued — after registering, the user logs in normally
+// (mustChangePassword/MFA gates still apply as usual).
 func (s *Service) Register(ctx context.Context, req *RegisterRequest) (*model.Admin, error) {
 	if !s.RegisterEnabled() {
 		return nil, errors.New("自助注册未开启")
@@ -57,7 +62,8 @@ func (s *Service) Register(ctx context.Context, req *RegisterRequest) (*model.Ad
 	}
 	email := strings.TrimSpace(req.Email)
 	if emailVerificationRequired() && email == "" {
-		// required 开启后邮箱从选填变必填：没有收件地址就没有可验证之物。
+		// Once required is on, email goes from optional to mandatory: without a
+		// delivery address there is nothing to verify.
 		return nil, errorx.NewBadRequest("已开启注册邮箱验证，注册必须填写邮箱")
 	}
 	if email != "" {
@@ -76,14 +82,16 @@ func (s *Service) Register(ctx context.Context, req *RegisterRequest) (*model.Ad
 		Status:   1,
 	}
 	if err := s.adminModel.Create(ctx, admin, req.Password); err != nil {
-		// 并发重名：唯一索引兜底为失败
+		// Concurrent duplicate name: the unique index turns this into a failure.
 		s.recordLoginAudit(ctx, username, "auth.register_failed", "failed",
 			&LoginRequest{ClientIP: req.ClientIP, UserAgent: req.UserAgent}, "create_failed", "")
 		return nil, fmt.Errorf("注册失败：用户名可能已存在")
 	}
 	s.assignRegisterRoles(ctx, admin.ID)
-	// #51c 第二批：required 开启且填了邮箱 → 签发验证令牌并发信。失败仅
-	// 日志（令牌已落库，用户可走重发端点），不影响注册结果。
+	// Batch 2 of #51c: required on and an email provided → issue a verification
+	// token and send the mail. Failure is only logged (the token is already
+	// persisted and the user can use the resend endpoint), leaving the
+	// registration result unaffected.
 	s.maybeSendVerificationOnRegister(ctx, admin)
 	s.recordLoginAudit(ctx, username, "auth.register", "success",
 		&LoginRequest{ClientIP: req.ClientIP, UserAgent: req.UserAgent}, "", "")
@@ -91,12 +99,15 @@ func (s *Service) Register(ctx context.Context, req *RegisterRequest) (*model.Ad
 	return admin, nil
 }
 
-// checkRegisterEmailPolicy 注册邮箱策略（OPEN-ISSUES #51c）。email 非空时
-// 依次执行：①基础形态校验（恰好一个 @、域含点）；②域后缀白名单
-// （auth.email.domainWhitelist，空 = 不限）；③别名限制
-// （auth.email.aliasRestriction）：拒绝 + 别名形态，并按 local 去点小写
-// 归一与同域既有账号比对（u.s@example.com 视同 us@example.com）。
-// 每次注册实时读 L3——保存即生效，无需接入热刷新装配链。
+// checkRegisterEmailPolicy is the registration email policy (OPEN-ISSUES
+// #51c). When email is non-empty it runs in order: (1) basic shape validation
+// (exactly one @, the domain contains a dot); (2) domain-suffix whitelist
+// (auth.email.domainWhitelist, empty = unrestricted); (3) alias restriction
+// (auth.email.aliasRestriction): reject + alias forms, and compare against
+// existing accounts in the same domain after normalizing the local part by
+// dropping dots and lowercasing (u.s@example.com counts as us@example.com).
+// L3 is read live at each registration — saving takes effect immediately, with
+// no need to wire into the hot-refresh assembly chain.
 func (s *Service) checkRegisterEmailPolicy(ctx context.Context, email string) error {
 	local, domain, hasAt := strings.Cut(email, "@")
 	if !hasAt || local == "" || !strings.Contains(domain, ".") || strings.ContainsAny(email, " \t") {
@@ -144,7 +155,8 @@ func (s *Service) checkRegisterEmailPolicy(ctx context.Context, email string) er
 	return nil
 }
 
-// isValidRegisterUsername 校验注册用户名形态（3-32 位字母/数字/_/-）。
+// isValidRegisterUsername validates the registration username shape
+// (3-32 chars of letters/digits/_/-).
 func isValidRegisterUsername(u string) bool {
 	if len(u) < 3 || len(u) > 32 {
 		return false
@@ -159,7 +171,8 @@ func isValidRegisterUsername(u string) bool {
 	return true
 }
 
-// assignRegisterRoles 赋注册默认角色；角色名不存在时告警跳过（与 JIT 同策略）。
+// assignRegisterRoles grants the registration default roles; a missing role
+// name is skipped with a warning (same policy as JIT provisioning).
 func (s *Service) assignRegisterRoles(ctx context.Context, adminID uint) {
 	s.providersMu.RLock()
 	names := s.registerRoles

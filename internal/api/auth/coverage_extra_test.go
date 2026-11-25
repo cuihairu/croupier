@@ -11,8 +11,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestIssueLogin_RoleLoadFailure 覆盖角色加载失败分支：
-// admin 存在且认证通过，但 admin_roles 表被移除导致 GetAdminRoles 报错。
+// TestIssueLogin_RoleLoadFailure covers the role-load failure branch:
+// the admin exists and authentication passes, but the admin_roles table was
+// removed so GetAdminRoles errors.
 func TestIssueLogin_RoleLoadFailure(t *testing.T) {
 	db := setupTestDB(t)
 	createTestAdminWithRole(t, db, "erin", "pw", "ops")
@@ -28,8 +29,9 @@ func TestIssueLogin_RoleLoadFailure(t *testing.T) {
 	assert.Contains(t, err.Error(), "获取用户角色失败")
 }
 
-// TestProvisionShadowAdmin_CreateFailure 覆盖 JIT 建号失败分支：
-// 外部身份认证通过，但 admins 表不可用导致建号与二次查找均失败。
+// TestProvisionShadowAdmin_CreateFailure covers the JIT provisioning failure
+// branch: the external identity authenticates, but the admins table is
+// unavailable so both provisioning and the follow-up lookup fail.
 func TestProvisionShadowAdmin_CreateFailure(t *testing.T) {
 	db := setupTestDB(t)
 	require.NoError(t, db.Migrator().DropTable("admins"))
@@ -49,7 +51,8 @@ func TestProvisionShadowAdmin_CreateFailure(t *testing.T) {
 	assert.Contains(t, err.Error(), "登录失败")
 }
 
-// TestLogin_ExistingExternalUser 覆盖外部身份命中已存在本地记录的路径。
+// TestLogin_ExistingExternalUser covers the path where an external identity
+// hits an existing local record.
 func TestLogin_ExistingExternalUser(t *testing.T) {
 	db := setupTestDB(t)
 	adminModel := model.NewAdminModel(db)
@@ -59,7 +62,8 @@ func TestLogin_ExistingExternalUser(t *testing.T) {
 		"test-secret",
 	)
 
-	// 预置同名账号，LDAP 侧同一用户登录：resolve 命中已存在记录。
+	// Pre-seed an account with the same name; the same user logs in via LDAP:
+	// resolve hits the existing record.
 	admin := &model.Admin{Username: "frank", Status: 1}
 	require.NoError(t, adminModel.Create(context.Background(), admin, "localpw"))
 

@@ -1,7 +1,9 @@
-// 覆盖目标（coverage final）：
-//  1. handler.MFAStatus：未登录 401 / 成功 200 分支。
-//  2. service.MFAStatus：admin 缺失、外部影子账号、本地账号三态。
-//  3. service.provisionShadowAdmin：Create 冲突后回落已存在记录分支。
+// Coverage targets (coverage final):
+//  1. handler.MFAStatus: not-logged-in 401 / success 200 branches.
+//  2. service.MFAStatus: the three states — missing admin, external shadow
+//     account, and local account.
+//  3. service.provisionShadowAdmin: falling back to the existing record after
+//     a Create conflict.
 package auth
 
 import (
@@ -20,11 +22,11 @@ import (
 
 func TestHandler_MFAStatus_Branches(t *testing.T) {
 	ginCtx, rec := newAuthTestContext(http.MethodGet, "/api/v1/auth/mfa/status", "")
-	// 未登录：mfaUsername 为空 → 401
+	// Not logged in: mfaUsername empty → 401
 	NewHandler(&Service{}).MFAStatus(ginCtx)
 	assert.Equal(t, http.StatusUnauthorized, rec.Code)
 
-	// 已登录 + 本地账号 → 200（enabled=false, local=true）
+	// Logged in + local account → 200 (enabled=false, local=true)
 	db := setupTestDB(t)
 	createTestAdminWithRole(t, db, "statususer", "pw123456", "admin")
 	svcAuth := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "secret").WithRecoveryDB(db).WithRecoveryDB(db)
@@ -41,25 +43,25 @@ func TestService_MFAStatus_Branches(t *testing.T) {
 	db := setupTestDB(t)
 	svcAuth := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "secret").WithRecoveryDB(db).WithRecoveryDB(db)
 
-	// admin 不存在 → 空响应（FindByUsername nil）
+	// Admin missing → empty response (FindByUsername nil)
 	resp := svcAuth.MFAStatus(ctx, "ghost")
 	assert.False(t, resp.Local)
 	assert.False(t, resp.Enabled)
 
-	// 本地账号（有 password_hash）→ local=true
+	// Local account (has password_hash) → local=true
 	createTestAdminWithRole(t, db, "localu", "pw123456", "admin")
 	resp = svcAuth.MFAStatus(ctx, "localu")
 	assert.True(t, resp.Local)
 	assert.False(t, resp.Enabled)
 
-	// 影子账号（无 password_hash）→ local=false
+	// Shadow account (no password_hash) → local=false
 	shadow := &model.Admin{Username: "shadowu", Status: 1, OTPEnabled: true}
 	require.NoError(t, db.Create(shadow).Error)
 	resp = svcAuth.MFAStatus(ctx, "shadowu")
 	assert.False(t, resp.Local)
 	assert.False(t, resp.Enabled, "非本地账号 enabled 应为 false")
 
-	// 查询错误（连接关闭）→ 空响应兜底
+	// Query error (connection closed) → falls back to the empty response
 	db2 := setupTestDB(t)
 	createTestAdminWithRole(t, db2, "closedu", "pw123456", "admin")
 	svcAuth2 := NewService(model.NewAdminModel(db2), permissionservice.NewPermissionService(db2), "secret").WithRecoveryDB(db2)
@@ -74,13 +76,15 @@ func TestService_ProvisionShadowAdmin_FallsBackToExisting(t *testing.T) {
 	ctx := context.Background()
 	db := setupTestDB(t)
 
-	// 预插同名影子账号（模拟并发首登已创建）。
+	// Pre-insert a shadow account with the same name (simulating one already
+	// created by a concurrent first login).
 	existing := &model.Admin{Username: "dup-shadow", Nickname: "dup", Status: 1}
 	require.NoError(t, db.Create(existing).Error)
 
 	svcAuth := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "secret").WithRecoveryDB(db).WithRecoveryDB(db)
 
-	// Create 注错 → 唯一索引冲突路径：回落到已存在记录。
+	// Inject an error into Create → the unique-index conflict path: fall back to
+	// the existing record.
 	require.NoError(t, db.Callback().Create().Before("gorm:create").
 		Register("test:auth_fail_create", func(tx *gorm.DB) {
 			_ = tx.AddError(errors.New("duplicate key"))

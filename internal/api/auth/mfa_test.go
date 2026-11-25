@@ -16,7 +16,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// currentTOTP 用与 otp 包相同的算法生成当前窗口验证码（测试夹具）。
+// currentTOTP generates the current window's code with the same algorithm the
+// otp package uses (test fixture).
 func currentTOTP(t *testing.T, secret string) string {
 	t.Helper()
 	dec, err := base32.StdEncoding.WithPadding(base32.NoPadding).DecodeString(secret)
@@ -48,33 +49,33 @@ func TestMFA_SetupConfirmDisable_Lifecycle(t *testing.T) {
 	ctx := context.Background()
 	createTestAdminWithRole(t, db, "mfauser", "CorrectPass123", "admin")
 
-	// setup：返回 secret，未启用
+	// setup: returns the secret, not yet enabled
 	setup, err := svc.MFASetup(ctx, "mfauser")
 	require.NoError(t, err)
 	require.NotEmpty(t, setup.Secret)
 	assert.False(t, setup.AlreadyDone)
 	assert.Contains(t, setup.OtpauthURL, "otpauth://totp/")
 
-	// 错误 code 不能 confirm
+	// a wrong code cannot confirm
 	_, err = svc.MFAConfirm(ctx, "mfauser", "000000")
 	require.Error(t, err)
 
-	// 正确 code 确认启用
+	// the right code confirms and enables it
 	_, err = svc.MFAConfirm(ctx, "mfauser", currentTOTP(t, setup.Secret))
 	require.NoError(t, err)
 	admin, err := adminModel.FindByUsername(ctx, "mfauser")
 	require.NoError(t, err)
 	assert.True(t, admin.OTPEnabled)
 
-	// 再次 setup 返回 alreadyEnabled
+	// calling setup again returns alreadyEnabled
 	again, err := svc.MFASetup(ctx, "mfauser")
 	require.NoError(t, err)
 	assert.True(t, again.AlreadyDone)
 
-	// disable：错误密码拒绝
+	// disable: a wrong password is rejected
 	err = svc.MFADisable(ctx, "mfauser", currentTOTP(t, setup.Secret), "wrong-pass")
 	require.Error(t, err)
-	// 正确 code + 密码关闭
+	// the right code + password disables it
 	err = svc.MFADisable(ctx, "mfauser", currentTOTP(t, setup.Secret), "CorrectPass123")
 	require.NoError(t, err)
 	admin, err = adminModel.FindByUsername(ctx, "mfauser")
@@ -90,22 +91,22 @@ func TestLogin_MFA_RequiredAndVerified(t *testing.T) {
 	ctx := context.Background()
 	createTestAdminWithRole(t, db, "guard", "CorrectPass123", "admin")
 
-	// 启用 MFA
+	// enable MFA
 	setup, err := svc.MFASetup(ctx, "guard")
 	require.NoError(t, err)
 	_, err = svc.MFAConfirm(ctx, "guard", currentTOTP(t, setup.Secret))
 	require.NoError(t, err)
 
-	// 无 totpCode：返回 ErrMFARequired
+	// no totpCode: returns ErrMFARequired
 	_, err = svc.Login(ctx, &LoginRequest{Username: "guard", Password: "CorrectPass123"})
 	require.ErrorIs(t, err, ErrMFARequired)
 
-	// 错误 code：拒绝
+	// a wrong code: rejected
 	_, err = svc.Login(ctx, &LoginRequest{Username: "guard", Password: "CorrectPass123", TOTPCode: "000000"})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "二次验证码错误")
 
-	// 正确 code：放行
+	// the right code: allowed through
 	resp, err := svc.Login(ctx, &LoginRequest{Username: "guard", Password: "CorrectPass123", TOTPCode: currentTOTP(t, setup.Secret)})
 	require.NoError(t, err)
 	assert.NotEmpty(t, resp.Token)
@@ -117,19 +118,21 @@ func TestLogin_MFA_SkippedForExternalProvider(t *testing.T) {
 	svc := NewService(adminModel, permissionservice.NewPermissionService(db), "test-secret").WithRecoveryDB(db)
 	ctx := context.Background()
 
-	// 影子账号：无 password_hash（外部身份源 JIT 形态），但 OTPEnabled 意外为真
+	// a shadow account: no password_hash (the external-provider JIT shape), but
+	// OTPEnabled unexpectedly true
 	shadow := &model.Admin{Username: "ext-user", Status: 1, OTPEnabled: true, OTPSecret: "JBSWY3DPEHPK3PXP"}
 	require.NoError(t, db.Create(shadow).Error)
 
 	svc.WithPasswordProvider(stubPasswordProvider{kind: identity.KindLDAP, username: "ext-user"})
 
-	// 外部身份源登录不触发 MFA 分支
+	// an external identity provider login does not take the MFA branch
 	resp, err := svc.Login(ctx, &LoginRequest{Username: "ext-user", Password: "whatever"})
 	require.NoError(t, err)
 	assert.NotEmpty(t, resp.Token)
 }
 
-// stubPasswordProvider 模拟外部密码身份源（任意密码均通过）。
+// stubPasswordProvider simulates an external password identity provider (any
+// password is accepted).
 type stubPasswordProvider struct {
 	kind     string
 	username string

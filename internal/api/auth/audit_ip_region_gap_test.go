@@ -1,12 +1,17 @@
-// 覆盖目标：Service.recordLoginAudit 的 ipRegion 分支——req.ClientIP 非空且
-// ipgeo.Region 命中时，把归属地写入 metadata["ipRegion"]（service.go:580）。
+// Coverage target: the ipRegion branch of Service.recordLoginAudit — when
+// req.ClientIP is non-empty and ipgeo.Region hits, the region is written into
+// metadata["ipRegion"] (service.go:580).
 //
-// ipgeo 按 sync.Once 惰性初始化，环境变量只在第一次 Region 调用时读取一次；
-// -shuffle=on 下用例序不定，文件名排序保证不了「本测试的 BIN 是 once 初见
-// 的那份」（曾实证：其他用例先消费 once 后本测试拿空 region）。故设完 env
-// 即调 ipgeo.ResetForTesting 重放 initDB，cleanup 恢复 env 后再重置一次，
-// 让其余用例按各自环境重新惰性初始化。其余测试使用的 IP
-// （127.0.0.1/10.0.0.1/192.168.1.1）落在哨兵记录上，Region 仍返回空串。
+// ipgeo initializes lazily via sync.Once, and the environment variables are read
+// once, on the first Region call; under -shuffle=on the case order is not
+// deterministic and filename sorting does not guarantee "this test's BIN is the
+// one the Once sees first" (observed: another case consumes the Once and this
+// test then gets an empty region). So right after setting the env this test
+// calls ipgeo.ResetForTesting to replay initDB, and cleanup resets once more
+// after restoring the env, letting the other cases re-initialize lazily against
+// their own environment. The IPs used by other tests
+// (127.0.0.1/10.0.0.1/192.168.1.1) fall on the sentinel record, so Region
+// still returns an empty string.
 package auth
 
 import (
@@ -24,8 +29,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// ipRegionWriteString 追加长度前缀字符串（IP2Location 磁盘格式），返回其
-// 在 buf 中的绝对偏移。
+// ipRegionWriteString appends a length-prefixed string (IP2Location disk
+// format) and returns its absolute offset in buf.
 func ipRegionWriteString(buf *bytes.Buffer, s string) uint32 {
 	off := uint32(buf.Len())
 	buf.WriteByte(byte(len(s)))
@@ -33,32 +38,34 @@ func ipRegionWriteString(buf *bytes.Buffer, s string) uint32 {
 	return off
 }
 
-// writeIPRegionSyntheticBIN 构造最小可用的 IP2Location DB3 格式 IPv4 BIN
-// （与 internal/ipgeo 的合成 BIN 同构）：
+// writeIPRegionSyntheticBIN builds a minimal working IP2Location DB3-format
+// IPv4 BIN (isomorphic to the synthetic BIN in internal/ipgeo):
 //
 //	1.2.3.4         -> US / United States / California / Mountain View
 //	2.2.2.2         -> CN / China
-//	3.3.3.3         -> JP（短名回退）
-//	255.255.255.255 -> 哨兵上界，其余地址查询返回空
+//	3.3.3.3         -> JP (short-name fallback)
+//	255.255.255.255 -> sentinel upper bound; lookups for other addresses return empty
 func writeIPRegionSyntheticBIN(t *testing.T) string {
 	t.Helper()
 	buf := &bytes.Buffer{}
 
 	hdr := make([]byte, 64)
-	hdr[0] = 3  // databasetype: DB3（country/region/city）
+	hdr[0] = 3  // databasetype: DB3 (country/region/city)
 	hdr[1] = 4  // databasecolumn
-	hdr[2] = 20 // year 2020：绕过 productcode 校验
+	hdr[2] = 20 // year 2020: bypasses the productcode check
 	hdr[3], hdr[4] = 1, 1
 	binary.LittleEndian.PutUint32(hdr[5:], 3)  // ipv4 record count
-	binary.LittleEndian.PutUint32(hdr[9:], 65) // ipv4 base addr（1-based 65 -> 偏移 64）
+	binary.LittleEndian.PutUint32(hdr[9:], 65) // ipv4 base addr (1-based 65 -> offset 64)
 	buf.Write(hdr)
 
-	// 4 个记录槽（每个 16 字节）：3 条数据 + 1 条哨兵；字符串区紧随其后。
+	// Four record slots (16 bytes each): 3 data records + 1 sentinel; the string
+	// section follows immediately.
 	const strBase = 64 + 4*16
 	strs := &bytes.Buffer{}
 	cUS := strBase + uint32(strs.Len())
 	ipRegionWriteString(strs, "US")
-	// 长 country 名必须紧跟短名：库在 country_ptr+3 处读取（+3 跳过短名）。
+	// The long country name must follow the short one: the library reads at
+	// country_ptr+3 (+3 skips the short name).
 	ipRegionWriteString(strs, "United States")
 	rUS := strBase + uint32(strs.Len())
 	ipRegionWriteString(strs, "California")
@@ -86,7 +93,7 @@ func writeIPRegionSyntheticBIN(t *testing.T) string {
 	writeRec(0x01020304, cUS, rUS, cyUS)       // 1.2.3.4
 	writeRec(0x02020202, cCN, rEmpty, cyEmpty) // 2.2.2.2
 	writeRec(0x03030303, cJP, rEmpty, cyEmpty) // 3.3.3.3
-	writeRec(0xFFFFFFFF, 0, 0, 0)              // 哨兵上界
+	writeRec(0xFFFFFFFF, 0, 0, 0)              // sentinel upper bound
 
 	buf.Write(strs.Bytes())
 
@@ -98,8 +105,9 @@ func writeIPRegionSyntheticBIN(t *testing.T) string {
 func TestRecordLoginAudit_IPRegionFromSyntheticDB(t *testing.T) {
 	prev, hadPrev := os.LookupEnv("IP2LOCATION_BIN_PATH")
 	require.NoError(t, os.Setenv("IP2LOCATION_BIN_PATH", writeIPRegionSyntheticBIN(t)))
-	// once 可能已被包内其他用例（shuffle 序在前）以默认环境消费过：重放
-	// initDB 保证合成 BIN 生效。
+	// The Once may already have been consumed by another case in this package
+	// (earlier in shuffle order) with the default environment: replaying initDB
+	// guarantees the synthetic BIN takes effect.
 	ipgeo.ResetForTesting()
 	t.Cleanup(func() {
 		if hadPrev {

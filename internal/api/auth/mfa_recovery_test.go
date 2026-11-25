@@ -26,14 +26,16 @@ func newMfaService(t *testing.T, username string) (*Service, context.Context) {
 }
 
 // ------------------------------------------------------------------
-// otpauth:// URI —— 这是「扫码即绑」能不能成立的关键
+// otpauth:// URI — the linchpin of whether "scan to bind" holds up
 // ------------------------------------------------------------------
 
-// MFASetup 必须返回可被验证器 App 解析的 otpauth URI。
+// MFASetup must return an otpauth URI that a verifier app can parse.
 //
-// 修复前是手写串 `otpauth://totp/Croupier:%s?secret=%s&issuer=Croupier`：
-// 账号名完全没转义，缺 algorithm/digits/period。含 '@'、'/' 或非 ASCII 的
-// 用户名会让 Google/Microsoft Authenticator 解析失败或条目被丢弃。
+// Before the fix it was a hand-written string
+// `otpauth://totp/Croupier:%s?secret=%s&issuer=Croupier`: the account name was
+// not escaped at all and algorithm/digits/period were missing. Usernames
+// containing '@', '/', or non-ASCII characters made Google/Microsoft
+// Authenticator fail to parse the URI or drop the entry.
 func TestMFASetup_ProducesScannableOtpauthURI(t *testing.T) {
 	svc, ctx := newMfaService(t, "scanme")
 	setup, err := svc.MFASetup(ctx, "scanme")
@@ -47,10 +49,11 @@ func TestMFASetup_ProducesScannableOtpauthURI(t *testing.T) {
 
 	q := u.Query()
 	assert.Equal(t, setup.Secret, q.Get("secret"))
-	// issuer 必须同时出现在 label 前缀与 query 里，两者不一致时
-	// Google Authenticator 会静默丢弃该条目
+	// issuer must appear both as the label prefix and in the query; when the
+	// two disagree Google Authenticator silently drops the entry
 	assert.Equal(t, otp.DefaultIssuer, q.Get("issuer"))
-	// 显式声明算法/位数/步长，不依赖接收方默认值
+	// declare algorithm/digits/period explicitly rather than relying on the
+	// receiver's defaults
 	assert.Equal(t, otp.AlgorithmSHA1, q.Get("algorithm"))
 	assert.Equal(t, "6", q.Get("digits"))
 	assert.Equal(t, "30", q.Get("period"))
@@ -61,7 +64,8 @@ func TestMFASetup_ProducesScannableOtpauthURI(t *testing.T) {
 	assert.Equal(t, otp.DefaultIssuer, setup.Issuer)
 }
 
-// 含特殊字符的账号名必须被转义，否则 URI 里的 query 会被吃掉。
+// An account name with special characters must be escaped, otherwise the query
+// in the URI gets eaten.
 func TestMFASetup_EscapesSpecialUsername(t *testing.T) {
 	const username = "user@example.com"
 	svc, ctx := newMfaService(t, username)
@@ -70,13 +74,14 @@ func TestMFASetup_EscapesSpecialUsername(t *testing.T) {
 
 	u, err := url.Parse(setup.OtpauthURL)
 	require.NoError(t, err)
-	// 未转义时 '@' 之后会被当作 host 信息，secret 解析不到
+	// unescaped, everything after '@' is treated as host information and the
+	// secret cannot be parsed
 	assert.Equal(t, setup.Secret, u.Query().Get("secret"),
 		"账号名未转义导致 secret 丢失: %s", setup.OtpauthURL)
 }
 
 // ------------------------------------------------------------------
-// 备用恢复码
+// backup recovery codes
 // ------------------------------------------------------------------
 
 func TestMFAConfirm_IssuesRecoveryCodes(t *testing.T) {
@@ -90,12 +95,13 @@ func TestMFAConfirm_IssuesRecoveryCodes(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, resp.RecoveryCodes, otp.RecoveryCodeCount)
 
-	// 每个码都必须能通过格式校验
+	// every code must pass the well-formedness check
 	for _, c := range resp.RecoveryCodes {
 		assert.True(t, otp.IsWellFormedRecoveryCode(c), "恢复码 %q 格式非法", c)
 	}
 
-	// 库里只存哈希，绝不存明文；且每个哈希恰好对应一个明文码
+	// only hashes are stored, never plaintext; and each hash matches exactly one
+	// plaintext code
 	rows, err := model.NewAdminOTPRecoveryCodeModel(recoveryDBOf(svc)).ListUsable(ctx, admin.ID)
 	require.NoError(t, err)
 	require.Len(t, rows, otp.RecoveryCodeCount)
@@ -114,7 +120,7 @@ func TestMFAConfirm_IssuesRecoveryCodes(t *testing.T) {
 	}
 }
 
-// 恢复码一次性：消费后不可再用。
+// Recovery codes are one-shot: once consumed, they cannot be used again.
 func TestRecoveryCode_IsSingleUse(t *testing.T) {
 	svc, ctx := newMfaService(t, "singleuse")
 	admin := mustFindAdmin(t, "singleuse", svc)
@@ -133,7 +139,7 @@ func TestRecoveryCode_IsSingleUse(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, ok, "同一恢复码不得二次使用")
 
-	// 剩余数量相应减少
+	// the remaining count drops accordingly
 	remaining, err := svc.CountRecoveryCodes(ctx, admin.ID)
 	require.NoError(t, err)
 	assert.Equal(t, otp.RecoveryCodeCount-1, remaining)
@@ -148,12 +154,12 @@ func TestConsumeRecoveryCode_RejectsUnknownAndMalformed(t *testing.T) {
 	_, err = svc.MFAConfirm(ctx, "rejectme", currentTOTP(t, setup.Secret))
 	require.NoError(t, err)
 
-	// 未签发的合法格式码
+	// a well-formed code that was never issued
 	ok, err := svc.ConsumeRecoveryCode(ctx, admin.ID, "ZZZZZZZZZZ")
 	require.NoError(t, err)
 	assert.False(t, ok)
 
-	// 格式非法（位数不对 / 含字母表外字符）
+	// malformed (wrong length / characters outside the alphabet)
 	for _, bad := range []string{"", "SHORT", "TOOLONGCODE12", "ABCD2345E0", "!!!!!!!!!!"} {
 		ok, err := svc.ConsumeRecoveryCode(ctx, admin.ID, bad)
 		require.NoError(t, err)
@@ -161,7 +167,8 @@ func TestConsumeRecoveryCode_RejectsUnknownAndMalformed(t *testing.T) {
 	}
 }
 
-// 用户按 4 位一组抄写恢复码时带空格，登录应照样认。
+// Users copying a recovery code in groups of four insert spaces; login should
+// still accept it.
 func TestRecoveryCode_AcceptsSpacedInput(t *testing.T) {
 	svc, ctx := newMfaService(t, "spaced")
 	admin := mustFindAdmin(t, "spaced", svc)
@@ -190,7 +197,7 @@ func TestMFADisable_ClearsRecoveryCodes(t *testing.T) {
 
 	require.NoError(t, svc.MFADisable(ctx, "clearme", currentTOTP(t, setup.Secret), "CorrectPass123"))
 
-	// 关闭后旧恢复码不得再能消费
+	// after disabling, the old recovery codes must no longer be consumable
 	ok, err := svc.ConsumeRecoveryCode(ctx, admin.ID, resp.RecoveryCodes[0])
 	require.NoError(t, err)
 	assert.False(t, ok, "关闭两步验证后旧恢复码必须失效")
@@ -200,7 +207,8 @@ func TestMFADisable_ClearsRecoveryCodes(t *testing.T) {
 	require.False(t, again.AlreadyDone)
 }
 
-// 重新绑定必须换掉整批恢复码，否则用户以为作废的旧码仍然有效。
+// Re-binding must replace the whole batch of recovery codes, otherwise old
+// codes the user believes are revoked stay valid.
 func TestMFAReenroll_ReplacesRecoveryCodes(t *testing.T) {
 	svc, ctx := newMfaService(t, "reenroll")
 	admin := mustFindAdmin(t, "reenroll", svc)
@@ -216,20 +224,20 @@ func TestMFAReenroll_ReplacesRecoveryCodes(t *testing.T) {
 	second, err := svc.MFAConfirm(ctx, "reenroll", currentTOTP(t, setup2.Secret))
 	require.NoError(t, err)
 
-	// 旧码全部失效
+	// every old code is invalidated
 	for _, old := range first.RecoveryCodes {
 		ok, err := svc.ConsumeRecoveryCode(ctx, admin.ID, old)
 		require.NoError(t, err)
 		assert.False(t, ok, "重新绑定后旧恢复码 %q 必须失效", old)
 	}
-	// 新码可用
+	// the new codes work
 	ok, err := svc.ConsumeRecoveryCode(ctx, admin.ID, second.RecoveryCodes[0])
 	require.NoError(t, err)
 	assert.True(t, ok)
 }
 
 // ------------------------------------------------------------------
-// 状态
+// status
 // ------------------------------------------------------------------
 
 func TestMFAStatus_ReportsRemainingRecoveryCodes(t *testing.T) {
@@ -257,13 +265,14 @@ func TestMFAStatus_ReportsRemainingRecoveryCodes(t *testing.T) {
 	assert.Equal(t, otp.RecoveryCodeCount-1, svc.MFAStatus(ctx, "statusme").RecoveryCodesRemaining)
 }
 
-// 外部身份源账号：MFA 归 IdP 管，平台侧不签发恢复码。
+// External identity provider account: MFA is the IdP's business, and the
+// platform does not issue recovery codes.
 func TestMFAStatus_ExternalAccountHasNoRecoveryCodes(t *testing.T) {
 	db := setupTestDB(t)
 	adminModel := model.NewAdminModel(db)
 	svc := NewService(adminModel, permissionserviceForTest(db), "test-secret").WithRecoveryDB(db)
 	ctx := context.Background()
-	// 外部 JIT 影子账号：password_hash 为空
+	// an external JIT shadow account: password_hash is empty
 	require.NoError(t, db.Create(&model.Admin{Username: "oidcuser", Status: 1}).Error)
 
 	st := svc.MFAStatus(ctx, "oidcuser")
@@ -276,7 +285,7 @@ func TestMFAStatus_ExternalAccountHasNoRecoveryCodes(t *testing.T) {
 }
 
 // ------------------------------------------------------------------
-// 登录：TOTP 优先，恢复码兜底
+// login: TOTP first, recovery code as the fallback
 // ------------------------------------------------------------------
 
 func TestLogin_AcceptsRecoveryCodeWhenTOTPMissing(t *testing.T) {
@@ -286,11 +295,11 @@ func TestLogin_AcceptsRecoveryCodeWhenTOTPMissing(t *testing.T) {
 	resp, err := svc.MFAConfirm(ctx, "loginrecover", currentTOTP(t, setup.Secret))
 	require.NoError(t, err)
 
-	// 不带 totpCode → 要求 MFA
+	// no totpCode → MFA is required
 	_, err = svc.Login(ctx, &LoginRequest{Username: "loginrecover", Password: "CorrectPass123"})
 	require.ErrorIs(t, err, ErrMFARequired)
 
-	// 带恢复码 → 登录成功
+	// with a recovery code → the login succeeds
 	tok, err := svc.Login(ctx, &LoginRequest{
 		Username: "loginrecover",
 		Password: "CorrectPass123",
@@ -299,7 +308,7 @@ func TestLogin_AcceptsRecoveryCodeWhenTOTPMissing(t *testing.T) {
 	require.NoError(t, err, "恢复码应能替代动态码登录")
 	require.NotEmpty(t, tok.Token)
 
-	// 同一码不能再次登录
+	// the same code cannot log in again
 	_, err = svc.Login(ctx, &LoginRequest{
 		Username: "loginrecover",
 		Password: "CorrectPass123",
@@ -318,13 +327,13 @@ func TestLogin_InvalidRecoveryCodeRejected(t *testing.T) {
 	_, err = svc.Login(ctx, &LoginRequest{
 		Username: "badrecover",
 		Password: "CorrectPass123",
-		TOTPCode: "ZZZZZZZZZZ", // 格式合法但未签发
+		TOTPCode: "ZZZZZZZZZZ", // well formed but never issued
 	})
 	require.Error(t, err)
 	require.NotErrorIs(t, err, ErrMFARequired, "带码但码错时应直接报验证码错误")
 }
 
-// 正常动态码路径不受恢复码改动影响。
+// The normal dynamic code path is unaffected by the recovery-code changes.
 func TestLogin_StillAcceptsValidTOTP(t *testing.T) {
 	svc, ctx := newMfaService(t, "totpok")
 	setup, err := svc.MFASetup(ctx, "totpok")
@@ -341,12 +350,13 @@ func TestLogin_StillAcceptsValidTOTP(t *testing.T) {
 	require.NotEmpty(t, tok.Token)
 }
 
-// permissionserviceForTest 构造 MFA 用例所需的权限服务。
+// permissionserviceForTest builds the permission service needed by the MFA
+// cases.
 func permissionserviceForTest(db *gorm.DB) *permissionservice.PermissionService {
 	return permissionservice.NewPermissionService(db)
 }
 
-// mustFindAdmin 取出测试账号的 admins 行。
+// mustFindAdmin fetches the admins row of the test account.
 func mustFindAdmin(t *testing.T, username string, svc *Service) *model.Admin {
 	t.Helper()
 	a, err := svc.adminModel.FindByUsername(context.Background(), username)
@@ -354,5 +364,5 @@ func mustFindAdmin(t *testing.T, username string, svc *Service) *model.Admin {
 	return a
 }
 
-// recoveryDBOf 供断言「库里只存哈希」使用。
+// recoveryDBOf supports the "only hashes are stored" assertions.
 func recoveryDBOf(svc *Service) *gorm.DB { return svc.recoveryDB }

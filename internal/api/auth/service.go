@@ -18,9 +18,10 @@ import (
 	"gorm.io/gorm"
 )
 
-// ErrMFARequired 表示本地账号已启用 TOTP，登录请求缺少二次验证码。
-// CodeError 携带 401 + StableCode=mfa_required：经统一 response.Error 输出，
-// 前端按 error 码分支展示二次验证码输入，不读 message。
+// ErrMFARequired indicates the local account has TOTP enabled but the login request
+// lacks the second-factor code. CodeError carries 401 + StableCode=mfa_required: through
+// the unified response.Error output, the frontend branches on the error code to show the
+// second-factor code input and never reads message.
 var ErrMFARequired = &errorx.CodeError{
 	Code:       http.StatusUnauthorized,
 	Message:    "该账号已启用二次验证，请输入动态验证码",
@@ -36,50 +37,62 @@ type Service struct {
 	auditSvc   *audit.AuditService
 	jwtSecret  string
 
-	// otpRecoveryModel 持久化 MFA 备用恢复码（可为 nil，测试构造 Service 时省略）。
+	// otpRecoveryModel persists MFA backup recovery codes (may be nil; tests omit it
+	// when constructing the Service).
 	otpRecoveryModel *model.AdminOTPRecoveryCodeModel
-	// recoveryDB 是 otpRecoveryModel 未注入时兜底建模型用的 DB（可为 nil）；
-	// 也是 refreshTokenModel（AUD-052）未注入时的懒建来源。
+	// recoveryDB is the DB used to lazily build the model when otpRecoveryModel is
+	// not injected (may be nil); also the lazy-build source for refreshTokenModel
+	// (AUD-052) when it is not injected.
 	recoveryDB *gorm.DB
-	// refreshTokens 持久化刷新令牌轮换状态（AUD-052，可为 nil：nil 时登录
-	// opt-in 回退 legacy 单 token、兑换端点报内部错误）。生产从 recoveryDB
-	// 懒建，测试可经 WithRefreshTokenModel 显式注入。
+	// refreshTokens persists refresh token rotation state (AUD-052; may be nil: with
+	// nil, login opt-in falls back to the legacy single token and the exchange
+	// endpoint reports an internal error). Production lazily builds it from
+	// recoveryDB; tests can inject it explicitly via WithRefreshTokenModel.
 	refreshTokens *model.AdminRefreshTokenModel
-	// verificationModel 持久化注册邮箱验证令牌（#51c 第二批，可为 nil：
-	// nil 时验证链路整体降级为不拦不发）。
+	// verificationModel persists registration email verification tokens (#51c batch 2;
+	// may be nil: with nil, the verification chain degrades to neither blocking nor
+	// sending).
 	verificationModel *model.EmailVerificationModel
 
-	// passwordProviders 是密码型身份提供方级联，按顺序尝试；
-	// 首个元素始终是本地 admins 表。
+	// passwordProviders is the password-type identity provider cascade, tried in
+	// order; the first element is always the local admins table.
 	passwordProviders []identity.PasswordProvider
-	// oidc 是重定向授权型提供方（可选）。
+	// oidc is the redirect-based authorization provider (optional).
 	oidc identity.OAuthProvider
-	// oidcSuccessURL 非空时，OIDC 回调成功后携带 token 跳转到该前端地址。
+	// oidcSuccessURL, when non-empty, is the frontend address the OIDC callback
+	// redirects to with the token after success.
 	oidcSuccessURL string
-	// github 是 GitHub OAuth2 提供方（nil = 未启用）；successURL 语义同 OIDC。
+	// github is the GitHub OAuth2 provider (nil = disabled); successURL semantics
+	// same as OIDC.
 	github           identity.OAuthProvider
 	githubSuccessURL string
-	// wechat / genericOAuth 是扩展外部 OAuth 提供方（#51 第三批，nil = 未启用）。
+	// wechat / genericOAuth are extended external OAuth providers (#51 batch 3;
+	// nil = disabled).
 	wechat                 identity.OAuthProvider
 	wechatSuccessURL       string
 	genericOAuth           identity.OAuthProvider
 	genericOAuthSuccessURL string
-	// localDisabled = auth.local.enabled 显式关闭：本地账号密码级联被移除，
-	// 登录须走外部身份源；Providers 端点据此让前端隐藏账密表单。
+	// localDisabled = auth.local.enabled explicitly off: the local account+password
+	// cascade is removed and login must go through external identity sources; the
+	// Providers endpoint uses this to hide the credential form on the frontend.
 	localDisabled bool
-	// registerEnabled/registerRoles 是自助注册开关（#51b，默认关）与注册
-	// 建号赋予的默认角色名（由 auth.register.defaultRoles 配置；留空则不赋角色）。
+	// registerEnabled/registerRoles are the self-service registration toggle
+	// (#51b, off by default) and the default role names granted at account creation
+	// (configured via auth.register.defaultRoles; empty means no roles assigned).
 	registerEnabled bool
 	registerRoles   []string
-	// providerDefaultRoles 按 Provider Kind 记录 JIT 建号时的默认角色名。
+	// providerDefaultRoles records the default role names for JIT account creation
+	// per Provider Kind.
 	providerDefaultRoles map[string][]string
 
-	// providersMu 保护运行时身份提供方热刷新（站点设置「登录方式」
-	// 保存即生效——Harbor 模式：L3 DB 配置覆盖 yaml，无需重启）。
+	// providersMu guards runtime hot refresh of identity providers (saving the
+	// site settings "login methods" takes effect immediately - Harbor mode: L3 DB
+	// config overrides yaml, no restart needed).
 	providersMu sync.RWMutex
 
-	// lockoutThreshold / lockoutDuration 是本地账号连续密码失败后的
-	// 临时锁定策略（仅 local provider 生效；外部身份源失败计数在 IdP 侧）。
+	// lockoutThreshold / lockoutDuration are the temporary lockout policy after
+	// consecutive local password failures (only effective for the local provider;
+	// external identity sources count failures on the IdP side).
 	lockoutThreshold int
 	lockoutDuration  time.Duration
 }
@@ -107,8 +120,9 @@ func (s *Service) WithRecoveryDB(db *gorm.DB) *Service {
 	return s
 }
 
-// WithVerificationModel 注入邮箱验证令牌模型（#51c 第二批）。nil 时验证
-// 链路整体降级：不发信、登录不拦（开关语义仍由 settings 决定）。
+// WithVerificationModel injects the email verification token model (#51c batch 2).
+// With nil, the verification chain degrades wholesale: no email is sent and login is
+// not blocked (toggle semantics are still decided by settings).
 func (s *Service) WithVerificationModel(m *model.EmailVerificationModel) *Service {
 	s.verificationModel = m
 	return s
@@ -156,7 +170,7 @@ func (s *Service) WithOIDCProvider(p identity.OAuthProvider, defaultRoles []stri
 }
 
 // WithGitHubProvider enables the redirect-based GitHub OAuth2 login flow
-// （语义同 OIDC：JIT 建号 + 默认角色 + 成功跳转）。
+// (semantics same as OIDC: JIT provisioning + default roles + success redirect).
 func (s *Service) WithGitHubProvider(p identity.OAuthProvider, defaultRoles []string, successURL string) *Service {
 	s.github = p
 	s.providerDefaultRoles[identity.KindGitHub] = defaultRoles
@@ -165,7 +179,7 @@ func (s *Service) WithGitHubProvider(p identity.OAuthProvider, defaultRoles []st
 }
 
 // WithWeChatProvider enables the WeChat Open Platform QR login flow
-// （语义同 OIDC：JIT 建号 + 默认角色 + 成功跳转）。
+// (semantics same as OIDC: JIT provisioning + default roles + success redirect).
 func (s *Service) WithWeChatProvider(p identity.OAuthProvider, defaultRoles []string, successURL string) *Service {
 	s.wechat = p
 	s.providerDefaultRoles[identity.KindWeChat] = defaultRoles
@@ -174,7 +188,7 @@ func (s *Service) WithWeChatProvider(p identity.OAuthProvider, defaultRoles []st
 }
 
 // WithGenericOAuthProvider enables a custom OAuth2 (authorization code) login
-// flow（语义同 OIDC：JIT 建号 + 默认角色 + 成功跳转）。
+// flow (semantics same as OIDC: JIT provisioning + default roles + success redirect).
 func (s *Service) WithGenericOAuthProvider(p identity.OAuthProvider, defaultRoles []string, successURL string) *Service {
 	s.genericOAuth = p
 	s.providerDefaultRoles[identity.KindGenericOAuth] = defaultRoles
@@ -182,13 +196,13 @@ func (s *Service) WithGenericOAuthProvider(p identity.OAuthProvider, defaultRole
 	return s
 }
 
-// WithLocalEnabled 设置账号密码登录开关（false = 停用本地级联）。
+// WithLocalEnabled sets the account+password login toggle (false = disable the local cascade).
 func (s *Service) WithLocalEnabled(enabled bool) *Service {
 	s.localDisabled = !enabled
 	return s
 }
 
-// WithRegister 配置自助注册开关与默认角色（OPEN-ISSUES #51b）。
+// WithRegister configures the self-service registration toggle and default roles (OPEN-ISSUES #51b).
 func (s *Service) WithRegister(enabled bool, defaultRoles []string) *Service {
 	s.registerEnabled = enabled
 	s.registerRoles = defaultRoles
@@ -201,7 +215,8 @@ func (s *Service) WithProviderDefaultRoles(kind string, roles []string) *Service
 	return s
 }
 
-// snapshotProviders 返回身份提供方的当前快照（热刷新安全读取）。
+// snapshotProviders returns the current snapshot of identity providers (a safe read
+// under hot refresh).
 func (s *Service) snapshotProviders() ([]identity.PasswordProvider, identity.OAuthProvider, string, map[string][]string) {
 	s.providersMu.RLock()
 	defer s.providersMu.RUnlock()
@@ -212,16 +227,19 @@ func (s *Service) snapshotProviders() ([]identity.PasswordProvider, identity.OAu
 	return s.passwordProviders, s.oidc, s.oidcSuccessURL, roles
 }
 
-// RefreshIdentityProviders 用给定配置重建外部身份提供方（本地账号默认
-// 保留为级联首位；auth.local.enabled 显式关闭时本地级联整体移除）。
-// 无效配置返回错误且不改变现状（保存端可回滚）。
+// RefreshIdentityProviders rebuilds the external identity providers from the given
+// config (the local account stays as the head of the cascade by default; when
+// auth.local.enabled is explicitly off, the local cascade is removed wholesale).
+// Invalid config returns an error and leaves the current state untouched (the saving
+// side can roll back).
 func (s *Service) RefreshIdentityProviders(cfg config.AuthProvidersConfig) error {
 	ip, err := buildIdentityProviders(cfg)
 	if err != nil {
 		return err
 	}
-	// 防锁死：本地密码登录与全部外部身份源同时不可用 → 拒绝应用，
-	// 保存端（PutKey onAuthChange）据此回滚该键。
+	// Lockout prevention: if local password login and all external identity sources
+	// become unavailable at once -> refuse to apply; the saving side (PutKey
+	// onAuthChange) rolls back the key accordingly.
 	githubUp := ip.github != nil
 	wechatUp := ip.wechat != nil
 	genericUp := ip.genericOAuth != nil
@@ -231,11 +249,12 @@ func (s *Service) RefreshIdentityProviders(cfg config.AuthProvidersConfig) error
 	s.providersMu.Lock()
 	defer s.providersMu.Unlock()
 	if ip.localEnabled {
-		// 级联首位固定是本地 admins 表
+		// The head of the cascade is always the local admins table
 		s.passwordProviders = append([]identity.PasswordProvider{identity.NewLocalProvider(s.adminModel)}, ip.ldap)
 	} else {
-		// 本地停用：级联只保留 LDAP（可能为空——全靠外部 OAuth 流登录，
-		// 密码级联为空时 authenticatePassword 直接拒绝）
+		// Local disabled: the cascade keeps only LDAP (possibly empty - login relies
+		// entirely on external OAuth flows; with an empty password cascade
+		// authenticatePassword rejects directly)
 		s.passwordProviders = nil
 		if ip.ldap != nil {
 			s.passwordProviders = []identity.PasswordProvider{ip.ldap}
@@ -303,7 +322,8 @@ func NewService(adminModel *model.AdminModel, permSvc *permissionservice.Permiss
 	}
 }
 
-// WithLoginLockout 覆盖默认的本地账号登录失败锁定策略（阈值/锁定时长）。
+// WithLoginLockout overrides the default local-account login failure lockout policy
+// (threshold / lockout duration).
 func (s *Service) WithLoginLockout(cfg config.LoginLockoutConfig) *Service {
 	threshold, duration := cfg.LoginLockoutDefaults()
 	s.lockoutThreshold = threshold

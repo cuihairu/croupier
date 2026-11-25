@@ -11,18 +11,22 @@ import (
 	"github.com/cuihairu/croupier/internal/security/identity"
 )
 
-// BuildIdentityProviders 从分层设置（yaml 初始值 + database L3 覆盖）
-// 构建外部身份提供方，供路由装配时调用。返回的句柄通过 Attach 挂到 Service。
+// BuildIdentityProviders builds the external identity providers from the
+// layered settings (yaml initial values + database L3 overrides), called during
+// route assembly. The returned handle is wired onto the Service via Attach.
 //
-// 构建策略是"失效降级"而非启动失败：
-//   - LDAP 无网络依赖（认证时才拨号），配置不完整直接报错提示；
-//   - OIDC 构建需要访问 Issuer 发现端点，失败时告警并跳过
-//     （避免身份源短暂不可用拖垮整个 Server 启动）。
+// The build strategy is "degrade on failure" rather than fail startup:
+//   - LDAP has no network dependency (it dials only at authentication time);
+//     an incomplete configuration is reported as an error;
+//   - building OIDC requires reaching the Issuer's discovery endpoint, so a
+//     failure only warns and skips it (a briefly unavailable identity source
+//     must not drag down the whole Server startup).
 func BuildIdentityProviders(cfg config.AuthProvidersConfig) (*IdentityProviders, error) {
 	return buildIdentityProviders(cfg)
 }
 
-// IdentityProviders 是装配结果：待挂到 Service 上的提供方与其配套参数。
+// IdentityProviders is the assembly result: the providers to be attached to the
+// Service together with their companion parameters.
 type IdentityProviders struct {
 	localEnabled bool
 	ldap         identity.PasswordProvider
@@ -33,14 +37,16 @@ type IdentityProviders struct {
 	github       identity.OAuthProvider
 	githubRoles  []string
 	githubURL    string
-	// wechat / genericOAuth 是扩展外部 OAuth 提供方（#51 第三批）。
+	// wechat / genericOAuth are extended external OAuth providers (#51, third
+	// batch).
 	wechat            identity.OAuthProvider
 	wechatRoles       []string
 	wechatURL         string
 	genericOAuth      identity.OAuthProvider
 	genericOAuthRoles []string
 	genericOAuthURL   string
-	// register 是自助注册开关（#51b，默认关）与注册默认角色。
+	// register is the self-service registration switch (#51b, off by default)
+	// and the default roles for registration.
 	registerEnabled bool
 	registerRoles   []string
 }
@@ -79,8 +85,9 @@ func buildIdentityProviders(cfg config.AuthProvidersConfig) (*IdentityProviders,
 		if oc.Issuer == "" || oc.ClientID == "" || oc.RedirectURL == "" {
 			return nil, errors.New("auth.providers.oidc: issuer/clientId/redirectUrl 未配置")
 		}
-		// bare-background-ok: BuildIdentityProviders 在启动装配期执行（无
-		// 请求 ctx），10s 超时只覆盖 OIDC discovery（CR-FIX-22 豁免清单）。
+		// bare-background-ok: BuildIdentityProviders runs during startup
+		// assembly (no request ctx); the 10s timeout covers OIDC discovery only
+		// (CR-FIX-22 exemption list).
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		oidcProvider, err := identity.NewOIDCProvider(ctx, identity.OIDCConfig{
@@ -92,7 +99,8 @@ func buildIdentityProviders(cfg config.AuthProvidersConfig) (*IdentityProviders,
 			UsernameClaim: oc.UsernameClaim,
 		})
 		if err != nil {
-			// 失效降级：跳过 OIDC，本地与已启用的密码源不受影响。
+			// degrade on failure: skip OIDC; local and the enabled password
+			// sources are unaffected.
 			slog.Default().Error("OIDC provider init failed, OIDC login disabled", "error", err)
 		} else {
 			out.oidc = oidcProvider
@@ -112,7 +120,8 @@ func buildIdentityProviders(cfg config.AuthProvidersConfig) (*IdentityProviders,
 			RedirectURL:  gc.RedirectURL,
 		})
 		if err != nil {
-			// 失效降级：跳过 GitHub，本地与已启用的密码源不受影响。
+			// degrade on failure: skip GitHub; local and the enabled password
+			// sources are unaffected.
 			slog.Default().Error("GitHub provider init failed, GitHub login disabled", "error", err)
 		} else {
 			out.github = githubProvider
@@ -132,7 +141,8 @@ func buildIdentityProviders(cfg config.AuthProvidersConfig) (*IdentityProviders,
 			RedirectURL: wc.RedirectURL,
 		})
 		if err != nil {
-			// 失效降级：跳过 WeChat，本地与已启用的密码源不受影响。
+			// degrade on failure: skip WeChat; local and the enabled password
+			// sources are unaffected.
 			slog.Default().Error("WeChat provider init failed, WeChat login disabled", "error", err)
 		} else {
 			out.wechat = wechatProvider
@@ -160,7 +170,8 @@ func buildIdentityProviders(cfg config.AuthProvidersConfig) (*IdentityProviders,
 			EmailField:    gc.EmailField,
 		})
 		if err != nil {
-			// 失效降级：跳过自定义 OAuth，本地与已启用的密码源不受影响。
+			// degrade on failure: skip custom OAuth; local and the enabled
+			// password sources are unaffected.
 			slog.Default().Error("Generic OAuth provider init failed, custom OAuth login disabled", "error", err)
 		} else {
 			out.genericOAuth = genericProvider
@@ -172,7 +183,8 @@ func buildIdentityProviders(cfg config.AuthProvidersConfig) (*IdentityProviders,
 	return out, nil
 }
 
-// splitScopes 切分逗号分隔的 scope 串（去空白项，空串返回 nil）。
+// splitScopes splits a comma-separated scope string (dropping blank entries;
+// an empty string yields nil).
 func splitScopes(raw string) []string {
 	var out []string
 	for _, s := range strings.Split(raw, ",") {
@@ -183,7 +195,7 @@ func splitScopes(raw string) []string {
 	return out
 }
 
-// attach 将装配结果挂到 Service。
+// Attach wires the assembly result onto the Service.
 func (p *IdentityProviders) Attach(svc *Service) *Service {
 	if p == nil {
 		return svc

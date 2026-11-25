@@ -78,8 +78,9 @@ func (s *Service) recordLoginAudit(ctx context.Context, username, action, result
 		eventType = audit.EventLoginFailed
 		outcome = "failure"
 	}
-	// 审计必须与请求生命周期解绑（客户端断开不丢登录审计），
-	// WithoutCancel 从入参派生并保留值（CR-FIX-22）。
+	// Auditing must be decoupled from the request lifecycle (a client
+	// disconnect must not lose the login audit record); WithoutCancel derives
+	// from the inbound context while keeping its values (CR-FIX-22).
 	_, _ = s.auditSvc.Log(context.WithoutCancel(ctx), eventType,
 		audit.WithActorID(strings.TrimSpace(username), "user", strings.TrimSpace(username)),
 		audit.WithIPAddress(ip, ua),

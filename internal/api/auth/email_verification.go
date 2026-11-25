@@ -1,6 +1,8 @@
-// 注册邮箱验证令牌链路（OPEN-ISSUES #51c 第二批）：注册发信、登录拦截、
-// 公开验证与重发端点的 service 层。令牌只存 SHA-256 哈希（见
-// model.EmailVerification）；每次注册/重发实时读 L3——保存即生效。
+// Email verification token chain for registration (OPEN-ISSUES #51c, second
+// batch): the service layer behind registration mail-out, the login gate, and
+// the public verify and resend endpoints. Tokens are stored only as SHA-256
+// hashes (see model.EmailVerification); every register/resend reads L3 live —
+// saving the setting takes effect immediately.
 package auth
 
 import (
@@ -21,9 +23,10 @@ import (
 	"github.com/cuihairu/croupier/internal/platform/settings"
 )
 
-// ErrEmailNotVerified 表示本地账号邮箱未验证被登录拦截。CodeError 携带
-// 403 + StableCode=email_not_verified：经统一 response.Error 输出，前端按
-// error 码分支展示「重新发送验证邮件」入口，不读 message。
+// ErrEmailNotVerified marks the login gate for a local account whose email is
+// unverified. The CodeError carries 403 + StableCode=email_not_verified: it is
+// emitted through the unified response.Error, and the frontend branches on the
+// error code to surface a "resend verification email" entry; message is not read.
 var ErrEmailNotVerified = &errorx.CodeError{
 	Code:       http.StatusForbidden,
 	Message:    "邮箱尚未验证，请查收验证邮件或重新发送后再登录",
@@ -32,18 +35,22 @@ var ErrEmailNotVerified = &errorx.CodeError{
 
 const (
 	emailVerificationPurpose = "register"
-	// emailVerificationTTL 验证令牌有效期（诚实边界：常量非键控，需要
-	// 站点级可配时再升级为 settings 键）。
+	// emailVerificationTTL is the verification token lifetime (honest edge:
+	// a constant, not a settings key; promote it to a settings key when
+	// site-level configurability is needed).
 	emailVerificationTTL = 24 * time.Hour
-	// resendVerificationMinInterval 重发频控：同一账号两次发信最小间隔。
-	// 公开端点防刷信（对管理员有意义的重发节奏远大于此）。
+	// resendVerificationMinInterval is the resend rate limit: the minimum
+	// interval between two mail-outs for the same account. It protects the
+	// public endpoint from mail abuse (resend cadence that matters to admins
+	// is far larger than this).
 	resendVerificationMinInterval = time.Minute
 )
 
-// sendVerificationEmailFn 可注入缝隙（同 sitesettings.sendTestEmailFn /
-// ops.systemUpdateFetchFn 口径）：按 L3 当前 SMTP 配置即时构造 EmailSender
-// 真实发信。siteURL 为空时正文降级为纯令牌文本（无法拼前端链接的部署仍可
-// 手工传达）。
+// sendVerificationEmailFn is an injectable seam (same convention as
+// sitesettings.sendTestEmailFn / ops.systemUpdateFetchFn): it builds an
+// EmailSender on the fly from the current L3 SMTP config and sends for real.
+// When siteURL is empty the body degrades to bare token text (deployments
+// that cannot build a frontend link can still relay it manually).
 var sendVerificationEmailFn = func(ctx context.Context, siteURL, to, username, token string) error {
 	smtpCfg := settings.Current().NotifySMTP()
 	sender := approvals.NewEmailSender(smtpCfg.Host, smtpCfg.Port, smtpCfg.User, smtpCfg.Password, smtpCfg.From).
@@ -61,8 +68,9 @@ var sendVerificationEmailFn = func(ctx context.Context, siteURL, to, username, t
 	})
 }
 
-// emailVerificationRequired 实时读 L3 开关（settings.Current() nil 安全：
-// 未初始化分层设置的测试环境按关闭处理）。
+// emailVerificationRequired reads the L3 switch live (nil-safe against
+// settings.Current(): environments whose layered settings were never
+// initialized, such as tests, are treated as off).
 func emailVerificationRequired() bool {
 	cur := settings.Current()
 	if cur == nil {
@@ -71,7 +79,8 @@ func emailVerificationRequired() bool {
 	return cur.GetBool(settings.KeyAuthEmailVerificationRequired, false)
 }
 
-// siteServerURL 读站点对外地址（验证邮件链接拼接用；空 = 未配置）。
+// siteServerURL reads the site's externally reachable address (used to build
+// verification email links; empty = not configured).
 func siteServerURL() string {
 	cur := settings.Current()
 	if cur == nil {
@@ -80,7 +89,7 @@ func siteServerURL() string {
 	return cur.SiteSnapshot().ServerURL
 }
 
-// newVerificationToken 生成 64 位 hex 令牌及其 SHA-256 哈希。
+// newVerificationToken generates a 64-char hex token and its SHA-256 hash.
 func newVerificationToken() (token, hash string, err error) {
 	raw := make([]byte, 32)
 	if _, err = rand.Read(raw); err != nil {
@@ -91,9 +100,12 @@ func newVerificationToken() (token, hash string, err error) {
 	return token, hex.EncodeToString(sum[:]), nil
 }
 
-// issueEmailVerification 为账号签发新验证令牌（作废旧令牌）并发信。
-// 发信失败仅记日志不回滚——令牌已落库，用户可走重发；注册流程不因 SMTP
-// 抖动整体失败（诚实边界：SMTP 未配置/坏掉时收不到邮件，靠重发端点兜底）。
+// issueEmailVerification issues a fresh verification token for an account
+// (invalidating the old ones) and sends the mail. A send failure is only
+// logged, never rolled back — the token has already landed in the database and
+// the user can use resend; registration must not fail wholesale because of SMTP
+// jitter (honest edge: with SMTP unconfigured or broken the mail never arrives,
+// so the resend endpoint is the fallback).
 func (s *Service) issueEmailVerification(ctx context.Context, admin *model.Admin) error {
 	if s.verificationModel == nil {
 		return nil
@@ -117,9 +129,11 @@ func (s *Service) issueEmailVerification(ctx context.Context, admin *model.Admin
 	return nil
 }
 
-// maybeSendVerificationOnRegister 注册完成后按需发验证邮件：开关未开或
-// 注册时未填邮箱则跳过；required 且邮箱为空在 Register 入口已拦截。
-// 发信链路任何失败都不影响注册结果（仅日志）。
+// maybeSendVerificationOnRegister sends the verification email after
+// registration when applicable: skip when the switch is off or no email was
+// given at registration; required with an empty email is already rejected at
+// the Register entry point. Any failure in the mail path leaves the
+// registration result untouched (logged only).
 func (s *Service) maybeSendVerificationOnRegister(ctx context.Context, admin *model.Admin) {
 	if !emailVerificationRequired() || admin.Email == "" {
 		return
@@ -130,15 +144,19 @@ func (s *Service) maybeSendVerificationOnRegister(ctx context.Context, admin *mo
 	}
 }
 
-// emailVerificationBlocksLogin 判定该账号是否被邮箱验证门拦截：仅 local
-// provider（LDAP/OIDC 的邮箱归属 IdP 职责）、开关开启、账号填过邮箱且
-// 尚未验证。存量无邮箱账号不拦——没有可验证之物。
+// emailVerificationBlocksLogin decides whether the account is gated by the email
+// verification gate: only the local provider counts (email ownership for
+// LDAP/OIDC is the IdP's job), the switch is on, and the account has an email
+// that is not yet verified. Pre-existing accounts without an email are never
+// gated — there is nothing to verify.
 func emailVerificationBlocksLogin(admin *model.Admin) bool {
 	return admin.Email != "" && !admin.EmailVerified
 }
 
-// VerifyEmailToken 校验令牌并落 email_verified。无效/过期/已用统一返回
-// errors.New（handler 映射 400）——不区分原因，避免令牌有效性探测。
+// VerifyEmailToken validates the token and lands email_verified. Invalid,
+// expired, and already-used tokens uniformly return errors.New (the handler
+// maps it to 400) — the reason is not distinguished, to prevent probing for
+// token validity.
 func (s *Service) VerifyEmailToken(ctx context.Context, token string) error {
 	token = strings.TrimSpace(token)
 	if token == "" {
@@ -165,9 +183,10 @@ func (s *Service) VerifyEmailToken(ctx context.Context, token string) error {
 	return nil
 }
 
-// ResendVerification 按用户名+邮箱重发验证邮件（匿名端点）。防枚举：
-// 用户名不存在/邮箱不匹配/已验证/频控内 一律静默成功（不透出账号状态），
-// 仅真实匹配且未验证时发信。
+// ResendVerification resends the verification email by username+email
+// (anonymous endpoint). Anti-enumeration: unknown username, email mismatch,
+// already verified, or within the rate limit all silently succeed (no account
+// state is exposed); mail goes out only on a real match that is still unverified.
 func (s *Service) ResendVerification(ctx context.Context, username, email string) error {
 	username = strings.TrimSpace(username)
 	email = strings.TrimSpace(email)
@@ -184,7 +203,7 @@ func (s *Service) ResendVerification(ctx context.Context, username, email string
 	if s.verificationModel != nil {
 		last, err := s.verificationModel.LatestCreatedAtFor(ctx, admin.ID, emailVerificationPurpose)
 		if err == nil && !last.IsZero() && time.Since(last) < resendVerificationMinInterval {
-			return nil // 频控内静默：不发也不报
+			return nil // within the rate limit: stay silent, no send and no error
 		}
 	}
 	return s.issueEmailVerification(ctx, admin)

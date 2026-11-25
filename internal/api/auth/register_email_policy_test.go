@@ -1,8 +1,11 @@
 package auth
 
-// 注册邮箱策略测试（OPEN-ISSUES #51c）：域后缀白名单（子域放行/域外拒绝）、
-// 别名限制（+tag 拒、local 去点归一查重、归一后不冲突放行）、基础形态
-// 校验、email 留空跳过策略。L3 键经 settings 测试库播种。
+// Registration email policy tests (OPEN-ISSUES #51c): domain suffix
+// whitelisting (subdomain allowed / out-of-list rejected), alias restrictions
+// (+tag rejected, dot-stripped local-part normalization duplicate check,
+// allowed when normalization finds no conflict), basic shape validation, and
+// skipping the policy when email is left blank. L3 keys are seeded through the
+// settings test database.
 
 import (
 	"context"
@@ -36,7 +39,7 @@ func TestRegister_EmailDomainWhitelist(t *testing.T) {
 		Register: config.RegisterConfig{Enabled: true},
 	})
 
-	// 白名单域与子域放行
+	// whitelisted domains and subdomains are allowed
 	_, err := svc.Register(context.Background(), &RegisterRequest{
 		Username: "wluser1", Password: "Str0ngPass!x", Email: "wluser1@example.com",
 	})
@@ -50,14 +53,14 @@ func TestRegister_EmailDomainWhitelist(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// 域外拒绝
+	// out-of-list domains are rejected
 	_, err = svc.Register(context.Background(), &RegisterRequest{
 		Username: "wluser4", Password: "Str0ngPass!x", Email: "wluser4@gmail.com",
 	})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "不在允许清单")
 
-	// evil-example.com 后缀撞车不匹配
+	// the evil-example.com suffix collision does not match
 	_, err = svc.Register(context.Background(), &RegisterRequest{
 		Username: "wluser5", Password: "Str0ngPass!x", Email: "x@evil-example.com",
 	})
@@ -75,26 +78,27 @@ func TestRegister_EmailAliasRestriction(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// + 别名形态拒绝
+	// the + alias shape is rejected
 	_, err = svc.Register(context.Background(), &RegisterRequest{
 		Username: "alias1", Password: "Str0ngPass!x", Email: "someone+tag@example.com",
 	})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "+tag")
 
-	// local 去点归一撞既有账号（us.dot@example.com 归一 usdot）
+	// the dot-stripped local-part normalization collides with the existing
+	// account (us.dot@example.com normalizes to usdot)
 	_, err = svc.Register(context.Background(), &RegisterRequest{
 		Username: "alias2", Password: "Str0ngPass!x", Email: "us.dot@example.com",
 	})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "已被其他账号使用")
-	// 大小写归一同样拦
+	// case normalization is blocked the same way
 	_, err = svc.Register(context.Background(), &RegisterRequest{
 		Username: "alias3", Password: "Str0ngPass!x", Email: "US.DOT@EXAMPLE.COM",
 	})
 	require.Error(t, err)
 
-	// 归一后不冲突放行
+	// after normalization there is no conflict, so it is allowed through
 	_, err = svc.Register(context.Background(), &RegisterRequest{
 		Username: "alias4", Password: "Str0ngPass!x", Email: "other.user@example.com",
 	})
@@ -109,14 +113,14 @@ func TestRegister_EmailFormatAndEmptySkips(t *testing.T) {
 		Register: config.RegisterConfig{Enabled: true},
 	})
 
-	// 形态无效：无 @ / 域无点
+	// invalid shape: no @ / dotless domain
 	_, err := svc.Register(context.Background(), &RegisterRequest{
 		Username: "fmtuser1", Password: "Str0ngPass!x", Email: "not-an-email",
 	})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "格式无效")
 
-	// email 留空跳过策略（邮箱选填）
+	// leaving email blank skips the policy (email is optional)
 	_, err = svc.Register(context.Background(), &RegisterRequest{
 		Username: "fmtuser2", Password: "Str0ngPass!x",
 	})

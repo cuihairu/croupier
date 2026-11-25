@@ -1,50 +1,60 @@
 package auth
 
-// LoginRequest 登录请求
+// LoginRequest is the login request payload.
 type LoginRequest struct {
 	Username string `json:"username" binding:"required"`
 	Password string `json:"password" binding:"required"`
-	// TOTPCode 是已启用 MFA 的本地账号登录时必须携带的二次验证码。
+	// TOTPCode is the second-factor code local accounts with MFA enabled must
+	// present at login.
 	TOTPCode string `json:"totpCode,omitempty"`
-	// UseRefresh 选择启用刷新令牌轮换（AUD-052）：响应携带短寿命 access
-	// （2h）+ 刷新令牌（7d，一次性、兑换即轮换、重放整族吊销）。缺省
-	// false = legacy 单 24h token，既有客户端（移动端）行为完全不变。
+	// UseRefresh opts into refresh token rotation (AUD-052): the response
+	// carries a short-lived access token (2h) plus a refresh token (7d;
+	// single-use, rotated on redemption, replay revokes the whole family).
+	// Default false = legacy single 24h token, so existing clients (mobile)
+	// behave exactly as before.
 	UseRefresh bool   `json:"useRefresh,omitempty"`
 	ClientIP   string `json:"-"`
 	UserAgent  string `json:"-"`
 }
 
-// LoginResponse 登录响应
+// LoginResponse is the login response payload.
 type LoginResponse struct {
 	Token      string   `json:"token"`
 	User       UserInfo `json:"user"`
 	LastGameID string   `json:"lastGameId,omitempty"`
 	LastEnv    string   `json:"lastEnv,omitempty"`
-	// RefreshToken 仅在请求 useRefresh=true 时返回（AUD-052）；明文只在
-	// 签发/轮换响应出现一次，服务端只存 sha256。
+	// RefreshToken is only returned when the request sets useRefresh=true
+	// (AUD-052); the cleartext value appears exactly once, in the issue or
+	// rotation response, and the server only stores its sha256.
 	RefreshToken string `json:"refreshToken,omitempty"`
-	// ExpiresIn 是 Token 的有效期（秒）：useRefresh 路径为 2h，legacy 为 24h。
+	// ExpiresIn is the token's lifetime in seconds: 2h on the useRefresh
+	// path, 24h for legacy.
 	ExpiresIn int64 `json:"expiresIn,omitempty"`
-	// MustChangePassword 账号被标记「登录后必须修改密码」或密码已过有效期
-	// 时为 true：token 照常签发（改密接口需要认证态），前端据此强制进入
-	// 改密流程后再继续使用（OPEN-ISSUES #20）。
+	// MustChangePassword is true when the account is flagged as requiring a
+	// password change after login, or its password is past its expiry: the
+	// token is still issued (the change-password endpoint needs an
+	// authenticated session) and the frontend forces the change-password flow
+	// before further use (OPEN-ISSUES #20).
 	MustChangePassword bool `json:"mustChangePassword,omitempty"`
-	// MFASetupRequired 账号安全策略 security.mfaRequired 开启且该 local
-	// 账号尚未绑定 TOTP 时为 true：token 照常签发（MFA 绑定接口需要认证态），
-	// 前端据此强制引导绑定二次验证；服务端鉴权中间件同步拦截其余 API
-	//（403 mfa_required），与 mustChangePassword 同构。
+	// MFASetupRequired is true when the security policy
+	// security.mfaRequired is on and this local account has no TOTP bound
+	// yet: the token is still issued (the MFA binding endpoint needs an
+	// authenticated session) and the frontend forces second-factor binding;
+	// the server-side auth middleware blocks all other APIs in step (403
+	// mfa_required), structurally the same as mustChangePassword.
 	MFASetupRequired bool `json:"mfaSetupRequired,omitempty"`
 }
 
-// RefreshRequest 刷新令牌兑换请求（AUD-052，匿名端点：刷新令牌本身即凭据）。
+// RefreshRequest is the refresh token redemption request (AUD-052; anonymous
+// endpoint: the refresh token itself is the credential).
 type RefreshRequest struct {
 	RefreshToken string `json:"refreshToken" binding:"required"`
 	ClientIP     string `json:"-"`
 	UserAgent    string `json:"-"`
 }
 
-// RefreshResponse 刷新令牌兑换响应：新 access + 新刷新令牌（轮换），
-// 旧刷新令牌自此作废。
+// RefreshResponse is the refresh token redemption response: new access token
+// plus a new (rotated) refresh token; the old refresh token is void from here on.
 type RefreshResponse struct {
 	Token        string `json:"token"`
 	RefreshToken string `json:"refreshToken"`
@@ -52,20 +62,21 @@ type RefreshResponse struct {
 	Username     string `json:"username"`
 }
 
-// UserInfo 用户信息
+// UserInfo is the user information payload.
 type UserInfo struct {
 	Username string   `json:"username"`
 	Nickname string   `json:"nickname"`
 	Roles    []string `json:"roles"`
 }
 
-// LogoutRequest 登出请求
+// LogoutRequest is the logout request payload.
 type LogoutRequest struct {
-	// Username 由 handler 从认证上下文注入（不从请求体绑定）。
+	// Username is injected by the handler from the auth context (not bound
+	// from the request body).
 	Username string `json:"-"`
 }
 
-// LogoutResponse 登出响应
+// LogoutResponse is the logout response payload.
 type LogoutResponse struct{}
 
 type CheckRequest struct {

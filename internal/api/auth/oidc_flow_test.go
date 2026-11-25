@@ -18,10 +18,11 @@ import (
 	"gorm.io/gorm"
 )
 
-// gormSessionAlias 便于构造 gorm.Session。
+// gormSessionAlias makes constructing gorm.Session easier.
 type gormSession = gorm.Session
 
-// fakeOAuthProvider 是 OAuthProvider 测试替身，覆盖 OIDC 流程。
+// fakeOAuthProvider is a test double for OAuthProvider, covering the OIDC
+// flow.
 type fakeOAuthProvider struct {
 	authURL string
 	ident   *identity.Identity
@@ -44,7 +45,7 @@ func (f *fakeOAuthProvider) Exchange(ctx context.Context, code string) (*identit
 	return &cp, nil
 }
 
-// newOIDCService 构造挂好 OIDC 假提供方的 Service。
+// newOIDCService builds a Service with the fake OIDC provider attached.
 func newOIDCService(t *testing.T, oauth identity.OAuthProvider, successURL string) *Service {
 	db := setupTestDB(t)
 	svc := NewService(
@@ -96,7 +97,8 @@ func TestOIDCLoginCallback_HappyPath(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotEmpty(t, resp.Token)
 	assert.Equal(t, "carol", resp.User.Username)
-	// JIT 建号默认角色未配置 RoleModel 内的 viewer 角色 → 角色为空但登录成功。
+	// JIT account creation with no default role configured against the viewer
+	// role inside the RoleModel → empty roles but the login still succeeds.
 	assert.Empty(t, resp.User.Roles)
 }
 
@@ -230,7 +232,7 @@ func TestHandler_OIDCCallback_BadSuccessURL(t *testing.T) {
 		authURL: "https://idp/auth",
 		ident:   &identity.Identity{Provider: identity.KindOIDC, Username: "carol"},
 	}
-	// 控制字符使 url.Parse 失败。
+	// a control character makes url.Parse fail.
 	svc := newOIDCService(t, fake, "http://bad\x7f")
 	h := NewHandler(svc)
 
@@ -250,7 +252,8 @@ func TestLogin_BackfillProfileFromLDAP(t *testing.T) {
 		"test-secret",
 	).WithRecoveryDB(db).WithRoleModel(model.NewRoleModel(db))
 
-	// 预置一个昵称/邮箱为空的本地账号，密码与 LDAP 不同。
+	// seed a local account with an empty nickname/email, whose password differs
+	// from the LDAP one.
 	admin := &model.Admin{Username: "dave", Status: 1}
 	require.NoError(t, model.NewAdminModel(db).Create(context.Background(), admin, "localpw"))
 
@@ -267,13 +270,13 @@ func TestLogin_BackfillProfileFromLDAP(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "dave", resp.User.Username)
 
-	// 展示信息被外部身份补全。
+	// the display information is backfilled from the external identity.
 	updated, err := model.NewAdminModel(db).FindByUsername(context.Background(), "dave")
 	require.NoError(t, err)
 	assert.Equal(t, "Dave L", updated.Nickname)
 	assert.Equal(t, "dave@ldap.example.com", updated.Email)
 
-	// 本地密码登录依旧可用（本地优先级联）。
+	// logging in with the local password still works (the local cascade).
 	resp, err = svc.Login(context.Background(), &LoginRequest{Username: "dave", Password: "localpw"})
 	require.NoError(t, err)
 	assert.NotEmpty(t, resp.Token)
@@ -292,7 +295,8 @@ func TestNewService_WithOpsStore(t *testing.T) {
 	})
 }
 
-// fakeDiscoveryServer 提供最小 OIDC 发现端点（供装配层测试）。
+// fakeDiscoveryServer serves a minimal OIDC discovery endpoint (for the
+// assembly-layer tests).
 func fakeDiscoveryServer(t *testing.T) *httptest.Server {
 	t.Helper()
 	mux := http.NewServeMux()
@@ -314,14 +318,14 @@ func fakeDiscoveryServer(t *testing.T) *httptest.Server {
 }
 
 func TestBuildIdentityProviders(t *testing.T) {
-	// 全关：空装配。
+	// all off: empty assembly.
 	ips, err := BuildIdentityProviders(config.AuthProvidersConfig{})
 	require.NoError(t, err)
 	require.NotNil(t, ips)
 	assert.Nil(t, ips.ldap)
 	assert.Nil(t, ips.oidc)
 
-	// LDAP 合法：装配并可 Attach。
+	// valid LDAP: assembled and Attach-able.
 	cfg := config.Config{}
 	cfg.Auth.Providers.LDAP = config.LDAPProviderConfig{
 		Enabled:    true,
@@ -340,7 +344,7 @@ func TestBuildIdentityProviders(t *testing.T) {
 	ips.Attach(svc)
 	assert.True(t, svc.LDAPEnabled())
 
-	// OIDC 合法（假发现服务器）。
+	// valid OIDC (against the fake discovery server).
 	srv := fakeDiscoveryServer(t)
 	cfg.Auth.Providers.OIDC = config.OIDCProviderConfig{
 		Enabled:         true,
@@ -360,12 +364,13 @@ func TestBuildIdentityProviders(t *testing.T) {
 	ips.Attach(svc2)
 	assert.True(t, svc2.OIDCEnabled())
 
-	// OIDC 缺关键字段：报错。
+	// OIDC missing a key field: error.
 	cfg.Auth.Providers.OIDC.ClientID = ""
 	_, err = BuildIdentityProviders(cfg.Auth.Providers)
 	require.Error(t, err)
 
-	// OIDC 身份源不可达：降级（不报错、不装配 OIDC，LDAP 不受影响）。
+	// OIDC identity source unreachable: degrade (no error, OIDC not assembled,
+	// LDAP unaffected).
 	cfg.Auth.Providers.OIDC = config.OIDCProviderConfig{
 		Enabled:      true,
 		Issuer:       "http://127.0.0.1:1/nowhere",
@@ -390,15 +395,17 @@ func TestLogin_LocalRecordVanished(t *testing.T) {
 	adminModel := model.NewAdminModel(db)
 	svc := NewService(adminModel, permissionservice.NewPermissionService(db), "test-secret").WithRecoveryDB(db)
 
-	// 预置本地账号使 LocalProvider 校验通过，随后从底层清掉，
-	// 模拟"校验通过后记录消失"的极端窗口。
+	// seed a local account so LocalProvider's validation passes, then wipe it
+	// from the underlying store to simulate the extreme window of "the record
+	// vanished after validation passed".
 	createTestAdminWithRole(t, db, "tempuser", "pw", "ops")
 	stmt := db.Session(&gormSession{}).Exec("DELETE FROM admins WHERE username = ?", "tempuser")
 	require.NoError(t, stmt.Error)
 
 	_, err := svc.Login(context.Background(), &LoginRequest{Username: "tempuser", Password: "pw"})
 	require.Error(t, err)
-	// LocalProvider 内的 adminModel 与外层是同一个对象，校验与解析共享视图，
-	// 因此这里实际触发的是凭证错误分支。
+	// The adminModel inside LocalProvider is the same object as the outer one;
+	// validation and resolution share the same view, so what actually triggers
+	// here is the invalid-credentials branch.
 	assert.True(t, strings.Contains(err.Error(), "用户名或密码错误") || strings.Contains(err.Error(), "登录失败"))
 }

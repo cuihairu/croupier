@@ -11,10 +11,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// OPEN-ISSUES #20 回归：登录响应 mustChangePassword——
-// ① 被标记 must_change_password 的账号登录后 flag=true；
-// ② 密码已过有效期（password_expires_at）视同必须改密；
-// ③ 干净账号恒 false（无标记且未过期）。
+// OPEN-ISSUES #20 regression: mustChangePassword in the login response —
+// (1) an account flagged must_change_password logs in with flag=true;
+// (2) a password past its validity (password_expires_at) counts as a forced
+// change;
+// (3) a clean account is always false (no flag and not expired).
 
 func loginWithFlags(t *testing.T, mutate func(*model.Admin)) *LoginResponse {
 	t.Helper()

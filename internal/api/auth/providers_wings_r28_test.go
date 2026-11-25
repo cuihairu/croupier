@@ -1,21 +1,25 @@
 package auth
 
-// 覆盖率巡检第二十八轮（wt-api）：api/auth 残余翼——BuildIdentityProviders
-// 三处 provider 构造失败的失效降级日志翼、VerifyEmailToken 的未知令牌翼。
+// Coverage audit round 28 (wt-api): the remaining flanks of api/auth — the
+// "degrade on failure" logging flanks of the three failed provider builds in
+// BuildIdentityProviders, and VerifyEmailToken's unknown-token flank.
 //
-// 登记不可达（不造假用例、不删防御分支）：
-//   - siteServerURL 的 Current()==nil 翼（email_verification.go:78）：
-//     settings 单例由服务装配初始化，包外无复位缝（resetForTest 是
-//     platform/settings 包内私有），测试进程内不可回归 nil；
-//   - newVerificationToken 的 rand.Read 失败翼（87）及其在
-//     issueEmailVerification 的透传翼（103）：crypto/rand 在 Linux 走
-//     getrandom(2)，引导完成后无失败路径；
-//   - mfa.go:95 GenerateRecoveryCodes 失败翼：同 rand 族（恢复码生成
-//     纯 crypto/rand）；
-//   - service.go:738 的 Cut 失败 continue：入列邮箱经 FindEmailsByDomain
-//     的 LIKE '%@'+domain 谓词过滤，匹配行必含 @，strings.Cut 恒成功
-//     （自证性双保险；register_verify_gap_test.go 的脏行用例已锁定
-//     「无 @ 脏行进不了比对」的 SQL 层前提）。
+// Registered as unreachable (no fabricated tests, no defense branches removed):
+//   - the siteServerURL Current()==nil flank (email_verification.go:78): the
+//     settings singleton is initialized by service assembly, with no reset seam
+//     outside the package (resetForTest is private to platform/settings), so it
+//     cannot return to nil within a test process;
+//   - newVerificationToken's rand.Read failure flank (:87) and its pass-through
+//     flank in issueEmailVerification (:103): crypto/rand on Linux uses
+//     getrandom(2) and has no failure path after boot completes;
+//   - the mfa.go:95 GenerateRecoveryCodes failure flank: same rand family
+//     (recovery code generation is pure crypto/rand);
+//   - the Cut-failure continue at service.go:738: the emails entering the queue
+//     are filtered by FindEmailsByDomain's LIKE '%@'+domain predicate, so any
+//     matching row contains @ and strings.Cut always succeeds (a
+//     self-evidencing double guarantee; the dirty-row case in
+//     register_verify_gap_test.go has pinned the SQL-layer premise that "dirty
+//     rows without @ never reach the comparison").
 
 import (
 	"context"
@@ -26,15 +30,16 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestBuildIdentityProviders_WhitespaceCtorDegrade 三处 provider 的
-// 「guard 查非空、ctor 查 TrimSpace 非空」缝：空白串凭据过 guard、
-// 构造失败 → 失效降级（slog 记错 + 该 provider 置空返回，本地与其他
-// 源不受影响）。
+// TestBuildIdentityProviders_WhitespaceCtorDegrade pins the seam in the three
+// providers where "the guard checks non-empty while the ctor checks
+// TrimSpace-non-empty": a blank-string credential passes the guard, the ctor
+// fails → degrade on failure (slog records the error and the provider is
+// returned unset; local and the other sources are unaffected).
 func TestBuildIdentityProviders_WhitespaceCtorDegrade(t *testing.T) {
 	t.Run("github", func(t *testing.T) {
 		cfg := config.AuthProvidersConfig{}
 		cfg.GitHub.Enabled = true
-		cfg.GitHub.ClientID = " " // guard（== ""）放行，ctor（TrimSpace）拒绝
+		cfg.GitHub.ClientID = " " // guard (== "") lets it through, ctor (TrimSpace) rejects
 		cfg.GitHub.ClientSecret = "cs"
 		cfg.GitHub.RedirectURL = "https://gm.example.com/cb"
 		out, err := BuildIdentityProviders(cfg)
@@ -68,8 +73,9 @@ func TestBuildIdentityProviders_WhitespaceCtorDegrade(t *testing.T) {
 	})
 }
 
-// TestVerifyEmailToken_UnknownToken 未知令牌（哈希不在表）→ 统一
-// 「无效或已过期」400 语义——不区分原因，避免令牌有效性探测。
+// TestVerifyEmailToken_UnknownToken a token whose hash is not in the table →
+// the unified "invalid or expired" 400 semantics — the reason is not
+// distinguished, to prevent probing for token validity.
 func TestVerifyEmailToken_UnknownToken(t *testing.T) {
 	svc, _, _ := verificationFixture(t)
 	err := svc.VerifyEmailToken(context.Background(), "no-such-token-in-table")

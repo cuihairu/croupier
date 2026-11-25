@@ -1,11 +1,14 @@
 package auth
 
-// mfa.go / service.go 覆盖率补缺（巡检 98.4%→）：
-// - With* 构造选项此前 0%（注释口径本就面向测试注入）
-// - 经 WithOTPRecoveryModel 注入「关库」恢复码模型，驱动 Consume/Count/
-//   DeleteAll 的错误分支与 MFAStatus/登录二段校验的降级路径
-// - requireLocalAdmin 缺失账号、OtpauthURI 空账号拒绝等守卫分支
-// 全部为可达分支，无凑数用例。
+// Coverage gap fill for mfa.go / service.go (audit 98.4%→):
+// - the With* builder options were previously at 0% (their comments target
+//   test injection anyway)
+// - WithOTPRecoveryModel injects a "closed database" recovery-code model to
+//   drive the Consume/Count/DeleteAll error branches and the degraded paths in
+//   MFAStatus and the login second-factor check
+// - guard branches such as requireLocalAdmin on a missing account and
+//   OtpauthURI rejecting a blank account
+// Every case is a reachable branch; no filler tests.
 
 import (
 	"context"
@@ -19,8 +22,9 @@ import (
 	"gorm.io/gorm"
 )
 
-// newBrokenRecoveryModel 打开即关的独立库：恢复码模型任何操作都报错，
-// 且不影响业务库（业务库保持可用）。
+// newBrokenRecoveryModel is a separate database that is opened then closed
+// immediately: every recovery-code model operation errors, without affecting
+// the business database (which stays usable).
 func newBrokenRecoveryModel(t *testing.T) *model.AdminOTPRecoveryCodeModel {
 	t.Helper()
 	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
@@ -31,8 +35,8 @@ func newBrokenRecoveryModel(t *testing.T) *model.AdminOTPRecoveryCodeModel {
 	return model.NewAdminOTPRecoveryCodeModel(db)
 }
 
-// enableMFAFor 走完整 Setup+Confirm 启用 TOTP，返回 setup secret 供后续
-// 生成当前窗口验证码。
+// enableMFAFor runs the full Setup+Confirm to enable TOTP, returning the setup
+// secret for generating current-window codes afterwards.
 func enableMFAFor(t *testing.T, db *gorm.DB, svc *Service, username string) string {
 	t.Helper()
 	setup, err := svc.MFASetup(context.Background(), username)
@@ -42,7 +46,8 @@ func enableMFAFor(t *testing.T, db *gorm.DB, svc *Service, username string) stri
 	return setup.Secret
 }
 
-// With* 构造选项：返回自身并完成字段接线（service.go 此前 0%）。
+// With* builder options: return the receiver and wire the fields
+// (service.go was previously at 0%).
 func TestMFA_ServiceBuilderOptions(t *testing.T) {
 	db := setupTestDB(t)
 	adminModel := model.NewAdminModel(db)
@@ -58,7 +63,7 @@ func TestMFA_ServiceBuilderOptions(t *testing.T) {
 	assert.Same(t, recoveryModel, got.otpRecoveryModel)
 }
 
-// MFASetup 对缺失账号透传 requireLocalAdmin 错误。
+// MFASetup passes through requireLocalAdmin's error for a missing account.
 func TestMFA_Setup_UnknownUser(t *testing.T) {
 	db := setupTestDB(t)
 	svc := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret").WithRecoveryDB(db)
@@ -68,8 +73,9 @@ func TestMFA_Setup_UnknownUser(t *testing.T) {
 	assert.Contains(t, err.Error(), "用户不存在")
 }
 
-// 用户名可精确检索但 trim 后为空 → OtpauthURI 拒绝空账号，
-// 覆盖「生成绑定链接失败」守卫分支（防止空账号悄悄产出坏链接）。
+// A username that is exactly searchable but trims to empty → OtpauthURI
+// rejects the blank account, covering the "generate bind link failed" guard
+// branch (so a blank account cannot quietly produce a broken link).
 func TestMFA_Setup_BlankUsername_OtpauthURIError(t *testing.T) {
 	db := setupTestDB(t)
 	createTestAdminWithRole(t, db, " ", "CorrectPass123", "admin")
@@ -80,7 +86,8 @@ func TestMFA_Setup_BlankUsername_OtpauthURIError(t *testing.T) {
 	assert.Contains(t, err.Error(), "生成绑定链接失败")
 }
 
-// 恢复码清理失败不阻断关闭流程，但必须留下错误日志（残留码是安全隐患）。
+// A recovery-code cleanup failure must not block the disable flow, but it has
+// to leave an error log (leftover codes are a security hole).
 func TestMFA_Disable_RecoveryCleanupError_NotBlocking(t *testing.T) {
 	db := setupTestDB(t)
 	createTestAdminWithRole(t, db, "dluser", "CorrectPass123", "admin")
@@ -95,7 +102,8 @@ func TestMFA_Disable_RecoveryCleanupError_NotBlocking(t *testing.T) {
 	assert.False(t, admin.OTPEnabled)
 }
 
-// Consume/Count 的存储错误原样透传；非形态码在触库前即拒绝。
+// Consume/Count storage errors pass through unchanged; a malformed code is
+// rejected before any database access.
 func TestMFA_RecoveryCode_ModelErrors_PassThrough(t *testing.T) {
 	db := setupTestDB(t)
 	id := createTestAdminWithRole(t, db, "rcuser", "CorrectPass123", "admin")
@@ -103,12 +111,13 @@ func TestMFA_RecoveryCode_ModelErrors_PassThrough(t *testing.T) {
 		WithOTPRecoveryModel(newBrokenRecoveryModel(t))
 	ctx := context.Background()
 
-	// ABDC23EFGH：形态合法（10 位、字母表内）但存储失败 → 错误透传
+	// ABDC23EFGH: well formed (10 characters, within the alphabet) but the
+	// storage fails → the error is passed through
 	ok, err := svc.ConsumeRecoveryCode(ctx, id, "ABCD23EFGH")
 	require.Error(t, err)
 	assert.False(t, ok)
 
-	// 形态非法 → 不触库直接拒绝
+	// malformed → rejected without touching the database
 	ok, err = svc.ConsumeRecoveryCode(ctx, id, "short")
 	require.NoError(t, err)
 	assert.False(t, ok)
@@ -118,7 +127,8 @@ func TestMFA_RecoveryCode_ModelErrors_PassThrough(t *testing.T) {
 	assert.Zero(t, n)
 }
 
-// 登录二段校验：恢复码形态合法但存储失败 → 校验失败拒绝登录（不误放行）。
+// Login second-factor check: a well-formed recovery code whose storage fails →
+// verification fails and the login is denied (never let it through by mistake).
 func TestMFA_Login_RecoveryModelError_Denies(t *testing.T) {
 	db := setupTestDB(t)
 	createTestAdminWithRole(t, db, "mfaerr", "CorrectPass123", "admin")
@@ -134,7 +144,8 @@ func TestMFA_Login_RecoveryModelError_Denies(t *testing.T) {
 	require.Error(t, err)
 }
 
-// MFAStatus：剩余统计失败仅降级为 0（提示性数据不阻塞状态查询）。
+// MFAStatus: a remaining-count failure only degrades to 0 (advisory data must
+// not block the status query).
 func TestMFA_Status_RecoveryCountError_Degrades(t *testing.T) {
 	db := setupTestDB(t)
 	createTestAdminWithRole(t, db, "stuser", "CorrectPass123", "admin")

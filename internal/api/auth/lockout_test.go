@@ -13,7 +13,8 @@ import (
 	"gorm.io/gorm"
 )
 
-// newLockoutService 构造带锁定策略的 Service（阈值 3，锁定 1 分钟）。
+// newLockoutService builds a Service with a lockout policy (threshold 3,
+// lock for 1 minute).
 func newLockoutService(t *testing.T) (*Service, *model.AdminModel, *gorm.DB) {
 	db := setupTestDB(t)
 	adminModel := model.NewAdminModel(db)
@@ -27,14 +28,14 @@ func TestLogin_Lockout_TriggeredAfterThreshold(t *testing.T) {
 	ctx := context.Background()
 	createTestAdminWithRole(t, db, "lockme", "CorrectPass123", "admin")
 
-	// 前两次失败：提示密码错误
+	// first two failures: the wrong-password message
 	for i := 0; i < 2; i++ {
 		_, err := svc.Login(ctx, &LoginRequest{Username: "lockme", Password: "wrong"})
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "用户名或密码错误")
 	}
 
-	// 第三次失败：达到阈值，触发锁定
+	// third failure: the threshold is reached and the lockout triggers
 	_, err := svc.Login(ctx, &LoginRequest{Username: "lockme", Password: "wrong"})
 	require.Error(t, err)
 
@@ -43,7 +44,8 @@ func TestLogin_Lockout_TriggeredAfterThreshold(t *testing.T) {
 	require.NotNil(t, admin.LockedUntil, "threshold reached should set LockedUntil")
 	assert.Equal(t, 3, admin.FailedAttempts)
 
-	// 锁定期内：正确密码也被拒绝，且错误消息是锁定提示
+	// inside the lockout window: even the right password is rejected, and the
+	// error message is the lockout notice
 	_, err = svc.Login(ctx, &LoginRequest{Username: "lockme", Password: "CorrectPass123"})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "账号已锁定")
@@ -54,14 +56,15 @@ func TestLogin_Lockout_ExpiresAfterWindow(t *testing.T) {
 	ctx := context.Background()
 	adminID := createTestAdminWithRole(t, db, "expireme", "CorrectPass123", "admin")
 
-	// 手动设置一个已过期的锁定
+	// manually set an already-expired lockout
 	past := time.Now().Add(-time.Minute).UTC()
 	require.NoError(t, adminModel.Update(ctx, adminID, map[string]interface{}{
 		"failed_attempts": 5,
 		"locked_until":    past,
 	}))
 
-	// 锁定已过期：正确密码应能登录，且计数清零
+	// lockout expired: the right password should log in, and the counter is
+	// cleared
 	resp, err := svc.Login(ctx, &LoginRequest{Username: "expireme", Password: "CorrectPass123"})
 	require.NoError(t, err)
 	require.NotNil(t, resp)
@@ -78,7 +81,7 @@ func TestLogin_SuccessResetsFailureCount(t *testing.T) {
 	ctx := context.Background()
 	createTestAdminWithRole(t, db, "resetme", "CorrectPass123", "admin")
 
-	// 两次失败（未达阈值）
+	// two failures (below the threshold)
 	for i := 0; i < 2; i++ {
 		_, err := svc.Login(ctx, &LoginRequest{Username: "resetme", Password: "wrong"})
 		require.Error(t, err)
@@ -87,7 +90,7 @@ func TestLogin_SuccessResetsFailureCount(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 2, admin.FailedAttempts)
 
-	// 成功登录后清零
+	// cleared after a successful login
 	_, err = svc.Login(ctx, &LoginRequest{Username: "resetme", Password: "CorrectPass123"})
 	require.NoError(t, err)
 	admin, err = adminModel.FindByUsername(ctx, "resetme")
@@ -99,7 +102,8 @@ func TestLogin_UnknownUserNotLocked(t *testing.T) {
 	svc, _, _ := newLockoutService(t)
 	ctx := context.Background()
 
-	// 不存在的账号连续失败：永远返回通用错误，不触发锁定路径（防账号枚举）
+	// repeated failures for a nonexistent account: always the generic error,
+	// never the lockout path (guards against account enumeration)
 	for i := 0; i < 5; i++ {
 		_, err := svc.Login(ctx, &LoginRequest{Username: "ghost", Password: "wrong"})
 		require.Error(t, err)

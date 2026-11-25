@@ -7,11 +7,13 @@ import (
 	"strings"
 )
 
-// Logout 用户登出。
-// 实现无出错路径（token 吊销失败仅记日志），已收紧签名去掉 error 返回。
+// Logout logs the user out.
+// The implementation has no failure path (token revocation failure is only
+// logged); the signature was tightened to drop the error return.
 func (s *Service) Logout(ctx context.Context, req *LogoutRequest) *LogoutResponse {
-	// 递增 token_version 使该账号所有已签发 token 立即失效（含调用方
-	// 当前使用的这一个）。中间件缓存意味着最长 30s 后全网生效。
+	// Bumping token_version immediately invalidates every token issued for the
+	// account (including the one the caller is currently using). Middleware
+	// caching means the effect fleet-wide lands within 30s at most.
 	if req != nil && req.Username != "" {
 		if admin, err := s.adminModel.FindByUsername(ctx, req.Username); err == nil && admin != nil {
 			if err := s.adminModel.BumpTokenVersion(ctx, admin.ID); err != nil {

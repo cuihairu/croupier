@@ -20,7 +20,7 @@ func NewHandler(service *Service) *Handler {
 	}
 }
 
-// Login 登录处理器
+// Login is the login handler.
 func (h *Handler) Login(c *gin.Context) {
 	var req LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -33,9 +33,10 @@ func (h *Handler) Login(c *gin.Context) {
 	resp, err := h.service.Login(c.Request.Context(), &req)
 	if err != nil {
 		if errors.Is(err, ErrMFARequired) || errors.Is(err, ErrEmailNotVerified) {
-			// CodeError → 401+mfa_required / 403+email_not_verified（前端按
-			// 稳定码分支展示二次验证码输入或重发验证邮件入口）；其余凭据
-			// 错误保持 401 语义。
+			// CodeError → 401+mfa_required / 403+email_not_verified (the
+			// frontend branches on the stable code to show the second-factor
+			// code input or the resend-verification-email entry); other
+			// credential errors keep 401 semantics.
 			response.Error(c, err)
 			return
 		}
@@ -46,9 +47,11 @@ func (h *Handler) Login(c *gin.Context) {
 	response.Success(c, resp)
 }
 
-// Refresh 刷新令牌兑换处理器（AUD-052，匿名端点：刷新令牌本身即凭据）。
-// 任何失败统一 401（含重放吊销后的提示文案）；存储未装配等内部错误按 500
-// 呈现，不向匿名调用方暴露细节。
+// Refresh is the refresh-token exchange handler (AUD-052, anonymous endpoint:
+// the refresh token is itself the credential). Every failure uniformly maps
+// to 401 (including the message shown after replay revocation); internal
+// errors like a storage backend not being wired are presented as 500 without
+// leaking details to the anonymous caller.
 func (h *Handler) Refresh(c *gin.Context) {
 	var req RefreshRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -71,10 +74,11 @@ func (h *Handler) Refresh(c *gin.Context) {
 	response.Success(c, resp)
 }
 
-// Logout 登出处理器
+// Logout is the logout handler.
 func (h *Handler) Logout(c *gin.Context) {
 	var req LogoutRequest
-	// service.Logout 已收紧签名（实现无出错路径），此处不再有 error 分支。
+	// service.Logout's signature was tightened (the implementation has no error
+	// path), so there is no error branch here anymore.
 	response.Success(c, h.service.Logout(c.Request.Context(), &req))
 }
 
@@ -99,7 +103,8 @@ func (h *Handler) Check(c *gin.Context) {
 	response.Success(c, resp)
 }
 
-// Providers 返回已启用的登录方式，供登录页渲染入口。
+// Providers returns the enabled login methods, for the login page to render
+// its entry points.
 func (h *Handler) Providers(c *gin.Context) {
 	response.Success(c, gin.H{
 		"local":        h.service.LocalEnabled(),
@@ -112,8 +117,9 @@ func (h *Handler) Providers(c *gin.Context) {
 	})
 }
 
-// Register 自助注册（POST /api/v1/auth/register，匿名；开关默认关闭——
-// 关闭时 403 registration_disabled，前端不渲染注册入口）。
+// Register serves self-service registration (POST /api/v1/auth/register,
+// anonymous; the switch defaults to off — when off it answers 403
+// registration_disabled and the frontend renders no registration entry).
 func (h *Handler) Register(c *gin.Context) {
 	var req RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -126,7 +132,8 @@ func (h *Handler) Register(c *gin.Context) {
 	admin, err := h.service.Register(c.Request.Context(), &req)
 	if err != nil {
 		if h.service.RegisterEnabled() {
-			// 开关已开：业务校验失败（用户名形态/重复/弱密码）
+			// switch on: a business validation failure (username shape/duplicate/
+			// weak password)
 			response.BadRequest(c, err.Error())
 			return
 		}
@@ -136,9 +143,11 @@ func (h *Handler) Register(c *gin.Context) {
 	response.Success(c, gin.H{"username": admin.Username, "nickname": admin.Nickname})
 }
 
-// VerifyEmail serves GET /api/v1/auth/verify-email?token=...（匿名，令牌即
-// 凭据）。校验通过落 admins.email_verified=true；无效/过期/已用统一 400
-// 同文案（不区分原因，防令牌有效性探测）。
+// VerifyEmail serves GET /api/v1/auth/verify-email?token=... (anonymous, the
+// token is itself the credential). A successful check lands
+// admins.email_verified=true; invalid/expired/already-used all answer 400
+// with the same wording (the reason is not distinguished, to prevent probing
+// for token validity).
 func (h *Handler) VerifyEmail(c *gin.Context) {
 	if err := h.service.VerifyEmailToken(c.Request.Context(), c.Query("token")); err != nil {
 		response.Error(c, err)
@@ -147,9 +156,10 @@ func (h *Handler) VerifyEmail(c *gin.Context) {
 	response.Success(c, gin.H{"verified": true})
 }
 
-// ResendVerification serves POST /api/v1/auth/resend-verification（匿名）。
-// 防枚举：用户名+邮箱不匹配/已验证/频控内一律 200 {resent:false}，仅真实
-// 匹配且未验证时发信返回 {resent:true}。
+// ResendVerification serves POST /api/v1/auth/resend-verification (anonymous).
+// Anti-enumeration: username+email mismatch / already verified / within the
+// rate limit all answer 200 {resent:false}; mail goes out and {resent:true}
+// is returned only on a real match that is still unverified.
 func (h *Handler) ResendVerification(c *gin.Context) {
 	var req struct {
 		Username string `json:"username"`
@@ -166,7 +176,8 @@ func (h *Handler) ResendVerification(c *gin.Context) {
 	response.Success(c, gin.H{"resent": true})
 }
 
-// mfaUsername 从认证上下文取当前用户；未登录返回空串并由调用方 401。
+// mfaUsername pulls the current user from the auth context; when not logged
+// in it returns the empty string and the caller answers 401.
 func mfaUsername(c *gin.Context) string {
 	if username, ok := c.Get("username"); ok {
 		if s, ok := username.(string); ok {
@@ -176,7 +187,8 @@ func mfaUsername(c *gin.Context) string {
 	return ""
 }
 
-// MFASetup 生成 TOTP 密钥（POST /api/v1/auth/mfa/setup，需登录）。
+// MFASetup generates a TOTP secret (POST /api/v1/auth/mfa/setup, login
+// required).
 func (h *Handler) MFASetup(c *gin.Context) {
 	username := mfaUsername(c)
 	if username == "" {
@@ -191,7 +203,8 @@ func (h *Handler) MFASetup(c *gin.Context) {
 	response.Success(c, resp)
 }
 
-// MFAConfirm 确认启用 TOTP（POST /api/v1/auth/mfa/confirm，需登录）。
+// MFAConfirm confirms enabling TOTP (POST /api/v1/auth/mfa/confirm, login
+// required).
 func (h *Handler) MFAConfirm(c *gin.Context) {
 	username := mfaUsername(c)
 	if username == "" {
@@ -208,22 +221,27 @@ func (h *Handler) MFAConfirm(c *gin.Context) {
 		response.BadRequest(c, err.Error())
 		return
 	}
-	// 备用恢复码明文只在此刻返回一次（库里仅存哈希），必须透传给前端展示。
+	// The plaintext backup recovery codes are returned exactly once, right
+	// here (only hashes are stored), and must be passed through for the
+	// frontend to display.
 	response.Success(c, gin.H{"ok": true, "recoveryCodes": resp.RecoveryCodes})
 }
 
-// MFAStatus 查询当前账号两步验证状态（GET /api/v1/auth/mfa/status）。
+// MFAStatus queries the current account's two-factor status
+// (GET /api/v1/auth/mfa/status).
 func (h *Handler) MFAStatus(c *gin.Context) {
 	username := mfaUsername(c)
 	if username == "" {
 		response.Unauthorized(c, "未授权")
 		return
 	}
-	// service.MFAStatus 已收紧签名（实现无出错路径），此处不再有 error 分支。
+	// service.MFAStatus's signature was tightened (the implementation has no
+	// error path), so there is no error branch here anymore.
 	response.Success(c, h.service.MFAStatus(c.Request.Context(), username))
 }
 
-// MFADisable 关闭 TOTP（POST /api/v1/auth/mfa/disable，需登录，码+密码双确认）。
+// MFADisable disables TOTP (POST /api/v1/auth/mfa/disable, login required,
+// confirmed by code + password).
 func (h *Handler) MFADisable(c *gin.Context) {
 	username := mfaUsername(c)
 	if username == "" {
@@ -242,7 +260,8 @@ func (h *Handler) MFADisable(c *gin.Context) {
 	response.Success(c, gin.H{"ok": true})
 }
 
-// OIDCLogin 生成跳转到身份源的授权 URL 并 302 重定向。
+// OIDCLogin builds the authorization URL pointing at the IdP and 302-redirects
+// to it.
 func (h *Handler) OIDCLogin(c *gin.Context) {
 	url, err := h.service.OIDCAuthCodeURL()
 	if err != nil {
@@ -252,8 +271,9 @@ func (h *Handler) OIDCLogin(c *gin.Context) {
 	c.Redirect(http.StatusFound, url)
 }
 
-// OIDCCallback 处理身份源回调：换取身份并签发平台 token。
-// 配置了 loginSuccessUrl 时携带 token 跳转前端；否则返回 JSON。
+// OIDCCallback handles the IdP callback: it exchanges the identity and issues
+// a platform token. With loginSuccessUrl configured it redirects to the
+// frontend carrying the token; otherwise it returns JSON.
 func (h *Handler) OIDCCallback(c *gin.Context) {
 	h.oauthCallback(c,
 		func(code, state string, req *LoginRequest) (*LoginResponse, error) {
@@ -262,7 +282,7 @@ func (h *Handler) OIDCCallback(c *gin.Context) {
 		h.service.OIDCSuccessURL)
 }
 
-// GitHubLogin 生成跳转到 GitHub 的授权 URL 并 302 重定向。
+// GitHubLogin builds the GitHub authorization URL and 302-redirects to it.
 func (h *Handler) GitHubLogin(c *gin.Context) {
 	u, err := h.service.GitHubAuthCodeURL()
 	if err != nil {
@@ -272,7 +292,8 @@ func (h *Handler) GitHubLogin(c *gin.Context) {
 	c.Redirect(http.StatusFound, u)
 }
 
-// GitHubCallback 处理 GitHub OAuth2 回调（成功跳转语义同 OIDC）。
+// GitHubCallback handles the GitHub OAuth2 callback (success-redirect
+// semantics same as OIDC).
 func (h *Handler) GitHubCallback(c *gin.Context) {
 	h.oauthCallback(c,
 		func(code, state string, req *LoginRequest) (*LoginResponse, error) {
@@ -281,7 +302,8 @@ func (h *Handler) GitHubCallback(c *gin.Context) {
 		h.service.GitHubSuccessURL)
 }
 
-// WeChatLogin 生成微信扫码登录页地址并 302 重定向（#51 第三批）。
+// WeChatLogin builds the WeChat QR-scan login page URL and 302-redirects to
+// it (#51, third batch).
 func (h *Handler) WeChatLogin(c *gin.Context) {
 	u, err := h.service.WeChatAuthCodeURL()
 	if err != nil {
@@ -291,7 +313,8 @@ func (h *Handler) WeChatLogin(c *gin.Context) {
 	c.Redirect(http.StatusFound, u)
 }
 
-// WeChatCallback 处理微信扫码回调（成功跳转语义同 OIDC/GitHub）。
+// WeChatCallback handles the WeChat QR-scan callback (success-redirect
+// semantics same as OIDC/GitHub).
 func (h *Handler) WeChatCallback(c *gin.Context) {
 	h.oauthCallback(c,
 		func(code, state string, req *LoginRequest) (*LoginResponse, error) {
@@ -300,7 +323,8 @@ func (h *Handler) WeChatCallback(c *gin.Context) {
 		h.service.WeChatSuccessURL)
 }
 
-// GenericOAuthLogin 生成自定义 OAuth 授权 URL 并 302 重定向（#51 第三批）。
+// GenericOAuthLogin builds the custom OAuth authorization URL and
+// 302-redirects to it (#51, third batch).
 func (h *Handler) GenericOAuthLogin(c *gin.Context) {
 	u, err := h.service.GenericOAuthAuthCodeURL()
 	if err != nil {
@@ -310,7 +334,8 @@ func (h *Handler) GenericOAuthLogin(c *gin.Context) {
 	c.Redirect(http.StatusFound, u)
 }
 
-// GenericOAuthCallback 处理自定义 OAuth 回调（成功跳转语义同 OIDC/GitHub）。
+// GenericOAuthCallback handles the custom OAuth callback (success-redirect
+// semantics same as OIDC/GitHub).
 func (h *Handler) GenericOAuthCallback(c *gin.Context) {
 	h.oauthCallback(c,
 		func(code, state string, req *LoginRequest) (*LoginResponse, error) {
@@ -319,9 +344,10 @@ func (h *Handler) GenericOAuthCallback(c *gin.Context) {
 		h.service.GenericOAuthSuccessURL)
 }
 
-// oauthCallback 是重定向授权型回调 handler 的公共出口：成功且配置了
-// loginSuccessUrl 时携带 token 302 跳前端，否则返回 JSON（OIDC/GitHub/
-// WeChat/自定义 OAuth 四路同构）。
+// oauthCallback is the shared exit for redirect-style OAuth callback handlers:
+// on success with loginSuccessUrl configured it 302-redirects to the frontend
+// carrying the token, otherwise it returns JSON (four isomorphic paths:
+// OIDC/GitHub/WeChat/custom OAuth).
 func (h *Handler) oauthCallback(c *gin.Context,
 	callback func(code, state string, req *LoginRequest) (*LoginResponse, error),
 	successURL func() string,

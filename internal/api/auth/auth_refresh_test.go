@@ -1,13 +1,19 @@
 package auth
 
-// AUD-052 刷新令牌轮换测试：
-// - legacy 登录（缺省请求）行为不变：单 24h token、无 refreshToken 字段
-// - opt-in 登录（useRefresh=true）签发 access+refresh 对并落轮换状态
-// - 兑换轮换：旧令牌标记已兑换、新令牌挂兑换链
-// - 重放检测：已兑换令牌再现 → 该账号全部刷新令牌吊销 + 审计
-// - 双向拒绝：access 进不了兑换端点；版本 bump / 过期 / 未知令牌一律 401
-// - 存储不可用回退 legacy（登录不因轮换基础设施失败而阻断）
-// 断言一律走子集过滤（InMemoryAuditStore 底层 map 遍历随机，AUD-049 教训）。
+// AUD-052 refresh-token rotation tests:
+// - legacy login (default request) behavior unchanged: single 24h token, no
+//   refreshToken field
+// - opt-in login (useRefresh=true) issues an access+refresh pair and lands the
+//   rotation state
+// - redemption rotation: old token marked redeemed, new token chained to it
+// - replay detection: an already-redeemed token reappearing → all refresh
+//   tokens for the account revoked + audited
+// - bidirectional rejection: an access token cannot enter the redemption
+//   endpoint; version bump / expiry / unknown token all rejected
+// - store unavailable falls back to legacy (login not blocked by rotation
+//   infrastructure failure)
+// Assertions always use subset filtering (the InMemoryAuditStore's underlying
+// map iteration is unordered — the AUD-049 lesson).
 
 import (
 	"context"
@@ -23,8 +29,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// aud052Env 组装带刷新令牌存储与审计的业务库（routes 生产装配同构：
-// WithRecoveryDB(db) → refreshTokenModel 懒建）。
+// aud052Env assembles the business database with refresh-token store and audit
+// (isomorphic to production routes assembly: WithRecoveryDB(db) →
+// refreshTokenModel is lazily built).
 func aud052Env(t *testing.T) (*Service, *model.AdminModel, *model.AdminRefreshTokenModel, *audit.InMemoryAuditStore, *gorm.DB) {
 	t.Helper()
 	db := setupTestDB(t)
@@ -51,7 +58,8 @@ func aud052Records(t *testing.T, store *audit.InMemoryAuditStore, event audit.Au
 	return records
 }
 
-// legacy 登录（缺省请求）完全不变：无 refreshToken、token 无 typ。
+// Legacy login (default request) is completely unchanged: no refreshToken, the
+// token has no typ.
 func TestAud052_LegacyLoginUnchanged(t *testing.T) {
 	svc, adminModel, _, _, _ := aud052Env(t)
 	aud052Admin(t, adminModel)
@@ -66,7 +74,8 @@ func TestAud052_LegacyLoginUnchanged(t *testing.T) {
 	assert.Equal(t, 24*time.Hour, span, "legacy token 仍为 24h")
 }
 
-// opt-in 登录签发 access+refresh 对，落库哈希行（未兑换、非轮换）。
+// Opt-in login issues the access+refresh pair and lands the hashed row
+// (not redeemed, not rotated).
 func TestAud052_LoginWithRefreshIssuesPair(t *testing.T) {
 	svc, adminModel, refreshModel, _, _ := aud052Env(t)
 	aud052Admin(t, adminModel)
@@ -91,7 +100,8 @@ func TestAud052_LoginWithRefreshIssuesPair(t *testing.T) {
 	assert.Zero(t, row.RotatedFromID, "登录直发无兑换链上游")
 }
 
-// 兑换轮换：返回新对；旧令牌标记已兑换；新令牌挂兑换链；新 access 可用。
+// Redemption rotation: returns the new pair; the old token is marked redeemed;
+// the new token is chained to it; the new access token works.
 func TestAud052_RefreshRotates(t *testing.T) {
 	svc, adminModel, refreshModel, _, _ := aud052Env(t)
 	aud052Admin(t, adminModel)
@@ -118,7 +128,8 @@ func TestAud052_RefreshRotates(t *testing.T) {
 	assert.Equal(t, jwtutil.TokenTypeAccess, newAccess.TokenType)
 }
 
-// 重放检测：已兑换的旧令牌再次出现 → 该账号全部刷新令牌吊销 + 审计。
+// Replay detection: an already-redeemed old token reappearing → all refresh
+// tokens for the account revoked + audited.
 func TestAud052_RefreshReplayRevokesFamily(t *testing.T) {
 	svc, adminModel, _, store, db := aud052Env(t)
 	aud052Admin(t, adminModel)
@@ -129,11 +140,12 @@ func TestAud052_RefreshReplayRevokesFamily(t *testing.T) {
 	first, err := svc.Refresh(ctx, &RefreshRequest{RefreshToken: login.RefreshToken})
 	require.NoError(t, err)
 
-	// 重放旧令牌（攻击者手里的第一环）。
+	// Replay the old token (the first link in the attacker's hand).
 	_, err = svc.Refresh(ctx, &RefreshRequest{RefreshToken: login.RefreshToken})
 	require.Error(t, err)
 
-	// 整族吊销：攻击者经正常轮换持有的最新令牌也一并作废（fail-closed）。
+	// Family-wide revocation: the newest token the attacker legitimately
+	// obtained through normal rotation is voided too (fail-closed).
 	_, err = svc.Refresh(ctx, &RefreshRequest{RefreshToken: first.RefreshToken})
 	require.Error(t, err, "重放吊销后同族新令牌不得再兑换")
 
@@ -142,7 +154,8 @@ func TestAud052_RefreshReplayRevokesFamily(t *testing.T) {
 		Where("admin_id = ? AND revoked = ?", 1, true).Count(&revoked).Error)
 	assert.EqualValues(t, 2, revoked, "登录直发 + 轮换两行都应被吊销")
 
-	// 两次失败兑换各留一条重放审计（已兑换旧令牌 + 已吊销新令牌各一）。
+	// Each of the two failed redemptions leaves one replay audit record (one
+	// each for the redeemed old token and the revoked new token).
 	reuseRecords := aud052Records(t, store, audit.EventTokenRefreshReuse)
 	require.Len(t, reuseRecords, 2, "重放必须留审计痕")
 	for _, r := range reuseRecords {
@@ -150,7 +163,8 @@ func TestAud052_RefreshReplayRevokesFamily(t *testing.T) {
 	}
 }
 
-// 双向拒绝：access 令牌进不了兑换端点（ParseRefresh 拒绝非 refresh 型别）。
+// Bidirectional rejection: an access token cannot enter the redemption endpoint
+// (ParseRefresh rejects non-refresh token types).
 func TestAud052_RefreshRejectsAccessToken(t *testing.T) {
 	svc, adminModel, _, _, _ := aud052Env(t)
 	aud052Admin(t, adminModel)
@@ -161,7 +175,8 @@ func TestAud052_RefreshRejectsAccessToken(t *testing.T) {
 	assert.Error(t, err)
 }
 
-// token_version bump（改密/禁用/登出）后旧刷新令牌族立即失效。
+// After a token_version bump (password change/disable/logout), the old
+// refresh-token family is immediately invalid.
 func TestAud052_RefreshRejectsAfterTokenVersionBump(t *testing.T) {
 	svc, adminModel, _, _, _ := aud052Env(t)
 	adminID := aud052Admin(t, adminModel)
@@ -176,7 +191,8 @@ func TestAud052_RefreshRejectsAfterTokenVersionBump(t *testing.T) {
 	require.Error(t, err, "版本不一致的刷新令牌必须拒绝")
 }
 
-// 落库行过期（JWT 本体未过期）拒绝兑换；未知哈希（行被删/异库）同样拒绝。
+// An expired persisted row (the JWT itself not yet expired) rejects redemption;
+// an unknown hash (row deleted / different database) is rejected likewise.
 func TestAud052_RefreshRejectsExpiredAndUnknownRows(t *testing.T) {
 	svc, adminModel, refreshModel, _, db := aud052Env(t)
 	aud052Admin(t, adminModel)
@@ -198,11 +214,12 @@ func TestAud052_RefreshRejectsExpiredAndUnknownRows(t *testing.T) {
 	assert.Error(t, err, "无落库行的刷新令牌必须拒绝")
 }
 
-// 存储不可用：opt-in 登录回退 legacy 单 token（无持久状态不发 refresh）。
+// Store unavailable: opt-in login falls back to the legacy single token (no
+// persistent state, no refresh issued).
 func TestAud052_StoreUnavailableFallsBackToLegacy(t *testing.T) {
 	db := setupTestDB(t)
 	adminModel := model.NewAdminModel(db)
-	svc := NewService(adminModel, nil, "aud052-secret") // 无 WithRecoveryDB
+	svc := NewService(adminModel, nil, "aud052-secret") // no WithRecoveryDB
 	admin := &model.Admin{Username: "aud052f", Nickname: "f", Status: 1}
 	require.NoError(t, adminModel.Create(context.Background(), admin, "Str0ngPass!x"))
 
