@@ -48,6 +48,7 @@ import { customWidgets } from './widgets';
 import { uploadFields, uploadWidgets } from './widgets-upload';
 import { customTemplates } from './templates';
 import SchemaFormErrorBoundary from './ErrorBoundary';
+import JsonRootEditor, { isJsonRootSpec } from './JsonRootEditor';
 
 export interface SchemaFormRendererHandle {
   submit: () => void;
@@ -761,6 +762,10 @@ const SchemaFormRenderer = forwardRef<SchemaFormRendererHandle, SchemaFormRender
     ref,
   ) => {
     const formRef = useRef<RJSFFormRef | null>(null);
+    // SUI-026：声明非对象根类型（数组/标量/null）的 schema 走 JSON 编辑形态，
+    // 与对象表单同一 handle 契约、同一校验器、同一绑定执行链。
+    const jsonRoot = useMemo(() => isJsonRootSpec(spec.jsonSchema), [spec]);
+    const jsonRootRef = useRef<SchemaFormRendererHandle | null>(null);
     const initialValuesJson = useMemo(
       () => JSON.stringify(normalizeFormValues(initialValues || {})),
       [initialValues],
@@ -809,18 +814,34 @@ const SchemaFormRenderer = forwardRef<SchemaFormRendererHandle, SchemaFormRender
     const specRef = useRef(effectiveSpec);
     specRef.current = effectiveSpec;
 
-    useImperativeHandle(ref, () => ({
-      submit: () => {
-        formRef.current?.submit();
-      },
-      validate: () => Boolean(formRef.current?.validateForm()),
-      getValues: () => getLiveFormValues(formRef.current, currentValuesRef.current),
-      getSubmitValues: () =>
-        projectSubmitValues(
-          getLiveFormValues(formRef.current, currentValuesRef.current),
-          specRef.current,
-        ),
-    }));
+    useImperativeHandle(
+      ref,
+      () => ({
+        submit: () => {
+          if (jsonRoot) {
+            jsonRootRef.current?.submit();
+            return;
+          }
+          formRef.current?.submit();
+        },
+        validate: () =>
+          jsonRoot
+            ? Boolean(jsonRootRef.current?.validate())
+            : Boolean(formRef.current?.validateForm()),
+        getValues: () =>
+          jsonRoot
+            ? (jsonRootRef.current?.getValues() ?? {})
+            : getLiveFormValues(formRef.current, currentValuesRef.current),
+        getSubmitValues: () =>
+          jsonRoot
+            ? (jsonRootRef.current?.getSubmitValues() ?? {})
+            : projectSubmitValues(
+                getLiveFormValues(formRef.current, currentValuesRef.current),
+                specRef.current,
+              ),
+      }),
+      [jsonRoot],
+    );
 
     // rjsf Form 在任意 props 变化时会把内部 state 重置回 props.formData；
     // 因此所有 handler 必须引用稳定，保证 props 仅在内容真正变化时才不等，
@@ -870,6 +891,23 @@ const SchemaFormRenderer = forwardRef<SchemaFormRendererHandle, SchemaFormRender
       }
       return Object.keys(schema).length > 0 ? (schema as unknown as ErrorSchema) : undefined;
     }, [externalErrors]);
+
+    if (jsonRoot) {
+      // SUI-026：JSON 根形态不经 rjsf（对象表单引擎表达不了非对象根），由
+      // JsonRootEditor 提供同契约编辑入口。
+      return (
+        <JsonRootEditor
+          ref={jsonRootRef}
+          spec={effectiveSpec}
+          initialValues={initialValues}
+          onFinish={onFinish}
+          onValuesChange={onValuesChange}
+          readonly={readonly}
+          disabled={disabled}
+          hideSubmit={hideSubmit}
+        />
+      );
+    }
 
     return (
       <SchemaFormErrorBoundary key={boundaryKey}>

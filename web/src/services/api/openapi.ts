@@ -103,6 +103,9 @@ export interface OpenAPISourceOperation {
   bound: boolean;
   bindingId?: string;
   functionId?: string;
+  /** SUI-011：该 operation 请求契约可到达的兼容层级（direct/degraded/manual）；
+   * 缺少请求映射（manual）的具体原因随 source diagnostics（按 functionId 关联）。 */
+  requestCompatibility?: string;
 }
 
 export interface OpenAPISourceBinding {

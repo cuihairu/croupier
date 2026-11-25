@@ -352,6 +352,52 @@ describe('CompositeRenderer 内联区块与运行时联动', () => {
     await waitFor(() => expect(infoSpy).toHaveBeenCalledWith('submitted'));
   });
 
+  it('SUI-026 根数组表单：JSON 编辑器替代裸执行按钮，提交原样过执行链（values 单形态并入）', async () => {
+    const sections: CompositeSection[] = [
+      {
+        key: 'rootArrayForm',
+        bindingId: 'b-array',
+        view: 'form',
+        title: { 'zh-CN': '批量动作' },
+        form: {
+          jsonSchema: {
+            type: 'array',
+            items: { type: 'string' },
+          },
+        },
+        events: [
+          {
+            event: 'success',
+            action: { kind: 'showMessage', target: '', params: { message: 'array-done' } },
+          },
+        ],
+      },
+    ];
+    const onExecute = jest.fn().mockResolvedValue({ data: {} });
+    const onPageStateMerge = jest.fn();
+    const { app } = renderComposite(sections, onExecute, { onPageStateMerge });
+    const infoSpy = jest.spyOn(app.current!.message, 'info');
+
+    // JSON 编辑器渲染（不是裸执行按钮）；带具体原因说明
+    const editor = (await screen.findByTestId('json-root-editor')) as HTMLTextAreaElement;
+    expect(JSON.parse(editor.value)).toEqual([]);
+    expect(screen.getByTestId('json-root-reason').textContent).toContain('array');
+    expect(screen.queryByRole('button', { name: '批量动作' })).toBeNull();
+
+    fireEvent.change(editor, { target: { value: '["p1","p2"]' } });
+    fireEvent.click(screen.getByTestId('json-root-submit'));
+    // 数组整值不对象展开：page_state 只落 values 单形态；执行 payload 原样
+    await waitFor(() =>
+      expect(onPageStateMerge).toHaveBeenCalledWith('rootArrayForm', {
+        values: ['p1', 'p2'],
+      }),
+    );
+    await waitFor(() =>
+      expect(onExecute).toHaveBeenCalledWith('b-array', { form: ['p1', 'p2'] }),
+    );
+    await waitFor(() => expect(infoSpy).toHaveBeenCalledWith('array-done'));
+  });
+
   it('动作链 showMessage / navigate：提示与开窗，navigate 缺 url 不开窗', async () => {
     const sections: CompositeSection[] = [
       {

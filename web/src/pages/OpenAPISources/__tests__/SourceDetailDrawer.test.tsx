@@ -247,6 +247,52 @@ describe('Operations 表', () => {
     expect(screen.getAllByText('fn.list').length).toBeGreaterThanOrEqual(2);
   });
 
+  it('SUI-026 请求兼容性列：层级 Tag 配色 + manual 具体原因按 functionId 关联；缺层级显示占位', async () => {
+    renderDrawer(
+      makeDetail({
+        operations: [
+          { ...FULL_OP, requestCompatibility: 'degraded' },
+          {
+            ...BARE_OP,
+            operationId: 'op-manual',
+            functionId: 'op-manual',
+            requestCompatibility: 'manual',
+          },
+        ],
+        diagnostics: [
+          ...DIAGNOSTICS,
+          {
+            code: 'openapi_schema_compatibility_unmapped',
+            severity: 'warning',
+            message: '缺少请求映射：multipart/form-data',
+            functionId: 'op-manual',
+          },
+          {
+            code: 'input_schema_missing',
+            severity: 'warning',
+            message: '无关函数的映射诊断',
+            functionId: 'fn.other',
+          },
+        ],
+      }),
+    );
+    // degraded：橙色「降级（JSON 编辑）」
+    expect(await screen.findByText('降级（JSON 编辑）')).toHaveClass('ant-tag-orange');
+    // manual：红色「手动（无法自动映射）」+ 按 functionId 关联的具体原因
+    //（诊断卡也会渲染全量诊断，故按出现次数断言列的串行筛选：命中
+    // functionId + 前缀 openapi_schema_compatibility* 的 reason 出现 2 次
+    // ——诊断卡 + 兼容性列；不匹配 functionId 的只出现 1 次——仅诊断卡）
+    expect(screen.getByText('手动（无法自动映射）')).toHaveClass('ant-tag-red');
+    expect(screen.getAllByText('缺少请求映射：multipart/form-data')).toHaveLength(2);
+    expect(screen.getAllByText('无关函数的映射诊断')).toHaveLength(1);
+  });
+
+  it('SUI-026 请求兼容性列：无层级字段显示 - 占位', async () => {
+    renderDrawer();
+    expect(await screen.findByText('bound')).toBeInTheDocument();
+    expect(screen.getAllByText('-').length).toBeGreaterThanOrEqual(2);
+  });
+
   it('canWrite：绑定按钮回调透传 operation', async () => {
     const onBindOperation = jest.fn();
     renderDrawer(makeDetail(), true, false, { onBindOperation });

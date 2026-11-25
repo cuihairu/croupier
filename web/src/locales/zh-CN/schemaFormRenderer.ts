@@ -1,5 +1,10 @@
 // 公共 SchemaFormRenderer
 export default {
+  'component.schemaFormRenderer.jsonRoot.invalidJson': 'JSON 解析失败：{message}',
+  'component.schemaFormRenderer.jsonRoot.reason':
+    '该请求是 {type} 类型，结构化表单无法表达；请编辑完整请求 JSON——提交仍经本页面绑定的同一执行与 schema 校验链。',
+  'component.schemaFormRenderer.jsonRoot.schemaMismatch': '请求 JSON 不符合 schema',
+  'component.schemaFormRenderer.jsonRoot.title': '请求 JSON',
   'component.schemaFormRenderer.keyValue.addRow': '添加',
   'component.schemaFormRenderer.keyValue.deleteRow': '删除',
   'component.schemaFormRenderer.keyValue.keyPlaceholder': '键',

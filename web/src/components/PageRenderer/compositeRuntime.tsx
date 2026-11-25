@@ -490,11 +490,15 @@ export function useCompositeRuntime<T extends RuntimeSection>(
   const run = useCallback(
     async (sec: T, overrides?: Record<string, unknown>) => {
       if (preview) return null;
-      const baseInputs = {
-        ...(inputsRef.current[sec.key] || {}),
-        ...(inputsForSection ? inputsForSection(sec) : {}),
-        ...(overrides || {}),
-      };
+      // SUI-026：JSON 根区块的提交值是数组/标量（无对象壳）——overrides 为
+      // 数组时原样作入参（对象展开会把数组打成 {0:…,1:…}，破坏 SUI-017 语义）。
+      const baseInputs = Array.isArray(overrides)
+        ? (overrides as unknown as Record<string, unknown>)
+        : {
+            ...(inputsRef.current[sec.key] || {}),
+            ...(inputsForSection ? inputsForSection(sec) : {}),
+            ...(overrides || {}),
+          };
       // D3：表格区块入参 = 上游筛选/查询条件 + 派生分页参数（page/pageSize/
       // offset）+ 排序参数（sortBy/sortOrder，仅服务端分页时）。指纹只覆盖
       // 非分页入参——筛选变化回首页，入参不变（操作成功后刷新、手动重跑）
@@ -988,8 +992,15 @@ export function useCompositeRuntime<T extends RuntimeSection>(
       const plain = values as Record<string, unknown>;
       const execute = async (): Promise<SubmitFormOutcome> => {
         clearExecFeedbackOf(sec.key);
-        // 无表单区块（降级执行按钮）不落页面状态：与既有提交路径行为对齐
-        if (sec.form) onPageStateMerge?.(sec.key, { ...plain, values: plain });
+        // 无表单区块（降级执行按钮）不落页面状态：与既有提交路径行为对齐。
+        // SUI-026：JSON 根区块的整值是数组/标量，不能对象展开——原样落 values。
+        if (sec.form) {
+          if (Array.isArray(plain)) {
+            onPageStateMerge?.(sec.key, { values: plain });
+          } else {
+            onPageStateMerge?.(sec.key, { ...plain, values: plain });
+          }
+        }
         try {
           const r = await runRef.current(sec, plain);
           // 无结果（preview / 旧响应拒收）与结果体自带 error 标记都不算成功：

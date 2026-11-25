@@ -22,6 +22,7 @@ import ExecutorUnboundAlert, {
   executeErrorToastText,
 } from './ExecutorUnboundAlert';
 import { localizedText } from '@/utils/localizedText';
+import { primarySchemaType } from '@/utils/schemaDialect';
 import { confirmFieldTitle, humanizeParamKey } from './confirmContent';
 import { isStaleSelection, rowIdentity, selectionFilterFingerprint } from './batchSelection';
 import type { ExecFailure } from './execFeedback';
@@ -1055,9 +1056,16 @@ const DialogForm: React.FC<{
   );
 };
 
-/** 区块是否带有可渲染的表单 schema（无字段时降级为执行按钮）。 */
+/** 区块是否带有可渲染的表单 schema（无字段时降级为执行按钮）。
+ * SUI-026：声明非对象根类型（数组/标量/null）的 schema 由 SchemaFormRenderer
+ * 的 JSON 编辑形态表达（同一绑定与校验），不再降级为裸执行按钮；对象根无
+ * properties 仍降级（空表单无意义）。 */
 function sectionHasForm(sec: CompositeSection): boolean {
-  const properties = sec.form?.jsonSchema?.properties;
+  const schema = sec.form?.jsonSchema;
+  if (!schema || typeof schema !== 'object' || Array.isArray(schema)) return false;
+  const root = primarySchemaType(schema as { type?: string | string[] });
+  if (root !== undefined && root !== 'object') return true;
+  const properties = schema.properties;
   return !!properties && typeof properties === 'object' && Object.keys(properties).length > 0;
 }
 

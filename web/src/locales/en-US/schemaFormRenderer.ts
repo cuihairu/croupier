@@ -1,5 +1,10 @@
 // 公共 SchemaFormRenderer
 export default {
+  'component.schemaFormRenderer.jsonRoot.invalidJson': 'Invalid JSON: {message}',
+  'component.schemaFormRenderer.jsonRoot.reason':
+    'This request is a {type}; structured form controls cannot represent it. Edit the full request JSON below — submission still goes through this page binding execution and schema validation.',
+  'component.schemaFormRenderer.jsonRoot.schemaMismatch': 'Request JSON does not match the schema',
+  'component.schemaFormRenderer.jsonRoot.title': 'Request JSON',
   'component.schemaFormRenderer.keyValue.addRow': 'Add',
   'component.schemaFormRenderer.keyValue.deleteRow': 'Delete',
   'component.schemaFormRenderer.keyValue.keyPlaceholder': 'Key',

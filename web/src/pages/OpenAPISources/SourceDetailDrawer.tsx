@@ -8,10 +8,62 @@ import type {
   OpenAPISourceDetail,
   OpenAPISourceOperation,
 } from '@/services/api/openapi';
+import type { Diagnostic } from '@/types/dashboard';
 import DiagnosticsList from './DiagnosticsList';
 import { capabilityColor, executionColor, operationLabel, riskColor } from './shared';
 
 const { Text } = Typography;
+
+/** SUI-011/SUI-026：请求兼容层级 → 颜色/本地化文案。manual=缺少请求映射
+ * （无法自动映射的媒体类型/discriminator），具体原因列在标签下方。 */
+const COMPATIBILITY_COLOR: Record<string, string> = {
+  direct: 'green',
+  degraded: 'orange',
+  manual: 'red',
+};
+
+const COMPATIBILITY_LABEL: Record<string, { id: string; defaultMessage: string }> = {
+  direct: { id: 'pages.openapiSources.drawer.compatibility.direct', defaultMessage: '直接' },
+  degraded: {
+    id: 'pages.openapiSources.drawer.compatibility.degraded',
+    defaultMessage: '降级（JSON 编辑）',
+  },
+  manual: {
+    id: 'pages.openapiSources.drawer.compatibility.manual',
+    defaultMessage: '手动（无法自动映射）',
+  },
+};
+
+function RequestCompatibilityCell({
+  record,
+  diagnostics,
+}: {
+  record: OpenAPISourceOperation;
+  diagnostics: Diagnostic[];
+}) {
+  const intl = useIntl();
+  const tier = record.requestCompatibility;
+  if (!tier) return <Text type="secondary">-</Text>;
+  const label = COMPATIBILITY_LABEL[tier]
+    ? intl.formatMessage(COMPATIBILITY_LABEL[tier])
+    : tier;
+  const reasons = diagnostics.filter(
+    (item) =>
+      item.functionId === record.functionId &&
+      typeof item.code === 'string' &&
+      item.code.startsWith('openapi_schema_compatibility'),
+  );
+  return (
+    <Space orientation="vertical" size={2}>
+      <Tag color={COMPATIBILITY_COLOR[tier] ?? 'default'}>{label}</Tag>
+      {reasons.slice(0, 3).map((item, index) => (
+        <Text key={`${item.code}-${index}`} type="secondary" style={{ fontSize: 12 }}>
+          {item.message}
+        </Text>
+      ))}
+    </Space>
+  );
+}
 
 /** Source 详情抽屉：revision/format 标签 + 诊断列表 + Operations 表 +
  * Provider Bindings 表 + 原始 JSON。数据由页面拉取注入。 */
@@ -33,6 +85,10 @@ export default function SourceDetailDrawer({
   onRemoveBinding: (binding: OpenAPISourceBinding) => void;
 }) {
   const intl = useIntl();
+
+  // SUI-026：manual（缺少请求映射）等层级的具体原因随 source diagnostics，
+  // 按 functionId 关联到对应 operation 行展示。
+  const diagnostics: Diagnostic[] = detail?.diagnostics ?? [];
 
   const operationColumns: ProColumns<OpenAPISourceOperation>[] = [
     {
@@ -108,6 +164,17 @@ export default function SourceDetailDrawer({
               })}
           </Text>
         </Space>
+      ),
+    },
+    {
+      title: intl.formatMessage({
+        id: 'pages.openapiSources.drawer.column.requestCompatibility',
+        defaultMessage: '请求兼容性',
+      }),
+      dataIndex: 'requestCompatibility',
+      width: 150,
+      render: (_, record) => (
+        <RequestCompatibilityCell record={record} diagnostics={diagnostics} />
       ),
     },
     {
