@@ -1,5 +1,6 @@
-// 补齐 schedule 边界：显式 body scope、currentActor 回退、metadata 合并、
-// buildItem LastTriggeredAt、运行日志/删除/创建的模型故障分支。
+// Rounds out schedule edge cases: an explicit body scope, the currentActor
+// fallback, metadata merging, buildItem LastTriggeredAt, and the model failure
+// branches for run logs / delete / create.
 package schedule
 
 import (
@@ -48,32 +49,34 @@ func newBareScheduleEnv(t *testing.T) (*gin.Engine, *gorm.DB, *svc.ServiceContex
 
 const scopedCreateBody = `{"name":"n","cronExpr":"*/5 * * * *","functionId":"fn.reset","gameId":"demo","env":"prod"}`
 
-// resolveScheduleScope：显式 body scope（无 X-Game-ID 上下文）。
+// resolveScheduleScope: explicit body scope (no X-Game-ID context).
 func TestCreateExplicitBodyScope(t *testing.T) {
 	r, _, _ := newBareScheduleEnv(t)
 	rec := doJSON(r, http.MethodPost, "/api/v1/schedules", scopedCreateBody)
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 }
 
-// currentActor：无 username 上下文回退空串；metadata 合并分支。
+// currentActor: falls back to an empty string with no username in context; also
+// exercises the metadata merge branch.
 func TestTriggerNowMetadataMergeAndActorFallback(t *testing.T) {
 	r, db, svcCtx := newBareScheduleEnv(t)
 	rec := doJSON(r, http.MethodPost, "/api/v1/schedules", scopedCreateBody)
 	require.Equal(t, http.StatusOK, rec.Code)
 
-	// 写入 metadata + last_triggered_at（覆盖 buildItem 分支与 metadata 合并）
+	// Write metadata + last_triggered_at (covers the buildItem branch and the metadata merge)
 	now := time.Now().UTC()
 	require.NoError(t, db.Model(&model.TaskSchedule{}).Where("1=1").Updates(map[string]interface{}{
 		"metadata":          model.JSON(`{"route":"hash"}`),
 		"last_triggered_at": &now,
 	}).Error)
 
-	// 无 username 上下文（bare router）→ currentActor 回退 ""；
-	// dispatcher 无 agent → 报错，但 metadata/actor 组装分支已覆盖
+	// No username in context (bare router) -> currentActor falls back to "";
+	// the dispatcher has no agent -> it errors, but the metadata/actor assembly
+	// branches are already covered
 	rec = doJSON(r, http.MethodPost, "/api/v1/schedules/1/trigger", "")
 	assert.NotEqual(t, http.StatusOK, rec.Code)
 
-	// buildItem：List 带 LastTriggeredAt
+	// buildItem: List carries LastTriggeredAt
 	rec = doJSON(r, http.MethodGet, "/api/v1/schedules", "")
 	require.Equal(t, http.StatusOK, rec.Code)
 	var list struct {
@@ -87,7 +90,7 @@ func TestTriggerNowMetadataMergeAndActorFallback(t *testing.T) {
 	_ = svcCtx
 }
 
-// RunLogs 查询失败（缺表）→ handler 错误分支。
+// RunLogs query fails (missing table) -> the handler error branch.
 func TestRunLogsStoreError(t *testing.T) {
 	r, db, _ := newBareScheduleEnv(t)
 	require.NoError(t, db.Migrator().DropTable("task_schedule_run_logs"))
@@ -95,7 +98,7 @@ func TestRunLogsStoreError(t *testing.T) {
 	assert.NotEqual(t, http.StatusOK, rec.Code)
 }
 
-// Delete / Create 模型故障分支。
+// Delete / Create model failure branches.
 func TestDeleteAndCreateModelFailure(t *testing.T) {
 	r, db, _ := newBareScheduleEnv(t)
 	require.NoError(t, db.Migrator().DropTable("task_schedules"))
@@ -107,7 +110,7 @@ func TestDeleteAndCreateModelFailure(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, rec.Code)
 }
 
-// resolveScheduleScope：body 无 gameId/env 时回退 X-Game-ID 上下文。
+// resolveScheduleScope: falls back to the X-Game-ID context when the body has no gameId/env.
 func TestCreateFallsBackToContextScope(t *testing.T) {
 	name := fmt.Sprintf("schedule_extra_%d", extraDBSeq.Add(1))
 	db, err := gorm.Open(gsqlite.Open("file:"+name+"?mode=memory&cache=shared"), &gorm.Config{})

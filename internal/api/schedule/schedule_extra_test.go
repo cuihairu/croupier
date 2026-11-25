@@ -1,5 +1,6 @@
-// 覆盖目标：schedule service 的错误分支（模型未初始化、非法 status、
-// 缺 scope、存储错误、cron 无效）与 handler 的 service 错误路径。
+// Coverage target: the error branches of the schedule service (uninitialized model,
+// invalid status, missing scope, storage error, invalid cron) and the service
+// error paths of the handler.
 package schedule
 
 import (
@@ -42,7 +43,7 @@ func TestService_Create_InvalidCron(t *testing.T) {
 }
 
 func TestService_Create_MissingScope(t *testing.T) {
-	// 未注入 GameScope 且请求体不带 gameId/env
+	// No GameScope injected and the request body carries no gameId/env
 	r, _ := newTestEnv(t, false)
 	rec := doJSON(r, http.MethodPost, "/api/v1/schedules", `{"name":"n","cronExpr":"* * * * *","functionId":"f"}`)
 	assert.Equal(t, http.StatusBadRequest, rec.Code, rec.Body.String())
@@ -94,7 +95,8 @@ func TestService_RunLogs_AfterCreate_Empty(t *testing.T) {
 func TestService_Delete_Unknown_Idempotent(t *testing.T) {
 	r, _ := newTestEnv(t, true)
 	rec := doReq(r, http.MethodDelete, "/api/v1/schedules/99999")
-	// 删除前必须先归属校验；未知 id 返回 404，避免跨 scope 资源可探测性。
+	// Ownership must be checked before deleting; an unknown id returns 404, keeping
+	// cross-scope resources from being discoverable.
 	assert.Equal(t, http.StatusNotFound, rec.Code, rec.Body.String())
 }
 
@@ -116,7 +118,7 @@ func TestService_List_StatusFilter_NoMatch(t *testing.T) {
 func TestHandler_List_InvalidPageQuery(t *testing.T) {
 	r, _ := newTestEnv(t, true)
 	rec := doReq(r, http.MethodGet, "/api/v1/schedules?page=abc")
-	// Bug4 修复后：query 数值转换错误按契约返回 400
+	// After the Bug4 fix: a numeric query conversion error returns 400 per the contract
 	assert.Equal(t, http.StatusBadRequest, rec.Code, rec.Body.String())
 }
 
@@ -142,7 +144,7 @@ func TestHandler_Delete_InvalidID(t *testing.T) {
 func TestService_TriggerNow_DispatchFails(t *testing.T) {
 	r, _ := newTestEnv(t, true)
 	id := mustCreate(t, r)
-	// fn.reset 无已注册 agent：dispatch 应失败
+	// fn.reset has no registered agent: dispatch should fail
 	rec := doReq(r, http.MethodPost, "/api/v1/schedules/"+strconv.FormatUint(uint64(id), 10)+"/trigger")
 	assert.NotEqual(t, http.StatusOK, rec.Code, rec.Body.String())
 }
@@ -152,7 +154,8 @@ func TestService_PauseClearsNextTrigger(t *testing.T) {
 	id := mustCreate(t, r)
 	target := "/api/v1/schedules/" + strconv.FormatUint(uint64(id), 10) + "/status"
 
-	// 创建后默认带 nextTriggerAt；暂停后清空 → buildItem 的 nil 分支
+	// A created schedule carries nextTriggerAt by default; pausing clears it -> the nil
+	// branch of buildItem
 	rec := doJSON(r, http.MethodPut, target, `{"status":"paused"}`)
 	assert.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 	assert.NotContains(t, rec.Body.String(), "nextTriggerAt")
@@ -209,9 +212,11 @@ func TestHandler_TriggerNow_StoreError(t *testing.T) {
 func TestService_TriggerNow_DispatchError(t *testing.T) {
 	r, db := newTestEnv(t, true)
 	scheduleID := mustCreate(t, r)
-	// 清空 schedules 表让 FindByID 命中前先坏掉函数路由：直接把 dispatcher
-	// 的 registry 置空不可行——改为让函数 ID 无法路由（dispatch 内部报错）。
-	// 做法：把函数 ID 改成不存在的值，Dispatcher 找不到函数即报错。
+	// Blank the schedules table to break function routing before FindByID hits:
+	// zeroing out the dispatcher registry directly is not feasible, so instead make
+	// the function ID unroutable (dispatch errors internally). Approach: set the
+	// function ID to a nonexistent value; the Dispatcher cannot find the function
+	// and errors.
 	require.NoError(t, db.Exec("UPDATE task_schedules SET function_id = 'missing.fn' WHERE id = ?", scheduleID).Error)
 	rec := doReq(r, http.MethodPost, "/api/v1/schedules/"+strconv.FormatUint(uint64(scheduleID), 10)+"/trigger")
 	assert.NotEqual(t, http.StatusOK, rec.Code)

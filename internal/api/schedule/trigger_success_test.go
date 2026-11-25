@@ -24,7 +24,8 @@ import (
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 )
 
-// stubSessionCaller 实现 transport.SessionCaller：所有调用回 canned 响应。
+// stubSessionCaller implements transport.SessionCaller: every call returns the
+// canned response.
 type stubSessionCaller struct {
 	respBody []byte
 }
@@ -33,7 +34,7 @@ func (s *stubSessionCaller) Call(_ context.Context, msgID uint32, _ []byte) (uin
 	return msgID, s.respBody, nil
 }
 
-// stubSessionResolver 把任意 agent 解析到同一 caller。
+// stubSessionResolver resolves any agent to the same caller.
 type stubSessionResolver struct {
 	caller transportcore.SessionCaller
 }
@@ -42,7 +43,8 @@ func (r *stubSessionResolver) ResolveAgentConn(_ string) (transportcore.SessionC
 	return r.caller, true
 }
 
-// newTestEnvWithDispatcher 与 newTestEnv 相同，但允许注入自定义 Dispatcher。
+// newTestEnvWithDispatcher is the same as newTestEnv but allows injecting a custom
+// Dispatcher.
 func newTestEnvWithDispatcher(t *testing.T, d *dispatch.Dispatcher) (*gin.Engine, *gorm.DB) {
 	t.Helper()
 	name := fmt.Sprintf("schedule_trig_%d", atomic.AddUint64(&dbSeq, 1))
@@ -53,13 +55,14 @@ func newTestEnvWithDispatcher(t *testing.T, d *dispatch.Dispatcher) (*gin.Engine
 	svcCtx := &svc.ServiceContext{
 		TaskScheduleModel: model.NewTaskScheduleModel(db),
 		AdminModel:        model.NewAdminModel(db),
-		// ARCH-024 (R30-01)：Govern 现跑 CheckInvokePermission 显式函数 ACL，
-		// nil FunctionModel 会 fail-closed 拒绝（403）。与 task 服务测试同构
-		// 注入 FunctionModel，使 TriggerNow 能走到派发路径。
+		// ARCH-024 (R30-01): Govern now runs the explicit function ACL in
+		// CheckInvokePermission, and a nil FunctionModel fails closed (403). Inject a
+		// FunctionModel as the task service tests do so TriggerNow can reach the
+		// dispatch path.
 		FunctionModel: model.NewFunctionModel(db),
 		Dispatcher:    d,
 	}
-	// TriggerNow 经 ARCH-024 Govern 链加载调用者主体（username=tester）。
+	// TriggerNow loads the caller principal through the ARCH-024 Govern chain (username=tester).
 	seedScheduleAdmin(t, db, "tester")
 	h := NewHandler(NewService(svcCtx))
 
@@ -76,8 +79,8 @@ func newTestEnvWithDispatcher(t *testing.T, d *dispatch.Dispatcher) (*gin.Engine
 	return r, db
 }
 
-// TriggerNow 成功路径：dispatcher 命中带 fake session 的 agent，
-// handler 应回 200 且携带 agent 返回的 taskRunId。
+// TriggerNow success path: the dispatcher hits an agent carrying a fake session,
+// and the handler should answer 200 with the taskRunId returned by the agent.
 func TestHandler_TriggerNow_Success(t *testing.T) {
 	store := reg.NewStore()
 	d := dispatch.NewDispatcher(store)

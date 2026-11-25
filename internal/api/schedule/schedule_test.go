@@ -24,8 +24,9 @@ import (
 
 var dbSeq uint64
 
-// newTestEnv 组装路由级测试环境：内存 sqlite + 空注册表的 dispatcher。
-// scoped 控制是否注入 GameScope（模拟 GameDBMiddleware）。
+// newTestEnv assembles a route-level test environment: in-memory sqlite plus a
+// dispatcher with an empty registry.
+// scoped controls whether a GameScope is injected (simulating GameDBMiddleware).
 func newTestEnv(t *testing.T, scoped bool) (*gin.Engine, *gorm.DB) {
 	t.Helper()
 	name := fmt.Sprintf("schedule_%d", atomic.AddUint64(&dbSeq, 1))
@@ -36,14 +37,16 @@ func newTestEnv(t *testing.T, scoped bool) (*gin.Engine, *gorm.DB) {
 	svcCtx := &svc.ServiceContext{
 		TaskScheduleModel: model.NewTaskScheduleModel(db),
 		AdminModel:        model.NewAdminModel(db),
-		// ARCH-024 (R30-01)：Govern 现跑 CheckInvokePermission 显式函数 ACL，
-		// nil FunctionModel 会 fail-closed 拒绝（403）。与 task 服务测试同构
-		// 注入 FunctionModel，使 TriggerNow 能走到派发路径。
+		// ARCH-024 (R30-01): Govern now runs the explicit function ACL in
+		// CheckInvokePermission, and a nil FunctionModel fails closed (403). Inject a
+		// FunctionModel as the task service tests do so TriggerNow can reach the
+		// dispatch path.
 		FunctionModel: model.NewFunctionModel(db),
 		Dispatcher:    dispatch.NewDispatcher(reg.NewStore()),
 	}
-	// TriggerNow 经 ARCH-024 Govern 链加载调用者主体（username=tester），
-	// 需存在对应 Admin 行；其余入口不触达主体加载，种子只影响触发路径。
+	// TriggerNow loads the caller principal through the ARCH-024 Govern chain
+	// (username=tester), so a matching Admin row must exist; the other entry points
+	// never touch principal loading, so this seed only affects the trigger path.
 	seedScheduleAdmin(t, db, "tester")
 	h := NewHandler(NewService(svcCtx))
 
@@ -76,10 +79,12 @@ func doJSON(r *gin.Engine, method, target, body string) *httptest.ResponseRecord
 	return rec
 }
 
-// seedScheduleAdmin 为 TriggerNow 的 Govern 主体加载准备调用者 Admin 行，
-// 并绑定 admin 角色（HasAdminRole 旁路 CheckInvokePermission）——ARCH-024
-// 起 Govern 跑显式函数 ACL，无角色 admin 会被 fail-closed 拒绝，无法测到
-// 派发路径。PolicyManager 为 nil 时政策链整体跳过，不受角色影响。
+// seedScheduleAdmin prepares the caller Admin row for TriggerNow's Govern
+// principal loading and binds the admin role (HasAdminRole bypasses
+// CheckInvokePermission) -- since ARCH-024 Govern runs the explicit function ACL,
+// and an admin with no role is denied fail-closed, making the dispatch path
+// untestable. When PolicyManager is nil the whole policy chain is skipped and the
+// role no longer matters.
 func seedScheduleAdmin(t *testing.T, db *gorm.DB, username string) {
 	t.Helper()
 	role := &model.Role{Name: "admin", Category: "test"}
@@ -118,7 +123,8 @@ func TestCreate_List_Filters(t *testing.T) {
 	r, db := newTestEnv(t, true)
 	id := mustCreate(t, r)
 
-	// 跨游戏创建成功但对 scoped 请求不可见（ctx scope 优先于查询参数）。
+	// Creating a cross-game schedule succeeds, but it is invisible to a scoped request
+	// (the ctx scope takes precedence over the query params).
 	rec := doJSON(r, http.MethodPost, "/api/v1/schedules",
 		`{"name":"跨游戏","cronExpr":"0 3 * * *","functionId":"fn.other","gameId":"other","env":"prod"}`)
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
@@ -127,12 +133,12 @@ func TestCreate_List_Filters(t *testing.T) {
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &list))
 	assert.Equal(t, int64(1), list.Total)
 
-	// 再建一条 demo 调度 → scoped 列表 total=2。
+	// Add another demo schedule -> the scoped list reports total=2.
 	rec = doJSON(r, http.MethodPost, "/api/v1/schedules",
 		`{"name":"第二条","cronExpr":"0 4 * * *","functionId":"fn.reset2","gameId":"demo","env":"prod"}`)
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 
-	// DB 持久化校验：payload 原文、actor 取自 ctx。
+	// DB persistence checks: the payload stays verbatim and the actor comes from ctx.
 	var row model.TaskSchedule
 	require.NoError(t, db.First(&row, id).Error)
 	assert.Equal(t, `{"k":1}`, row.Payload.String())
@@ -140,7 +146,7 @@ func TestCreate_List_Filters(t *testing.T) {
 	assert.Equal(t, 3, row.MaxFailedRuns)
 	assert.Equal(t, model.ScheduleStatusActive, row.Status)
 
-	// 过滤后仍只含两条 demo 记录，id DESC 首条是最新创建的。
+	// After filtering only the two demo rows remain; with id DESC the first is the newest.
 	rec = doReq(r, http.MethodGet, "/api/v1/schedules?gameId=demo&env=prod&page=1&pageSize=10")
 	require.Equal(t, http.StatusOK, rec.Code)
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &list))
@@ -151,18 +157,18 @@ func TestCreate_List_Filters(t *testing.T) {
 	assert.NotEmpty(t, list.Items[1].NextTriggerAt)
 	assert.Equal(t, "tester", list.Items[1].Actor)
 
-	// 不带过滤：ctx scope（demo/prod）生效。
+	// Without a filter: the ctx scope (demo/prod) applies.
 	rec = doReq(r, http.MethodGet, "/api/v1/schedules")
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &list))
 	assert.Equal(t, int64(2), list.Total)
 
-	// 分页：pageSize=1 只回一条但 total 不变。
+	// Paging: pageSize=1 returns a single item but total stays unchanged.
 	rec = doReq(r, http.MethodGet, "/api/v1/schedules?page=1&pageSize=1")
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &list))
 	assert.Equal(t, int64(2), list.Total)
 	assert.Len(t, list.Items, 1)
 
-	// status 过滤无命中。
+	// The status filter matches nothing.
 	rec = doReq(r, http.MethodGet, "/api/v1/schedules?status=paused")
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &list))
 	assert.Equal(t, int64(0), list.Total)
@@ -225,18 +231,18 @@ func TestTriggerNow(t *testing.T) {
 	r, _ := newTestEnv(t, true)
 	id := mustCreate(t, r)
 
-	// 空注册表 dispatcher：无可用 agent，派发失败是服务侧 503（AppError
-	// SERVICE_UNAVAILABLE），不是 500 内部错误。
+	// Dispatcher with an empty registry: no agent is available, so a failed dispatch is
+	// a service-side 503 (AppError SERVICE_UNAVAILABLE), not a 500 internal error.
 	rec := doReq(r, http.MethodPost, fmt.Sprintf("/api/v1/schedules/%d/trigger", id))
 	assert.Equal(t, http.StatusServiceUnavailable, rec.Code)
 	assert.Contains(t, rec.Body.String(), "service_unavailable")
 	assert.Contains(t, rec.Body.String(), "no live agent")
 
-	// 不存在的调度。
+	// A nonexistent schedule.
 	rec = doReq(r, http.MethodPost, "/api/v1/schedules/99999/trigger")
 	assert.Equal(t, http.StatusNotFound, rec.Code)
 
-	// 非法 ID。
+	// An invalid ID.
 	rec = doReq(r, http.MethodPost, "/api/v1/schedules/abc/trigger")
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }
@@ -261,7 +267,7 @@ func TestRunLogs(t *testing.T) {
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
 	assert.Equal(t, int64(2), resp.Total)
 	require.Len(t, resp.Items, 1)
-	// id DESC：最新的 run-2 在前。
+	// id DESC: the newest run, run-2, comes first.
 	assert.Equal(t, "run-2", resp.Items[0].TaskRunID)
 	assert.Equal(t, "failed", resp.Items[0].Status)
 	assert.Equal(t, slot.Add(5*time.Minute).Format(time.RFC3339), resp.Items[0].Slot)

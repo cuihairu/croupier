@@ -1,10 +1,12 @@
-// 覆盖目标：schedule service.SetStatus(active) 中 m.SetStatus 状态更新
-// 失败分支（service.go:188-190）。
+// Coverage target: the m.SetStatus failure branch inside
+// schedule service.SetStatus(active) (service.go:188-190).
 //
-// SetStatus(active) 依次执行两次 UPDATE：先重算 next_triggered_at、再落
-// status。现有用例（schedule_extra_test.go 的 active_second_update_fails）
-// 的计数起点包含创建时的 UPDATE，实际命中的是重算那次；本文件在创建完成
-// 之后再注册“第 2 次起失败”的回调，使重算成功、状态更新失败。
+// SetStatus(active) runs two UPDATEs in sequence: it recomputes next_triggered_at
+// first, then lands status. The counting baseline of the existing case (the
+// active_second_update_fails case in schedule_extra_test.go) includes the UPDATE
+// performed at creation time, so it actually hits the recomputation; this file
+// registers the "fail from the 2nd time on" callback only after the schedule has
+// been created, so the recomputation succeeds and the status update fails.
 package schedule
 
 import (

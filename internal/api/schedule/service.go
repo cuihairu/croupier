@@ -1,4 +1,4 @@
-// Package schedule 提供 cron 定时任务的 REST API。
+// Package schedule provides the REST API for cron-scheduled tasks.
 package schedule
 
 import (
@@ -137,7 +137,7 @@ func (s *Service) Create(ctx context.Context, req *CreateRequest) (*CreateRespon
 	if m == nil {
 		return nil, errorx.NewBadRequest("调度模型未初始化")
 	}
-	// cron 合法性前置校验（快速失败）。
+	// Up-front cron validity check (fail fast).
 	if _, err := scheduler.ParseCron(req.CronExpr); err != nil {
 		return nil, errorx.NewBadRequest("cron 表达式无效: " + err.Error())
 	}
@@ -145,10 +145,12 @@ func (s *Service) Create(ctx context.Context, req *CreateRequest) (*CreateRespon
 	if err != nil {
 		return nil, err
 	}
-	// 定义期准入（ARCH-024）：Create 只校验「函数当前可调度」（禁用/分配/
-	// 输入契约），不加载主体、不跑政策审批——授权与政策审批由每次触发
-	// 重新授权承担，避免定义期即制造审批噪音、也避免把创建者的瞬时权限
-	// 固化进调度。
+	// Definition-time admission (ARCH-024): Create only checks that the function is
+	// currently schedulable (disabled/allocation/input contract); it does not load a
+	// principal and does not run policy approval. Authorization and policy approval
+	// are re-granted on every trigger, which avoids manufacturing approval noise at
+	// definition time and avoids freezing the creator's transient permissions into
+	// the schedule.
 	if _, err := functioninvoke.GovernInvocability(ctx, s.svcCtx, &functioninvoke.Request{
 		ID:      req.FunctionID,
 		GameID:  scope.GameID,
@@ -172,7 +174,7 @@ func (s *Service) Create(ctx context.Context, req *CreateRequest) (*CreateRespon
 	if err != nil {
 		return nil, err
 	}
-	// 立即计算下次触发时间。
+	// Compute the next trigger time immediately.
 	if spec, err := scheduler.ParseCron(created.CronExpr); err == nil {
 		next := spec.Next(time.Now())
 		if err := m.UpdateSchedule(ctx, created.ID, map[string]interface{}{"next_triggered_at": next}); err == nil {
@@ -192,7 +194,7 @@ func (s *Service) SetStatus(ctx context.Context, id uint, status string) (Schedu
 	}
 	switch status {
 	case model.ScheduleStatusActive:
-		// 恢复时重算下次触发。
+		// Recompute the next trigger time when resuming.
 		sch, err := m.FindByID(ctx, id)
 		if err != nil {
 			return ScheduleItem{}, err
@@ -224,16 +226,19 @@ func (s *Service) SetStatus(ctx context.Context, id uint, status string) (Schedu
 
 type TriggerNowResponse struct {
 	TaskRunID string `json:"taskRunId"`
-	// ApprovalID/ApprovalWorkflow：政策要求审批时返回（ARCH-024，与
-	// functionInvoke/task Start 的审批响应同构），任务未派发。
+	// ApprovalID/ApprovalWorkflow are returned when policy requires approval (ARCH-024,
+	// structurally identical to the functionInvoke/task Start approval response); the
+	// task is not dispatched.
 	ApprovalID       string `json:"approvalId,omitempty"`
 	ApprovalWorkflow string `json:"approvalWorkflow,omitempty"`
 }
 
-// TriggerNow 立即触发一次（不计入触发槽幂等，走 dispatch 直发）。
-// 手动调度是一次执行入口（ARCH-024）：与 functionInvoke / /tasks Start
-// 共用同一条执行准入链——禁用/分配/主体/政策审批/输入契约逐次一致，
-// 不再绕过治理裸派发。
+// TriggerNow fires the schedule once immediately (not counted against trigger-slot
+// idempotency; it dispatches directly).
+// A manual trigger is an execution entry point (ARCH-024): it shares the same
+// execution admission chain as functionInvoke / /tasks Start -- disabled status,
+// allocation, principal, policy approval and input contract are all consistent on
+// every run, with no un-governed bare dispatch.
 func (s *Service) TriggerNow(ctx context.Context, id uint) (*TriggerNowResponse, error) {
 	m := s.model()
 	if m == nil || s.svcCtx.Dispatcher == nil {
@@ -246,9 +251,10 @@ func (s *Service) TriggerNow(ctx context.Context, id uint) (*TriggerNowResponse,
 	if err != nil {
 		return nil, err
 	}
-	// 执行准入（ARCH-024 统一治理）：与 functionInvoke、/tasks Start 共用
-	// Govern 链。Human 主体从 ctx 鉴权中间件解析；政策要求审批时返回待审
-	// 响应、不派发。
+	// Execution admission (ARCH-024 unified governance): shares the Govern chain with
+	// functionInvoke and /tasks Start. The Human principal is resolved by the ctx
+	// auth middleware; when policy requires approval, a pending-approval response is
+	// returned and nothing is dispatched.
 	governed, err := functioninvoke.Govern(ctx, s.svcCtx, &functioninvoke.Request{
 		ID:      sch.FunctionID,
 		GameID:  sch.GameID,

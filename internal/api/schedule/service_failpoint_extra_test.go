@@ -1,13 +1,15 @@
 package schedule
 
-// service.go 补测（failpoint/守卫口径）：先前零覆盖臂——Create 的
-// GovernInvocability 失败透传（禁用函数拦截）、SetStatus active 分支的
-// FindByID 失败臂与回读失败臂、TriggerNow 的 FindByID 失败臂与政策审批
-// 待审臂（高危契约 → single_admin）、metadata 合并块（含与内建键冲突的
-// 跳过臂）、RunLogs 的 ListRunLogs 失败臂、requireScheduleScope 的
-// 调度模型未初始化臂与 env 不匹配臂。
+// Extra coverage for service.go (failpoint/guard style): the arms that had no
+// coverage at all -- Create's GovernInvocability failure pass-through (disabled
+// function interception), SetStatus active's FindByID failure arm and read-back
+// failure arm, TriggerNow's FindByID failure arm and policy-approval pending arm
+// (high-risk contract -> single_admin), the metadata merge block (including the
+// skip arm for a key that collides with a builtin key), RunLogs' ListRunLogs
+// failure arm, and requireScheduleScope's uninitialized-model and env-mismatch
+// arms.
 //
-// 诚实跳过：无。
+// Honest skips: none.
 
 import (
 	"context"
@@ -35,7 +37,8 @@ import (
 	"gorm.io/gorm"
 )
 
-// dbFailpoint 按表内第 n 次查询/更新注入确定性错误（每个测试独享 DB）。
+// dbFailpoint injects a deterministic error on the nth query/update within a table
+// (each test owns its own DB).
 type dbFailpoint struct {
 	table string
 	op    string // query / update
@@ -68,7 +71,8 @@ func applyDBFailpoint(t *testing.T, db *gorm.DB, fp dbFailpoint) {
 
 var errSchedFailpoint = fmt.Errorf("failpoint: storage down")
 
-// TestCreate_DisabledFunctionRejected：定义期准入拦截禁用函数（159）。
+// TestCreate_DisabledFunctionRejected: definition-time admission intercepts a
+// disabled function (159).
 func TestCreate_DisabledFunctionRejected(t *testing.T) {
 	r, db := newTestEnv(t, true)
 	require.NoError(t, db.Create(&model.Function{FunctionID: "fn.reset", Status: model.StatusDisabled}).Error)
@@ -76,7 +80,7 @@ func TestCreate_DisabledFunctionRejected(t *testing.T) {
 	require.GreaterOrEqual(t, rec.Code, 400)
 }
 
-// SetStatus active 分支的 FindByID 失败（198：scope 查 q1、active 重查 q2）。
+// SetStatus active branch: FindByID fails (198: scope query q1, active re-query q2).
 func TestSetStatus_ActiveFindByIDError(t *testing.T) {
 	r, db := newTestEnv(t, true)
 	id := mustCreate(t, r)
@@ -85,7 +89,7 @@ func TestSetStatus_ActiveFindByIDError(t *testing.T) {
 	require.GreaterOrEqual(t, rec.Code, 400)
 }
 
-// SetStatus 成功后的回读失败（220：scope q1、active q2、回读 q3）。
+// SetStatus: the read-back after success fails (220: scope q1, active q2, read-back q3).
 func TestSetStatus_FinalReadError(t *testing.T) {
 	r, db := newTestEnv(t, true)
 	id := mustCreate(t, r)
@@ -94,7 +98,7 @@ func TestSetStatus_FinalReadError(t *testing.T) {
 	require.GreaterOrEqual(t, rec.Code, 400)
 }
 
-// TriggerNow 的 FindByID 失败臂（247：scope q1、本体 q2）。
+// TriggerNow: the FindByID failure arm (247: scope q1, the body query q2).
 func TestTriggerNow_FindByIDError(t *testing.T) {
 	r, db := newTestEnv(t, true)
 	id := mustCreate(t, r)
@@ -103,8 +107,9 @@ func TestTriggerNow_FindByIDError(t *testing.T) {
 	require.GreaterOrEqual(t, rec.Code, 400)
 }
 
-// newApprovalEnv：政策审批链齐备的环境（默认政策档：high → single_admin
-// 需审批），并给 admin 角色绑定 function:invoke（政策链权限要求）。
+// newApprovalEnv: an environment with a complete policy approval chain (default
+// policy tier: high -> single_admin requires approval), plus the function:invoke
+// permission bound to the admin role (a policy-chain permission requirement).
 func newApprovalEnv(t *testing.T) (*gin.Engine, *gorm.DB) {
 	t.Helper()
 	name := fmt.Sprintf("schedule_appr_%d", atomic.AddUint64(&dbSeq, 1))
@@ -148,8 +153,9 @@ func newApprovalEnv(t *testing.T) (*gin.Engine, *gorm.DB) {
 	return r, db
 }
 
-// TriggerNow 政策审批臂：高危契约（risk=high → 默认 high 政策 RequireApproval
-// → single_admin）→ 创建审批、不派发（263-267）。
+// TriggerNow policy-approval arm: a high-risk contract (risk=high -> the default
+// high policy RequiresApproval -> single_admin) -> an approval is created and
+// nothing is dispatched (263-267).
 func TestTriggerNow_ApprovalRequired(t *testing.T) {
 	r, db := newApprovalEnv(t)
 	id := mustCreate(t, r)
@@ -165,8 +171,9 @@ func TestTriggerNow_ApprovalRequired(t *testing.T) {
 	require.Contains(t, rec.Body.String(), `"taskRunId":""`, "待审响应不派发")
 }
 
-// TriggerNow 的 metadata 合并块：行内 metadata 与内建 meta 键合并，
-// 冲突键（env）跳过、新键（custom）合入（276-282 两臂）。
+// TriggerNow metadata merge block: the row's metadata is merged with the builtin
+// meta keys -- the colliding key (env) is skipped and the new key (custom) is
+// merged in (both arms of 276-282).
 func TestTriggerNow_MetadataMerged(t *testing.T) {
 	store := reg.NewStore()
 	d := dispatch.NewDispatcher(store)
@@ -194,8 +201,8 @@ func TestTriggerNow_MetadataMerged(t *testing.T) {
 	require.Contains(t, rec.Body.String(), "task-meta-1")
 }
 
-// RunLogs 的 ListRunLogs 失败臂（315）：清单走 task_schedule_run_logs 表，
-// 第 1 次查询即 Count。
+// RunLogs: the ListRunLogs failure arm (315): the run log listing goes through the
+// task_schedule_run_logs table, and its 1st query is the Count.
 func TestRunLogs_ListError(t *testing.T) {
 	r, db := newTestEnv(t, true)
 	id := mustCreate(t, r)
@@ -204,14 +211,15 @@ func TestRunLogs_ListError(t *testing.T) {
 	require.GreaterOrEqual(t, rec.Code, 400)
 }
 
-// requireScheduleScope 的调度模型未初始化臂（345）。
+// requireScheduleScope: the uninitialized schedule model arm (345).
 func TestRequireScheduleScope_NilModel(t *testing.T) {
 	s := NewService(&svc.ServiceContext{})
 	err := s.requireScheduleScope(context.Background(), 1)
 	require.ErrorContains(t, err, "调度模型未初始化")
 }
 
-// requireScheduleScope 的 env 不匹配臂（356）：跨 env 访问按 NotFound 折叠。
+// requireScheduleScope: the env mismatch arm (356) -- cross-env access is folded
+// into a NotFound.
 func TestRequireScheduleScope_EnvMismatch(t *testing.T) {
 	r, db := newTestEnv(t, true)
 	id := mustCreate(t, r)
