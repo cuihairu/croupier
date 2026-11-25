@@ -543,6 +543,10 @@ wire 契约见 [PageSpec 协议规范](../architecture/pagespec-protocol.md)「�
 
 区块表单呈现里的字段 `width` 是 12 栏协议值，渲染器乘 2 映射到 antd 24 栏（`width: 6` 显示为半行字段）。未显式声明宽度时走类型派生标准布局（`layout: grid` 为半行）；历史 `width: 0` 与越界值按未设置处理。窄屏（<768px）所有字段独占整行；768px 起字段至少半行，992px 起恢复完整声明跨度。分组容器与长文本字段在两种视口下都可读可操作，输入、校验与提交行为不变。见 [PageSpec 协议](../architecture/pagespec-protocol.md#表单宽度与响应式布局sui-028)。
 
+## 在 Page Studio 编辑表单分组（SUI-029）
+
+FormPresentationEditor（操作/任务/报表/资源页的表单页签与组合页区块表单）现在接管分组呈现：新增分组、编辑 key 与多语言标题、拖拽排序、删除、切换 `collapsible`/`collapsed`，以及用多选指派字段（已被其他分组认领的字段置灰）。编辑随草稿 `form.groups` 写回，草稿重开原序回读；SUI-021 校验仍阻断重复 key、未知字段或字段被两组认领的配置保存。见 [PageSpec 协议](../architecture/pagespec-protocol.md#在-page-studio-编辑表单分组sui-029)。
+
 ## 9. 已知边界
 
 - SUI-020 未新增任何 widget 实现：`DateRange` 与 `RichText` 仍仅声明、未实现，静默回退到类型默认控件；`Code`/`JSON` 仍是普通 textarea 字符串，不解析也不校验内容。能力提示仅为提示信息，不改变提交值。

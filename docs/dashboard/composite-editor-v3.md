@@ -109,6 +109,10 @@ Two sections of one contract (same schema) on a composite page, or the dual prev
 
 Field `width` in a section's form presentation is a 12-column protocol value; the renderer multiplies it by two for antd's 24-column grid (`width: 6` shows as a half-row field). Without an explicit width, the standard type-derived layout applies (`layout: grid` uses a half row); `width: 0` and out-of-range legacy values are treated as unset. Narrow screens (<768px) give every field a full row; from 768px fields take at least half a row and from 992px the full declared span. Group containers and long-text fields stay readable and operable across both sizes, while input, validation, and submit behavior are unchanged. See the [PageSpec protocol](../architecture/pagespec-protocol.md#form-width-and-responsive-layout-sui-028).
 
+## Editing form groups in Page Studio (SUI-029)
+
+FormPresentationEditor (the form tab of operation/task/report/resource pages and composite section forms) now owns group presentation: add a group, edit its key and localized title, drag to reorder, delete it, toggle `collapsible`/`collapsed`, and assign fields by multi-select (a field already owned by another group is disabled). Edits go into the draft's `form.groups` and read back in the same order when the draft is reopened; SUI-021 validation still blocks saving a duplicate key, unknown field, or field claimed by two groups. See the [PageSpec protocol](../architecture/pagespec-protocol.md#editing-form-groups-in-page-studio-sui-029).
+
 ## Known boundaries
 
 - No new widget implementations landed in SUI-020: `DateRange` and `RichText` remain declared-only and silently fall back to the type default; `Code`/`JSON` remain plain textarea strings and do not parse or validate content. Capability hints are informational only and do not change submission values.

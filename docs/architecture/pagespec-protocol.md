@@ -189,6 +189,10 @@ The renderer generates every field control's id, `label htmlFor`, and error/desc
 
 Every template column also carries responsive spans: `xs=24` (all fields take a full row below 768px), `md=max(12, ceil(span/2))` (at least half a row from 768px), `lg=span` (full declared width from 992px). Full-row spans (24) stay 24 at every breakpoint to prevent overflow. Groups and long-text fields remain readable and operable in both viewports; field input, validation, and submit bindings are unchanged. Browser coverage runs against the mock operation page at desktop and 375px widths.
 
+### Editing form groups in Page Studio (SUI-029)
+
+Page Studio's `FormPresentationEditor` exposes the full `FormGroupSpec` list for every form-bearing page (operation, task, report, resource and composite forms): groups can be created, renamed (key and localized title), reordered by drag handle, and deleted; each group's field membership is a multiple-select over the declared `form.fields` (in selection order), with fields already claimed by another group disabled to prevent `form_group_field_conflict`; collapsible/collapsed switches set the two optional behavior flags. The edited list is written back as `FormPresentationSpec.groups` in the same draft and is read back verbatim (including order) when the draft is reopened — no separate editor-only state. Save/publish still run the SUI-021 validation (unique keys, known fields, single owner per field), so invalid edits surface as located diagnostics rather than silently landing in a published page. Boundary: the editor edits presentation only (schema, binding, and payload are untouched), and group membership selection is constrained to fields declared in `form.fields` — nested fields need a declared pointer-key field entry first.
+
 ### Display-vs-call parameter boundary (SUI-045)
 
 The form an operator sees and the request that is finally sent are two different objects, joined by three orthogonal responsibilities:

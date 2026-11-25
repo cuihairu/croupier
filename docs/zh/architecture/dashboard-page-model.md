@@ -532,6 +532,8 @@ PageSpec 必须与组件库解耦。未来更换表单或图表库时只替换 r
 
 **表单宽度与响应式布局（SUI-028）**：`FormFieldSpec.width` 是 12 栏协议值（1–12），显式声明的宽度 ×2 映射到 antd 24 栏（`width: 6` → `ant-col-12`）；`formContext.colSpan`（本身已是 antd 栏数）与类型派生缺省不变。模板列携带 `xs=24`/`md=max(12, ceil(span/2))`/`lg=span`：窄屏每个字段独占可读整行，宽屏按声明跨度多列；整行字段在所有断点保持整行。分组与长文本字段在两种视口下维持分组/整行形态，输入、校验与提交绑定链不变。历史 `width: 0` 与越界值按未设置忽略（不迁移），旧配置在编辑前按标准布局渲染。见 [PageSpec 协议](./pagespec-protocol.md#表单宽度与响应式布局sui-028)。
 
+**Page Studio 表单分组编辑（SUI-029）**：`FormPresentationEditor` 让操作者创建、改名（key 与多语言标题）、拖拽排序、删除表单分组，并设置 `collapsible`/`collapsed`；分组字段归属是对已声明 `form.fields` 的多选（被其他分组认领的字段置灰）。`groups` 数组是唯一事实源——草稿内编辑、重开原序回读，保存/发布走 SUI-021 校验。见 [PageSpec 协议](./pagespec-protocol.md#在-page-studio-编辑表单分组sui-029)。
+
 JSON Schema 是函数输入/输出的持久化标准；表单展示由 `FormPresentationSpec` 表达，协议定义见 [PageSpec 协议规范](./pagespec-protocol.md)，渲染链路与唯一 runtime 约束见 ProComponents 页面生成与运行时。
 
 `FormPresentationSpec` 只负责表单展示，不改变 FunctionContract payload；保存和发布都必须经过服务端结构校验，校验失败必须报错并要求管理员修复。表单 runtime 固定为 `@rjsf/antd + @rjsf/validator-ajv8`，项目内禁止并行保留第二套表单运行时。
