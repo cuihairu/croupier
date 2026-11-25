@@ -73,8 +73,13 @@ Boundary: real preview performs real function calls against the draft (operation
 
 The page also records subsequent production hardening: selector diagnostics shared by save and publish, contract drift repair, template update notices, registration-derived rebuild warnings, workspace filtering, pagination pushdown, and expression binding. Consult the implementation tests listed in the guide before changing compiler or round-trip behavior.
 
+## Widget capability hints (SUI-020)
+
+`web/src/utils/widgetCapabilities.ts` provides a shared, typed table for all 26 `FormWidget` values: accepted schema types, submitted value shape, fallback behavior, and whether a concrete renderer implementation exists. The form-presentation widget selector now attaches a native `title` hint per option (accepted types + value shape + fallback); all 12 option values are unchanged. Key verified facts: `Switch` maps to RJSF `checkbox` but submits a boolean; `Code` and `JSON` map to `textarea` and submit plain strings; `Array`/`Object` are renderer-managed composite fields; `KeyValue` uses a custom field; `DateRange` and `RichText` are declared-only, unimplemented, and fall back to the schema type default. See the [PageSpec protocol](../architecture/pagespec-protocol.md#widget-capability-table-sui-020) and the [page model](../architecture/dashboard-page-model.md#form-strategy).
+
 ## Known boundaries
 
+- No new widget implementations landed in SUI-020: `DateRange` and `RichText` remain declared-only and silently fall back to the type default; `Code`/`JSON` remain plain textarea strings and do not parse or validate content. Capability hints are informational only and do not change submission values.
 - Container rendering intentionally simplifies very deep descendant layout.
 - Text components are editor aids and do not publish runtime content.
 - Preview data is an editor-only debugging aid; published pages have no mock fallback.

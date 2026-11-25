@@ -82,6 +82,16 @@ Renderer behaviour for pointer keys (`SchemaFormRenderer`, closed out 2026-11): 
 
 `widget` is a governed enum of antd/ProComponents component names (PascalCase): `Input`, `TextArea`, `InputNumber`, `Password`, `Select`, `MultiSelect`, `Radio`, `Checkbox`, `Switch`, `DatePicker`, `TimePicker`, `DateRange`, `Upload`, `ImageUpload`, `FileUpload`, `RichText`, `Code`, `Cascader`, `TreeSelect`, `Color`, `Slider`, `Rate`, `JSON`, `KeyValue`, `Array`, `Object`. Extending widgets requires modifying the spec package and syncing the frontend types; the frontend may not add them privately.
 
+### Widget capability table (SUI-020)
+
+The renderer's `SchemaFormRenderer.widgetToRjsf` maps every `FormFieldSpec.widget` value to an RJSF widget/field. The shared table `web/src/utils/widgetCapabilities.ts` (`WIDGET_CAPABILITIES` + `widgetCapability(widget)`) records the ground truth for all 26 enum values: accepted JSON Schema types, the submitted value shape, and the fallback behavior when types do not match or the widget is unimplemented. It is typed data only — no rendering changes. Honest boundaries, verified by `web/src/utils/__tests__/widgetCapabilities.test.ts`:
+
+- **Concrete implementations** (`implemented: true`): `Input`/`TextArea`/`InputNumber`/`Password`/`Select`/`MultiSelect`/`Radio`/`Checkbox`/`Switch`/`DatePicker`/`TimePicker`/`Color`/`Slider` use the mapped RJSF widget; `Switch` maps to the RJSF `checkbox` and still submits a boolean; `Code` and `JSON` map to `textarea` and submit a plain string (no parsing, no highlighting); `Cascader`/`TreeSelect`/`Rate` are registered custom widgets; `Upload`/`ImageUpload`/`FileUpload` share the custom `upload` widget; `KeyValue` joins via the custom `keyValue` field; `Array`/`Object` are renderer-managed composite fields that ignore `ui:widget`.
+- **Declared-only** (`implemented: false`): `DateRange` and `RichText` have no implementation and no custom widget registered; `widgetToRjsf` returns `undefined` for them, so the UI falls back to the type default (plain input or textarea per schema type) and the declared intent is silently ignored.
+- The Page Studio widget selector's 12 options are a subset of the declared capabilities and now carry a native `title` hint (accepted types + value shape + fallback) per option; option values are unchanged.
+
+Extending widgets still requires modifying the spec package and syncing the frontend types; the capability table must be updated in the same change, and the table asserts full enum coverage so a new enum value cannot land without a documented capability.
+
 Visibility conditions are restricted expressions: they cannot read row/detail data or call functions:
 
 ```ts

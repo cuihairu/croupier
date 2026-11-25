@@ -82,6 +82,16 @@ interface RemoteOptionsSpec {
 
 `widget` 是受控枚举，取值为 antd/ProComponents 组件名（PascalCase）：`Input`、`TextArea`、`InputNumber`、`Password`、`Select`、`MultiSelect`、`Radio`、`Checkbox`、`Switch`、`DatePicker`、`TimePicker`、`DateRange`、`Upload`、`ImageUpload`、`FileUpload`、`RichText`、`Code`、`Cascader`、`TreeSelect`、`Color`、`Slider`、`Rate`、`JSON`、`KeyValue`、`Array`、`Object`。扩展 widget 需要修改 spec 包并同步前端类型，不允许前端私加。
 
+### Widget 能力表（SUI-020）
+
+渲染器 `SchemaFormRenderer.widgetToRjsf` 把每个 `FormFieldSpec.widget` 取值映射到 RJSF widget/field。共享表 `web/src/utils/widgetCapabilities.ts`（`WIDGET_CAPABILITIES` + `widgetCapability(widget)`）为全部 26 个枚举值记录事实来源：可接受的 JSON Schema 类型、提交值形态，以及类型不匹配或未实现时的回退行为。它只是类型化数据，不改任何渲染。诚实边界（由 `web/src/utils/__tests__/widgetCapabilities.test.ts` 覆盖）：
+
+- **有实现**（`implemented: true`）：`Input`/`TextArea`/`InputNumber`/`Password`/`Select`/`MultiSelect`/`Radio`/`Checkbox`/`Switch`/`DatePicker`/`TimePicker`/`Color`/`Slider` 走映射到的 RJSF 控件；`Switch` 映射到 RJSF `checkbox` 仍提交布尔值；`Code` 与 `JSON` 映射到 `textarea` 只提交普通字符串（不解析、不高亮）；`Cascader`/`TreeSelect`/`Rate` 是注册的自定义控件；`Upload`/`ImageUpload`/`FileUpload` 共用自定义 `upload` 控件；`KeyValue` 经自定义 `keyValue` field 接入；`Array`/`Object` 是 renderer 管理的复合字段，忽略 `ui:widget`。
+- **仅声明**（`implemented: false`）：`DateRange` 与 `RichText` 没有任何实现，也没有注册自定义控件；`widgetToRjsf` 对两者返回 `undefined`，界面回退到类型默认控件（按 schema 类型走普通输入或 textarea），声明意图被静默忽略。
+- Page Studio 的组件选择 12 个选项是已声明能力的子集，现在每个选项带原生 `title` 提示（可接受类型 + 输出形态 + 回退行为）；选项值不变。
+
+扩展 widget 仍需修改 spec 包并同步前端类型；同一变更必须更新能力表，且表内断言覆盖全部枚举，新枚举值没有文档化能力条目就无法通过测试。
+
 可见性条件是受限表达式，不能读 row/详情数据或调用函数：
 
 ```ts

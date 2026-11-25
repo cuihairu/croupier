@@ -507,8 +507,13 @@ wire 契约见 [PageSpec 协议规范](../architecture/pagespec-protocol.md)「�
 过滤与资源聚合」；模型口径见
 [dashboard-page-model](../architecture/dashboard-page-model.md)。
 
+## Widget 能力提示（SUI-020）
+
+`web/src/utils/widgetCapabilities.ts` 提供覆盖全部 26 个 `FormWidget` 取值的共享类型化表：可接受 schema 类型、提交值形态、回退行为，以及是否有真实渲染实现。表单呈现的组件选择下拉现在每个选项带原生 `title` 提示（可接受类型 + 输出形态 + 回退行为），12 个选项值不变。已验证的关键事实：`Switch` 映射到 RJSF `checkbox` 但提交布尔值；`Code` 与 `JSON` 映射到 `textarea` 只提交普通字符串；`Array`/`Object` 是 renderer 管理的复合字段；`KeyValue` 走自定义 field；`DateRange` 与 `RichText` 仅声明、未实现，回退到 schema 类型默认控件。见 [PageSpec 协议](../architecture/pagespec-protocol.md#widget-能力表sui-020) 与 [页面模型](../architecture/dashboard-page-model.md#表单策略)。
+
 ## 9. 已知边界
 
+- SUI-020 未新增任何 widget 实现：`DateRange` 与 `RichText` 仍仅声明、未实现，静默回退到类型默认控件；`Code`/`JSON` 仍是普通 textarea 字符串，不解析也不校验内容。能力提示仅为提示信息，不改变提交值。
 - **列表关联口径依赖函数契约索引（#30）**：「涉及资源」与 `resourceKey`
   过滤的关联命中依赖 binding 函数契约在库内的 `resourceKey`；契约缺失或未重建
   索引时该 binding 不贡献资源（退化为 `resourceKey` 列口径）。菜单管理页的
