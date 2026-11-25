@@ -26,6 +26,25 @@ export default {
   'component.pageEditor.formPresentation.layoutOption.vertical': 'Vertical',
   'component.pageEditor.formPresentation.noFields':
     'No configurable fields generated from the schema',
+  'component.pageEditor.formPresentation.variants.add': 'Add style',
+  'component.pageEditor.formPresentation.variants.clearOverride': 'Restore',
+  'component.pageEditor.formPresentation.variants.defaultTag': 'Default',
+  'component.pageEditor.formPresentation.variants.empty':
+    'No styles configured; the form renders with the base presentation',
+  'component.pageEditor.formPresentation.variants.fields':
+    'Per-field presentation overrides (width 1-12; clear = inherit base)',
+  'component.pageEditor.formPresentation.variants.hint':
+    'A style only adjusts presentation (layout, width, widget, copy). Data fetching and submission structure are set by the binding — e.g. "take playerId from the selected row" is configured in the binding selector — no style changes the invocation.',
+  'component.pageEditor.formPresentation.variants.key': 'Style key',
+  'component.pageEditor.formPresentation.variants.layout': 'Layout (clear = inherit base)',
+  'component.pageEditor.formPresentation.variants.layoutPlaceholder': 'Inherit base',
+  'component.pageEditor.formPresentation.variants.setDefault': 'Set as default',
+  'component.pageEditor.formPresentation.variants.title': 'Named display styles',
+  'component.pageEditor.formPresentation.variants.titleLabel': 'Style name (localized)',
+  'component.pageEditor.formPresentation.variants.titlePlaceholder': 'Style name',
+  'component.pageEditor.formPresentation.variants.unsetDefault': 'Unset default',
+  'component.pageEditor.formPresentation.variants.widthPlaceholder': 'Width',
+  'component.pageEditor.formPresentation.variants.widgetPlaceholder': 'Widget',
   'component.pageEditor.formPresentation.widget.array': 'Array',
   'component.pageEditor.formPresentation.widget.datePicker': 'Date',
   'component.pageEditor.formPresentation.widget.dateRange': 'Date range',

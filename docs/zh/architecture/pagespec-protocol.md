@@ -247,7 +247,7 @@ Page Studio 的 `FormPresentationEditor` 对所有含表单的页面（操作页
 
 ### 命名展示变体（SUI-031）
 
-一个表单可以携带多个命名的呈现形态——典型的一对是标准纵向表单与紧凑栅格——而不分叉调用契约。本节定义协议：存储（SUI-032——变体随表单节点经既有草稿/快照 `SpecJSON` blob 落库，零表结构变更）与发布前校验（SUI-033——变体形状规则与当前契约新鲜度，spec 级与服务级用例同证，含回滚预检）已落地，Page Studio 管理（SUI-034）、生效默认解析（SUI-035）与已发布表单切换（SUI-036）仍待实现——在这些任务落地前，渲染器与编辑器均不消费新字段，以下内容是它们要实现的契约。
+一个表单可以携带多个命名的呈现形态——典型的一对是标准纵向表单与紧凑栅格——而不分叉调用契约。本节定义协议：存储（SUI-032——变体随表单节点经既有草稿/快照 `SpecJSON` blob 落库，零表结构变更）、发布前校验（SUI-033——变体形状规则与当前契约新鲜度，spec 级与服务级用例同证，含回滚预检）与 Page Studio 管理（SUI-034——操作/任务/报表/资源页表单页签管理命名风格：新增/改名/删除、设默认并在改名/删除时同步、逐字段列宽/控件覆盖、逐风格预览；按钮/分组/label 覆盖与变体独有字段仍走 API 编写——见使用文档）已落地，生效默认解析（SUI-035）与已发布表单切换（SUI-036）仍待实现——在这些任务落地前，渲染表单不消费 `defaultVariant`、不提供风格切换，以下内容是它们要实现的契约。
 
 **稳定表单标识。** PageSpec 中每个携带表单的位置都由稳定段 key 组成的规范路径寻址，绝不使用数组下标：`resource.createForm`、`resource.updateForm`、`resource.actions.<actionKey>.form`（ActionSpec 的 `key`）、`operation.form`、`task.form`、`report.queryForm`、`composite.sections.<sectionKey>.form`（CompositeSection 的 `key`）。区块与动作重排不改变标识。数组下标路径（如 `composite.sections[2].form.fields[0].width`）仍是校验错误的定位惯例，不是标识。变体存放在它所覆盖的表单节点内部，因此变体继承表单标识，在草稿、快照与回滚之间永不悬空。
 

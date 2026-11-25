@@ -549,7 +549,24 @@ FormPresentationEditor（操作/任务/报表/资源页的表单页签与组合�
 
 ## 命名展示变体（SUI-031，仅协议）
 
-命名展示变体协议已在 [PageSpec 协议](../architecture/pagespec-protocol.md#命名展示变体sui-031) 定义：一个表单可携带多个命名呈现形态（标准纵向与紧凑栅格为典型一对），共用 schema、Binding 与全部调用治理，只在 SUI-045 纯展示覆盖上不同。存储已落地（SUI-032：变体随表单写入既有草稿/快照表），发布校验也已落地（SUI-033：Web 端在 `web/src/utils/formValidation.ts` 镜像服务端规则——变体 key 唯一、`defaultVariant` 解析、调用相关键非法覆盖、schema 字段解析在保存前即被标记；服务端在发布与回滚预检时把变体 key 对照当前契约复解析），但编辑器尚未提供变体管理（编辑器管理 SUI-034、默认解析 SUI-035、已发布切换 SUI-036 仍待实现）；编辑器继续编辑基础呈现，无变体配置的页面渲染与今天完全一致（不带 `fields` 的基础表单渲染派生的标准纵向布局，SUI-025）。
+命名展示变体协议已在 [PageSpec 协议](../architecture/pagespec-protocol.md#命名展示变体sui-031) 定义：一个表单可携带多个命名呈现形态（标准纵向与紧凑栅格为典型一对），共用 schema、Binding 与全部调用治理，只在 SUI-045 纯展示覆盖上不同。存储已落地（SUI-032：变体随表单写入既有草稿/快照表），发布校验也已落地（SUI-033：Web 端在 `web/src/utils/formValidation.ts` 镜像服务端规则——变体 key 唯一、`defaultVariant` 解析、调用相关键非法覆盖、schema 字段解析在保存前即被标记；服务端在发布与回滚预检时把变体 key 对照当前契约复解析），Page Studio 管理已随 SUI-034 落地（见下一小节）。默认解析（SUI-035）与已发布切换（SUI-036）仍待实现：渲染表单暂不消费 `defaultVariant`、也不提供风格切换，页面无论有无变体都按基础呈现渲染；无变体配置的页面与今天完全一致（不带 `fields` 的基础表单渲染派生的标准纵向布局，SUI-025）。
+
+### 在 Page Studio 管理命名风格（SUI-034）
+
+操作/任务/报表/资源页的表单页签在字段分组下方新增**命名展示风格**卡片（SUI-034）。管理员可以：
+
+- **新增风格**——新 key 为 `variant-N`，表单内自动顺延唯一（前置防住 `form_variant_key_conflict`）。
+- **改名风格**——编辑 key 更新 `variants[i].key`；改名当前默认风格会同步 `defaultVariant`，使其始终解析到已声明 key。
+- **删除风格**——删除默认风格清空 `defaultVariant`（回落基础呈现）；删除其他风格不影响默认项。
+- **设/取消默认**——一键切换 `defaultVariant`；默认风格在卡片标题带标记。
+- **逐字段展示覆盖**——对每个基础字段：栅格列宽（1–12，SUI-028）与控件换选。清空一个值即删除该覆盖键（继承基础）；条目失去全部覆盖属性时整条移除。API 导入的覆盖（如 `label`）编辑时保留。
+- **逐风格预览**——眼睛开关用 `SchemaFormRenderer` 渲染合并后的呈现（`web/src/utils/formVariants.ts` 的 `resolveVariantPresentation`，SUI-035/036 将复用同一合并规则），控件禁用，预览输入不会被误认可提交。
+
+全部配置随草稿 `FormPresentationSpec` 持久化、重开原样回读；并发编辑沿用既有草稿修订冲突处理。保存前的草稿走 SUI-033 校验镜像——过期 key、未知默认项、调用相关覆盖在服务端拒绝前即被标记。
+
+**风格与绑定操作。** 风格只改展示——布局、列宽、控件、文案；不改取数与提交：从选中行取 playerId 是**绑定 selector** 操作（在绑定上配置，不在表单呈现里），任何风格都不改变请求 payload——两点都写进了编辑器提示文案。两条验收探针：**调整表单列数**是风格操作（风格卡片里的逐字段列宽覆盖）；**从选中行取 playerId** 是绑定操作（绑定 selector），风格卡片刻意不涉及它。
+
+**已知边界。** 编辑器管理 key/标题/布局/列宽/控件覆盖子集与默认项；按钮覆盖（`submitButton`/`cancelButton`）、变体分组、label/placeholder/description 覆盖、变体独有字段在 wire 上合法（SUI-031）但尚无编辑器 UI——可通过 API 编写，在这里保持可见、可预览。组合页编辑器的区块表单配置仍是仅 schema，不提供风格卡片。默认解析与运行时风格切换随 SUI-035/036 落地。
 
 ## 9. 已知边界
 

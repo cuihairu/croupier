@@ -32,6 +32,7 @@ import type {
   FormFieldSpec,
   FormGroupSpec,
   FormPresentationSpec,
+  FormVariantFieldSpec,
   FormVariantSpec,
   FormWidget,
   JSONSchema,
@@ -322,7 +323,7 @@ export function validateFormPresentation(
 
     const variantFields = Array.isArray(variantRaw['fields'])
       ? (variantRaw['fields'] as unknown[]).filter(
-          (item): item is FormVariantSpec['fields'][number] => typeof item === 'object' && item !== null,
+          (item): item is FormVariantFieldSpec => typeof item === 'object' && item !== null,
         )
       : [];
     const variantGroupFields = Array.isArray(variantRaw['groups'])
@@ -336,7 +337,9 @@ export function validateFormPresentation(
     // 变体字段键的 schema 解析（含变体分组字段），与基础字段共用同一判定。
     const variantUnknown = resolvable
       ? unknownReasons(
-          variantFields.map((item) => ({ key: (asRecord(item)?.['key'] as string | undefined) ?? '' })),
+          variantFields.map((item) => ({
+            key: (asRecord(item)?.['key'] as string | undefined) ?? '',
+          })),
           variantGroupFields,
           schema,
         )
@@ -531,7 +534,9 @@ function validateLooseForm(value: unknown, fieldPrefix: string, out: FormValidat
       ? rawGroups.filter((item): item is FormGroupSpec => typeof item === 'object' && item !== null)
       : [],
     variants: Array.isArray(rawVariants)
-      ? rawVariants.filter((item): item is FormVariantSpec => typeof item === 'object' && item !== null)
+      ? rawVariants.filter(
+          (item): item is FormVariantSpec => typeof item === 'object' && item !== null,
+        )
       : [],
     defaultVariant: typeof defaultVariant === 'string' ? defaultVariant : undefined,
   };

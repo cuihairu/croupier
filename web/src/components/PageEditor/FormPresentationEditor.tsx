@@ -10,6 +10,7 @@ import type {
 import { widgetCapabilityHint } from '@/utils/widgetCapabilities';
 import LocalizedTextEditor from '@/components/LocalizedTextEditor';
 import { SortableList } from '@/components/SortableList';
+import FormVariantsEditor from './FormVariantsEditor';
 
 const { Text } = Typography;
 
@@ -29,36 +30,11 @@ function updateField(
   );
 }
 
-/** Edits only presentation metadata; JSON Schema and binding selectors remain immutable here.
- *  拖拽直接重排 fields 数组——渲染端按数组顺序生成 ui:order，保存后顺序即生效。 */
-export default function FormPresentationEditor({
-  value,
-  onChange,
-  readonly = false,
-}: FormPresentationEditorProps) {
-  const intl = useIntl();
-  const fields = value.fields || [];
-  const groups = value.groups || [];
-  /** SUI-029：新建分组的 key 在当前草稿内唯一；已在用则顺延编号，避免
-   *  服务端 groups.key 重复校验拦截。 */
-  const nextGroupKey = (existing: FormGroupSpec[]): string => {
-    const used = new Set(existing.map((group) => group.key));
-    let index = existing.length + 1;
-    let candidate = `group-${index}`;
-    while (used.has(candidate)) {
-      index += 1;
-      candidate = `group-${index}`;
-    }
-    return candidate;
-  };
-  const updateGroup = (
-    index: number,
-    updates: Partial<FormGroupSpec>,
-  ): FormGroupSpec[] =>
-    groups.map((group, currentIndex) =>
-      currentIndex === index ? { ...group, ...updates } : group,
-    );
-  const widgetChoices: Array<{ value: FormWidget; label: string }> = [
+/** 基础字段与风格覆盖（SUI-034）共用的控件候选集。 */
+export function formWidgetChoices(
+  intl: ReturnType<typeof useIntl>,
+): Array<{ value: FormWidget; label: string }> {
+  return [
     {
       value: 'Input',
       label: intl.formatMessage({
@@ -144,7 +120,35 @@ export default function FormPresentationEditor({
       }),
     },
   ];
-  const widgetOptions = widgetChoices.map((option) => ({
+}
+
+/** Edits only presentation metadata; JSON Schema and binding selectors remain immutable here.
+ *  拖拽直接重排 fields 数组——渲染端按数组顺序生成 ui:order，保存后顺序即生效。 */
+export default function FormPresentationEditor({
+  value,
+  onChange,
+  readonly = false,
+}: FormPresentationEditorProps) {
+  const intl = useIntl();
+  const fields = value.fields || [];
+  const groups = value.groups || [];
+  /** SUI-029：新建分组的 key 在当前草稿内唯一；已在用则顺延编号，避免
+   *  服务端 groups.key 重复校验拦截。 */
+  const nextGroupKey = (existing: FormGroupSpec[]): string => {
+    const used = new Set(existing.map((group) => group.key));
+    let index = existing.length + 1;
+    let candidate = `group-${index}`;
+    while (used.has(candidate)) {
+      index += 1;
+      candidate = `group-${index}`;
+    }
+    return candidate;
+  };
+  const updateGroup = (index: number, updates: Partial<FormGroupSpec>): FormGroupSpec[] =>
+    groups.map((group, currentIndex) =>
+      currentIndex === index ? { ...group, ...updates } : group,
+    );
+  const widgetOptions = formWidgetChoices(intl).map((option) => ({
     ...option,
     // SUI-020：原生 title 提示（无需额外弹层），值仍保持原有 12 项不变。
     title: widgetCapabilityHint(option.value),
@@ -499,6 +503,12 @@ export default function FormPresentationEditor({
             </SortableList>
           )}
         </Card>
+      )}
+      {/* SUI-034：命名展示风格管理——新增/改名/删除/设默认 + 逐风格预览。
+          风格是纯展示覆盖（列宽/控件/布局），与绑定 selector（如「从选中行
+          取 playerId」）是两类操作；重开草稿随 FormPresentationSpec 原样回读。 */}
+      {fields.length > 0 && (
+        <FormVariantsEditor value={value} onChange={onChange} readonly={readonly} />
       )}
     </Space>
   );
