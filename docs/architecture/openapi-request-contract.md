@@ -472,18 +472,27 @@ executor keeps the legacy behaviour.
 
 ## Known boundaries
 
-- `multipart` bodies are declared but not yet executed (SUI-013) and stay
-  flagged for the support matrix (SUI-047). `form-urlencoded` bodies are
-  executed since SUI-012: the executor serializes them as
+- `multipart` bodies stay flagged for the support matrix (SUI-047) and remain
+  `manual` in the
+  [compatibility tiers](./openapi-sdk-descriptor-v2.md#request-compatibility-tiers-sui-011):
+  the executor serializes them when its request body type is configured for
+  multipart (SUI-013 — a file field carries an upload object
+  `{filename, content}` where `content` is a data URL or raw base64, a
+  companion field stays a text part, and the upstream receives the decoded
+  bytes), but the web Upload widgets still produce file **URLs**, not file
+  bytes, so a generated page cannot yet deliver the payload the serializer
+  needs. Until the widget value contract grows upload objects, a multipart-only
+  operation keeps its `openapi_schema_compatibility_manual` finding and gets no
+  directly executable default proposal. `form-urlencoded` bodies are executed
+  since SUI-012: the executor serializes them as
   `application/x-www-form-urlencoded` when its request body type is configured
   for forms (`requestBody.type: form`) — every value escaped by
   `url.Values.Encode` (spaces become `+`), a list value keeping one key with
   several entries, and a nested object using the exploded
   `key[subkey]=value` shape (`{}` for an empty object). The serializer is
   selected by the provider configuration, not by the media type declared in the
-  document, so the generated page cannot express that choice; the
-  [compatibility tiers](./openapi-sdk-descriptor-v2.md#request-compatibility-tiers-sui-011)
-  classify such a body as `degraded` for that reason.
+  document, so the generated page cannot express that choice; such a body is
+  classified as `degraded` for that reason.
 - The media-type capability selection described above is documented as the
   contract, but the executable-media selection it names is not present in the
   current source: `internal/dashboard/spec/request_body_media.go` and the
