@@ -168,12 +168,13 @@ func TestService_GetAnalyticsFilters_Concurrent(t *testing.T) {
 	wg.Wait()
 }
 
-// loadFiltersFromAnalyticsInstallation 分支：扩展安装配置优先于文件；
-// 配置缺 filters / 坏 JSON / 空配置各分支。
+// loadFiltersFromAnalyticsInstallation branches: extension install config takes
+// precedence over the file; branches for missing filters / bad JSON / empty config.
 func TestService_AnalyticsFilters_FromInstallation(t *testing.T) {
-	afSvc := NewService(&svc.ServiceContext{}) // Extensions nil → 文件回退分支
+	afSvc := NewService(&svc.ServiceContext{}) // Extensions nil -> file fallback branch
 
-	// Extensions nil → 走文件回退路径（文件不存在则报错；存在则解析成功）
+	// Extensions nil -> take the file fallback path (a missing file errors; an existing
+	// file parses successfully)
 	filtersResp, fileErr := afSvc.GetAnalyticsFilters(context.Background(), &GetAnalyticsFiltersRequest{})
 	if fileErr != nil {
 		assert.Nil(t, filtersResp)
@@ -181,7 +182,7 @@ func TestService_AnalyticsFilters_FromInstallation(t *testing.T) {
 		assert.NotNil(t, filtersResp)
 	}
 
-	// 直接覆盖 loadFiltersFromAnalyticsInstallation 的配置分支
+	// Exercise the config branch of loadFiltersFromAnalyticsInstallation directly
 	filters, ok, err := afSvc.loadFiltersFromAnalyticsInstallation(context.Background())
 	assert.False(t, ok)
 	assert.NoError(t, err)
@@ -197,7 +198,7 @@ func TestService_UpdateMeta_NoStore(t *testing.T) {
 func TestHandler_UpdateMeta_BindAndError(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	// service 错误路径（RegistryStore nil）→ 500
+	// service error path (RegistryStore nil) -> 500
 	errHandler := NewHandler(NewService(&svc.ServiceContext{}))
 	rec := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(rec)
@@ -207,7 +208,7 @@ func TestHandler_UpdateMeta_BindAndError(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, rec.Code)
 }
 
-// 文件回退成功/失败两分支 + UpdateMeta 遍历在线 agent。
+// Both file-fallback success/failure branches + UpdateMeta iterating online agents.
 func TestService_AnalyticsFilters_FileFallback(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "analytics_filters.json")
 	require.NoError(t, os.WriteFile(path, []byte(
@@ -221,14 +222,14 @@ func TestService_AnalyticsFilters_FileFallback(t *testing.T) {
 	require.Len(t, resp.Items, 1)
 	assert.Equal(t, "g1", resp.Items[0].GameId)
 
-	// 路径指向目录 → 读取错误（非 NotExist，不做空列表降级）
+	// Path points at a directory -> read error (not NotExist, so no empty-list downgrade)
 	afSvcErr := NewService(&svc.ServiceContext{Config: config.Config{
 		Registry: config.RegistryConfig{AnalyticsFiltersPath: t.TempDir()},
 	}})
 	_, err = afSvcErr.GetAnalyticsFilters(context.Background(), &GetAnalyticsFiltersRequest{})
 	assert.Error(t, err)
 
-	// 文件内容坏 JSON → LoadAnalyticsFilters 错误分支
+	// File content is bad JSON -> LoadAnalyticsFilters error branch
 	badPath := filepath.Join(t.TempDir(), "bad.json")
 	require.NoError(t, os.WriteFile(badPath, []byte(`[{"gameId":`), 0o600))
 	afSvcBad := NewService(&svc.ServiceContext{Config: config.Config{

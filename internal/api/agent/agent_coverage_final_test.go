@@ -1,4 +1,4 @@
-// 补齐 loadFiltersFromAnalyticsInstallation 中安装配置 JSON 非法分支。
+// Covers the invalid installation-config JSON branch in loadFiltersFromAnalyticsInstallation.
 package agent
 
 import (
@@ -15,7 +15,8 @@ import (
 	"gorm.io/gorm"
 )
 
-// 安装记录的 ConfigJSON 本身不是合法 JSON 对象 → unmarshal map 失败，透传错误。
+// The installation record's ConfigJSON is not a valid JSON object -> unmarshalling into a
+// map fails, and the error is passed through.
 func TestLoadFiltersInstallationConfigInvalidJSON(t *testing.T) {
 	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)

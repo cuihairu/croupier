@@ -1,4 +1,4 @@
-// 补齐 GetAnalyticsFilters 的安装配置优先链路与文件回退错误分支。
+// Covers the install-config-first chain of GetAnalyticsFilters and its file-fallback error branches.
 package agent
 
 import (
@@ -41,7 +41,7 @@ func installAnalytics(t *testing.T, svc *extensioninstallation.Service, config m
 	require.NoError(t, err)
 }
 
-// 安装配置携带 filters → 走安装优先分支并返回（不走文件回退）。
+// Install config carries filters -> take the install-first branch and return (no file fallback).
 func TestGetAnalyticsFiltersFromInstallationConfig(t *testing.T) {
 	inst := newInstallationSvc(t)
 	installAnalytics(t, inst, map[string]any{
@@ -58,7 +58,7 @@ func TestGetAnalyticsFiltersFromInstallationConfig(t *testing.T) {
 	assert.Equal(t, 1, resp.Count)
 }
 
-// 安装配置无 filters 键 → 空集（ok=true 短路，不回退文件）。
+// Install config has no filters key -> empty set (ok=true short-circuit, no file fallback).
 func TestGetAnalyticsFiltersInstallationConfigWithoutFilters(t *testing.T) {
 	inst := newInstallationSvc(t)
 	installAnalytics(t, inst, map[string]any{"other": 1})
@@ -70,7 +70,7 @@ func TestGetAnalyticsFiltersInstallationConfigWithoutFilters(t *testing.T) {
 	assert.Equal(t, 0, resp.Count)
 }
 
-// 安装配置的 filters 结构非法 → 透传错误（handler 500 分支）。
+// Install config's filters shape is invalid -> error passed through (handler 500 branch).
 func TestGetAnalyticsFiltersInstallationConfigBroken(t *testing.T) {
 	inst := newInstallationSvc(t)
 	installAnalytics(t, inst, map[string]any{"filters": "not-a-list"})
@@ -80,7 +80,7 @@ func TestGetAnalyticsFiltersInstallationConfigBroken(t *testing.T) {
 	require.Error(t, err)
 }
 
-// 文件回退分支：指向不存在文件 → 空 items 兜底。
+// File fallback branch: path points at a nonexistent file -> empty items fallback.
 func TestGetAnalyticsFiltersFileFallbackEmpty(t *testing.T) {
 	s := NewService(&svc.ServiceContext{})
 	resp, err := s.GetAnalyticsFilters(context.Background(), &GetAnalyticsFiltersRequest{})
@@ -88,7 +88,7 @@ func TestGetAnalyticsFiltersFileFallbackEmpty(t *testing.T) {
 	assert.Empty(t, resp.Items)
 }
 
-// 安装列表查询失败（缺表）→ 降级文件回退而非报错。
+// Install list query fails (missing table) -> degrade to the file fallback instead of erroring.
 func TestLoadFiltersInstallationListError(t *testing.T) {
 	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)

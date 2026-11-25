@@ -112,9 +112,10 @@ func (s *Service) loadFiltersFromAnalyticsInstallation(ctx context.Context) ([]a
 	if raw == nil {
 		return []analytics.AnalyticsFilters{}, true, nil
 	}
-	// raw 来自 json.Unmarshal(map[string]any) 的取值，值类型仅可能为 JSON
-	// 基础类型（nil/bool/float64/string/[]any/map[string]any），再 Marshal 恒
-	// 成功，error 分支不可达，已删除。
+	// raw comes from values returned by json.Unmarshal(map[string]any); its
+	// type can only be a basic JSON type (nil/bool/float64/string/[]any/
+	// map[string]any), so re-Marshaling always succeeds, the error branch is
+	// unreachable, and it has been removed.
 	data, _ := json.Marshal(raw)
 	filters := []analytics.AnalyticsFilters{}
 	if err := json.Unmarshal(data, &filters); err != nil {

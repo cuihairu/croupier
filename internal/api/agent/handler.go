@@ -16,7 +16,8 @@ func NewHandler(service *Service) *Handler {
 // GetAnalyticsFilters handles the analytics filters request
 func (h *Handler) GetAnalyticsFilters(c *gin.Context) {
 	var req GetAnalyticsFiltersRequest
-	// GET 请求无 body 时 ShouldBindJSON 返回 EOF，零值 req 即预期——显式丢弃绑定错误
+	// A GET request has no body, so ShouldBindJSON returns EOF and the zero-value req is
+	// the expected state — the binding error is discarded on purpose
 	_ = c.ShouldBindJSON(&req)
 
 	resp, err := h.service.GetAnalyticsFilters(c.Request.Context(), &req)
@@ -30,7 +31,8 @@ func (h *Handler) GetAnalyticsFilters(c *gin.Context) {
 // UpdateMeta handles the agent metadata update request
 func (h *Handler) UpdateMeta(c *gin.Context) {
 	var req UpdateMetaRequest
-	// GET 请求无 body 时 ShouldBindJSON 返回 EOF，零值 req 即预期——显式丢弃绑定错误
+	// A GET request has no body, so ShouldBindJSON returns EOF and the zero-value req is
+	// the expected state — the binding error is discarded on purpose
 	_ = c.ShouldBindJSON(&req)
 
 	resp, err := h.service.UpdateMeta(c.Request.Context(), &req)
