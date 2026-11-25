@@ -1,9 +1,10 @@
-// 覆盖目标：service.go 的 continueApprovedFunction / ensurePageApprovalStillFresh
-// 各分支（快照缺失、inactive、binding/contract 缺失、fresh 通过）、
-// findApprovalBinding / findApprovalContract / loadApprovalFunctionSpecs、
-// findActiveApprovalInstallation 的错误与 uninstalled 分支、
-// loadApprovalsFromExtensionInstallation 的 null/类型错误、
-// Get/Approve/Reject 的 scope 越权与 store 错误分支。
+// Coverage targets: the continueApprovedFunction /
+// ensurePageApprovalStillFresh branches in service.go (snapshot missing,
+// inactive, binding/contract missing, fresh passes),
+// findApprovalBinding / findApprovalContract / loadApprovalFunctionSpecs,
+// the error and uninstalled branches of findActiveApprovalInstallation,
+// the null/type errors of loadApprovalsFromExtensionInstallation,
+// and the scope overreach and store error branches of Get/Approve/Reject.
 package approval
 
 import (
@@ -33,7 +34,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// ---- page 快照 continuation 环境 ----
+// ---- Page snapshot continuation environment ----
 
 const (
 	pageEnvGame       = "demo-game"
@@ -48,8 +49,9 @@ type approvalPageEnv struct {
 	inputJSON string
 }
 
-// newApprovalPageEnv 构造带已发布页面快照的完整环境；
-// mutate 可改写 page/contracts/published 或向 db 追加契约记录。
+// newApprovalPageEnv builds a complete environment with a published page
+// snapshot; mutate may alter page/contracts/published or append contract
+// records to the db.
 func newApprovalPageEnv(t *testing.T, mutate func(page *spec.PageSpec, contracts *[]spec.BindingContractSnapshot, published *model.PublishedPageSpec, db *gorm.DB)) *approvalPageEnv {
 	t.Helper()
 	db, err := gorm.Open(gsqlite.Open(fmt.Sprintf("file:approval_page_%d?mode=memory&cache=shared", covSharedDBSeq.Add(1))), &gorm.Config{})
@@ -78,8 +80,9 @@ func newApprovalPageEnv(t *testing.T, mutate func(page *spec.PageSpec, contracts
 		ApprovalsStore:         approvals.NewMemStore(),
 		Cache:                  cache.NewNullCache(),
 		CacheHelper:            cache.NewCacheHelper(cache.NewNullCache()),
-		// OPEN-ISSUES #75：Approve 高危档走 step-up TOTP 校验，需要查操作人
-		// 绑定态；不注入则一律按未绑定处理。
+		// OPEN-ISSUES #75: Approve on the high-risk tier goes through
+		// step-up TOTP verification, which needs to look up the operator's
+		// binding state; without it everything is treated as unbound.
 		AdminModel: model.NewAdminModel(db),
 	}
 
@@ -129,15 +132,17 @@ func newApprovalPageEnv(t *testing.T, mutate func(page *spec.PageSpec, contracts
 	published.SpecJSON = string(specJSON)
 	published.BindingContractsJSON = string(contractsJSON)
 	require.NoError(t, svcCtx.PublishedPageSpecModel.Create(context.Background(), published))
-	// gorm 对 bool 零值 + default:true 标签会跳过列写入（且 RETURNING 会把
-	// 默认值回填进 struct），Active=false 需要显式 SQL 覆盖。
+	// gorm skips the column write for a bool zero value with a default:true
+	// tag (and RETURNING would backfill the default into the struct), so
+	// Active=false needs an explicit SQL override.
 	if wantInactive {
 		require.NoError(t, db.Exec("UPDATE published_page_specs SET active = false WHERE id = ?", published.ID).Error)
 	}
 	return &approvalPageEnv{svcCtx: svcCtx, db: db, inputJSON: pageEnvInputJSON}
 }
 
-// seedPageFunctionContract 写入与快照 digest 一致的函数契约（fresh 前提）。
+// seedPageFunctionContract writes a function contract whose digests match the
+// snapshot (the prerequisite for freshness).
 func seedPageFunctionContract(t *testing.T, db *gorm.DB) {
 	t.Helper()
 	require.NoError(t, db.Create(&model.FunctionContract{
@@ -178,8 +183,9 @@ func TestContinueApprovedFunction_NilRecordAndBlankFunctionID(t *testing.T) {
 }
 
 func TestContinueApprovedFunction_NonGovernedHitsFunctionInvoke(t *testing.T) {
-	// metadata 无 pageSnapshotGovernance → 跳过快照校验直接 FunctionInvoke；
-	// ctx 无 scope → FunctionInvoke 报“游戏环境 scope 缺失”。
+	// metadata lacks pageSnapshotGovernance -> snapshot validation is
+	// skipped and it goes straight to FunctionInvoke; the ctx has no scope,
+	// so FunctionInvoke reports a missing game/env scope.
 	s := NewService(&svc.ServiceContext{ApprovalsStore: approvals.NewMemStore()})
 	_, err := s.continueApprovedFunction(context.Background(), &approvals.Approval{
 		ID: "ap-1", FunctionID: "player.ban", Actor: "tester",
@@ -253,7 +259,8 @@ func TestContinueApprovedFunction_PageSnapshotGuards(t *testing.T) {
 			seedPageFunctionContract(t, db)
 		})
 		s := NewService(env.svcCtx)
-		// 快照校验通过 → 走到 FunctionInvoke → ctx 无 scope 报错。
+		// Snapshot validation passes -> reaches FunctionInvoke -> errors out
+		// because the ctx has no scope.
 		_, err := s.continueApprovedFunction(ctx, pageGovernedRecord())
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "scope")
@@ -264,14 +271,14 @@ func TestContinueApprovedFunction_FreshButContractDBUnavailable(t *testing.T) {
 	env := newApprovalPageEnv(t, func(_ *spec.PageSpec, _ *[]spec.BindingContractSnapshot, _ *model.PublishedPageSpec, db *gorm.DB) {
 		seedPageFunctionContract(t, db)
 	})
-	env.svcCtx.DB = nil // PublishedPageSpecModel 仍可用，契约库不可用。
+	env.svcCtx.DB = nil // PublishedPageSpecModel stays usable; the contract DB is unavailable.
 	s := NewService(env.svcCtx)
 	_, err := s.continueApprovedFunction(context.Background(), pageGovernedRecord())
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "function contract database unavailable")
 }
 
-// ---- find/load 辅助函数 ----
+// ---- find/load helper functions ----
 
 func TestFindApprovalBindingAndContract(t *testing.T) {
 	binding := spec.PageFunctionBinding{ID: " b1 "}
@@ -321,7 +328,7 @@ func TestLoadApprovalFunctionSpecs(t *testing.T) {
 	assert.Equal(t, "1.0.0", specs["player.ban"].Version)
 }
 
-// ---- findActiveApprovalInstallation / extension 装载 ----
+// ---- findActiveApprovalInstallation / extension loading ----
 
 func newApprovalExtensionEnv(t *testing.T, config map[string]any) (*Service, *extensioninstallation.Service, *gorm.DB) {
 	t.Helper()
@@ -387,7 +394,7 @@ func TestUpsertApprovalToExtension_LoadError(t *testing.T) {
 	require.Error(t, err)
 }
 
-// ---- Get/Approve/Reject 的 scope 越权与 store 错误 ----
+// ---- Scope overreach and store errors of Get/Approve/Reject ----
 
 func TestService_ScopeMismatchOnStorePath(t *testing.T) {
 	store := approvals.NewMemStore()
@@ -433,7 +440,8 @@ func TestService_GetExtensionScopeMismatchAndLoadError(t *testing.T) {
 	require.Error(t, err)
 }
 
-// stubStore：Get 成功返回固定记录，其余操作沿用 errorApprovalsStore 全报错。
+// stubStore: Get succeeds and returns a fixed record; every other operation
+// keeps errorApprovalsStore's blanket failures.
 type stubStore struct {
 	errorApprovalsStore
 	record *approvals.Approval
@@ -457,15 +465,18 @@ func TestService_ApproveRejectStoreOperationError(t *testing.T) {
 	require.Error(t, err)
 }
 
-// ---- Approve 主流程带 fresh 快照（覆盖 continuation 错误回写路径） ----
+// ---- Approve main flow with a fresh snapshot (covers the continuation error
+// write-back path) ----
 
 func TestApprove_FreshPageSnapshotContinuationFailureRecordsReason(t *testing.T) {
 	env := newApprovalPageEnv(t, func(_ *spec.PageSpec, _ *[]spec.BindingContractSnapshot, _ *model.PublishedPageSpec, db *gorm.DB) {
 		seedPageFunctionContract(t, db)
 	})
 	s := NewService(env.svcCtx)
-	// OPEN-ISSUES #75：page 治理记录是 danger 档，Approve 现在要求 step-up
-	// TOTP——操作人必须已绑定且请求携带有效验证码，否则在 step-up 门就被拒。
+	// OPEN-ISSUES #75: the page-governed record is on the danger tier, and
+	// Approve now demands step-up TOTP -- the operator must be bound and the
+	// request must carry a valid code, otherwise it is refused at the
+	// step-up gate.
 	secret, err := otp.GenerateSecret()
 	require.NoError(t, err)
 	require.NoError(t, env.db.Create(&model.Admin{
@@ -477,7 +488,8 @@ func TestApprove_FreshPageSnapshotContinuationFailureRecordsReason(t *testing.T)
 	_, err = env.svcCtx.ApprovalsStore.Create(pageGovernedRecord())
 	require.NoError(t, err)
 
-	// 快照校验通过，FunctionInvoke 因无 scope 失败 → 返回错误并回写 reason。
+	// Snapshot validation passes, then FunctionInvoke fails for lack of a
+	// scope -> the error is returned and the reason is written back.
 	_, err = s.Approve(ctx, &ApprovalApproveRequest{ID: "ap-page", OTP: code})
 	require.Error(t, err)
 
@@ -487,13 +499,14 @@ func TestApprove_FreshPageSnapshotContinuationFailureRecordsReason(t *testing.T)
 	assert.Contains(t, stored.Reason, "approved but continuation failed")
 }
 
-// ---- 杂项：extension 装载异常形态 ----
+// ---- Misc: odd shapes when loading from the extension ----
 
 func TestLoadApprovalsFromExtension_FieldTypeMismatch(t *testing.T) {
 	s, _, _ := newApprovalExtensionEnv(t, map[string]any{
 		approvalRecordsKey: []map[string]any{{"id": 123}},
 	})
-	// id 数值无法解码进 string 字段 → 返回错误。
+	// The numeric id cannot be decoded into the string field -> an error is
+	// returned.
 	_, _, err := s.loadApprovalsFromExtensionInstallation(context.Background())
 	require.Error(t, err)
 }

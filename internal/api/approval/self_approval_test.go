@@ -15,7 +15,8 @@ import (
 func newSelfApprovalTestService(allowSelf bool) (*Service, *approvals.MemStore) {
 	store := approvals.NewMemStore()
 	_, _ = store.Create(&approvals.Approval{
-		// 不带 FunctionID：续跑链路提前返回，本组用例只验证审批状态语义
+		// No FunctionID: the continuation path returns early, so these cases
+		// only verify approval state semantics
 		ID: "ap-self-1", State: "pending", Actor: "alice",
 		GameID: "game-1", Env: "prod",
 	})
@@ -25,7 +26,8 @@ func newSelfApprovalTestService(allowSelf bool) (*Service, *approvals.MemStore) 
 	}), store
 }
 
-// approvalCtx 带登录态与 game scope（Approve 成功路径会续跑函数，需 scope）。
+// approvalCtx carries the login state and game scope (the successful Approve
+// path continues the function, which needs a scope).
 func approvalCtx(username string) context.Context {
 	return svc.WithGameScope(actorCtx(username), svc.GameScope{GameID: "game-1", Env: "prod"})
 }
@@ -38,7 +40,8 @@ func TestApproveBlocksSelfApproval(t *testing.T) {
 	require.Error(t, err)
 	assert.Nil(t, resp)
 	assert.Contains(t, err.Error(), "self_approval_forbidden")
-	// 状态保持 pending，审批人与审批时间不得落库
+	// State stays pending, and approver plus review time must not be landed in
+	// the database
 	current, err := store.Get("ap-self-1")
 	require.NoError(t, err)
 	assert.Equal(t, "pending", current.State)

@@ -28,14 +28,16 @@ import (
 	"gorm.io/gorm"
 )
 
-// stepupOTPFixture：sqlite 内存库 + 已绑定/未绑定 TOTP 的两名管理员 +
-// fn.high / fn.danger 两行高危契约（step-up 门槛靠 function.ResolvePolicyRisk
-// 的契约档位判定）。
+// stepupOTPFixture: an in-memory sqlite database plus two admins, one with
+// TOTP bound and one without, plus
+// two high-risk contracts fn.high / fn.danger (the step-up gate relies on the
+// contract tier judgement of function.ResolvePolicyRisk).
 type stepupOTPFixture struct {
 	svc      *Service
 	store    *approvals.MemStore
 	auditSvc *audit.AuditService
-	// operatorSecrets 登记已绑定 TOTP 操作人的 secret；缺省即未绑定。
+	// operatorSecrets registers the secret of each TOTP-bound operator;
+	// absent means unbound.
 	operatorSecrets map[string]string
 }
 
@@ -43,7 +45,9 @@ func newStepUpFixture(t *testing.T) *stepupOTPFixture {
 	t.Helper()
 	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
-	// Approve 成功路径会续查管理员角色（admin_roles/roles），按同包先例全量迁移
+	// The successful Approve path goes on to look up admin roles
+	// (admin_roles/roles), so follow the same-package precedent and migrate
+	// everything
 	require.NoError(t, model.AutoMigrate(db))
 
 	enrolledSecret, err := otp.GenerateSecret()
@@ -65,8 +69,10 @@ func newStepUpFixture(t *testing.T) *stepupOTPFixture {
 
 	auditSvc := audit.NewAuditService(audit.NewInMemoryAuditStore(), nil)
 	store := approvals.NewMemStore()
-	// Dispatcher 必须非 nil：批准成功路径会续跑 FunctionInvoke，nil 直接 panic；
-	// 空 registry 使续跑报 no live agent —— 见成功用例对 continuation failed 终态的处理。
+	// Dispatcher must not be nil: the successful approve path continues with
+	// FunctionInvoke, and nil panics outright;
+	// an empty registry makes the continuation report no live agent — see how
+	// the success case handles the continuation-failed terminal state.
 	regStore := reg.NewStore()
 	return &stepupOTPFixture{
 		svc: NewService(&svc.ServiceContext{
@@ -83,7 +89,8 @@ func newStepUpFixture(t *testing.T) *stepupOTPFixture {
 	}
 }
 
-// seedPending 造一条待审批记录；functionID 传空即低危档（无契约行 → medium）。
+// seedPending creates a pending approval record; passing an empty functionID
+// gives the low-risk tier (no contract row → medium).
 func (f *stepupOTPFixture) seedPending(t *testing.T, id, functionID string) {
 	t.Helper()
 	_, err := f.store.Create(&approvals.Approval{
@@ -93,7 +100,7 @@ func (f *stepupOTPFixture) seedPending(t *testing.T, id, functionID string) {
 	require.NoError(t, err)
 }
 
-// validCode 生成指定操作人当前有效的 TOTP 验证码。
+// validCode generates the currently valid TOTP code for the given operator.
 func (f *stepupOTPFixture) validCode(t *testing.T, operator string) string {
 	t.Helper()
 	secret, ok := f.operatorSecrets[operator]
@@ -131,11 +138,14 @@ func (f *stepupOTPFixture) requireStillPending(t *testing.T, id string) {
 	assert.Equal(t, "pending", rec.State, "step-up 校验不过时审批必须保持 pending")
 }
 
-// R30-02（ARCH-025）：契约风险来源故障时 step-up 门槛 fail-closed 视作高危
-// （要求二次验证），不得因读取失败静默降档为中低危而放宽。
+// R30-02 (ARCH-025): when the contract risk source fails, the step-up gate
+// fails closed and treats the risk as high
+// (requiring second verification); a read failure must never silently downgrade
+// the tier to medium/low risk and relax it.
 func TestApproveStepUpRisk_SourceFailureFailsClosed(t *testing.T) {
-	// 空内存库无 function_contracts 表 → 契约风险查询报 "no such table"
-	// （来源故障，非 ErrRecordNotFound）。
+	// An empty in-memory database has no function_contracts table → the
+	// contract risk query reports "no such table"
+	// (a source failure, not ErrRecordNotFound).
 	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
 	svcCtx := &svc.ServiceContext{DB: db}
@@ -145,7 +155,8 @@ func TestApproveStepUpRisk_SourceFailureFailsClosed(t *testing.T) {
 	})
 	assert.Equal(t, policymgr.RiskHigh, risk, "风险来源故障不得放宽 step-up 门槛")
 
-	// 未声明风险（无契约行 → medium）仍不触发高危门槛，不是故障
+	// An undeclared risk (no contract row → medium) still does not trigger the
+	// high-risk gate; this is not a source failure
 	goodDB, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, model.AutoMigrate(goodDB))
@@ -160,10 +171,13 @@ func TestStepUp_HighRisk_CorrectOTP_Passes(t *testing.T) {
 	f := newStepUpFixture(t)
 	f.seedPending(t, "ap-otp-1", "fn.high")
 
-	// 正确 otp → 批准态落库、step-up 审计先于续跑写入。fixture 无在线
-	// agent，续跑以 approved-but-continuation-failed 收场（同包先例
-	// TestApprove_FreshPageSnapshotContinuationFailureRecordsReason），
-	// 不回滚批准态——这里只锁 step-up 门通过后的批准与审计行为。
+	// A correct otp → the approved state lands and the step-up audit is written
+	// before the continuation. The fixture has no online
+	// agent, so the continuation ends up approved-but-continuation-failed (same
+	// precedent as TestApprove_FreshPageSnapshotContinuationFailureRecordsReason
+	// in this package),
+	// without rolling back the approved state — this case only pins the
+	// approval and audit behavior once the step-up gate is passed.
 	_, _ = f.svc.Approve(approvalCtx("enrolled"), &ApprovalApproveRequest{
 		ID: "ap-otp-1", OTP: f.validCode(t, "enrolled"),
 	})
@@ -171,7 +185,8 @@ func TestStepUp_HighRisk_CorrectOTP_Passes(t *testing.T) {
 	require.NoError(t, getErr)
 	assert.Equal(t, "approved", stored.State)
 
-	// 批准审计行带 stepUp=totp，且绝不出现 otp 值（含大小写键名）
+	// The approval audit row carries stepUp=totp and never exposes the otp value
+	// itself (including case-variant key names)
 	items, total, err := f.auditSvc.List(audit.AuditFilter{
 		EventType: []audit.AuditEventType{audit.EventApprovalApproved},
 	}, audit.AuditPage{Page: 1, PageSize: 10})
@@ -225,14 +240,14 @@ func TestStepUp_HighRisk_DangerTier_AlsoGated(t *testing.T) {
 	f := newStepUpFixture(t)
 	f.seedPending(t, "ap-otp-5", "fn.danger")
 
-	// danger 档同样在门槛内：未带 otp → otp_required
+	// The danger tier is likewise inside the gate: no otp → otp_required
 	_, err := f.svc.Approve(approvalCtx("enrolled"), &ApprovalApproveRequest{ID: "ap-otp-5"})
 	assert.Equal(t, "otp_required", stepUpErrorCode(t, err))
 }
 
 func TestStepUp_LowRisk_NoOTP_Passes(t *testing.T) {
 	f := newStepUpFixture(t)
-	// 无契约行 → medium 档：不带 otp 直接放行
+	// No contract row → the medium tier: let it through with no otp
 	f.seedPending(t, "ap-low-1", "")
 
 	res, err := f.svc.Approve(approvalCtx("enrolled"), &ApprovalApproveRequest{ID: "ap-low-1"})
@@ -252,12 +267,13 @@ func TestStepUp_LowRisk_ProvidedOTP_IsVerified(t *testing.T) {
 	f := newStepUpFixture(t)
 	f.seedPending(t, "ap-low-2", "")
 
-	// 低危档带了 otp 就要校验：错的拒绝（防误填静默通过）
+	// In the low-risk tier a supplied otp must be validated: a wrong one is
+	// rejected (preventing a typo from passing silently)
 	_, err := f.svc.Approve(approvalCtx("enrolled"), &ApprovalApproveRequest{ID: "ap-low-2", OTP: "999999"})
 	assert.Equal(t, "otp_invalid", stepUpErrorCode(t, err))
 	f.requireStillPending(t, "ap-low-2")
 
-	// 对的放行
+	// The right one passes
 	res, err := f.svc.Approve(approvalCtx("enrolled"), &ApprovalApproveRequest{
 		ID: "ap-low-2", OTP: f.validCode(t, "enrolled"),
 	})
@@ -270,7 +286,8 @@ func TestStepUp_LowRisk_UnknownOperatorProvidedOTP_Rejected(t *testing.T) {
 	f := newStepUpFixture(t)
 	f.seedPending(t, "ap-low-3", "")
 
-	// 操作人查不到（fail-closed 按未绑定处理）：带 otp 必然 otp_invalid
+	// The operator cannot be found (fail closed, treated as unbound): supplying
+	// an otp always yields otp_invalid
 	_, err := f.svc.Approve(approvalCtx("ghost"), &ApprovalApproveRequest{ID: "ap-low-3", OTP: "123456"})
 	assert.Equal(t, "otp_invalid", stepUpErrorCode(t, err))
 }
@@ -287,8 +304,10 @@ func TestStepUp_OverlongOTP_NoPanic_Rejected(t *testing.T) {
 	assert.Equal(t, "otp_invalid", stepUpErrorCode(t, err))
 }
 
-// handler 层：空 body 必须容忍（Web 无 otp 时 data 为 undefined 不发 body，
-// 回归现网形态），有 body 且解不出 JSON 仍按契约 400。
+// Handler layer: an empty body must be tolerated (when Web has no otp the data
+// is undefined and no body is sent,
+// which is the shape seen in production), while a present body that does not
+// parse as JSON still yields 400 per contract.
 func TestHandler_Approve_EmptyBody_NotBadRequest(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	f := newStepUpFixture(t)
@@ -337,9 +356,11 @@ func TestHandler_Approve_InvalidJSONBody_BadRequest(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, resp.Code)
 }
 
-// withStepUpSwitch 初始化 settings 单例并把 security.approvalStepUpOtp 设为
-// 给定值（#61 总开关）；测试结束恢复默认（清键 + Reload），不污染同包其余
-// 用例——settings.Current() 是 sync.Once 单例，本包用例共用一个进程。
+// withStepUpSwitch initializes the settings singleton and sets
+// security.approvalStepUpOtp to the given value (the #61 master switch); it
+// restores the default (clear the key + Reload) when the test ends so it does
+// not pollute the other cases in this package — settings.Current() is a
+// sync.Once singleton shared by every case in this package.
 func withStepUpSwitch(t *testing.T, f *stepupOTPFixture, raw string) {
 	t.Helper()
 	settingModel := model.NewPlatformSettingModel(f.svc.svcCtx.DB)
@@ -355,10 +376,14 @@ func withStepUpSwitch(t *testing.T, f *stepupOTPFixture, raw string) {
 	})
 }
 
-// #61 总开关关闭：高危审批未带 otp 直接放行，批准审计记 disabled 旁路档
-// （区别于 not_required 的「天然不需要」——事后可审计开关放行了哪些高危操作）。
-// fixture 无在线 agent，续跑以 approved-but-continuation-failed 收场（同包
-// TestStepUp_HighRisk_CorrectOTP_Passes 先例），这里只锁批准态与 stepUp 审计。
+// The #61 master switch is off: a high-risk approval without an otp is let
+// through, and the approval audit records the disabled bypass tier
+// (as opposed to not_required's "not needed at all" — after the fact one can
+// audit which high-risk operations the switch let through).
+// The fixture has no online agent, so the continuation ends up
+// approved-but-continuation-failed (same precedent as
+// TestStepUp_HighRisk_CorrectOTP_Passes in this package); this case only pins
+// the approved state and the stepUp audit.
 func TestStepUp_SwitchOff_HighRisk_NoOTP_PassesWithDisabledAudit(t *testing.T) {
 	f := newStepUpFixture(t)
 	withStepUpSwitch(t, f, `false`)
@@ -377,7 +402,8 @@ func TestStepUp_SwitchOff_HighRisk_NoOTP_PassesWithDisabledAudit(t *testing.T) {
 	assert.Equal(t, stepUpResultDisabled, items[0].Details["stepUp"])
 }
 
-// 开关关闭≠校验豁免：带了 otp 仍按中低档语义校验，错的拒绝。
+// Switch off does not mean exemption from validation: a supplied otp is still
+// validated with medium/low tier semantics, and a wrong one is rejected.
 func TestStepUp_SwitchOff_HighRisk_WrongOTP_Rejected(t *testing.T) {
 	f := newStepUpFixture(t)
 	withStepUpSwitch(t, f, `false`)
@@ -389,8 +415,9 @@ func TestStepUp_SwitchOff_HighRisk_WrongOTP_Rejected(t *testing.T) {
 	assert.Equal(t, "otp_invalid", stepUpErrorCode(t, err))
 	f.requireStillPending(t, "ap-sw-2")
 
-	// 对的放行，审计记 totp（开关关闭下主动二次验证仍如实记档）；续跑错误
-	// 同上容忍，批准态为准
+	// The right one passes and the audit records totp (deliberate second
+	// verification is recorded faithfully even with the switch off); continuation
+	// errors are tolerated as above, with the approved state taking precedence
 	_, _ = f.svc.Approve(approvalCtx("enrolled"), &ApprovalApproveRequest{
 		ID: "ap-sw-2", OTP: f.validCode(t, "enrolled"),
 	})
@@ -406,8 +433,9 @@ func TestStepUp_SwitchOff_HighRisk_WrongOTP_Rejected(t *testing.T) {
 	assert.Equal(t, stepUpResultTOTP, items[0].Details["stepUp"])
 }
 
-// 开关显式为 true 与未配置同语义（既有高危用例跑在 settings nil 态已锁
-// fail-safe 默认，这里补显式 true 一例防回归）。
+// An explicit true for the switch has the same semantics as an unset one (the
+// existing high-risk cases, which run with settings nil, already pin
+// the fail-safe default; this adds an explicit true case as a regression guard).
 func TestStepUp_SwitchOn_HighRisk_StillEnforced(t *testing.T) {
 	f := newStepUpFixture(t)
 	withStepUpSwitch(t, f, `true`)

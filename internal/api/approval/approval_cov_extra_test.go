@@ -1,6 +1,8 @@
-// 覆盖目标：continueApprovedFunction 的成功续跑分支（sync 结果 / async 任务）、
-// rejectSelfApproval 的 nil 防御、logSelfApprovalAudit 落审计、Reject 的 store 错误、
-// filterApprovalSummaries / filterApprovalSummariesByActor 的 actor/functionID 过滤。
+// Coverage targets: the successful continuation branches of
+// continueApprovedFunction (sync result / async task), the nil guards of
+// rejectSelfApproval, logSelfApprovalAudit writing to the audit log, Reject's
+// store errors, and the actor/functionID filtering of filterApprovalSummaries
+// / filterApprovalSummariesByActor.
 package approval
 
 import (
@@ -32,8 +34,10 @@ import (
 
 var covSharedDBSeq atomic.Int64
 
-// openCovSharedDB 打开共享缓存 sqlite 内存库：多 goroutine/多连接共享同一
-// 个 :memory: 库（默认 :memory: 每连接一个，跨连接看不到建表结果）。
+// openCovSharedDB opens a shared-cache sqlite in-memory DB: multiple
+// goroutines/connections share one :memory: database (by default :memory: is
+// one database per connection, so table-creation results are invisible
+// across connections).
 func openCovSharedDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	name := fmt.Sprintf("approval_cov_shared_%d", covSharedDBSeq.Add(1))
@@ -42,7 +46,7 @@ func openCovSharedDB(t *testing.T) *gorm.DB {
 	return db
 }
 
-// ---- fake agent 会话（镜像 function 包 invoke_coverage_test 的实现） ----
+// ---- Fake agent sessions (mirrors the function package's invoke_coverage_test) ----
 
 type covSessionCaller struct {
 	invokePayload  []byte
@@ -80,15 +84,18 @@ func (r *covResolver) ResolveAgentConn(agentID string) (transport.SessionCaller,
 	return c, ok
 }
 
-// covContinuationEnv 构造可成功派发的审批续跑环境：
-// 管理员 + 角色、注册函数的 agent 会话、内存审批库、假会话通道。
+// covContinuationEnv builds an approval continuation environment where
+// dispatch succeeds: admin + role, an agent session with a registered
+// function, an in-memory approval store, and fake session channels.
 func covContinuationEnv(t *testing.T, mode string) (*Service, context.Context) {
 	s, ctx, _ := covContinuationEnvSQL(t, mode, false)
 	return s, ctx
 }
 
-// covContinuationEnvSQL 与 covContinuationEnv 同构，但审批库可切换为
-// SQL 存储（文件库，支持并发与跨重开），返回 caller 供断言调用次数。
+// covContinuationEnvSQL is isomorphic to covContinuationEnv, but the
+// approval store can be switched to SQL storage (file-backed DB, supporting
+// concurrency and reopening across restarts); it returns the caller for
+// call-count assertions.
 func covContinuationEnvSQL(t *testing.T, mode string, sqlStore bool) (*Service, context.Context, *covSessionCaller) {
 	t.Helper()
 	db := openCovSharedDB(t)
@@ -106,10 +113,11 @@ func covContinuationEnvSQL(t *testing.T, mode string, sqlStore bool) (*Service, 
 	require.NoError(t, err)
 	err = adminModel.AssignRole(context.Background(), approver.ID, role.ID)
 	require.NoError(t, err)
-	// ARCH-024 (R30-01)：Govern 现跑 CheckInvokePermission，approver 须有
-	// function:invoke（operator 无 admin 旁路）。批准续跑以 approver 身份
-	// 重新授权，缺权限会 fail-closed 拒绝——补权限保留「operator 可批准并
-	// 续跑」的原测试意图。
+	// ARCH-024 (R30-01): Govern now runs CheckInvokePermission, so the
+	// approver needs function:invoke (operator has no admin bypass). The
+	// approval continuation re-authorizes as the approver, and a missing
+	// permission causes a fail-closed refusal -- granting it preserves the
+	// original test intent of "operator can approve and continue".
 	grantApprovalPermission(t, db, role.ID, "function:invoke")
 
 	store := reg.NewStore()
@@ -142,9 +150,10 @@ func covContinuationEnvSQL(t *testing.T, mode string, sqlStore bool) (*Service, 
 		RegistryStore:  store,
 		Dispatcher:     dispatcher,
 		ApprovalsStore: approvalsStore,
-		// ARCH-024 (R30-01)：Govern 现跑 CheckInvokePermission，nil
-		// FunctionModel 会 fail-closed 拒绝（403）。与 task 服务测试同构
-		// 注入 FunctionModel，使批准续跑能走到派发路径。
+		// ARCH-024 (R30-01): Govern now runs CheckInvokePermission, and a
+		// nil FunctionModel causes a fail-closed refusal (403). Mirror the
+		// task-service test by injecting a FunctionModel so the approval
+		// continuation can reach the dispatch path.
 		FunctionModel: model.NewFunctionModel(db),
 	}
 	caller := &covSessionCaller{invokePayload: []byte(`{"echo":true}`), startTaskID: "task-cov-9"}
@@ -162,9 +171,10 @@ func covContinuationEnvSQL(t *testing.T, mode string, sqlStore bool) (*Service, 
 	return NewService(svcCtx), ctx, caller
 }
 
-// grantApprovalPermission 给角色绑定权限 ID（先建 Permission 行再写
-// role_permissions），供 Govern 的 CheckInvokePermission 默认兜底
-// （function:invoke）命中。镜像 console 测试 grantConsolePermission。
+// grantApprovalPermission binds a permission ID to a role (create the
+// Permission row first, then write role_permissions) so Govern's default
+// CheckInvokePermission fallback (function:invoke) matches. Mirrors the
+// console test's grantConsolePermission.
 func grantApprovalPermission(t *testing.T, db *gorm.DB, roleID uint, permissionID string) {
 	t.Helper()
 	permissionID = strings.TrimSpace(permissionID)
@@ -187,7 +197,7 @@ func grantApprovalPermission(t *testing.T, db *gorm.DB, roleID uint, permissionI
 	require.NoError(t, db.Create(&model.RolePermission{RoleID: roleID, PermissionID: permissionID}).Error)
 }
 
-// Approve 成功续跑（同步）：ResultKind=sync 且携带结果。
+// Approve successful continuation (sync): ResultKind=sync with a payload.
 func TestApproveCov_ContinuationSyncSuccess(t *testing.T) {
 	s, ctx := covContinuationEnv(t, "")
 
@@ -207,7 +217,7 @@ func TestApproveCov_ContinuationCarriesDispatchClaim(t *testing.T) {
 	s, ctx := covContinuationEnv(t, "")
 
 	// Approve the pending record first, then simulate a restart by reading the
-	// record back through the store and claim it explicitly.
+	// record back through the store and claiming it explicitly.
 	stored, err := s.svcCtx.ApprovalsStore.Get("ap-cov")
 	require.NoError(t, err)
 	require.Equal(t, "pending", stored.State)
@@ -234,7 +244,8 @@ func TestApproveCov_ContinuationCarriesDispatchClaim(t *testing.T) {
 	require.ErrorIs(t, err, approvals.ErrAlreadyReviewed)
 }
 
-// Approve 成功续跑（异步任务）：ResultKind=task 且携带任务 ID。
+// Approve successful continuation (async task): ResultKind=task with a task
+// ID.
 func TestApproveCov_ContinuationTaskSuccess(t *testing.T) {
 	s, ctx := covContinuationEnv(t, "async")
 
@@ -247,8 +258,9 @@ func TestApproveCov_ContinuationTaskSuccess(t *testing.T) {
 	assert.Equal(t, "task-cov-9", resp.TaskID)
 }
 
-// ARCH-002 D7：并发 N 次批准同一 pending 审批，仅一个请求赢得领取并恰好
-// 执行一次续跑（invoke 计数 == 1），其余全部 409 且不产生任何续跑副作用。
+// ARCH-002 D7: N concurrent approvals of the same pending approval; only one
+// request wins the claim and runs the continuation exactly once (invoke
+// count == 1), all the rest are 409 and produce no continuation side effects.
 func TestApproveCov_ConcurrentApprovalRunsExactlyOnce(t *testing.T) {
 	s, ctx, caller := covContinuationEnvSQL(t, "", true)
 
@@ -310,13 +322,14 @@ func TestLogSelfApprovalAuditCov_WritesAudit(t *testing.T) {
 	assert.NotEmpty(t, items)
 }
 
-// ---- Reject 的 store.Reject 错误 ----
+// ---- Reject's store.Reject error ----
 
 func TestRejectCov_StoreRejectError(t *testing.T) {
 	record := &approvals.Approval{ID: "ap-reject", State: "pending", Actor: "tester"}
 	s := NewService(&svc.ServiceContext{ApprovalsStore: &stubStore{record: record}})
 
-	// 带登录态且非本人 → 越过自审拦截，命中 stubStore 的 Reject 错误。
+	// Logged in and not the same actor -> past the self-review block and
+	// hits the stubStore's Reject error.
 	resp, err := s.Reject(context.WithValue(context.Background(), "username", "admin"),
 		&ApprovalRejectRequest{ID: "ap-reject", Reason: "no"})
 	require.Error(t, err)
@@ -332,24 +345,25 @@ func TestFilterApprovalSummariesCov(t *testing.T) {
 		{ID: "3", Actor: "alice", FunctionID: "fn.b", State: "PENDING"},
 	}
 
-	// actor/functionID/state 组合过滤：大小写不敏感、actor 前后空白容忍。
+	// actor/functionID/state combined filtering: case-insensitive and
+	// tolerant of actor surrounding whitespace.
 	got := filterApprovalSummaries(items, " alice ", "FN.B", "pending")
 	require.Len(t, got, 1)
 	assert.Equal(t, "3", got[0].ID)
 
-	// 无过滤条件 → 原样返回。
+	// No filter -> returned as-is.
 	got = filterApprovalSummaries(items, "", "", "")
 	assert.Len(t, got, 3)
 
-	// actor 不匹配 → 空集。
+	// actor does not match -> empty set.
 	got = filterApprovalSummaries(items, "nobody", "", "")
 	assert.Empty(t, got)
 
-	// functionID 不匹配 → 空集。
+	// functionID does not match -> empty set.
 	got = filterApprovalSummaries(items, "", "ghost.fn", "")
 	assert.Empty(t, got)
 
-	// state 不匹配 → 空集。
+	// state does not match -> empty set.
 	got = filterApprovalSummaries(items, "", "", "missing")
 	assert.Empty(t, got)
 }

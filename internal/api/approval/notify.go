@@ -9,14 +9,17 @@ import (
 	notify "github.com/cuihairu/croupier/internal/service/notify"
 )
 
-// notifyApprovalEvent 把审批事件分发到已配置渠道。
+// notifyApprovalEvent dispatches an approval event to the configured channels.
 //
-// 接收人解析顺序：
-//  1. 站内信：具有审批权限的管理员（role=admin/super_admin），叠加发起人
-//  2. 外部渠道（钉钉/webhook）：群级推送，不按人
-//  3. 邮件：接收人非邮箱时跳过（recipients 是用户名）
+// Recipient resolution order:
+//  1. in-app messages: admins with approval permission (role=admin/super_admin),
+//     plus the requester
+//  2. external channels (dingtalk/webhook): group-level push, not per person
+//  3. email: skipped when the recipient is not an email address (recipients are
+//     usernames)
 //
-// 通知失败只记日志，绝不阻塞审批主流程。
+// A notification failure is only logged; it must never block the approval main
+// flow.
 func (s *Service) notifyApprovalEvent(ctx context.Context, event string, record *approvals.Approval, title, message string) {
 	if s == nil || s.svcCtx == nil || s.svcCtx.NotifyService == nil || record == nil {
 		return
@@ -47,7 +50,8 @@ func (s *Service) notifyApprovalEvent(ctx context.Context, event string, record 
 	})
 }
 
-// approvalRecipients 列出有审批权限的管理员用户名（admin 角色）。
+// approvalRecipients lists the usernames of admins with approval permission
+// (admin role).
 func (s *Service) approvalRecipients(ctx context.Context) ([]string, error) {
 	if s.svcCtx.AdminModel == nil {
 		return nil, nil

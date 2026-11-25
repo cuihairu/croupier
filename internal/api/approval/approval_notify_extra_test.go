@@ -1,6 +1,6 @@
-// 覆盖目标：notify.go 的 notifyApprovalEvent 主链路与守卫分支、
-// approvalRecipients（admin 角色解析）、dedupe；以及 currentApprovalScope
-// 与 cloneApprovalMetadata 的分支。
+// Coverage targets: the notifyApprovalEvent main path and guard branches in
+// notify.go, approvalRecipients (admin role resolution), dedupe, plus the
+// branches of currentApprovalScope and cloneApprovalMetadata.
 package approval
 
 import (
@@ -70,7 +70,7 @@ func TestNotifyApprovalEvent_NilGuards(t *testing.T) {
 
 	s := NewService(&svc.ServiceContext{})
 	assert.NotPanics(t, func() {
-		// svcCtx 非 nil 但 NotifyService 缺失 / record 缺失。
+		// svcCtx is non-nil but NotifyService is missing / the record is missing.
 		s.notifyApprovalEvent(context.Background(), "e", nil, "t", "m")
 		s.notifyApprovalEvent(context.Background(), "e", &approvals.Approval{ID: "x"}, "t", "m")
 	})
@@ -79,7 +79,8 @@ func TestNotifyApprovalEvent_NilGuards(t *testing.T) {
 func TestNotifyApprovalEvent_RecipientResolutionFailureFallsBackToActor(t *testing.T) {
 	db := newNotifyTestDB(t)
 	seedAdminWithRole(t, db, "boss", "admin")
-	// admins 表缺失 → recipients 解析失败 → 仅剩 actor 收信。
+	// The admins table is missing -> recipient resolution fails -> only the
+	// actor receives the message.
 	require.NoError(t, db.Migrator().DropTable("admins"))
 
 	s := NewService(&svc.ServiceContext{
@@ -106,7 +107,7 @@ func TestApprovalRecipients(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, []string{"boss"}, recipients, "仅 admin 角色被列为接收人")
 
-	// AdminModel 缺失 → nil, nil。
+	// AdminModel missing -> nil, nil.
 	s2 := NewService(&svc.ServiceContext{})
 	recipients, err = s2.approvalRecipients(context.Background())
 	require.NoError(t, err)
@@ -120,12 +121,12 @@ func TestDedupe(t *testing.T) {
 }
 
 func TestCurrentApprovalScope(t *testing.T) {
-	// 无 scope → BadRequest。
+	// No scope -> BadRequest.
 	_, err := currentApprovalScope(context.Background())
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "scope")
 
-	// 带 scope → 原样返回（去空白）。
+	// With a scope -> returned as-is (trimmed).
 	ctx := svc.WithGameScope(context.Background(), svc.GameScope{GameID: " demo ", Env: " prod "})
 	scope, err := currentApprovalScope(ctx)
 	require.NoError(t, err)

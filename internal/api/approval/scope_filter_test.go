@@ -12,39 +12,42 @@ import (
 	"github.com/cuihairu/croupier/internal/svc"
 )
 
-// 单公司 scope 模型：审批列表必须按 (game_id, env) 过滤，跨 scope 条目不得泄漏。
+// Single-company scope model: the approval list must be filtered by
+// (game_id, env); entries from other scopes must not leak through.
 
 func TestFilterApprovalItemsByScope(t *testing.T) {
 	items := []Approval{
 		{ID: "a1", GameID: "g1", Env: "prod"},
 		{ID: "a2", GameID: "g2", Env: "prod"},
 		{ID: "a3", GameID: "g1", Env: "dev"},
-		{ID: "a4", GameID: "G1", Env: "PROD"}, // 大小写不敏感匹配
+		{ID: "a4", GameID: "G1", Env: "PROD"}, // case-insensitive match
 	}
 
-	// 空 scope → 全集。
+	// Empty scope → the full set.
 	all := filterApprovalItemsByScope(items, svc.GameScope{})
 	assert.Len(t, all, 4)
 
-	// 精确 scope → 只保留匹配（含大小写变体），跨 game/env 丢弃。
+	// Exact scope → keep only matches (including case variants), drop other
+	// game/env combinations.
 	filtered := filterApprovalItemsByScope(items, svc.GameScope{GameID: "g1", Env: "prod"})
 	require.Len(t, filtered, 2)
 	ids := []string{filtered[0].ID, filtered[1].ID}
 	assert.Equal(t, []string{"a1", "a4"}, ids)
 
-	// 无匹配 → 空切片（非 nil 语义由 make 保证）。
+	// No match → empty slice (the non-nil semantics are guaranteed by make).
 	none := filterApprovalItemsByScope(items, svc.GameScope{GameID: "ghost", Env: "x"})
 	assert.NotNil(t, none)
 	assert.Empty(t, none)
 }
 
 func TestParseApprovalPublishedSnapshot_BadJSONDegraded(t *testing.T) {
-	// 空字段 → 零值，不 panic。
+	// Empty fields → zero values, no panic.
 	page, contracts := parseApprovalPublishedSnapshot(model.PublishedPageSpec{})
 	assert.Empty(t, page.PageKey)
 	assert.Nil(t, contracts)
 
-	// 损坏的 SpecJSON：json.Unmarshal 错误被吞（`_ =`），返回零值 PageSpec。
+	// Corrupt SpecJSON: the json.Unmarshal error is swallowed (`_ =`), so a
+	// zero-value PageSpec is returned.
 	page, contracts = parseApprovalPublishedSnapshot(model.PublishedPageSpec{
 		SpecJSON:             `{broken`,
 		BindingContractsJSON: `also-broken`,
@@ -52,7 +55,7 @@ func TestParseApprovalPublishedSnapshot_BadJSONDegraded(t *testing.T) {
 	assert.Empty(t, page.PageKey)
 	assert.Nil(t, contracts)
 
-	// 合法 payload 正常解出。
+	// A valid payload unmarshals normally.
 	page, contracts = parseApprovalPublishedSnapshot(model.PublishedPageSpec{
 		SpecJSON:             `{"pageKey":"ops.ban","type":"operation"}`,
 		BindingContractsJSON: `[{"bindingId":"b1","functionId":"player.ban"}]`,

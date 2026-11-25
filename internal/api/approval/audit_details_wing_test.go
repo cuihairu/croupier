@@ -1,8 +1,11 @@
-// 覆盖率巡检第十九轮（wt-api）：service.go recordApprovalAudit 的
-// details 富化两翼收口——resultKind（331-332）与 taskId（334-335）：
-// 带续跑任务的批准记录须把 resultKind/taskId 写进审计，operation-logs
-// 按 kind 过滤审批动作时详情页才拿得到结构化上下文（reason 翼既有
-// Approve/Reject 用例已覆盖）。同包直调 + 内存审计断言落库形态。
+// Coverage patrol round 19 (wt-api): closing out the two wings of the
+// details enrichment in recordApprovalAudit in service.go — resultKind
+// (331-332) and taskId (334-335): an approval record with a continuation
+// task must land resultKind/taskId in the audit log so the detail page
+// has structured context when operation-logs filters approval actions by
+// kind (the reason wing is already covered by the existing Approve/Reject
+// cases). Same-package direct call plus in-memory audit assertions on the
+// shape landed in the database.
 package approval
 
 import (

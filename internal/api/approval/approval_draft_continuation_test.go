@@ -1,6 +1,9 @@
-// 覆盖目标：ensurePageApprovalStillFresh 的 draft 分支——草稿预览执行产生的
-// 审批在续跑时的新鲜度校验。草稿没有可回读的发布快照，故按「契约仍在且版本
-// 未变」判定：审批期间函数契约重新注册（版本变化或函数消失）即拒绝续跑。
+// Coverage targets: the draft branch of ensurePageApprovalStillFresh -- the
+// freshness check at continuation time for approvals created by draft preview
+// execution. A draft has no published snapshot to read back, so freshness is
+// decided by "the contract is still present and its version is unchanged": if
+// the function contract was re-registered while the approval was pending
+// (version change or the function gone), continuation is refused.
 package approval
 
 import (
@@ -19,8 +22,9 @@ import (
 	"github.com/cuihairu/croupier/internal/svc"
 )
 
-// newDraftApprovalEnv 构造草稿审批续跑的最小环境：仅函数契约表（草稿无快照）。
-// version 为空则不写入契约行（模拟函数消失）。
+// newDraftApprovalEnv builds the minimal environment for draft approval
+// continuation: only the function contract table (a draft has no snapshot).
+// An empty version writes no contract row (simulating the function being gone).
 func newDraftApprovalEnv(t *testing.T, version string) *svc.ServiceContext {
 	t.Helper()
 	db, err := gorm.Open(gsqlite.Open(fmt.Sprintf("file:approval_draft_%d?mode=memory&cache=shared", covSharedDBSeq.Add(1))), &gorm.Config{})
@@ -55,8 +59,9 @@ func TestContinueApprovedFunction_DraftGovernance(t *testing.T) {
 
 	t.Run("fresh contract passes then invoke rejected without scope", func(t *testing.T) {
 		s := NewService(newDraftApprovalEnv(t, "1.0.0"))
-		// 草稿契约版本与审批快照一致 → 校验通过 → 走到 FunctionInvoke →
-		// ctx 无 scope 报错，证明校验未拦。
+		// The draft contract version matches the approval snapshot -> the check
+		// passes -> reaches FunctionInvoke -> the missing-scope error from the
+		// ctx proves the check did not block it.
 		_, err := s.continueApprovedFunction(ctx, draftApprovalRecord())
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "scope")
@@ -79,8 +84,9 @@ func TestContinueApprovedFunction_DraftGovernance(t *testing.T) {
 	t.Run("incomplete metadata rejects", func(t *testing.T) {
 		s := NewService(newDraftApprovalEnv(t, "1.0.0"))
 		rec := draftApprovalRecord()
-		rec.FunctionID = "" // 无函数标识 → 只能靠 metadata 兜底，也缺失
-		// 直连校验函数：continueApprovedFunction 对空 FunctionID 提前返回 nil。
+		rec.FunctionID = "" // no function identifier -> only the metadata fallback, which is also missing
+		// Call the validation function directly: continueApprovedFunction
+		// returns nil early for an empty FunctionID.
 		err := s.ensurePageApprovalStillFresh(ctx, rec, rec.Metadata)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "draft page approval metadata is incomplete")
@@ -94,8 +100,8 @@ func TestContinueApprovedFunction_DraftGovernance(t *testing.T) {
 	})
 }
 
-// ensurePageApprovalStillFresh 只按 pageSnapshotGovernance 分流；draft 标记的
-// 大小写与空白不敏感。
+// ensurePageApprovalStillFresh dispatches solely on pageSnapshotGovernance;
+// the draft marker is insensitive to case and surrounding whitespace.
 func TestEnsurePageApprovalStillFresh_GovernanceDispatch(t *testing.T) {
 	s := NewService(newDraftApprovalEnv(t, "1.0.0"))
 	rec := draftApprovalRecord()
@@ -103,7 +109,7 @@ func TestEnsurePageApprovalStillFresh_GovernanceDispatch(t *testing.T) {
 	err := s.ensurePageApprovalStillFresh(context.Background(), rec, rec.Metadata)
 	require.NoError(t, err)
 
-	// 非页面治理（无标记）不校验，直接通过。
+	// Not page-governed (no marker): no validation, straight through.
 	plain := &approvals.Approval{FunctionID: "player.query", GameID: pageEnvGame, Env: pageEnvEnv}
 	require.NoError(t, s.ensurePageApprovalStillFresh(context.Background(), plain, map[string]string{}))
 }

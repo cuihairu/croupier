@@ -27,11 +27,14 @@ const (
 	officialApprovalID = "official.approval"
 	approvalRecordsKey = "approvals"
 
-	// twoPersonPolicy 是治理策略键（policy.Policy.ApprovalWorkflow / 契约
-	// approval.policyKey）：要求两个不同授权主体，申请人不得自批。
+	// twoPersonPolicy is the governance policy key (policy.Policy.ApprovalWorkflow
+	// / contract approval.policyKey): it requires two distinct authorized
+	// subjects, so a requester may not self-approve.
 	twoPersonPolicy = "two_person"
-	// approvalPermissionKey 是审批动作（approve/reject）要求的最小权限面；
-	// 与 casbin /api/v1/approvals POST 的 approvals:write 同一权限键。
+	// approvalPermissionKey is the minimum permission surface required for
+	// approval actions (approve/reject);
+	// it is the same permission key as the casbin approvals:write rule on
+	// POST /api/v1/approvals.
 	approvalPermissionKey = "approvals:write"
 )
 
@@ -58,8 +61,10 @@ func (s *Service) List(ctx context.Context, req *ApprovalsListRequest) (*Approva
 	}
 	actorFilter := strings.TrimSpace(req.Actor)
 	if req.Mine {
-		// mine=true 强制按当前登录用户过滤，忽略请求中的 actor（防越权枚举）；
-		// 用户名缺失时返回空集（fail-safe），退化为全量会泄露他人申请
+		// mine=true forces filtering by the currently logged-in user and ignores
+		// the actor in the request (prevents out-of-scope enumeration);
+		// when no username is present an empty set is returned (fail-safe), since
+		// degrading to the full list would leak other people's requests
 		actorFilter = currentApprovalActor(ctx)
 		if actorFilter == "" {
 			return &ApprovalsListResponse{
@@ -123,13 +128,18 @@ func currentApprovalActor(ctx context.Context) string {
 	return strings.TrimSpace(username)
 }
 
-// rejectSelfApproval 落实两人规则：申请人不能审批自己的申请。
-// approval.allowSelfApprove=true 时放开（单管理员部署的显式选择）；
-// 拦截与放行均写哈希链审计 approval.self_approval_blocked 供追溯。
+// rejectSelfApproval enforces the two-person rule: a requester may not review
+// their own request.
+// It is relaxed when approval.allowSelfApprove=true (an explicit choice of
+// single-admin deployments);
+// both the blocked and allowed outcomes are written to the hash-chain audit as
+// approval.self_approval_blocked for traceability.
 //
-// AUD-038：two_person 策略在运行时强制两个不同授权主体。策略优先于全局自批
-// 开关——即使 allowSelfApprove=true，two_person 函数的申请仍禁止同一主体
-// 批准/拒绝，否则「两人规则」只是描述性数据。
+// AUD-038: the two_person policy enforces two distinct authorized subjects at
+// runtime. The policy takes precedence over the global self-approval switch —
+// even with allowSelfApprove=true, requests for two_person functions still
+// forbid the same subject from approving/rejecting, otherwise the "two-person
+// rule" would be merely descriptive data.
 func (s *Service) rejectSelfApproval(ctx context.Context, operator string, record *approvals.Approval, action string) error {
 	if s == nil || record == nil {
 		return nil
@@ -152,9 +162,11 @@ func (s *Service) rejectSelfApproval(ctx context.Context, operator string, recor
 	return errorx.NewForbidden("申请人不能审批自己的申请 (self_approval_forbidden)")
 }
 
-// approvalPolicyKey 读审批记录的治理策略键。创建时（CreateFunctionApproval）
-// 由调用链写入 approvals.ApprovalPolicyMetaKey；旧记录无此键返回 ""，
-// two_person 判定不命中，由全局自批开关照常治理。
+// approvalPolicyKey reads the governance policy key of an approval record. At
+// creation time (CreateFunctionApproval) the call chain writes it into
+// approvals.ApprovalPolicyMetaKey; legacy records without the key return "",
+// the two_person check does not hit, and the global self-approval switch
+// governs as before.
 func approvalPolicyKey(record *approvals.Approval) string {
 	if record == nil {
 		return ""
@@ -162,13 +174,17 @@ func approvalPolicyKey(record *approvals.Approval) string {
 	return strings.TrimSpace(record.Metadata[approvals.ApprovalPolicyMetaKey])
 }
 
-// requireApprovalPermission AUD-038：审批动作必须持显式审批权限
-// （approvals:write），不能只凭登录态 + scope。此前任何登录用户（含无审批
-// 权限的低权限角色）都可批准/拒绝高危申请，低权限账号现被拒绝。
+// requireApprovalPermission AUD-038: an approval action must hold the explicit
+// approval permission (approvals:write); a login state plus scope alone is not
+// enough. Previously any logged-in user (including low-privilege roles without
+// approval permission) could approve/reject high-risk requests; such accounts
+// are now rejected.
 //
-// 权限层未接线（PermissionService/AdminModel 为 nil 的单测或最小上下文）时跳过：
-// 生产 ServiceContext 恒接线（NewServiceContext 同时初始化两者），权限执行
-// 由本方法与权限层单测分别覆盖。
+// Skipped when the permission layer is not wired (unit tests or minimal
+// contexts where PermissionService/AdminModel are nil):
+// the production ServiceContext always wires both (NewServiceContext
+// initializes them together), and permission enforcement is covered separately
+// by this method and permission-layer unit tests.
 func (s *Service) requireApprovalPermission(ctx context.Context, operator string) error {
 	if s == nil || s.svcCtx == nil || s.svcCtx.PermissionService == nil || s.svcCtx.AdminModel == nil {
 		return nil
@@ -263,16 +279,20 @@ func (s *Service) Approve(ctx context.Context, req *ApprovalApproveRequest) (*Ap
 	if operator == "" {
 		return nil, errorx.NewUnauthorized("审批操作需要登录态")
 	}
-	// AUD-038：批准前先做显式审批权限检查（approvals:write）。
+	// AUD-038: check the explicit approval permission (approvals:write) before
+	// approving.
 	if err := s.requireApprovalPermission(ctx, operator); err != nil {
 		return nil, err
 	}
 	if err := s.rejectSelfApproval(ctx, operator, existing, "approve"); err != nil {
 		return nil, err
 	}
-	// 高危审批 step-up TOTP（OPEN-ISSUES #75）：先校验后落批准态，校验不过
-	// 时审批保持 pending，不产生任何续跑/通知副作用。Web/Mobile 早已按设计
-	// 发送 otp，服务端此前静默丢弃——此处是三段确认的服务端落点。
+	// Step-up TOTP for high-risk approvals (OPEN-ISSUES #75): validate first
+	// and only then land the approved state; when validation fails the approval
+	// stays pending with no continuation or notification side effects. Web and
+	// Mobile have long sent otp as designed while the server silently dropped
+	// it — this is the server-side landing point for the three-part
+	// confirmation.
 	stepUp, err := s.enforceStepUpOTP(ctx, operator, existing, req.OTP)
 	if err != nil {
 		return nil, err
@@ -281,8 +301,10 @@ func (s *Service) Approve(ctx context.Context, req *ApprovalApproveRequest) (*Ap
 	record, err := s.svcCtx.ApprovalsStore.Approve(strings.TrimSpace(req.ID), operator)
 	if err != nil {
 		if existing, ok := approvals.AsAlreadyReviewed(err); ok {
-			// ARCH-001 D2/D4：CAS 失败 = 本请求未赢得转换（重复/竞争）。
-			// 绝不触发续跑/审计/通知副作用，返回 409 + 当前终态。
+			// ARCH-001 D2/D4: a CAS failure means this request did not win the
+			// transition (duplicate/race).
+			// Never trigger continuation/audit/notification side effects; return
+			// 409 plus the current terminal state.
 			return nil, errorx.NewConflictWithCode("approval_already_reviewed",
 				"审批已被处理，不能重复批准", map[string]any{
 					"state":      existing.State,
@@ -292,11 +314,13 @@ func (s *Service) Approve(ctx context.Context, req *ApprovalApproveRequest) (*Ap
 		}
 		return nil, err
 	}
-	// 审批决定即时落审计链（先于续跑：续跑失败也是「已批准」这一事实）。
-	// 此前审批只写扩展事件流与通知，audit_records 里从没有
-	// approval.approved/rejected 行，operation-logs 的 kind=approval_* 过滤
-	// 永远为空——审批详情「查看审计（批准/拒绝）」跳过去必然查无此人
-	// （docs/BUGS.md BUG-024）。
+	// The approval decision lands on the audit chain immediately (before the
+	// continuation: a failed continuation is still the fact "was approved").
+	// Previously approvals only wrote to the extension event stream and
+	// notifications; there were never any approval.approved/rejected rows in
+	// audit_records, so the operation-logs kind=approval_* filter was always
+	// empty — jumping to "view audit (approve/reject)" from the approval detail
+	// page would inevitably find nobody there (docs/BUGS.md BUG-024).
 	s.recordApprovalAudit(ctx, audit.EventApprovalApproved, operator, record,
 		map[string]interface{}{"stepUp": stepUp})
 	claimToken, err := approvals.NewClaimToken()
@@ -373,7 +397,8 @@ func (s *Service) Reject(ctx context.Context, req *ApprovalRejectRequest) (*Appr
 	if operator == "" {
 		return nil, errorx.NewUnauthorized("审批操作需要登录态")
 	}
-	// AUD-038：拒绝前先做显式审批权限检查（approvals:write）。
+	// AUD-038: check the explicit approval permission (approvals:write) before
+	// rejecting.
 	if err := s.requireApprovalPermission(ctx, operator); err != nil {
 		return nil, err
 	}
@@ -409,12 +434,16 @@ func (s *Service) Reject(ctx context.Context, req *ApprovalRejectRequest) (*Appr
 	}, nil
 }
 
-// recordApprovalAudit 把审批终态写入哈希链审计（audit_records，actor_id=审批人、
-// game_id/env 随记录落列），使 operation-logs 的 actor+kind=approval_approve/reject
-// 过滤能查到真实审批动作——审批详情页「查看审计（批准/拒绝）」的数据源。
-// 写失败只吞掉：审计是旁路，不得阻塞审批主流程。
-// recordApprovalAudit 的可变参 extraDetails 供调用点补充业务细节
-// （如 step-up 校验档位），合并进 details 后统一落审计行。
+// recordApprovalAudit writes the approval terminal state to the hash-chain
+// audit (audit_records, actor_id = reviewer, game_id/env landed as columns
+// with the record), so the operation-logs actor+kind=approval_approve/reject
+// filter can find the real approval actions — the data source behind "view
+// audit (approve/reject)" on the approval detail page.
+// Write failures are only swallowed: auditing is a side channel and must never
+// block the approval main flow.
+// The variadic extraDetails parameter of recordApprovalAudit lets call sites
+// add business details (such as the step-up validation tier); they are merged
+// into details and then landed on the audit row together.
 func (s *Service) recordApprovalAudit(ctx context.Context, eventType audit.AuditEventType, operator string, record *approvals.Approval, extraDetails ...map[string]interface{}) {
 	if s == nil || s.svcCtx == nil || s.svcCtx.AuditService == nil || record == nil {
 		return
@@ -441,8 +470,10 @@ func (s *Service) recordApprovalAudit(ctx context.Context, eventType audit.Audit
 	if record.TaskID != "" {
 		details["taskId"] = record.TaskID
 	}
-	// WithResourceID 会整体替换 Resource，必须先于 WithGameID 调用，
-	// 否则 game_id/env 列被抹掉（scope 过滤将查不到该行）。
+	// WithResourceID replaces Resource wholesale, so it must be called before
+	// WithGameID,
+	// otherwise the game_id/env columns get wiped out (scope filtering would no
+	// longer find the row).
 	_, auditErr := s.svcCtx.AuditService.Log(ctx, eventType,
 		audit.WithActorID(operator, "admin", operator),
 		audit.WithResourceID("approval", record.ID),
@@ -450,8 +481,10 @@ func (s *Service) recordApprovalAudit(ctx context.Context, eventType audit.Audit
 		audit.WithDetails(details),
 	)
 	if auditErr != nil {
-		// 副作用已执行（审批终态已落地）：呈现缺口（WARN + rate-limited
-		// 告警），不能静默吞掉，也不能返回 5xx 暗示「审批未批准/拒绝」。
+		// The side effect has already run (the approval terminal state has
+		// landed): report the gap (WARN + rate-limited
+		// alert). It must not be silently swallowed, nor answered with 5xx
+		// implying "the approval was not approved/rejected".
 		s.svcCtx.AuditService.ReportWriteGap(ctx, eventType, auditErr)
 	}
 }
@@ -563,8 +596,10 @@ func decodeApprovalPayload(a *approvals.Approval) (map[string]interface{}, strin
 		return nil, string(a.Payload)
 	}
 	var buf bytes.Buffer
-	// json.Indent 仅对非法 JSON 报错；上一行 json.Unmarshal(a.Payload) 已成功，
-	// 说明 a.Payload 是合法 JSON，Indent 恒成功，error 分支不可达，已删除。
+	// json.Indent only errors on invalid JSON; the previous line's
+	// json.Unmarshal(a.Payload) already succeeded,
+	// so a.Payload is valid JSON, Indent always succeeds, and the error branch
+	// is unreachable and has been removed.
 	_ = json.Indent(&buf, a.Payload, "", "  ")
 	return payload, buf.String()
 }
@@ -624,9 +659,10 @@ func (s *Service) continueApprovedFunction(ctx context.Context, record *approval
 	if err != nil {
 		return approvalContinuationResult{}, fmt.Errorf("continue approved function: %w", err)
 	}
-	// FunctionInvoke 契约：err == nil 时响应必非 nil（async/broadcast/sync
-	// 三条成功路径均构造非空 &FunctionInvokeResponse），resp==nil 分支
-	// 不可达，已删除。
+	// FunctionInvoke contract: when err == nil the response must be non-nil
+	// (the async/broadcast/sync
+	// success paths all build a non-empty &FunctionInvokeResponse), so the
+	// resp==nil branch is unreachable and has been removed.
 	result := approvalContinuationResult{Triggered: true, Kind: "sync"}
 	if resp.TaskId != "" {
 		result.Kind = "task"
@@ -648,9 +684,13 @@ func (s *Service) ensurePageApprovalStillFresh(ctx context.Context, record *appr
 	}
 }
 
-// ensureDraftPageApprovalStillFresh 校验草稿预览执行产生的审批在续跑时的新鲜度：
-// 草稿没有可回读的发布快照，故按「契约仍在且版本未变」判定——审批期间函数契约
-// 重新注册（版本变化或函数消失）即拒绝续跑，须重新预览执行并重新提交审批。
+// ensureDraftPageApprovalStillFresh checks the freshness of an approval
+// created by a draft preview execution when it is being continued:
+// a draft has no published snapshot to read back, so freshness is judged as
+// "the contract is still present and its version unchanged" — if the function
+// contract is re-registered during the approval (version change or the function
+// disappears), continuation is refused and the draft must be preview-executed
+// and submitted for approval again.
 func (s *Service) ensureDraftPageApprovalStillFresh(ctx context.Context, record *approvals.Approval, metadata map[string]string) error {
 	functionID := strings.TrimSpace(record.FunctionID)
 	if functionID == "" {
@@ -823,9 +863,10 @@ func (s *Service) loadApprovalsFromExtensionInstallation(ctx context.Context) ([
 	if !exists || raw == nil {
 		return nil, false, nil
 	}
-	// raw 来自 json.Unmarshal(map[string]any) 的取值，值类型仅可能为 JSON
-	// 基础类型（nil/bool/float64/string/[]any/map[string]any），再 Marshal 恒
-	// 成功，error 分支不可达，已删除。
+	// raw comes from a value taken out of a json.Unmarshal into map[string]any,
+	// so its type can only be a JSON primitive type (nil/bool/float64/string/
+	// []any/map[string]any); marshalling it again always succeeds, the error
+	// branch is unreachable and has been removed.
 	data, _ := json.Marshal(raw)
 	items := []Approval{}
 	if err := json.Unmarshal(data, &items); err != nil {
@@ -910,8 +951,8 @@ func filterApprovalSummariesByState(items []ApprovalSummary, state string) []App
 	return out
 }
 
-// filterApprovalSummaries 按 actor/functionId/state 过滤（extension 安装路径，
-// 与 ApprovalsStore.Filter 语义一致）。
+// filterApprovalSummaries filters by actor/functionId/state (the extension
+// installation path, with semantics consistent with ApprovalsStore.Filter).
 func filterApprovalSummaries(items []ApprovalSummary, actor, functionID, state string) []ApprovalSummary {
 	out := items
 	if actor = strings.TrimSpace(actor); actor != "" {

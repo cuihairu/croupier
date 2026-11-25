@@ -66,7 +66,8 @@ func TestListMineOverridesActorAndFiltersByCurrentUser(t *testing.T) {
 	mustCreateApproval(t, s, "ap-1", "alice", "mail.send", "pending")
 	mustCreateApproval(t, s, "ap-2", "bob", "mail.send", "pending")
 
-	// mine=true 时忽略请求中的 actor，强制按当前登录用户过滤
+	// mine=true ignores the actor in the request and forces filtering by the
+	// currently logged-in user
 	resp, err := s.List(actorCtx("bob"), &ApprovalsListRequest{Mine: true, Actor: "alice"})
 	require.NoError(t, err)
 	require.Len(t, resp.Approvals, 1)

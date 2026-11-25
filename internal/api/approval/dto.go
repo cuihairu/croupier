@@ -22,8 +22,10 @@ type ApprovalSummary struct {
 	ResultKind      string `json:"resultKind,omitempty"`
 	TaskID          string `json:"taskId,omitempty"`
 	Result          string `json:"result,omitempty"`
-	// Approver 是批准/拒绝人（"system" 表示超时等系统动作）；
-	// ReviewedByOther = 已审批且审批人 ≠ 申请人（两人规则达成）。
+	// Approver is the person who approved/rejected ("system" denotes system
+	// actions such as a timeout);
+	// ReviewedByOther = already reviewed and reviewer != requester (two-person
+	// rule satisfied).
 	Approver        string `json:"approver,omitempty"`
 	ReviewedAt      string `json:"reviewedAt,omitempty"`
 	ReviewedByOther bool   `json:"reviewedByOther"`
@@ -43,7 +45,8 @@ type ApprovalsListRequest struct {
 	Status     string `form:"status"`
 	Actor      string `form:"actor"`
 	FunctionID string `form:"functionId"`
-	// Mine 为 true 时服务端忽略 actor 参数，强制按当前登录用户过滤
+	// When Mine is true the server ignores the actor parameter and forces
+	// filtering by the currently logged-in user
 	Mine bool `form:"mine"`
 }
 
@@ -95,9 +98,12 @@ type Approval struct {
 // ApprovalApproveRequest represents the request to approve an approval
 type ApprovalApproveRequest struct {
 	ID string `uri:"id"`
-	// OTP step-up 动态码：治理风险 high/danger 的审批必填（OPEN-ISSUES #75）。
-	// 契约键 otp lowerCamelCase，与 Web/Mobile 既有发送形态一致；
-	// 中低风险可选，带了则校验（错的拒绝）。
+	// OTP step-up dynamic code: required for approvals whose governance risk
+	// is high/danger (OPEN-ISSUES #75).
+	// Contract key otp in lowerCamelCase, matching the sending shape already
+	// used by Web/Mobile;
+	// optional for medium/low risk, but validated when present (a wrong one is
+	// rejected).
 	OTP string `json:"otp,omitempty"`
 }
 

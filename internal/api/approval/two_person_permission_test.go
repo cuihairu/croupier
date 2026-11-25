@@ -16,20 +16,27 @@ import (
 	"gorm.io/gorm"
 )
 
-// AUD-038：Approve/Reject 加显式审批权限检查 + two_person 两人规则运行时执行。
+// AUD-038: Approve/Reject gain an explicit approval permission check plus
+// runtime enforcement of the two_person two-person rule.
 //
-// 两组用例：
-//  1. 低权限拒绝/授权放行：走真实 RBAC 层（sqlite + AdminModel + PermissionService），
-//     低权限角色（无 approvals:write）批准被 403 拒绝；持 approvals:write 的角色放行。
-//  2. 同主体二次批准拒绝：two_person 策略优先于全局自批开关——即使
-//     allowSelfApprove=true，two_person 函数仍禁止同一主体批准/拒绝。
+// Two groups of cases:
+//  1. Low-privilege rejection / authorized pass-through: exercised through the
+//     real RBAC layer (sqlite + AdminModel + PermissionService) —
+//     a low-privilege role (without approvals:write) is rejected with 403 when
+//     approving, while a role holding approvals:write is let through.
+//  2. A second approval by the same subject is rejected: the two_person policy
+//     takes precedence over the global self-approval switch — even with
+//     allowSelfApprove=true, two_person functions still forbid the same subject
+//     from approving/rejecting.
 
-// newPermissionDB 建独立内存库 + 迁移，供权限用例用（每测试新建，避免共享态）。
+// newPermissionDB builds an isolated in-memory database with migrations, for
+// the permission cases (created fresh per test to avoid shared state).
 func newPermissionDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
-	// 单连接：内存库经多连接会各自看到空表（no such table）。
+	// A single connection: an in-memory database seen through multiple
+	// connections would each observe empty tables (no such table).
 	sqlDB, err := db.DB()
 	require.NoError(t, err)
 	sqlDB.SetMaxOpenConns(1)
@@ -37,8 +44,9 @@ func newPermissionDB(t *testing.T) *gorm.DB {
 	return db
 }
 
-// permissionTestServiceContext 组装带 RBAC 的 ServiceContext（AdminModel +
-// PermissionService + 缓存层），供 RequireAnyPermission 的 LoadCurrentAdmin 链路。
+// permissionTestServiceContext assembles a ServiceContext with RBAC (AdminModel +
+// PermissionService + cache layer), for the LoadCurrentAdmin chain of
+// RequireAnyPermission.
 func permissionTestServiceContext(t *testing.T, db *gorm.DB, store *approvals.MemStore) *svc.ServiceContext {
 	t.Helper()
 	nullCache := cache.NewNullCache()
@@ -54,7 +62,8 @@ func permissionTestServiceContext(t *testing.T, db *gorm.DB, store *approvals.Me
 	}
 }
 
-// createApprovalRoleAdmin 建一个带指定权限（可为空=低权限）角色的管理员，返回其 username。
+// createApprovalRoleAdmin creates an admin whose role carries the given
+// permissions (empty = low privilege).
 func createApprovalRoleAdmin(t *testing.T, db *gorm.DB, username, roleName string, permissions ...string) {
 	t.Helper()
 	adminModel := model.NewAdminModel(db)
@@ -71,7 +80,8 @@ func createApprovalRoleAdmin(t *testing.T, db *gorm.DB, username, roleName strin
 	}
 }
 
-// seedPendingNoFunction 造一条待审批记录（FunctionID 空 → 续跑链路提前返回）。
+// seedPendingNoFunction creates a pending approval record (an empty FunctionID
+// makes the continuation chain return early).
 func seedPendingNoFunction(t *testing.T, store *approvals.MemStore, id, actor string, metadata map[string]string) {
 	t.Helper()
 	_, err := store.Create(&approvals.Approval{
@@ -81,13 +91,14 @@ func seedPendingNoFunction(t *testing.T, store *approvals.MemStore, id, actor st
 	require.NoError(t, err)
 }
 
-// TestApproveRejectsLowPrivilegeOperator AUD-038：无 approvals:write 的低权限
-// 角色批准被拒绝（403），审批保持 pending。
+// TestApproveRejectsLowPrivilegeOperator AUD-038: an approval by a low-privilege
+// role without approvals:write is rejected (403) and the approval stays
+// pending.
 func TestApproveRejectsLowPrivilegeOperator(t *testing.T) {
 	db := newPermissionDB(t)
 	store := approvals.NewMemStore()
 	seedPendingNoFunction(t, store, "ap-low-1", "requester", nil)
-	// viewer 角色无任何审批权限。
+	// The viewer role has no approval permission at all.
 	createApprovalRoleAdmin(t, db, "lowop", "viewer")
 
 	s := NewService(permissionTestServiceContext(t, db, store))
@@ -103,7 +114,8 @@ func TestApproveRejectsLowPrivilegeOperator(t *testing.T) {
 	assert.Empty(t, current.Approver)
 }
 
-// TestRejectRejectsLowPrivilegeOperator AUD-038：拒绝路径同样要求审批权限。
+// TestRejectRejectsLowPrivilegeOperator AUD-038: the reject path likewise
+// requires the approval permission.
 func TestRejectRejectsLowPrivilegeOperator(t *testing.T) {
 	db := newPermissionDB(t)
 	store := approvals.NewMemStore()
@@ -121,8 +133,8 @@ func TestRejectRejectsLowPrivilegeOperator(t *testing.T) {
 	assert.Equal(t, "pending", current.State)
 }
 
-// TestApproveAllowsOperatorWithApprovalPermission AUD-038 正向对照：持
-// approvals:write 的非管理员角色批准放行。
+// TestApproveAllowsOperatorWithApprovalPermission AUD-038 positive control: a
+// non-admin role holding approvals:write is let through when approving.
 func TestApproveAllowsOperatorWithApprovalPermission(t *testing.T) {
 	db := newPermissionDB(t)
 	store := approvals.NewMemStore()
@@ -141,8 +153,9 @@ func TestApproveAllowsOperatorWithApprovalPermission(t *testing.T) {
 	assert.Equal(t, "approver", current.Approver)
 }
 
-// TestApproveBlocksSelfApprovalUnderTwoPersonEvenWhenAllowed AUD-038：two_person
-// 策略优先于全局自批开关——allowSelfApprove=true 也不能让同一主体批准。
+// TestApproveBlocksSelfApprovalUnderTwoPersonEvenWhenAllowed AUD-038: the
+// two_person policy takes precedence over the global self-approval switch —
+// even allowSelfApprove=true cannot let the same subject approve.
 func TestApproveBlocksSelfApprovalUnderTwoPersonEvenWhenAllowed(t *testing.T) {
 	store := approvals.NewMemStore()
 	seedPendingNoFunction(t, store, "ap-tp-1", "alice", map[string]string{
@@ -164,7 +177,8 @@ func TestApproveBlocksSelfApprovalUnderTwoPersonEvenWhenAllowed(t *testing.T) {
 	assert.Empty(t, current.Approver)
 }
 
-// TestRejectBlocksSelfApprovalUnderTwoPersonEvenWhenAllowed AUD-038：拒绝路径同规。
+// TestRejectBlocksSelfApprovalUnderTwoPersonEvenWhenAllowed AUD-038: the reject
+// path follows the same rule.
 func TestRejectBlocksSelfApprovalUnderTwoPersonEvenWhenAllowed(t *testing.T) {
 	store := approvals.NewMemStore()
 	seedPendingNoFunction(t, store, "ap-tp-2", "alice", map[string]string{
@@ -184,8 +198,9 @@ func TestRejectBlocksSelfApprovalUnderTwoPersonEvenWhenAllowed(t *testing.T) {
 	assert.Equal(t, "pending", current.State)
 }
 
-// TestApproveDifferentPrincipalUnderTwoPersonSucceeds AUD-038 正向对照：
-// two_person 下不同授权主体（bob ≠ alice）批准放行。
+// TestApproveDifferentPrincipalUnderTwoPersonSucceeds AUD-038 positive control:
+// under two_person, a different authorized subject (bob != alice) is let
+// through when approving.
 func TestApproveDifferentPrincipalUnderTwoPersonSucceeds(t *testing.T) {
 	store := approvals.NewMemStore()
 	seedPendingNoFunction(t, store, "ap-tp-3", "alice", map[string]string{
