@@ -188,7 +188,7 @@ const JsonRootEditor = React.forwardRef<SchemaFormRendererHandle, JsonRootEditor
           type="info"
           showIcon
           style={{ marginBottom: 12 }}
-          message={reason}
+          title={reason}
           data-testid="json-root-reason"
         />
         <Input.TextArea
@@ -201,14 +201,14 @@ const JsonRootEditor = React.forwardRef<SchemaFormRendererHandle, JsonRootEditor
           data-testid="json-root-editor"
         />
         {parseError && (
-          <Alert type="error" showIcon style={{ marginTop: 12 }} message={parseError} />
+          <Alert type="error" showIcon style={{ marginTop: 12 }} title={parseError} />
         )}
         {schemaErrors.length > 0 && (
           <Alert
             type="error"
             showIcon
             style={{ marginTop: 12 }}
-            message={schemaErrors[0]}
+            title={schemaErrors[0]}
             description={
               <ul style={{ margin: 0, paddingLeft: 16 }}>
                 {schemaErrors.slice(1).map((item, index) => (

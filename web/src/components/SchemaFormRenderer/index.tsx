@@ -746,6 +746,25 @@ function effectivePresentationSpec(spec: FormPresentationSpec): FormPresentation
   };
 }
 
+/** SUI-027：同页多实例字段 ID 隔离。rjsf 以 `{idPrefix}_{路径}` 生成控件
+ * id/label htmlFor/aria 关联，默认前缀 `root`——同页挂载两个同 schema 表单
+ * 时两实例产出相同 id，label 与错误说明跨实例串扰。这里维护存活前缀集合：
+ * 首个实例保留默认 `root`（既有用例与页面选择器 `#root_*` 不变），并发实例
+ * 依次领取 `root-2`/`root-3`…；实例卸载即归还，串行重渲染各自回到 `root`。
+ * 前缀在实例生命周期内稳定（useRef 首渲染领取），重渲染不换号。 */
+const liveIdPrefixes = new Set<string>();
+
+function nextIdPrefix(): string {
+  let n = 1;
+  let candidate = 'root';
+  while (liveIdPrefixes.has(candidate)) {
+    n += 1;
+    candidate = `root-${n}`;
+  }
+  liveIdPrefixes.add(candidate);
+  return candidate;
+}
+
 const SchemaFormRenderer = forwardRef<SchemaFormRendererHandle, SchemaFormRendererProps>(
   (
     {
@@ -762,6 +781,17 @@ const SchemaFormRenderer = forwardRef<SchemaFormRendererHandle, SchemaFormRender
     ref,
   ) => {
     const formRef = useRef<RJSFFormRef | null>(null);
+    // SUI-027：实例级字段 ID 前缀（首个实例保持默认 `root`，并发实例领
+    // `root-2`/`root-3`…；卸载归还、重渲染稳定，见上方 allocator 注释）。
+    const idPrefixRef = useRef<string | null>(null);
+    if (idPrefixRef.current === null) idPrefixRef.current = nextIdPrefix();
+    const idPrefix = idPrefixRef.current;
+    useEffect(() => {
+      const allocated = idPrefix;
+      return () => {
+        liveIdPrefixes.delete(allocated);
+      };
+    }, [idPrefix]);
     // SUI-026：声明非对象根类型（数组/标量/null）的 schema 走 JSON 编辑形态，
     // 与对象表单同一 handle 契约、同一校验器、同一绑定执行链。
     const jsonRoot = useMemo(() => isJsonRootSpec(spec.jsonSchema), [spec]);
@@ -915,6 +945,7 @@ const SchemaFormRenderer = forwardRef<SchemaFormRendererHandle, SchemaFormRender
           ref={formRef as React.Ref<RJSFFormRef>}
           schema={schema}
           uiSchema={uiSchema}
+          idPrefix={idPrefix}
           tagName={containerTagName}
           formContext={formContext}
           validator={validator}
