@@ -102,7 +102,7 @@ func TestHandler_List_BindQueryError(t *testing.T) {
 
 	router.ServeHTTP(resp, req)
 
-	// Bug4 修复后：page=invalid 按契约返回 400
+	// After the Bug4 fix: page=invalid returns 400 per contract
 	assert.Equal(t, http.StatusBadRequest, resp.Code)
 }
 
@@ -346,7 +346,7 @@ func TestHandler_List_InvalidPageSize(t *testing.T) {
 
 	router.ServeHTTP(resp, req)
 
-	// Bug4 修复后：pageSize=abc 按契约返回 400
+	// After the Bug4 fix: pageSize=abc returns 400 per contract
 	assert.Equal(t, http.StatusBadRequest, resp.Code)
 }
 

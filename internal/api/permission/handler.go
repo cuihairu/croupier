@@ -30,7 +30,7 @@ func (h *Handler) List(c *gin.Context) {
 
 func (h *Handler) Detail(c *gin.Context) {
 	var req PermissionDetailRequest
-	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
+	_ = c.ShouldBindUri(&req) // all uri fields are strings with no required tags: binding cannot fail; keep the populate semantics
 
 	resp, err := h.service.Detail(c.Request.Context(), &req)
 	if err != nil {
