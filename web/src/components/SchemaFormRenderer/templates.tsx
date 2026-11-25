@@ -50,15 +50,36 @@ function defaultSpan(element: ObjectFieldTemplatePropertyType, count: number): n
   return 12;
 }
 
+/** SUI-028：协议 width 是 12 栏栅格单位，antd Col 用 24 栏。显式 width
+ * 乘 2 换算（`width: 6` → `.ant-col-12`），`0`（未设置）与越界值按未设置
+ * 处理；formContext.colSpan 已是 antd 栏数，保持原样。 */
 function spanFor(
   element: ObjectFieldTemplatePropertyType,
   count: number,
   ctx: GroupedFormContext,
 ): number {
   const width = ctx.__fieldWidths?.[element.name];
-  if (typeof width === 'number' && width >= 1 && width <= 12) return width;
+  if (typeof width === 'number' && width >= 1 && width <= 12) return width * 2;
   if (typeof ctx.colSpan === 'number') return ctx.colSpan;
   return defaultSpan(element, count);
+}
+
+export interface ResponsiveSpan {
+  xs?: number;
+  md?: number;
+  lg?: number;
+}
+
+/** SUI-028：宽屏多列、窄屏独占整行。窄屏（xs < 768px）任何字段独占一行
+ * （span=24），中屏（md ≥ 768px）按栅格跨度的一半向上取整（至少 12），
+ * 大屏（lg ≥ 992px）用完整跨度；整行跨度（24）三档相同防止放大溢出。 */
+export function responsiveSpanFor(span: number): ResponsiveSpan {
+  const full = span >= 24;
+  return {
+    xs: 24,
+    md: full ? 24 : Math.max(12, Math.ceil(span / 2)),
+    lg: span,
+  };
 }
 
 function renderRow(
@@ -71,11 +92,15 @@ function renderRow(
     <Row gutter={gutter}>
       {elements
         .filter((element) => !element.hidden)
-        .map((element) => (
-          <Col key={`${keyPrefix}-${element.name}`} span={spanFor(element, elements.length, ctx)}>
-            {element.content}
-          </Col>
-        ))}
+        .map((element) => {
+          const span = spanFor(element, elements.length, ctx);
+          const responsive = responsiveSpanFor(span);
+          return (
+            <Col key={`${keyPrefix}-${element.name}`} span={span} {...responsive}>
+              {element.content}
+            </Col>
+          );
+        })}
     </Row>
   );
 }

@@ -99,7 +99,7 @@ describe('F7: 分组渲染', () => {
     expect(item.className).toContain('ant-collapse-item-active');
   });
 
-  test('width 生效为 Col 栅格宽度', () => {
+  test('width 生效为 Col 栅格宽度（SUI-028：协议 12 栏 ×2 → antd 24 栏）', () => {
     const spec: FormPresentationSpec = {
       jsonSchema: schemaOf({
         type: 'object',
@@ -108,9 +108,13 @@ describe('F7: 分组渲染', () => {
       fields: [{ key: 'half', width: 6 }],
     };
     const { container } = render(<SchemaFormRenderer spec={spec} onFinish={jest.fn()} />);
-    const col = container.querySelector('.ant-col-6');
+    const col = container.querySelector('.ant-col-12');
     expect(col).toBeTruthy();
     expect(col?.querySelector('input#root_half')).toBeTruthy();
+    // 窄屏独占整行、中屏保持半行、宽屏按完整跨度
+    expect(col?.className).toContain('ant-col-xs-24');
+    expect(col?.className).toContain('ant-col-md-12');
+    expect(col?.className).toContain('ant-col-lg-12');
   });
 
   test('无分组时不产生 Card，行为与默认一致', () => {
