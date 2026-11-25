@@ -29,15 +29,17 @@ func loadLeaf(t *testing.T, path string) *x509.Certificate {
 	return cert
 }
 
-// TestVerifyInterconnectPeer_RejectsNoCertificate：mTLS 链路上无证书被拒。
+// TestVerifyInterconnectPeer_RejectsNoCertificate verifies a mTLS link with no
+// certificate is rejected.
 func TestVerifyInterconnectPeer_RejectsNoCertificate(t *testing.T) {
 	err := VerifyInterconnectPeer(tls.ConnectionState{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no peer certificate")
 }
 
-// TestVerifyInterconnectPeer_RejectsAgentIdentity：仅 ClientAuth 的 Agent
-// 证书不是 server 角色，被拒（ARCH-003「Agent 身份拒绝」）。
+// TestVerifyInterconnectPeer_RejectsAgentIdentity verifies that an Agent
+// certificate with ClientAuth-only EKU is not a server role and is rejected
+// (ARCH-003 agent identity rejection).
 func TestVerifyInterconnectPeer_RejectsAgentIdentity(t *testing.T) {
 	dir := t.TempDir()
 	caCrt, caKey, err := devcert.EnsureDevCA(dir)
@@ -50,8 +52,9 @@ func TestVerifyInterconnectPeer_RejectsAgentIdentity(t *testing.T) {
 	assert.Contains(t, err.Error(), "not a server role")
 }
 
-// TestVerifyInterconnectPeer_AcceptsServerIdentity：双 EKU server 角色 + 非空
-// CommonName 被接受（互联对端身份）。
+// TestVerifyInterconnectPeer_AcceptsServerIdentity verifies that dual-EKU
+// server role plus a non-empty CommonName is accepted (the interconnect peer
+// identity).
 func TestVerifyInterconnectPeer_AcceptsServerIdentity(t *testing.T) {
 	dir := t.TempDir()
 	caCrt, caKey, err := devcert.EnsureDevCA(dir)
@@ -62,7 +65,8 @@ func TestVerifyInterconnectPeer_AcceptsServerIdentity(t *testing.T) {
 	require.NoError(t, VerifyInterconnectPeer(tls.ConnectionState{PeerCertificates: []*x509.Certificate{cert}}))
 }
 
-// TestServeForwardHandler_RejectsUnhandshaked：未完成 hello 的 forward 被拒。
+// TestServeForwardHandler_RejectsUnhandshaked verifies a forward without a
+// completed hello is rejected.
 func TestServeForwardHandler_RejectsUnhandshaked(t *testing.T) {
 	forward := ServeForwardHandler(7, func(context.Context, *ForwardedInvoke) (*ForwardedResult, error) {
 		return &ForwardedResult{OK: true}, nil
@@ -75,8 +79,9 @@ func TestServeForwardHandler_RejectsUnhandshaked(t *testing.T) {
 	assert.Contains(t, result.Error, "not handshaked")
 }
 
-// TestServeForwardHandler_AcceptsHandshaked：完成 hello 后合法 forward 执行，
-// 保留 epoch fencing（stale epoch 仍拒绝）。
+// TestServeForwardHandler_AcceptsHandshaked verifies that a legitimate forward
+// after hello completes is executed, with epoch fencing preserved (a stale
+// epoch is still rejected).
 func TestServeForwardHandler_AcceptsHandshaked(t *testing.T) {
 	forward := ServeForwardHandler(7, func(context.Context, *ForwardedInvoke) (*ForwardedResult, error) {
 		return &ForwardedResult{OK: true, Payload: []byte(`{"ok":true}`)}, nil
@@ -98,7 +103,8 @@ func TestServeForwardHandler_AcceptsHandshaked(t *testing.T) {
 	assert.Contains(t, result.Error, "stale epoch")
 }
 
-// TestServeHelloHandler_MarksHandshake：合法 hello（role=server）标记握手。
+// TestServeHelloHandler_MarksHandshake verifies a valid hello (role=server)
+// marks the handshake.
 func TestServeHelloHandler_MarksHandshake(t *testing.T) {
 	hello := ServeHelloHandler(PeerInfo{InstanceID: "owner"}, 7)
 	session := internaltcp.NewConnectionSession()
@@ -110,7 +116,8 @@ func TestServeHelloHandler_MarksHandshake(t *testing.T) {
 	assert.True(t, session.HandshakeDone())
 }
 
-// TestServeHelloHandler_RejectsBadRole：非 server 角色不标记握手。
+// TestServeHelloHandler_RejectsBadRole verifies a non-server role does not
+// mark the handshake.
 func TestServeHelloHandler_RejectsBadRole(t *testing.T) {
 	hello := ServeHelloHandler(PeerInfo{InstanceID: "owner"}, 7)
 	session := internaltcp.NewConnectionSession()
@@ -154,9 +161,10 @@ func dialConfig(certFile, keyFile, caFile string) *tcp.Config {
 	}
 }
 
-// TestInterconnect_MTLSFullChain 双实例 mTLS 端到端：合法 server 证书
-// 握手成功、forward 成功且保留 epoch fencing；无证书/Agent 证书/错 CA
-// 握手失败。
+// TestInterconnect_MTLSFullChain is a two-instance end-to-end mTLS test: a
+// valid server certificate handshakes and forwards successfully with epoch
+// fencing preserved; no certificate / Agent certificate / wrong CA all fail
+// the handshake.
 func TestInterconnect_MTLSFullChain(t *testing.T) {
 	dir := t.TempDir()
 	caCrt, caKey, err := devcert.EnsureDevCA(dir)
@@ -168,7 +176,8 @@ func TestInterconnect_MTLSFullChain(t *testing.T) {
 	srv := newMTLSServer(t, caCrt, serverCrt, serverKey)
 	owner.AdvertiseAddr = srv.Addr()
 
-	// 合法 server 证书拨号 → 握手成功 → forward OK。
+	// Dialing with a valid server certificate → handshake succeeds → forward
+	// OK.
 	caller := NewMeshInterconnect(PeerInfo{InstanceID: "caller-inst"}, &staticOwnerResolver{owner: &owner}, nil)
 	caller.dial = NewTCPDialer(dialConfig(serverCrt, serverKey, caCrt))
 	res, err := caller.Forward(context.Background(), "agent-on-owner", &ForwardedInvoke{FunctionID: "demo.fn"})
@@ -176,7 +185,8 @@ func TestInterconnect_MTLSFullChain(t *testing.T) {
 	assert.True(t, res.OK)
 	assert.Equal(t, `{"ok":true}`, string(res.Payload))
 
-	// start_task / cancel_task：mTLS 下仍保留 epoch fencing 与 kind 路由。
+	// start_task / cancel_task: epoch fencing and kind routing still hold under
+	// mTLS.
 	start, err := caller.Forward(context.Background(), "agent-on-owner", &ForwardedInvoke{
 		Kind: ForwardKindStartTask, FunctionID: "demo.fn", Metadata: map[string]string{"taskId": "t-1"},
 	})
@@ -188,14 +198,15 @@ func TestInterconnect_MTLSFullChain(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, cancel.OK)
 
-	// 无证书拨号：TLS 握手失败（no client cert）→ Forward 错误。
+	// Dialing without a certificate: the TLS handshake fails (no client cert) →
+	// Forward error.
 	noCert := NewMeshInterconnect(PeerInfo{InstanceID: "caller-inst"}, &staticOwnerResolver{owner: &owner}, nil)
 	noCert.dial = NewTCPDialer(dialConfig("", "", caCrt))
 	_, err = noCert.Forward(context.Background(), "agent-on-owner", &ForwardedInvoke{FunctionID: "demo.fn"})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "dial owner")
 
-	// Agent 证书（仅 ClientAuth）→ 被拒（not a server role）。
+	// Agent certificate (ClientAuth only) → rejected (not a server role).
 	agentDir := filepath.Join(dir, "agent")
 	agentCrt, agentKey, err := devcert.EnsureAgentCert(agentDir, caCrt, caKey, "agent-x")
 	require.NoError(t, err)
@@ -204,7 +215,8 @@ func TestInterconnect_MTLSFullChain(t *testing.T) {
 	_, err = agent.Forward(context.Background(), "agent-on-owner", &ForwardedInvoke{FunctionID: "demo.fn"})
 	require.Error(t, err)
 
-	// 错 CA 拨号：证书不被信任 → 握手失败。
+	// Dialing with the wrong CA: the certificate is not trusted → handshake
+	// fails.
 	wrongDir := t.TempDir()
 	wrongCA, wrongKey, err := devcert.EnsureDevCA(wrongDir)
 	require.NoError(t, err)

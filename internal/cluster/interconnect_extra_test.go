@@ -1,5 +1,5 @@
-// 覆盖目标：MeshInterconnect.dropConn（0%）与 defaultDialPeer（0%），
-// excel 编译的 validCellType/coerceCell 类型矩阵。
+// Coverage targets: MeshInterconnect.dropConn (0%) and defaultDialPeer (0%),
+// plus the excel-compiled validCellType/coerceCell type matrix.
 package cluster
 
 import (
@@ -13,11 +13,11 @@ import (
 func TestMeshInterconnect_DropConn_Idempotent(t *testing.T) {
 	m := NewMeshInterconnect(PeerInfo{InstanceID: "self", AdvertiseAddr: "127.0.0.1:0"}, nil, nil)
 
-	// 未存在的实例：幂等无操作
+	// Non-existent instance: idempotent no-op
 	m.dropConn("ghost")
 	assert.NotNil(t, m)
 
-	// Close 全部连接后再次 dropConn 仍安全
+	// After Close drops all connections, another dropConn is still safe
 	m.Close()
 	m.dropConn("any")
 }

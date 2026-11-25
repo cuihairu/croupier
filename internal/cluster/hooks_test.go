@@ -13,14 +13,15 @@ func TestOwnerHooks_ClaimTouchRelease(t *testing.T) {
 	db := newDB(t)
 	resolver := NewDBOwnerResolver(db, 3*time.Minute)
 	require.NoError(t, resolver.EnsureTable(context.Background()))
-	// selfInstanceID 依赖 mesh 注入（生产由 startCluster 完成）。
+	// selfInstanceID depends on the mesh being injected (startCluster does it
+	// in production).
 	resolver.SetMesh(NewMeshInterconnect(PeerInfo{InstanceID: "self"}, nil, nil))
 	hooks := NewOwnerHooks(resolver, "self", 3)
 	ctx := context.Background()
 
 	hooks.OnAgentRegistered(ctx, "agent-1", "demo", "prod", nil)
 
-	// Touch 需归属记录属于自己。
+	// Touch requires the ownership record to belong to this instance.
 	hooks.OnAgentHeartbeat(ctx, "agent-1")
 
 	hooks.OnAgentDisconnected(ctx, "agent-1")

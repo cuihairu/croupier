@@ -1,13 +1,16 @@
-// Package cluster 实现 Server 多实例高可用的实例互联
-// （docs/architecture/server-ha-multi-instance.md）。
+// Package cluster implements multi-instance HA interconnect for the Server
+// (docs/architecture/server-ha-multi-instance.md).
 //
-// 组件：
-//   - Membership：instances 成员表（自注册 + 租约 + 轮询发现），
-//     存储复用共享目录（RegistryStore 的 DB/Redis），无 seed、无静态 peers
-//   - Interconnect：转发接口 + 直连 mesh 实现（懒建连 + 一跳限制 + fencing）
+// Components:
+//   - Membership: the instances member table (self registration + lease +
+//     polling discovery); storage reuses the shared directory (RegistryStore's
+//     DB/Redis), with no seed nodes and no static peers
+//   - Interconnect: a forwarding interface plus a direct-connection mesh
+//     implementation (lazy connection setup + one-hop limit + fencing)
 //
-// 传输复用 internal/transport/tcp 基座（帧协议 + 消息 ID 路由），
-// 握手角色 server（MsgServerHelloRequest），转发消息 MsgForwardInvokeReq。
+// Transport reuses the internal/transport/tcp base (frame protocol + message
+// ID routing); the handshake role is server (MsgServerHelloRequest) and the
+// forward message is MsgForwardInvokeReq.
 package cluster
 
 import (
@@ -16,13 +19,15 @@ import (
 	"time"
 )
 
-// ErrNoRoute 表示目录中找不到持有该 Agent 的存活实例（如 Agent 已离线）。
+// ErrNoRoute means no live instance holding that Agent was found in the
+// directory (e.g. the Agent is offline).
 var ErrNoRoute = errors.New("cluster: no live owner for agent")
 
-// ErrHopLimit 表示请求已被转发过一次，拒绝二次转发（防环路）。
+// ErrHopLimit means the request has already been forwarded once; a second hop
+// is refused (loop prevention).
 var ErrHopLimit = errors.New("cluster: forward hop limit exceeded")
 
-// PeerInfo 是一个存活对端的描述。
+// PeerInfo describes one live peer.
 type PeerInfo struct {
 	InstanceID    string    `json:"instanceId"`
 	AdvertiseAddr string    `json:"advertiseAddr"`
@@ -30,7 +35,8 @@ type PeerInfo struct {
 	StartedAt     time.Time `json:"startedAt"`
 }
 
-// CallerContext 携带原始调用者身份，owner 侧必须据此重新鉴权。
+// CallerContext carries the original caller identity; the owner side must
+// re-authenticate based on it.
 type CallerContext struct {
 	AdminID  uint     `json:"adminId"`
 	Username string   `json:"username"`
@@ -40,74 +46,88 @@ type CallerContext struct {
 	TraceID  string   `json:"traceId"`
 }
 
-// 转发 kind：同一帧格式承载三类调用（防环/fencing/盖戳共用），Kind 为空
-// 视为 invoke（旧 caller 不填，owner 按 invoke 处理）。
+// Forward kinds: one frame format carries all three call kinds (loop
+// prevention/fencing/stamping share it); an empty Kind is treated as invoke
+// (older callers leave it unset and the owner treats it as invoke).
 const (
 	ForwardKindInvoke    = ""
 	ForwardKindStartTask = "start_task"
 	ForwardKindCancel    = "cancel_task"
 )
 
-// ForwardedInvoke 是转发到 owner 实例的调用请求。
+// ForwardedInvoke is a call request forwarded to the owner instance.
 type ForwardedInvoke struct {
 	AgentID    string `json:"agentId"`
 	FunctionID string `json:"functionId"`
 	Payload    []byte `json:"payload"`
-	// Metadata 与 InvokeRequest.Metadata 同构（route/service_id 等）。
+	// Metadata is shaped like InvokeRequest.Metadata (route/service_id etc.).
 	Metadata map[string]string `json:"metadata,omitempty"`
-	// IdempotencyKey 可选幂等键，透传执行路径。
+	// IdempotencyKey is an optional idempotency key, passed through to the
+	// execution path.
 	IdempotencyKey string `json:"idempotencyKey,omitempty"`
-	// Kind 区分转发调用类型（invoke/start_task/cancel_task）；
-	// 空值 = invoke（同步调用是转发链路的首个使用者，向后兼容）。
+	// Kind distinguishes forwarded call kinds (invoke/start_task/cancel_task);
+	// empty = invoke (synchronous invocation was the first consumer of the
+	// forward path, kept for backward compatibility).
 	Kind string `json:"kind,omitempty"`
-	// TaskID 是 cancel_task 的目标任务 ID。start_task 的任务 ID 在
-	// Metadata.taskId 里随 InvokeRequest 语义透传（agent 侧同解析路径）。
+	// TaskID is the target task ID for cancel_task. For start_task the task ID
+	// travels in Metadata.taskId, passed through with InvokeRequest semantics
+	// (the agent side parses it the same way).
 	TaskID string `json:"taskId,omitempty"`
-	// Forwarded 必须为 false；owner 收到 true 时拒绝（一跳限制）。
+	// Forwarded must be false; the owner rejects true (one-hop limit).
 	Forwarded bool `json:"forwarded"`
-	// CallerEpoch 发起转发方解析目录时看到的 owner epoch，
-	// owner 侧对比本地 epoch 实现 fencing（不一致 = 僵尸 owner）。
+	// CallerEpoch is the owner epoch the forwarding side saw when resolving
+	// the directory; the owner compares it with the local epoch for fencing
+	// (mismatch = zombie owner).
 	CallerEpoch uint64        `json:"callerEpoch"`
 	Caller      CallerContext `json:"caller"`
 	TimeoutMs   int64         `json:"timeoutMs,omitempty"`
 }
 
-// ForwardedResult 是转发调用的结果。
+// ForwardedResult is the result of a forwarded call.
 type ForwardedResult struct {
 	OK bool `json:"ok"`
-	// Payload 是 proto 编码的 InvokeResponse 字节。曾用 json.RawMessage
-	// 承载——proto 字节不是合法 JSON，owner 侧 json.Marshal 必失败并
-	// 返回无意义的 "marshal" 错误（线上跨实例调用全挂的根因）。
+	// Payload holds the proto-encoded InvokeResponse bytes. It used to be
+	// carried as json.RawMessage — proto bytes are not valid JSON, so the
+	// owner's json.Marshal always failed and returned a meaningless "marshal"
+	// error (the root cause of cross-instance calls failing wholesale in
+	// production).
 	Payload []byte `json:"payload,omitempty"`
 	Error   string `json:"error,omitempty"`
-	// NotOwner 为 true 时调用方应重解析目录重试。
+	// NotOwner, when true, tells the caller to re-resolve the directory and
+	// retry.
 	NotOwner bool `json:"notOwner,omitempty"`
 }
 
-// Interconnect 是实例间转发服务抽象（dispatch 层唯一依赖）。
+// Interconnect is the inter-instance forwarding service abstraction (the only
+// dependency the dispatch layer takes).
 type Interconnect interface {
-	// Forward 把调用请求转给持有目标 Agent 连接的实例。
-	// 实现内部：解析 owner → 懒建连/复用 → 发送 → 一跳/fencing 校验。
+	// Forward hands the call request to the instance that holds the target
+	// Agent's connection.
+	// Internally: resolve owner → lazy connect/reuse → send → one-hop/fencing
+	// checks.
 	Forward(ctx context.Context, agentID string, req *ForwardedInvoke) (*ForwardedResult, error)
-	// Peers 返回当前已知存活对端。
+	// Peers returns the currently known live peers.
 	Peers() []PeerInfo
 }
 
-// OwnerResolver 从共享目录解析 agent → owner 实例。
-// 由 RegistryStore 提供实现（memory 单实例直返自身，db/redis 走共享表）。
+// OwnerResolver resolves agent → owner instance from the shared directory.
+// RegistryStore provides implementations (memory returns self directly on a
+// single instance; db/redis go through the shared table).
 type OwnerResolver interface {
-	// ResolveOwner 返回持有该 Agent 连接的实例；无存活 owner 返回 (nil, nil)。
+	// ResolveOwner returns the instance holding that Agent's connection;
+	// with no live owner it returns (nil, nil).
 	ResolveOwner(ctx context.Context, agentID string) (*PeerInfo, error)
 }
 
-// Membership 是成员表操作（自注册/心跳/发现）。
+// Membership is the member-table API (self registration/heartbeat/discovery).
 type Membership interface {
-	// Register 自注册并返回分配的 epoch。
+	// Register self-registers and returns the assigned epoch.
 	Register(ctx context.Context, info PeerInfo) (uint64, error)
-	// Renew 续租。
+	// Renew renews the lease.
 	Renew(ctx context.Context, instanceID string) error
-	// ListAlive 返回租约未过期的全部成员（含自身）。
+	// ListAlive returns all members whose leases have not expired (self
+	// included).
 	ListAlive(ctx context.Context) ([]PeerInfo, error)
-	// Resign 优雅退出（清掉自己的记录）。
+	// Resign leaves gracefully (removing this instance's own record).
 	Resign(ctx context.Context, instanceID string) error
 }

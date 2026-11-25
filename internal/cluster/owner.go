@@ -10,8 +10,10 @@ import (
 	"gorm.io/gorm"
 )
 
-// AgentOwnerRecord 记录 agent 连接归属（谁持有该 Agent 的 TCP session）。
-// 多实例模式下由持有连接的实例在 Agent 注册/重连时写入，断连时清除。
+// AgentOwnerRecord records agent connection ownership (who holds that
+// Agent's TCP session). In multi-instance mode the instance holding the
+// connection writes it when the Agent registers/reconnects and clears it on
+// disconnect.
 type AgentOwnerRecord struct {
 	ID         uint              `gorm:"primaryKey"`
 	AgentID    string            `gorm:"size:128;uniqueIndex;not null"`
@@ -28,23 +30,25 @@ type AgentOwnerRecord struct {
 
 func (AgentOwnerRecord) TableName() string { return "cluster_agent_owners" }
 
-// DBOwnerResolver 基于共享表的 owner 解析。
+// DBOwnerResolver resolves owners from the shared table.
 type DBOwnerResolver struct {
 	db             *gorm.DB
 	self           *MeshInterconnect
 	selfIDOverride string
-	// ownerTTL：owner 记录的存活窗口（Agent 心跳续期；超时视为断连）。
+	// ownerTTL: the liveness window of the owner record (renewed by Agent
+	// heartbeats; expiry is treated as a disconnect).
 	ownerTTL time.Duration
 }
 
-// NewDBOwnerResolver 创建解析器。ownerTTL <= 0 用默认 3 分钟
-// （Agent 心跳 30s × 6 容忍）。
+// NewDBOwnerResolver creates the resolver. ownerTTL <= 0 falls back to the
+// default 3 minutes (tolerating 6 missed 30s Agent heartbeats).
 func NewDBOwnerResolver(db *gorm.DB, ownerTTL time.Duration) *DBOwnerResolver {
 	return newDBOwnerResolver(db, ownerTTL, "")
 }
 
-// NewDBOwnerResolverForSelf 显式指定本实例 ID（心跳自愈等需要
-// instance 身份、但无互联 mesh 的场景；生产主链路走 Start/SetMesh）。
+// NewDBOwnerResolverForSelf explicitly sets this instance's ID (for scenarios
+// like heartbeat self-healing that need an instance identity but have no
+// interconnect mesh; the production main path goes through Start/SetMesh).
 func NewDBOwnerResolverForSelf(db *gorm.DB, ownerTTL time.Duration, selfID string) *DBOwnerResolver {
 	return newDBOwnerResolver(db, ownerTTL, selfID)
 }
@@ -56,13 +60,14 @@ func newDBOwnerResolver(db *gorm.DB, ownerTTL time.Duration, selfID string) *DBO
 	return &DBOwnerResolver{db: db, ownerTTL: ownerTTL, selfIDOverride: selfID}
 }
 
-// EnsureTable 建表（幂等）。
+// EnsureTable creates the table (idempotent).
 func (r *DBOwnerResolver) EnsureTable(ctx context.Context) error {
 	return r.db.WithContext(ctx).AutoMigrate(&AgentOwnerRecord{})
 }
 
-// ClaimOwner 声明本实例持有该 Agent（注册/重连时调用）。
-// 幂等：覆盖写。epoch 取 owner 实例当前任期。
+// ClaimOwner claims that this instance holds the Agent (called on
+// register/reconnect).
+// Idempotent: overwrite. epoch takes the owner instance's current term.
 func (r *DBOwnerResolver) ClaimOwner(ctx context.Context, agentID, gameID, env, instanceID string, epoch uint64, labels map[string]string) error {
 	now := time.Now().UTC()
 	var existing AgentOwnerRecord
@@ -98,14 +103,14 @@ func (r *DBOwnerResolver) ClaimOwner(ctx context.Context, agentID, gameID, env, 
 	}
 }
 
-// Touch 续期（Agent 心跳路径调用）。
+// Touch renews the lease (called on the Agent heartbeat path).
 func (r *DBOwnerResolver) Touch(ctx context.Context, agentID string) error {
 	return r.db.WithContext(ctx).Model(&AgentOwnerRecord{}).
 		Where("agent_id = ? AND instance_id = ?", agentID, r.selfInstanceID()).
 		Update("last_seen_at", time.Now().UTC()).Error
 }
 
-// Release 释放归属（Agent 断连时调用）。
+// Release releases ownership (called when the Agent disconnects).
 func (r *DBOwnerResolver) Release(ctx context.Context, agentID string) error {
 	return r.db.WithContext(ctx).
 		Where("agent_id = ? AND instance_id = ?", agentID, r.selfInstanceID()).
@@ -122,12 +127,14 @@ func (r *DBOwnerResolver) selfInstanceID() string {
 	return ""
 }
 
-// SetMesh 注入 mesh（解析 owner 时校验实例租约仍存活）。
+// SetMesh injects the mesh (used to validate the instance lease is still
+// alive when resolving owners).
 func (r *DBOwnerResolver) SetMesh(m *MeshInterconnect) { r.self = m }
 
-// ResolveOwner 返回持有该 Agent 的存活实例；无则 nil。
-// 存活判定 = owner 记录未过期 AND 实例成员租约未过期（经 last-known peers
-// 缓存交叉验证，避免转发到死实例）。
+// ResolveOwner returns the live instance holding that Agent; nil if none.
+// Liveness = the owner record has not expired AND the instance's member
+// lease has not expired (cross-checked via the last-known peers cache, to
+// avoid forwarding to a dead instance).
 func (r *DBOwnerResolver) ResolveOwner(ctx context.Context, agentID string) (*PeerInfo, error) {
 	var rec AgentOwnerRecord
 	err := r.db.WithContext(ctx).
@@ -140,7 +147,7 @@ func (r *DBOwnerResolver) ResolveOwner(ctx context.Context, agentID string) (*Pe
 		return nil, err
 	}
 
-	// 交叉验证实例租约（last-known peers；自身直接返回）。
+	// Cross-check the instance lease (last-known peers; return self directly).
 	selfID := r.selfInstanceID()
 	if rec.InstanceID == selfID {
 		return &PeerInfo{InstanceID: rec.InstanceID, Epoch: rec.OwnerEpoch}, nil

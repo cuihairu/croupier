@@ -8,7 +8,8 @@ import (
 	"github.com/google/uuid"
 )
 
-// Lifecycle 管理本实例的集群生命周期：注册、续租、发现、退出。
+// Lifecycle manages this instance's cluster lifecycle: registration, lease
+// renewal, discovery, and exit.
 type Lifecycle struct {
 	cfg    Config
 	member Membership
@@ -18,19 +19,22 @@ type Lifecycle struct {
 	epoch  uint64
 }
 
-// Config 是 Lifecycle 的运行参数（由 config.ClusterConfig 归一化）。
+// Config is Lifecycle's runtime parameters (normalized from
+// config.ClusterConfig).
 type Config struct {
 	InstanceID        string
 	AdvertiseAddr     string
 	HeartbeatInterval time.Duration
 	LeaseTTL          time.Duration
 	PeerPollInterval  time.Duration
-	// Readiness 就绪面（ARCH-004）：注册/续租状态写入；nil = 不追踪
-	//（单实例或不接就绪探针的调用方）。
+	// Readiness is the readiness surface (ARCH-004): registration/renewal
+	// status is written to it; nil = not tracked (single instance, or callers
+	// without a readiness probe).
 	Readiness *Readiness
 }
 
-// NormalizeConfig 把 config.ClusterConfig 归一为 Lifecycle 参数并补默认值。
+// NormalizeConfig normalizes config.ClusterConfig into Lifecycle parameters,
+// filling in defaults.
 func NormalizeConfig(in struct {
 	Enabled           bool
 	InstanceID        string
@@ -63,8 +67,10 @@ func parseDurationDefault(v string, def time.Duration) time.Duration {
 	return d
 }
 
-// Start 注册成员、启动心跳/发现循环并返回互联句柄。
-// 未启用/缺 advertiseAddr 时返回 nil（单实例行为）。
+// Start registers the member, starts the heartbeat/discovery loops, and
+// returns the interconnect handle.
+// It returns nil when disabled or advertiseAddr is missing (single-instance
+// behavior).
 func Start(ctx context.Context, cfg Config, member Membership, resolver OwnerStore, dial dialFunc) *Lifecycle {
 	if member == nil || cfg.AdvertiseAddr == "" {
 		return nil
@@ -107,10 +113,10 @@ func Start(ctx context.Context, cfg Config, member Membership, resolver OwnerSto
 	return lc
 }
 
-// Mesh 返回互联句柄（nil = 单实例）。
+// Mesh returns the interconnect handle (nil = single instance).
 func (lc *Lifecycle) Mesh() *MeshInterconnect { return lc.mesh }
 
-// Epoch 返回本实例任期号。
+// Epoch returns this instance's term number.
 func (lc *Lifecycle) Epoch() uint64 { return lc.epoch }
 
 func (lc *Lifecycle) loop() {
@@ -136,7 +142,8 @@ func (lc *Lifecycle) loop() {
 	}
 }
 
-// Stop 优雅退出：停循环、关连接、清成员记录。
+// Stop exits gracefully: stops the loops, closes connections, and removes the
+// member record.
 func (lc *Lifecycle) Stop(ctx context.Context) {
 	if lc == nil {
 		return

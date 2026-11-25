@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// 覆盖 lifecycle.go 全 0% 的 NormalizeConfig/Start/Stop/Mesh/Epoch。
+// Covers lifecycle.go's all-0% NormalizeConfig/Start/Stop/Mesh/Epoch.
 
 func TestNormalizeConfig_Defaults(t *testing.T) {
 	cfg, err := NormalizeConfig(struct {
@@ -22,9 +22,9 @@ func TestNormalizeConfig_Defaults(t *testing.T) {
 	}{InstanceID: "inst-1", AdvertiseAddr: "localhost:19099"})
 	require.NoError(t, err)
 	assert.Equal(t, "inst-1", cfg.InstanceID)
-	assert.Equal(t, 5*time.Second, cfg.HeartbeatInterval) // 默认
-	assert.Equal(t, 15*time.Second, cfg.LeaseTTL)         // 默认
-	assert.Equal(t, 10*time.Second, cfg.PeerPollInterval) // 默认
+	assert.Equal(t, 5*time.Second, cfg.HeartbeatInterval) // default
+	assert.Equal(t, 15*time.Second, cfg.LeaseTTL)         // default
+	assert.Equal(t, 10*time.Second, cfg.PeerPollInterval) // default
 }
 
 func TestNormalizeConfig_Custom(t *testing.T) {
@@ -49,7 +49,7 @@ func TestNormalizeConfig_Custom(t *testing.T) {
 }
 
 func TestNormalizeConfig_Errors(t *testing.T) {
-	// 空 InstanceID → 自动生成（不报错）
+	// Empty InstanceID → auto-generated (no error)
 	cfg, err := NormalizeConfig(struct {
 		Enabled           bool
 		InstanceID        string
@@ -61,7 +61,7 @@ func TestNormalizeConfig_Errors(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, cfg.InstanceID, "server-", "空 InstanceID 自动生成")
 
-	// 非法 duration → 回退默认值（不报错）
+	// Invalid duration → falls back to the default (no error)
 	cfg2, err := NormalizeConfig(struct {
 		Enabled           bool
 		InstanceID        string
@@ -75,11 +75,11 @@ func TestNormalizeConfig_Errors(t *testing.T) {
 }
 
 func TestLifecycleStartStop(t *testing.T) {
-	// nil membership → Start 返回 nil（防御分支）
-	lc := Start(nil, Config{}, nil, nil, nil) //nolint:staticcheck // 刻意 nil membership：验证防御分支
+	// nil membership → Start returns nil (defensive branch)
+	lc := Start(nil, Config{}, nil, nil, nil) //nolint:staticcheck // deliberately nil membership: exercising the defensive branch
 	assert.Nil(t, lc)
 
-	// 最小可测生命周期：内存 Membership（不需要 Redis/网络）
+	// Minimal testable lifecycle: in-memory Membership (no Redis/network)
 	cfg := Config{
 		InstanceID:        "test-lifecycle",
 		AdvertiseAddr:     "127.0.0.1:19099",
@@ -93,17 +93,18 @@ func TestLifecycleStartStop(t *testing.T) {
 		t.Skip("Start returned nil (unexpected)")
 		return
 	}
-	// Mesh/Epoch 可读
+	// Mesh/Epoch are readable
 	if lc2.Mesh() != nil {
 		t.Log("mesh started")
 	}
 	_ = lc2.Epoch()
 	lc2.Stop(ctx)
-	// 注：Stop 不幂等（close of closed channel panic）——产品代码 bug，
-	// 生产路径仅调用一次。二次 Stop 待修复后启用。
+	// Note: Stop is not idempotent (close of closed channel panics) — a
+	// production-code bug; the production path only calls it once. The second
+	// Stop stays disabled until that is fixed.
 }
 
-// newLifecycleMemMembership 最小内存 Membership（测试专用）。
+// newLifecycleMemMembership is a minimal in-memory Membership (test-only).
 type lifecycleMemMembership struct{}
 
 func newLifecycleMemMembership() *lifecycleMemMembership { return &lifecycleMemMembership{} }

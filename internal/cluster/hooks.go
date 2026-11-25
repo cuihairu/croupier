@@ -5,26 +5,30 @@ import (
 	"log/slog"
 )
 
-// SessionHooks 是 Agent 会话生命周期钩子（由 ControlService/TCPListener 调用，
-// 实现负责写共享归属表）。nil 实现表示未启用集群，全部 no-op。
+// SessionHooks is the Agent session lifecycle hook set (called by
+// ControlService/TCPListener; implementations write the shared ownership
+// table). A nil implementation means clustering is disabled and everything is
+// a no-op.
 type SessionHooks interface {
-	// OnAgentRegistered：Agent 注册/重连成功（本实例持有连接）。
+	// OnAgentRegistered: the Agent registered/reconnected successfully and this
+	// instance holds the connection.
 	OnAgentRegistered(ctx context.Context, agentID, gameID, env string, labels map[string]string)
-	// OnAgentHeartbeat：心跳续期归属。
+	// OnAgentHeartbeat: a heartbeat renews ownership.
 	OnAgentHeartbeat(ctx context.Context, agentID string)
-	// OnAgentDisconnected：连接断开（仅当会话真正被移除时调用）。
+	// OnAgentDisconnected: the connection dropped (only called when the session
+	// is actually removed).
 	OnAgentDisconnected(ctx context.Context, agentID string)
 }
 
-// OwnerHooks 基于 OwnerStore（DB 或 Redis 实现）+ 本实例身份实现
-// SessionHooks。
+// OwnerHooks implements SessionHooks on top of OwnerStore (DB or Redis
+// implementation) plus this instance's identity.
 type OwnerHooks struct {
 	resolver   OwnerStore
 	instanceID string
 	epoch      uint64
 }
 
-// NewOwnerHooks 创建归属钩子。
+// NewOwnerHooks creates the ownership hooks.
 func NewOwnerHooks(resolver OwnerStore, instanceID string, epoch uint64) *OwnerHooks {
 	return &OwnerHooks{resolver: resolver, instanceID: instanceID, epoch: epoch}
 }
@@ -35,7 +39,8 @@ func (h *OwnerHooks) OnAgentRegistered(ctx context.Context, agentID, gameID, env
 		return
 	}
 	if err := h.resolver.ClaimOwner(ctx, agentID, gameID, env, h.instanceID, h.epoch, labels); err != nil {
-		// 归属写失败只降级（转发找不到该 agent），不影响注册主流程。
+		// A failed ownership write is a degraded path only (forwarding cannot
+		// find the agent); the main registration flow is unaffected.
 		slog.Default().Warn("cluster: claim owner failed", "agent", agentID, "error", err)
 	}
 }
@@ -46,10 +51,12 @@ func (h *OwnerHooks) OnAgentHeartbeat(ctx context.Context, agentID string) {
 		return
 	}
 	if err := h.resolver.Touch(ctx, agentID); err != nil {
-		// Touch 失败可能是记录被接管（分区恢复后 agent 重连到别处）——
-		// 归属表以最后 Claim 为准。但必须留观测点：TCP 活着而归属行冻结
-		// 的僵尸连接排查全靠这条日志（曾在线上出现 owner 停续 343s 无任何
-		// 日志可查）。
+		// A failed Touch may mean the record was taken over (after partition
+		// recovery the agent reconnected elsewhere) — the ownership table
+		// defers to the latest Claim. But an observation point must remain:
+		// this log line is the only way to diagnose zombie connections where
+		// TCP is alive but the ownership row is frozen (production once saw an
+		// owner stop renewing for 343s with nothing in the logs).
 		slog.Default().Warn("cluster: touch owner failed", "agent", agentID, "error", err)
 	}
 }
@@ -64,8 +71,9 @@ func (h *OwnerHooks) OnAgentDisconnected(ctx context.Context, agentID string) {
 	}
 }
 
-// LocalInvoker 是 owner 侧本地执行接口（dispatch 层注入）。
-// req.Caller 携带原始调用者身份，实现必须据此重新鉴权（不得默认信任）。
+// LocalInvoker is the owner-side local execution interface (injected by the
+// dispatch layer). req.Caller carries the original caller identity and
+// implementations must re-authenticate based on it (never trust by default).
 type LocalInvoker interface {
 	InvokeLocal(ctx context.Context, req *ForwardedInvoke) (*ForwardedResult, error)
 }

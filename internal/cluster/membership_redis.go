@@ -9,22 +9,25 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-// RedisMembership 是 Membership 的 Redis 实现：成员租约靠 key TTL，
-// 目录集合（SET）只做发现索引——过期成员的 ID 会残留在目录里，
-// ListAlive 逐个探测时过滤（顺带惰性清理）。
+// RedisMembership is the Redis implementation of Membership: member leases
+// rely on key TTL, and the directory set (SET) is only a discovery index —
+// expired members' IDs linger in the directory and ListAlive filters them out
+// while probing one by one (with lazy cleanup along the way).
 //
-// 键布局（m: = membership）：
+// Key layout (m: = membership):
 //
 //	croupier:cluster:m:member:{instanceID}  HASH{advertiseAddr, startedAt, epoch}  TTL=leaseTTL
-//	croupier:cluster:m:members              SET 目录（SADD/SREM）
-//	croupier:cluster:m:epoch:{instanceID}   INCR 计数器（无 TTL——fencing
-//	                                       epoch 必须跨重启单调递增）
+//	croupier:cluster:m:members              SET directory (SADD/SREM)
+//	croupier:cluster:m:epoch:{instanceID}   INCR counter (no TTL — the fencing
+//	                                       epoch must increase monotonically
+//	                                       across restarts)
 type RedisMembership struct {
 	rdb      redis.UniversalClient
 	leaseTTL time.Duration
 }
 
-// NewRedisMembership 创建 Redis 成员表。leaseTTL <= 0 用默认 15s。
+// NewRedisMembership creates the Redis member table. leaseTTL <= 0 falls back
+// to the default 15s.
 func NewRedisMembership(rdb redis.UniversalClient, leaseTTL time.Duration) *RedisMembership {
 	if leaseTTL <= 0 {
 		leaseTTL = 15 * time.Second
@@ -41,7 +44,7 @@ const (
 func memberKey(instanceID string) string { return memberKeyPrefix + instanceID }
 func epochKey(instanceID string) string  { return epochKeyPrefix + instanceID }
 
-// Register 自注册并返回分配的 epoch。
+// Register self-registers and returns the assigned epoch.
 func (m *RedisMembership) Register(ctx context.Context, info PeerInfo) (uint64, error) {
 	if m == nil || m.rdb == nil {
 		return 0, fmt.Errorf("redis membership not configured")
@@ -65,8 +68,9 @@ func (m *RedisMembership) Register(ctx context.Context, info PeerInfo) (uint64, 
 	return uint64(epoch), nil
 }
 
-// Renew 续租：成员 key 存在则续 TTL（key 已过期 = 租约丢失，报错让
-// 调用方感知并触发重新注册拿新 epoch）。
+// Renew renews the lease: the TTL is extended only if the member key still
+// exists (an expired key = lost lease; returning an error lets the caller
+// notice and re-register to get a new epoch).
 func (m *RedisMembership) Renew(ctx context.Context, instanceID string) error {
 	ok, err := m.rdb.Expire(ctx, memberKey(instanceID), m.leaseTTL).Result()
 	if err != nil {
@@ -78,7 +82,7 @@ func (m *RedisMembership) Renew(ctx context.Context, instanceID string) error {
 	return nil
 }
 
-// ListAlive 返回租约未过期的全部成员。
+// ListAlive returns all members whose leases have not expired.
 func (m *RedisMembership) ListAlive(ctx context.Context) ([]PeerInfo, error) {
 	ids, err := m.rdb.SMembers(ctx, membersDirKey).Result()
 	if err != nil {
@@ -104,14 +108,15 @@ func (m *RedisMembership) ListAlive(ctx context.Context) ([]PeerInfo, error) {
 			Epoch:         epoch,
 		})
 	}
-	// 惰性清理目录残 ID（best-effort）。
+	// Lazily clean up stale directory IDs (best-effort).
 	if len(stale) > 0 {
 		_ = m.rdb.SRem(ctx, membersDirKey, stale).Err()
 	}
 	return alive, nil
 }
 
-// Resign 优雅退出：删成员 key 并从目录移除。
+// Resign exits gracefully: deletes the member key and removes it from the
+// directory.
 func (m *RedisMembership) Resign(ctx context.Context, instanceID string) error {
 	pipe := m.rdb.Pipeline()
 	pipe.Del(ctx, memberKey(instanceID))

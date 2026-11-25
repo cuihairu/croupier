@@ -13,8 +13,9 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// interconnectServeHandler 模拟 owner 实例的互联入站处理（对齐
-// cmd/server.interconnectHandler 的两类消息：hello + forward）。
+// interconnectServeHandler simulates the owner instance's interconnect inbound
+// handling (mirroring cmd/server.interconnectHandler's two message kinds:
+// hello + forward).
 type interconnectServeHandler struct {
 	epoch     uint64
 	rawResult []byte
@@ -40,19 +41,22 @@ type testError struct{ msg string }
 
 func (e *testError) Error() string { return e.msg }
 
-// TestInterconnect_E2EForwardDialAndServe 回归：互联链路端到端——owner 起
-// tcp.Server(ServeForwardHandler)，调用方 mesh 经真实 NewTCPDialer 拨号
-// Forward 并拿回结果。历史缺陷：server 漏设 Insecure 走空 TLS 监听必败、
-// dialer 从未注入（defaultDialPeer 桩恒错）——任一回归本测试都会红。
+// TestInterconnect_E2EForwardDialAndServe is a regression test for the
+// interconnect path end to end — the owner runs tcp.Server(ServeForwardHandler)
+// and the caller mesh dials with a real NewTCPDialer via Forward and gets the
+// result back. Past defects: the server omitted Insecure and listened with a
+// nil TLS config which always fails, and the dialer was never injected (the
+// defaultDialPeer stub always errors) — any regression turns this test red.
 func TestInterconnect_E2EForwardDialAndServe(t *testing.T) {
 	srvCfg := &tcp.Config{
 		Address:     "127.0.0.1:0",
 		RecvTimeout: 5 * time.Second,
 		SendTimeout: 5 * time.Second,
-		Insecure:    true, // 与生产接线同语义：内网明文
+		Insecure:    true,
 	}
-	// owner 侧返回 proto 编码的 InvokeResponse（ForwardedResult.Payload
-	// 的真实契约；真实场景由 localInvoker 填充 dispatcher 输出）。
+	// The owner side returns the proto-encoded InvokeResponse (the real
+	// contract of ForwardedResult.Payload; in real scenarios localInvoker fills
+	// in the dispatcher output).
 	protoResp, err := proto.Marshal(&sdkv1.InvokeResponse{Payload: []byte(`{"ok":true}`)})
 	if err != nil {
 		t.Fatalf("marshal fixture response: %v", err)
@@ -70,7 +74,7 @@ func TestInterconnect_E2EForwardDialAndServe(t *testing.T) {
 		RecvTimeout:    5 * time.Second,
 		SendTimeout:    5 * time.Second,
 		ConnectTimeout: 3 * time.Second,
-		Insecure:       true,
+		Insecure:       true, // same semantics as the production wiring: plaintext on the intranet
 	})
 
 	res, err := caller.Forward(context.Background(), "agent-on-owner", &ForwardedInvoke{
@@ -102,8 +106,9 @@ func (s *staticOwnerResolver) ResolveOwner(context.Context, string) (*PeerInfo, 
 	return s.owner, nil
 }
 
-// startTaskServeHandler 模拟 owner：捕获解码后的转发帧（验证 kind/taskId
-// 经 JSON 帧往返不丢），返回固定的 proto 编码响应。
+// startTaskServeHandler simulates the owner: it captures the decoded forward
+// frame (verifying kind/taskId survive the JSON frame round trip) and returns
+// a fixed proto-encoded response.
 type startTaskServeHandler struct {
 	epoch   uint64
 	capture func(*ForwardedInvoke)
@@ -125,10 +130,12 @@ func (h *startTaskServeHandler) Handle(ctx context.Context, msgID uint32, _ uint
 	}
 }
 
-// TestInterconnect_E2EForwardKindRoundTrip 回归：三类 kind 共用同一帧
-// 格式（防环/fencing/盖戳共用）。kind=start_task 的帧经真实 TCP mesh 往返
-// 后 owner 侧 Kind/Metadata.taskId/Caller 不丢；旧 caller 不填 Kind 时
-// owner 解码为零值 ""（invoke 兼容）。
+// TestInterconnect_E2EForwardKindRoundTrip is a regression test: all three
+// kinds share the same frame format (loop prevention/fencing/stamping use it
+// alike). A kind=start_task frame round-trips over a real TCP mesh without
+// losing Kind/Metadata.taskId/Caller on the owner side; when an older caller
+// leaves Kind unset the owner decodes it as the zero value "" (invoke
+// compatibility).
 func TestInterconnect_E2EForwardKindRoundTrip(t *testing.T) {
 	srvCfg := &tcp.Config{
 		Address:     "127.0.0.1:0",
@@ -189,7 +196,8 @@ func TestInterconnect_E2EForwardKindRoundTrip(t *testing.T) {
 		t.Fatalf("caller context lost in transit: %+v", got.Caller)
 	}
 
-	// 旧 caller（不填 Kind）→ owner 解码为 ""，按 invoke 分发。
+	// Older caller (no Kind set) → the owner decodes "" and dispatches as
+	// invoke.
 	if _, err := caller.Forward(context.Background(), "agent-on-owner", &ForwardedInvoke{
 		FunctionID: "demo.fn",
 	}); err != nil {

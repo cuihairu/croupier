@@ -26,14 +26,14 @@ func newDB(t *testing.T) *gorm.DB {
 	return db
 }
 
-// ---------- 成员表 ----------
+// ---------- membership ----------
 
 func TestMembership_RegisterRenewListResign(t *testing.T) {
 	db := newDB(t)
 	m := NewDBMembership(db, 2*time.Second)
 	require.NoError(t, m.EnsureTable(context.Background()))
 
-	// 新实例：epoch=1。
+	// New instance: epoch=1.
 	epoch, err := m.Register(context.Background(), PeerInfo{
 		InstanceID: "a", AdvertiseAddr: "10.0.0.1:8444",
 	})
@@ -49,7 +49,7 @@ func TestMembership_RegisterRenewListResign(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, alive, 2)
 
-	// 重启复用 ID：epoch 递增 + 地址更新。
+	// Restart reusing the same ID: epoch increments and the address updates.
 	epoch2, err := m.Register(context.Background(), PeerInfo{
 		InstanceID: "a", AdvertiseAddr: "10.0.0.1:9444",
 	})
@@ -63,21 +63,22 @@ func TestMembership_RegisterRenewListResign(t *testing.T) {
 		}
 	}
 
-	// 续租。
+	// Renew lease.
 	require.NoError(t, m.Renew(context.Background(), "a"))
 
-	// 租约过期后不再存活。
+	// After lease expiry the instance is no longer alive.
 	time.Sleep(2100 * time.Millisecond)
 	alive, err = m.ListAlive(context.Background())
 	require.NoError(t, err)
 	assert.Empty(t, alive)
 
-	// 过期后续租 = 分区恢复（记录仍在，可复活）。
+	// Renewing after expiry = partition recovery (the record survives and can
+	// come back).
 	require.NoError(t, m.Renew(context.Background(), "a"))
 	alive, _ = m.ListAlive(context.Background())
 	assert.Len(t, alive, 1)
 
-	// 优雅退出。
+	// Graceful exit.
 	require.NoError(t, m.Resign(context.Background(), "a"))
 	alive, _ = m.ListAlive(context.Background())
 	assert.Empty(t, alive)
@@ -90,7 +91,7 @@ func TestMembership_RenewUnknownInstance(t *testing.T) {
 	require.Error(t, m.Renew(context.Background(), "ghost"))
 }
 
-// ---------- Owner 解析 ----------
+// ---------- owner resolution ----------
 
 type memMembership struct {
 	peers []PeerInfo
@@ -117,30 +118,31 @@ func TestOwnerResolver_ClaimResolveRelease(t *testing.T) {
 	resolver, mesh := setupOwner(t)
 	ctx := context.Background()
 
-	// 自己持有。
+	// Held by self.
 	require.NoError(t, resolver.ClaimOwner(ctx, "agent-1", "demo", "prod", "self", 1, nil))
 	owner, err := resolver.ResolveOwner(ctx, "agent-1")
 	require.NoError(t, err)
 	require.NotNil(t, owner)
 	assert.Equal(t, "self", owner.InstanceID)
 
-	// 对端持有（在 peers 里）。
+	// Held by a peer (present in peers).
 	require.NoError(t, resolver.ClaimOwner(ctx, "agent-2", "demo", "prod", "peer-a", 1, nil))
 	owner, _ = resolver.ResolveOwner(ctx, "agent-2")
 	require.NotNil(t, owner)
 	assert.Equal(t, "peer-a", owner.InstanceID)
 
-	// 对端持有但不在 last-known peers（实例死亡）→ 无 owner。
+	// Held by a peer that is not in last-known peers (instance dead) → no
+	// owner.
 	require.NoError(t, resolver.ClaimOwner(ctx, "agent-3", "demo", "prod", "peer-z", 1, nil))
 	owner, _ = resolver.ResolveOwner(ctx, "agent-3")
 	assert.Nil(t, owner)
 
-	// 释放。
+	// Release.
 	require.NoError(t, resolver.Release(ctx, "agent-1"))
 	owner, _ = resolver.ResolveOwner(ctx, "agent-1")
 	assert.Nil(t, owner)
 
-	// 未知 agent。
+	// Unknown agent.
 	owner, _ = resolver.ResolveOwner(ctx, "ghost")
 	assert.Nil(t, owner)
 	_ = mesh
@@ -148,8 +150,10 @@ func TestOwnerResolver_ClaimResolveRelease(t *testing.T) {
 
 func TestOwnerResolver_TTLExpiry(t *testing.T) {
 	db := newDB(t)
-	// 宽 TTL + 显式回拨 last_seen_at：避免「先 Resolve 后 Sleep」在慢盘/高负载
-	// 下因 Claim→Resolve 间隔 > 短 TTL 而 flaky（首断言即失败）。
+	// Generous TTL + explicitly back-dating last_seen_at: avoids the "Resolve
+	// first, then Sleep" pattern turning flaky on slow disks / under load when
+	// the Claim→Resolve gap exceeds a short TTL (the first assertion would
+	// fail).
 	resolver := NewDBOwnerResolver(db, 2*time.Second)
 	require.NoError(t, resolver.EnsureTable(context.Background()))
 	ctx := context.Background()
@@ -165,7 +169,7 @@ func TestOwnerResolver_TTLExpiry(t *testing.T) {
 	assert.Nil(t, owner, "owner 记录过期后应视为无 owner")
 }
 
-// ---------- 转发：一跳限制 + fencing ----------
+// ---------- forwarding: one-hop limit + fencing ----------
 
 func TestForward_HopLimit(t *testing.T) {
 	mesh := NewMeshInterconnect(PeerInfo{InstanceID: "b"}, nil, nil)
@@ -202,9 +206,9 @@ func TestForward_ToOwnerAndResultDecode(t *testing.T) {
 			close: func() {},
 		}, nil
 	}
-	// 注入 owner 记录。
+	// Seed the owner record.
 	require.NoError(t, resolver.ClaimOwner(context.Background(), "agent-9", "demo", "prod", owner.InstanceID, owner.Epoch, nil))
-	// peers 缓存注入 owner（交叉验证需要）。
+	// Seed the owner into the peers cache (needed for cross-validation).
 	mesh.peersMu.Lock()
 	mesh.peersCache = []PeerInfo{owner, {InstanceID: "self"}}
 	mesh.peersMu.Unlock()
@@ -216,7 +220,7 @@ func TestForward_ToOwnerAndResultDecode(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, result.OK)
 
-	// 请求侧：一跳标记 + epoch 透传。
+	// Request side: one-hop flag set + epoch passed through.
 	require.NotNil(t, gotReq)
 	assert.True(t, gotReq.Forwarded)
 	assert.EqualValues(t, 7, gotReq.CallerEpoch)
@@ -224,7 +228,7 @@ func TestForward_ToOwnerAndResultDecode(t *testing.T) {
 	assert.Equal(t, "alice", gotReq.Caller.Username)
 }
 
-// ---------- Owner 侧 handler：fencing 与本跳校验 ----------
+// ---------- owner-side handler: fencing and hop checks ----------
 
 func TestServeForwardHandler_FencingAndFlags(t *testing.T) {
 	localCalled := false
@@ -233,19 +237,19 @@ func TestServeForwardHandler_FencingAndFlags(t *testing.T) {
 		return &ForwardedResult{OK: true}, nil
 	})
 
-	// epoch 不匹配（僵尸 owner）→ NotOwner，不执行本地。
+	// Epoch mismatch (zombie owner) → NotOwner, no local execution.
 	var result ForwardedResult
 	require.NoError(t, json.Unmarshal(handler(handshakedCtx(), mustJSON(t, &ForwardedInvoke{Forwarded: true, CallerEpoch: 41})), &result))
 	assert.False(t, result.OK)
 	assert.True(t, result.NotOwner)
 	assert.False(t, localCalled)
 
-	// 未标记 forwarded（异常调用）→ 拒绝。
+	// Not marked forwarded (unexpected call) → refused.
 	require.NoError(t, json.Unmarshal(handler(handshakedCtx(), mustJSON(t, &ForwardedInvoke{Forwarded: false, CallerEpoch: 42})), &result))
 	assert.False(t, result.OK)
 	assert.False(t, localCalled)
 
-	// 正常路径 → 本地执行。
+	// Normal path → executed locally.
 	require.NoError(t, json.Unmarshal(handler(handshakedCtx(), mustJSON(t, &ForwardedInvoke{Forwarded: true, CallerEpoch: 42})), &result))
 	assert.True(t, result.OK)
 	assert.True(t, localCalled)
@@ -254,13 +258,13 @@ func TestServeForwardHandler_FencingAndFlags(t *testing.T) {
 func TestServeHelloHandler(t *testing.T) {
 	handler := ServeHelloHandler(PeerInfo{InstanceID: "me"}, 9)
 
-	// 正确角色。
+	// Correct role.
 	var resp helloResponse
 	require.NoError(t, json.Unmarshal(handler(context.Background(), mustJSON(t, &helloRequest{Role: "server", InstanceID: "peer"})), &resp))
 	assert.Equal(t, "me", resp.InstanceID)
 	assert.EqualValues(t, 9, resp.Epoch)
 
-	// 非 server 角色 → 空回应（拒绝）。
+	// Non-server role → empty response (refused).
 	require.NoError(t, json.Unmarshal(handler(context.Background(), mustJSON(t, &helloRequest{Role: "agent"})), &resp))
 	assert.Empty(t, resp.InstanceID)
 }

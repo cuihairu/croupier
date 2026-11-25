@@ -8,7 +8,8 @@ import (
 	"gorm.io/gorm"
 )
 
-// InstanceRecord 是共享目录里的成员表（croupier_meta.instances）。
+// InstanceRecord is the member table in the shared directory
+// (croupier_meta.instances).
 type InstanceRecord struct {
 	ID            uint      `gorm:"primaryKey"`
 	InstanceID    string    `gorm:"size:64;uniqueIndex"`
@@ -22,13 +23,14 @@ type InstanceRecord struct {
 
 func (InstanceRecord) TableName() string { return "cluster_instances" }
 
-// DBMembership 基于 gorm（共享 meta 库）的成员表实现。
+// DBMembership implements the member table on gorm (shared meta database).
 type DBMembership struct {
 	db       *gorm.DB
 	leaseTTL time.Duration
 }
 
-// NewDBMembership 创建成员表操作。leaseTTL <= 0 时用默认 15s。
+// NewDBMembership creates the member-table operations. leaseTTL <= 0 falls
+// back to the default 15s.
 func NewDBMembership(db *gorm.DB, leaseTTL time.Duration) *DBMembership {
 	if leaseTTL <= 0 {
 		leaseTTL = 15 * time.Second
@@ -36,12 +38,14 @@ func NewDBMembership(db *gorm.DB, leaseTTL time.Duration) *DBMembership {
 	return &DBMembership{db: db, leaseTTL: leaseTTL}
 }
 
-// EnsureTable 建表（幂等；由迁移基线或此处兜底）。
+// EnsureTable creates the table (idempotent; the migration baseline or this
+// fallback covers it).
 func (m *DBMembership) EnsureTable(ctx context.Context) error {
 	return m.db.WithContext(ctx).AutoMigrate(&InstanceRecord{})
 }
 
-// Register 自注册：新实例 epoch=1；同 instanceId 重启则 epoch+1。
+// Register self-registers: a new instance gets epoch=1; a restart reusing the
+// same instanceId gets epoch+1.
 func (m *DBMembership) Register(ctx context.Context, info PeerInfo) (uint64, error) {
 	now := time.Now().UTC()
 	expire := now.Add(m.leaseTTL)
@@ -52,7 +56,8 @@ func (m *DBMembership) Register(ctx context.Context, info PeerInfo) (uint64, err
 		First(&existing).Error
 	switch {
 	case err == nil:
-		// 重启复用 ID：epoch 递增（fencing token），重置地址与租约。
+		// Restart reusing the ID: epoch increments (fencing token), address and
+		// lease are reset.
 		epoch := existing.Epoch + 1
 		updates := map[string]interface{}{
 			"advertise_addr":  info.AdvertiseAddr,
@@ -83,7 +88,8 @@ func (m *DBMembership) Register(ctx context.Context, info PeerInfo) (uint64, err
 	}
 }
 
-// Renew 续租（租约过期后续租成功 = 网络分区恢复，epoch 不变）。
+// Renew renews the lease (a successful renewal after lease expiry = network
+// partition recovery, with epoch unchanged).
 func (m *DBMembership) Renew(ctx context.Context, instanceID string) error {
 	res := m.db.WithContext(ctx).Model(&InstanceRecord{}).
 		Where("instance_id = ?", instanceID).
@@ -97,7 +103,7 @@ func (m *DBMembership) Renew(ctx context.Context, instanceID string) error {
 	return nil
 }
 
-// ListAlive 返回租约未过期的成员。
+// ListAlive returns members whose leases have not expired.
 func (m *DBMembership) ListAlive(ctx context.Context) ([]PeerInfo, error) {
 	var recs []InstanceRecord
 	err := m.db.WithContext(ctx).
@@ -119,7 +125,7 @@ func (m *DBMembership) ListAlive(ctx context.Context) ([]PeerInfo, error) {
 	return out, nil
 }
 
-// Resign 优雅退出：删除自身记录。
+// Resign exits gracefully: deletes this instance's own record.
 func (m *DBMembership) Resign(ctx context.Context, instanceID string) error {
 	return m.db.WithContext(ctx).
 		Where("instance_id = ?", instanceID).

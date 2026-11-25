@@ -12,10 +12,13 @@ import (
 	"github.com/cuihairu/croupier/pkg/protocol"
 )
 
-// MeshInterconnect 是直连 mesh 实现：懒建连 + 连接池 + 一跳限制 + fencing。
+// MeshInterconnect is the direct-connection mesh implementation: lazy connect
+// + connection pool + one-hop limit + fencing.
 //
-// 传输复用 transport/tcp 的帧协议；消息体为 JSON（互联是内部低频路径，
-// JSON 足够；帧协议与既有链路完全一致，mTLS 由传输层配置承接）。
+// Transport reuses transport/tcp's frame protocol; message bodies are JSON
+// (the interconnect is an internal low-frequency path, so JSON is enough; the
+// frame protocol matches existing links exactly, and mTLS is handled by
+// transport-layer configuration).
 type MeshInterconnect struct {
 	self       PeerInfo
 	selfEpoch  uint64
@@ -27,15 +30,17 @@ type MeshInterconnect struct {
 
 	dial dialFunc
 
-	// peersCache：last-known peers（共享存储抖动时继续转发）。
+	// peersCache holds last-known peers (forwarding continues while the shared
+	// storage flaps).
 	peersMu    sync.RWMutex
 	peersCache []PeerInfo
 }
 
-// dialFunc 建立/复用到对端的连接并完成 server 握手（可注入测试替身）。
+// dialFunc establishes/reuses a connection to a peer and completes the server
+// handshake (injectable test double).
 type dialFunc func(ctx context.Context, addr string, self PeerInfo) (*peerConn, error)
 
-// peerConn 是一条到对端的长连接包装。
+// peerConn wraps one long-lived connection to a peer.
 type peerConn struct {
 	instanceID string
 	addr       string
@@ -45,7 +50,7 @@ type peerConn struct {
 	close func()
 }
 
-// NewMeshInterconnect 创建 mesh 互联。
+// NewMeshInterconnect creates the mesh interconnect.
 func NewMeshInterconnect(self PeerInfo, resolver OwnerResolver, membership Membership) *MeshInterconnect {
 	m := &MeshInterconnect{
 		self:       self,
@@ -57,13 +62,15 @@ func NewMeshInterconnect(self PeerInfo, resolver OwnerResolver, membership Membe
 	return m
 }
 
-// SetEpoch 设置 Register 返回的本实例 epoch（fencing 校验用）。
+// SetEpoch sets this instance's epoch returned by Register (used for fencing
+// checks).
 func (m *MeshInterconnect) SetEpoch(epoch uint64) { m.selfEpoch = epoch }
 
-// SelfInfo 返回本实例身份。
+// SelfInfo returns this instance's identity.
 func (m *MeshInterconnect) SelfInfo() PeerInfo { return m.self }
 
-// RefreshPeers 刷新 last-known peers 缓存（发现循环调用）。
+// RefreshPeers refreshes the last-known peers cache (called by the discovery
+// loop).
 func (m *MeshInterconnect) RefreshPeers(ctx context.Context) {
 	if m.membership == nil {
 		return
@@ -78,7 +85,7 @@ func (m *MeshInterconnect) RefreshPeers(ctx context.Context) {
 	m.peersMu.Unlock()
 }
 
-// Peers 返回 last-known peers（排除自身）。
+// Peers returns the last-known peers (excluding self).
 func (m *MeshInterconnect) Peers() []PeerInfo {
 	m.peersMu.RLock()
 	defer m.peersMu.RUnlock()
@@ -91,9 +98,10 @@ func (m *MeshInterconnect) Peers() []PeerInfo {
 	return out
 }
 
-// Forward 转发调用到 owner 实例。
+// Forward forwards a call to the owner instance.
 func (m *MeshInterconnect) Forward(ctx context.Context, agentID string, req *ForwardedInvoke) (*ForwardedResult, error) {
-	// 铁律一：一跳限制——已被转发过的请求不再转发。
+	// Invariant 1: one-hop limit — a request already forwarded is not forwarded
+	// again.
 	if req.Forwarded {
 		return nil, ErrHopLimit
 	}
@@ -107,14 +115,15 @@ func (m *MeshInterconnect) Forward(ctx context.Context, agentID string, req *For
 	if owner == nil {
 		return nil, ErrNoRoute
 	}
-	// 目标是自己：调用方不应进入转发路径，防御性返回。
+	// The target is self: the caller should not have entered the forward path;
+	// defensive return.
 	if owner.InstanceID == m.self.InstanceID {
 		return &ForwardedResult{OK: false, Error: "owner is self"}, nil
 	}
 
 	req.Forwarded = true
 	req.AgentID = agentID
-	// 记录解析时的 owner epoch（owner 侧 fencing 校验）。
+	// Record the owner epoch at resolution time (owner-side fencing check).
 	req.CallerEpoch = owner.Epoch
 
 	conn, err := m.getConn(ctx, *owner)
@@ -122,8 +131,9 @@ func (m *MeshInterconnect) Forward(ctx context.Context, agentID string, req *For
 		return nil, fmt.Errorf("dial owner %s(%s): %w", owner.InstanceID, owner.AdvertiseAddr, err)
 	}
 
-	// ForwardedInvoke 全部字段为 string/[]byte/map[string]string/bool/uint64
-	// 基础类型，Marshal 恒成功，err 分支为死代码，已删除。
+	// Every ForwardedInvoke field is a basic string/[]byte/map[string]string/
+	// bool/uint64 type, so Marshal always succeeds; the err branch was dead
+	// code and has been removed.
 	body, _ := json.Marshal(req)
 	respBody, err := conn.send(ctx, protocol.MsgForwardInvokeReq, body)
 	if err != nil {
@@ -137,7 +147,7 @@ func (m *MeshInterconnect) Forward(ctx context.Context, agentID string, req *For
 	return &result, nil
 }
 
-// getConn 懒建连/复用到 owner 的连接。
+// getConn lazily establishes or reuses the connection to the owner.
 func (m *MeshInterconnect) getConn(ctx context.Context, owner PeerInfo) (*peerConn, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -167,7 +177,7 @@ func (m *MeshInterconnect) dropConn(instanceID string) {
 	}
 }
 
-// Close 关闭全部对端连接。
+// Close closes all peer connections.
 func (m *MeshInterconnect) Close() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -177,36 +187,43 @@ func (m *MeshInterconnect) Close() {
 	}
 }
 
-// defaultDialPeer 通过 transport/tcp 基座建立到对端的连接并握手。
+// defaultDialPeer establishes a connection to the peer over the transport/tcp
+// base and performs the handshake.
 func defaultDialPeer(ctx context.Context, addr string, self PeerInfo) (*peerConn, error) {
 	return nil, fmt.Errorf("cluster: tcp dial to %s not wired in test context", addr)
 }
 
 var _ Interconnect = (*MeshInterconnect)(nil)
 
-// ServeForwardHandler 返回 owner 侧处理 MsgForwardInvokeReq 的处理函数。
-// localInvoke 由 dispatch 层注入：校验 caller 鉴权后走本地 Agent 连接执行。
+// ServeForwardHandler returns the owner-side handler for MsgForwardInvokeReq.
+// localInvoke is injected by the dispatch layer: after validating caller
+// authentication it executes over the local Agent connection.
 //
-// fencing 铁律二在此执行：req.CallerEpoch ≠ 本地 epoch 时拒绝
-// （网络分区恢复后的僵尸 owner 场景）。
+// Fencing invariant 2 is enforced here: when req.CallerEpoch differs from the
+// local epoch the request is rejected (the zombie-owner scenario after network
+// partition recovery).
 func ServeForwardHandler(selfEpoch uint64, localInvoke func(ctx context.Context, req *ForwardedInvoke) (*ForwardedResult, error)) func(ctx context.Context, body []byte) []byte {
 	return func(ctx context.Context, body []byte) []byte {
 		var req ForwardedInvoke
 		if err := json.Unmarshal(body, &req); err != nil {
 			return marshalResult(&ForwardedResult{OK: false, Error: "bad request"})
 		}
-		// ARCH-003：未完成 hello 握手的连接不得执行 forward。mTLS 已保证
-		// 对端证书身份，此门禁保证「身份绑定先于任何动作」——无证书链路
-		// （明文或握手失败后直发 forward）被拒绝。
+		// ARCH-003: a connection without a completed hello handshake must not
+		// execute forward. mTLS already guarantees the peer's certificate
+		// identity; this gate ensures "identity binding precedes any action" —
+		// certificate-less links (plaintext, or a direct forward after a failed
+		// handshake) are refused.
 		if session := internaltcp.ConnectionSessionFromContext(ctx); session == nil || !session.HandshakeDone() {
 			return marshalResult(&ForwardedResult{OK: false, Error: "not handshaked"})
 		}
-		// 铁律一：到达 owner 的已转发请求不得再次转发（由调用方保证 Forwarded=true，
-		// owner 侧仅拒绝显式环路标记外的异常）。
+		// Invariant 1: a request that reached the owner must not be forwarded
+		// again (the caller guarantees Forwarded=true; the owner only refuses
+		// anomalies beyond the explicit loop marker).
 		if !req.Forwarded {
 			return marshalResult(&ForwardedResult{OK: false, Error: "not forwarded flag"})
 		}
-		// 铁律二：fencing——发起方看到的 epoch 与本地不一致 → 僵尸 owner。
+		// Invariant 2: fencing — the epoch the initiator saw differs from the
+		// local one → zombie owner.
 		if req.CallerEpoch != selfEpoch {
 			return marshalResult(&ForwardedResult{OK: false, NotOwner: true, Error: "stale epoch"})
 		}
@@ -219,8 +236,9 @@ func ServeForwardHandler(selfEpoch uint64, localInvoke func(ctx context.Context,
 }
 
 func marshalResult(r *ForwardedResult) []byte {
-	// ForwardedResult 全部字段为 bool/string/[]byte 基础类型，Marshal 恒成功，
-	// err 回退分支为死代码，已删除。
+	// Every ForwardedResult field is a basic bool/string/[]byte type, so
+	// Marshal always succeeds; the err fallback branch was dead code and has
+	// been removed.
 	b, _ := json.Marshal(r)
 	return b
 }
