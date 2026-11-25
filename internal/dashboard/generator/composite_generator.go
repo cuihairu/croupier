@@ -9,9 +9,11 @@ import (
 	"github.com/cuihairu/croupier/internal/model"
 )
 
-// CompositeSectionInput 是组合页的一个区块输入：函数 + 视图形态 +
-// 联动声明。函数契约决定 selector 骨架，视图参数可覆盖。
-// CompositeInputAssignmentInput 显式参数映射条目（wire → generator）。
+// CompositeSectionInput is one section input of a composite page: function +
+// view shape + linkage declarations. The function contract decides the
+// selector skeleton; view parameters may override it.
+// CompositeInputAssignmentInput is an explicit parameter mapping entry
+// (wire -> generator).
 type CompositeInputAssignmentInput struct {
 	Target string
 	Kind   string

@@ -10,9 +10,11 @@ import (
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
 )
 
-// FuzzRequiredProperties 夜间 fuzz 入口（CR-FIX-25）：任意字节喂
-// requiredProperties，断言非法 JSON 恒返回空、合法输入不 panic 且返回键
-// 均来自输入字节（panic/越界类缺陷由 fuzz 直接暴露）。
+// FuzzRequiredProperties is the nightly fuzz entry point (CR-FIX-25): it feeds
+// arbitrary bytes to requiredProperties and asserts that invalid JSON always
+// yields an empty result, that valid input never panics, and that every
+// returned key comes from the input bytes (panic/out-of-bounds defects are
+// exposed directly by the fuzzer).
 func FuzzRequiredProperties(f *testing.F) {
 	f.Add([]byte(`{"required":["a","b"]}`))
 	f.Add([]byte(`{"required":["uid",true,"name"]}`))
@@ -30,9 +32,11 @@ func FuzzRequiredProperties(f *testing.F) {
 			return
 		}
 		for k := range out {
-			// encoding/json 对非法 UTF-8 字节的标准强制行为：解码值中以
-			// U+FFFD 出现，原始字节里没有对应序列——含替换符的键豁免
-			// 出现性检查（testdata 反例 189a00228b478025 固化该行为）。
+			// encoding/json's standard coercion for invalid UTF-8 bytes: they surface
+			// as U+FFFD in the decoded value with no matching sequence in the
+			// raw bytes, so keys containing the replacement rune are exempt from
+			// the presence check (testdata counterexample 189a00228b478025
+			// pins this behavior).
 			if strings.ContainsRune(k, utf8.RuneError) {
 				continue
 			}

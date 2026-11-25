@@ -134,9 +134,11 @@ func TestExtraBuildListViewFromContract(t *testing.T) {
 	assert.Empty(t, buildListViewFromContract(noItems, semantics).Columns)
 }
 
-// TestColumnFieldSemanticsInference：D5 输出侧 x-* hints 机械派生列呈现。
-// identity 坍缩固定左列+复制、x-enum-options 坍缩枚举标签、x-field-unit 提供
-// 单位后缀、x-label 提供本地化列题；无 hints 列零变化；非法 role 静默忽略。
+// TestColumnFieldSemanticsInference: D5 output-side x-* hints mechanically
+// derive column presentation. identity collapses into a fixed left column with
+// copy render, x-enum-options collapses into enum tags, x-field-unit provides
+// the unit suffix, x-label provides the localized column title; columns without
+// hints are unchanged; an invalid role is silently ignored.
 func TestColumnFieldSemanticsInference(t *testing.T) {
 	semantics := &model.CapabilitySemantics{
 		IdentityField:     "",
@@ -170,13 +172,13 @@ func TestColumnFieldSemanticsInference(t *testing.T) {
 		byKey[col.Key] = col
 	}
 
-	// identity → Fixed left + Render copy
+	// identity -> Fixed left + Render copy
 	assert.Equal(t, "left", byKey["player_id"].Fixed)
 	assert.Equal(t, "copy", byKey["player_id"].Render)
 	assert.Equal(t, "玩家ID", byKey["player_id"].Title["zh-CN"])
 	assert.Equal(t, "玩家ID", byKey["player_id"].Title["en-US"])
 
-	// x-enum-options → Enum + Render tag
+	// x-enum-options -> Enum + Render tag
 	status := byKey["status"]
 	assert.Equal(t, "tag", status.Render)
 	assert.Equal(t, "状态", status.Title["zh-CN"])
@@ -185,20 +187,20 @@ func TestColumnFieldSemanticsInference(t *testing.T) {
 	assert.Equal(t, "在线", status.Enum[0].Label["zh-CN"])
 	assert.Equal(t, "Offline", status.Enum[1].Label["en-US"])
 
-	// x-field-unit → Unit 双语后缀
+	// x-field-unit -> bilingual Unit suffix
 	coins := byKey["coins"]
 	assert.Equal(t, "金币余额", coins.Title["zh-CN"])
 	assert.Equal(t, "金币", coins.Unit["zh-CN"])
 	assert.Equal(t, "金币", coins.Unit["en-US"])
 
-	// 无 hints 列零变化
+	// Columns without hints are unchanged.
 	plain := byKey["plain"]
 	assert.Empty(t, plain.Fixed)
 	assert.Empty(t, plain.Render)
 	assert.Nil(t, plain.Unit)
 	assert.Nil(t, plain.Enum)
 
-	// 非法 role 静默忽略（无 Fixed/Render 派生）
+	// Invalid role silently ignored (no Fixed/Render derived)
 	bad := byKey["bad_role"]
 	assert.Empty(t, bad.Fixed)
 	assert.Empty(t, bad.Render)

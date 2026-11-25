@@ -12,7 +12,7 @@ func TestBuildFormPresentation_PayloadOnlyForMissingSchema(t *testing.T) {
 		Functions: map[string]spec.FunctionSpec{},
 	})
 
-	// schema：单 payload 字段 + required
+	// schema: single payload field plus required
 	var schema map[string]interface{}
 	if err := json.Unmarshal([]byte(fp.JSONSchema), &schema); err != nil {
 		t.Fatalf("JSONSchema is not valid JSON: %v", err)
@@ -33,7 +33,7 @@ func TestBuildFormPresentation_PayloadOnlyForMissingSchema(t *testing.T) {
 		t.Errorf("payload must be required, got %v", required)
 	}
 
-	// fields：JSON 文本控件 + 双语 label/description
+	// fields: JSON text widget plus bilingual label/description
 	if len(fp.Fields) != 1 {
 		t.Fatalf("expected exactly one field, got %d", len(fp.Fields))
 	}
@@ -55,7 +55,8 @@ func TestBuildFormPresentation_PayloadOnlyForMissingSchema(t *testing.T) {
 	}
 }
 
-// 有 schema 的函数不受兜底影响：字段由 buildFormFields 从真实 schema 生成。
+// Functions with a real schema are unaffected by the fallback: fields are built
+// by buildFormFields from the actual schema.
 func TestBuildFormPresentation_RealSchemaUnchanged(t *testing.T) {
 	fn := spec.FunctionSpec{
 		ID:          "players.player.create",
