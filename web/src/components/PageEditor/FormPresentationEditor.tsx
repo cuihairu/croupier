@@ -1,7 +1,12 @@
-import { Card, Col, Form, Row, Select, Space, Switch, Tag, Typography } from 'antd';
-import { HolderOutlined } from '@ant-design/icons';
+import { Button, Card, Col, Form, Input, Row, Select, Space, Switch, Tag, Typography } from 'antd';
+import { DeleteOutlined, HolderOutlined } from '@ant-design/icons';
 import { FormattedMessage, useIntl } from '@umijs/max';
-import type { FormFieldSpec, FormPresentationSpec, FormWidget } from '@/types/dashboard';
+import type {
+  FormFieldSpec,
+  FormGroupSpec,
+  FormPresentationSpec,
+  FormWidget,
+} from '@/types/dashboard';
 import { widgetCapabilityHint } from '@/utils/widgetCapabilities';
 import LocalizedTextEditor from '@/components/LocalizedTextEditor';
 import { SortableList } from '@/components/SortableList';
@@ -33,6 +38,26 @@ export default function FormPresentationEditor({
 }: FormPresentationEditorProps) {
   const intl = useIntl();
   const fields = value.fields || [];
+  const groups = value.groups || [];
+  /** SUI-029：新建分组的 key 在当前草稿内唯一；已在用则顺延编号，避免
+   *  服务端 groups.key 重复校验拦截。 */
+  const nextGroupKey = (existing: FormGroupSpec[]): string => {
+    const used = new Set(existing.map((group) => group.key));
+    let index = existing.length + 1;
+    let candidate = `group-${index}`;
+    while (used.has(candidate)) {
+      index += 1;
+      candidate = `group-${index}`;
+    }
+    return candidate;
+  };
+  const updateGroup = (
+    index: number,
+    updates: Partial<FormGroupSpec>,
+  ): FormGroupSpec[] =>
+    groups.map((group, currentIndex) =>
+      currentIndex === index ? { ...group, ...updates } : group,
+    );
   const widgetChoices: Array<{ value: FormWidget; label: string }> = [
     {
       value: 'Input',
@@ -288,6 +313,192 @@ export default function FormPresentationEditor({
             </Card>
           )}
         </SortableList>
+      )}
+      {/* SUI-029：分组编辑——创建/重命名/移动/删除、字段归属和折叠行为。
+       * 分组保存到 FormPresentationSpec.groups，草稿重开原样回读（顺序即数组顺序）。 */}
+      {fields.length > 0 && (
+        <Card
+          size="small"
+          title={
+            <FormattedMessage
+              id="component.pageEditor.formPresentation.groups.title"
+              defaultMessage="表单分组"
+            />
+          }
+          extra={
+            !readonly && (
+              <Button
+                size="small"
+                type="link"
+                data-testid="group-add"
+                onClick={() =>
+                  onChange({
+                    ...value,
+                    groups: [...groups, { key: nextGroupKey(groups), fields: [] }],
+                  })
+                }
+              >
+                <FormattedMessage
+                  id="component.pageEditor.formPresentation.groups.add"
+                  defaultMessage="新增分组"
+                />
+              </Button>
+            )
+          }
+        >
+          {groups.length === 0 ? (
+            <Text type="secondary">
+              <FormattedMessage
+                id="component.pageEditor.formPresentation.groups.empty"
+                defaultMessage="未配置分组；字段按表单顺序平铺"
+              />
+            </Text>
+          ) : (
+            <SortableList
+              items={groups}
+              getKey={(group) => group.key}
+              onReorder={(next) => onChange({ ...value, groups: next })}
+            >
+              {(group, index, dragHandleProps) => (
+                <Card
+                  size="small"
+                  style={{ marginBottom: 8 }}
+                  title={
+                    <Space size={8} wrap>
+                      {!readonly && (
+                        <span {...dragHandleProps}>
+                          <HolderOutlined />
+                        </span>
+                      )}
+                      <Text code data-testid={`group-key-${index}`}>
+                        {group.key}
+                      </Text>
+                      <Switch
+                        size="small"
+                        checked={Boolean(group.collapsible)}
+                        data-testid={`group-collapsible-${index}`}
+                        onChange={(collapsible) =>
+                          onChange({ ...value, groups: updateGroup(index, { collapsible }) })
+                        }
+                      />
+                      <Text type="secondary">
+                        <FormattedMessage
+                          id="component.pageEditor.formPresentation.groups.collapsible"
+                          defaultMessage="可折叠"
+                        />
+                      </Text>
+                      {group.collapsible && (
+                        <>
+                          <Switch
+                            size="small"
+                            checked={Boolean(group.collapsed)}
+                            data-testid={`group-collapsed-${index}`}
+                            onChange={(collapsed) =>
+                              onChange({ ...value, groups: updateGroup(index, { collapsed }) })
+                            }
+                          />
+                          <Text type="secondary">
+                            <FormattedMessage
+                              id="component.pageEditor.formPresentation.groups.collapsed"
+                              defaultMessage="默认折叠"
+                            />
+                          </Text>
+                        </>
+                      )}
+                    </Space>
+                  }
+                  extra={
+                    !readonly && (
+                      <Button
+                        size="small"
+                        type="text"
+                        danger
+                        icon={<DeleteOutlined />}
+                        data-testid={`group-delete-${index}`}
+                        onClick={() =>
+                          onChange({ ...value, groups: groups.filter((_, i) => i !== index) })
+                        }
+                      />
+                    )
+                  }
+                >
+                  <Form layout="vertical" disabled={readonly} style={{ marginBottom: 0 }}>
+                    <Row gutter={12}>
+                      <Col span={12}>
+                        <Form.Item
+                          label={intl.formatMessage({
+                            id: 'component.pageEditor.formPresentation.groups.key',
+                            defaultMessage: '分组标识',
+                          })}
+                          style={{ marginBottom: 0 }}
+                        >
+                          <Input
+                            size="small"
+                            value={group.key}
+                            data-testid={`group-key-input-${index}`}
+                            onChange={(event) =>
+                              onChange({
+                                ...value,
+                                groups: updateGroup(index, { key: event.target.value }),
+                              })
+                            }
+                          />
+                        </Form.Item>
+                      </Col>
+                      <Col span={12}>
+                        <Form.Item
+                          label={intl.formatMessage({
+                            id: 'component.pageEditor.formPresentation.groups.titleLabel',
+                            defaultMessage: '分组标题（多语言）',
+                          })}
+                          style={{ marginBottom: 0 }}
+                        >
+                          <LocalizedTextEditor
+                            value={group.title}
+                            size="small"
+                            placeholder={intl.formatMessage({
+                              id: 'component.pageEditor.formPresentation.groups.titlePlaceholder',
+                              defaultMessage: '分组标题',
+                            })}
+                            onChange={(title) =>
+                              onChange({ ...value, groups: updateGroup(index, { title }) })
+                            }
+                          />
+                        </Form.Item>
+                      </Col>
+                    </Row>
+                    <Form.Item
+                      label={intl.formatMessage({
+                        id: 'component.pageEditor.formPresentation.groups.fields',
+                        defaultMessage: '分组字段（按选择顺序，字段只属一个分组）',
+                      })}
+                      style={{ marginBottom: 0 }}
+                    >
+                      <Select
+                        mode="multiple"
+                        size="small"
+                        data-testid={`group-fields-${index}`}
+                        value={group.fields}
+                        options={fields.map((field) => ({
+                          value: field.key,
+                          label: field.key,
+                          // 已被其他分组认领的字段不可再选（服务端 form_group_field_conflict）
+                          disabled: groups.some(
+                            (other, otherIndex) =>
+                              otherIndex !== index && other.fields.includes(field.key),
+                          ),
+                        }))}
+                        onChange={(keys: string[]) =>
+                          onChange({ ...value, groups: updateGroup(index, { fields: keys }) })
+                        }
+                      />
+                    </Form.Item>
+                  </Form>
+                </Card>
+              )}
+            </SortableList>
+          )}
+        </Card>
       )}
     </Space>
   );

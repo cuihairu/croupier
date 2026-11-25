@@ -8,6 +8,16 @@ export default {
   'component.pageEditor.formPresentation.field.visible': '可见',
   'component.pageEditor.formPresentation.hint':
     '字段来自函数 JSON Schema；这里只调整展示（拖动 ⠿ 调整顺序），不改变输入结构、binding 或 selector。',
+  'component.pageEditor.formPresentation.groups.add': '新增分组',
+  'component.pageEditor.formPresentation.groups.collapsed': '默认折叠',
+  'component.pageEditor.formPresentation.groups.collapsible': '可折叠',
+  'component.pageEditor.formPresentation.groups.empty': '未配置分组；字段按表单顺序平铺',
+  'component.pageEditor.formPresentation.groups.fields':
+    '分组字段（按选择顺序，字段只属一个分组）',
+  'component.pageEditor.formPresentation.groups.key': '分组标识',
+  'component.pageEditor.formPresentation.groups.title': '表单分组',
+  'component.pageEditor.formPresentation.groups.titleLabel': '分组标题（多语言）',
+  'component.pageEditor.formPresentation.groups.titlePlaceholder': '分组标题',
   'component.pageEditor.formPresentation.layout': '布局',
   'component.pageEditor.formPresentation.layoutOption.grid': '网格',
   'component.pageEditor.formPresentation.layoutOption.horizontal': '横向',

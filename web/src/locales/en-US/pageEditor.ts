@@ -8,6 +8,17 @@ export default {
   'component.pageEditor.formPresentation.field.visible': 'Visible',
   'component.pageEditor.formPresentation.hint':
     'Fields come from the function JSON Schema; only presentation is adjusted here (drag ⠿ to reorder) — input structure, bindings, and selectors are not changed.',
+  'component.pageEditor.formPresentation.groups.add': 'Add group',
+  'component.pageEditor.formPresentation.groups.collapsed': 'Collapsed by default',
+  'component.pageEditor.formPresentation.groups.collapsible': 'Collapsible',
+  'component.pageEditor.formPresentation.groups.empty':
+    'No groups configured; fields render flat in form order',
+  'component.pageEditor.formPresentation.groups.fields':
+    'Group fields (in selection order; a field belongs to one group)',
+  'component.pageEditor.formPresentation.groups.key': 'Group key',
+  'component.pageEditor.formPresentation.groups.title': 'Form groups',
+  'component.pageEditor.formPresentation.groups.titleLabel': 'Group title (localized)',
+  'component.pageEditor.formPresentation.groups.titlePlaceholder': 'Group title',
   'component.pageEditor.formPresentation.layout': 'Layout',
   'component.pageEditor.formPresentation.layoutOption.grid': 'Grid',
   'component.pageEditor.formPresentation.layoutOption.horizontal': 'Horizontal',
