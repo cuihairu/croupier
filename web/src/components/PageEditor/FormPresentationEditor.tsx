@@ -2,6 +2,7 @@ import { Card, Col, Form, Row, Select, Space, Switch, Tag, Typography } from 'an
 import { HolderOutlined } from '@ant-design/icons';
 import { FormattedMessage, useIntl } from '@umijs/max';
 import type { FormFieldSpec, FormPresentationSpec, FormWidget } from '@/types/dashboard';
+import { widgetCapabilityHint } from '@/utils/widgetCapabilities';
 import LocalizedTextEditor from '@/components/LocalizedTextEditor';
 import { SortableList } from '@/components/SortableList';
 
@@ -32,7 +33,7 @@ export default function FormPresentationEditor({
 }: FormPresentationEditorProps) {
   const intl = useIntl();
   const fields = value.fields || [];
-  const widgetOptions: Array<{ value: FormWidget; label: string }> = [
+  const widgetChoices: Array<{ value: FormWidget; label: string }> = [
     {
       value: 'Input',
       label: intl.formatMessage({
@@ -118,6 +119,11 @@ export default function FormPresentationEditor({
       }),
     },
   ];
+  const widgetOptions = widgetChoices.map((option) => ({
+    ...option,
+    // SUI-020：原生 title 提示（无需额外弹层），值仍保持原有 12 项不变。
+    title: widgetCapabilityHint(option.value),
+  }));
   const applyField = (index: number, updates: Partial<FormFieldSpec>) =>
     onChange({ ...value, fields: updateField(value.fields, index, updates) });
 
