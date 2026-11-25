@@ -22,6 +22,91 @@ type FormPresentationSpec struct {
 
 	// CancelButton configuration
 	CancelButton *FormButtonSpec `json:"cancelButton,omitempty"`
+
+	// Variants 命名展示变体（SUI-031 协议，docs/architecture/
+	// pagespec-protocol.md「命名展示变体」）：同一表单的多个命名呈现形态，
+	// 数组顺序即管理列表顺序。additive 可选字段（page-spec:1 不变）；
+	// 旧渲染器忽略并按基础呈现渲染。存储随表单节点进同一草稿/发布快照
+	//（SUI-032），发布校验、编辑器与解析分别在 SUI-033/034/035 落地。
+	Variants []FormVariantSpec `json:"variants,omitempty"`
+
+	// DefaultVariant 生效默认变体 key（Variants 内唯一 key）；未声明 =
+	// 基础呈现生效。声明后必须能解析到已声明变体（SUI-033 校验）。
+	DefaultVariant string `json:"defaultVariant,omitempty"`
+}
+
+// FormVariantSpec 定义命名展示变体：只承载 SUI-045 纯展示覆盖（页面级
+// layout/groups/buttons 与逐字段展示属性），调用相关项（required/
+// defaultValue/visible/visibleWhen/disabled/validationRules）与 jsonSchema
+// 不在类型面上——它们属于调用契约，任何变体不得改动（SUI-031）。
+type FormVariantSpec struct {
+	// Key 变体标识：本表单内唯一（SUI-033 校验重复）。
+	Key string `json:"key"`
+
+	// Title 操作者可见名称（风格列表/切换 UI）。
+	Title LocalizedText `json:"title,omitempty"`
+
+	// Layout 页面级布局覆盖；未声明继承基础。
+	Layout FormLayout `json:"layout,omitempty"`
+
+	// Groups 分组覆盖；未声明继承基础（整体替换，不按组合并）。
+	Groups []FormGroupSpec `json:"groups,omitempty"`
+
+	// Fields 逐字段纯展示覆盖（键同 FormFieldSpec.Key 契约，SUI-019；
+	// 与基础同 key 条目按属性合并，V 独有 key 须能在 jsonSchema 解析）。
+	Fields []FormVariantFieldSpec `json:"fields,omitempty"`
+
+	// SubmitButton 覆盖；未声明继承基础。
+	SubmitButton *FormButtonSpec `json:"submitButton,omitempty"`
+
+	// CancelButton 覆盖；未声明继承基础。
+	CancelButton *FormButtonSpec `json:"cancelButton,omitempty"`
+}
+
+// FormVariantFieldSpec 是 FormFieldSpec 的纯展示子集：变体逐字段只允许
+// label/description/placeholder/role/unit/perTarget/widget/width/order/
+// enumOptions/remoteOptions/widgetProps。发布前校验拒绝调用相关键
+// （form_variant_illegal_override，SUI-033 落地）。
+type FormVariantFieldSpec struct {
+	// Key 同 FormFieldSpec.Key：裸顶层属性名或 JSON Pointer。
+	Key string `json:"key"`
+
+	// Widget overrides the default widget
+	Widget FormWidget `json:"widget,omitempty"`
+
+	// Label overrides the schema title
+	Label LocalizedText `json:"label,omitempty"`
+
+	// Placeholder text
+	Placeholder LocalizedText `json:"placeholder,omitempty"`
+
+	// Description/help text
+	Description LocalizedText `json:"description,omitempty"`
+
+	// Role is the explicit field semantics (x-field-role hint, D5)
+	Role string `json:"role,omitempty"`
+
+	// Unit is the display unit suffix (x-field-unit hint, D5)
+	Unit LocalizedText `json:"unit,omitempty"`
+
+	// PerTarget marks a quantity/amount that applies per selected target (D2)
+	PerTarget bool `json:"perTarget,omitempty"`
+
+	// Width in grid layout (1-12)
+	Width int `json:"width,omitempty"`
+
+	// Order defines field order (lower = first)
+	Order int `json:"order,omitempty"`
+
+	// EnumOptions for select/radio widgets
+	EnumOptions []EnumOption `json:"enumOptions,omitempty"`
+
+	// RemoteOptions points to a registered collection_query function as the
+	// option source; mutually exclusive with EnumOptions.
+	RemoteOptions *RemoteOptionsSpec `json:"remoteOptions,omitempty"`
+
+	// WidgetProps passes extra props to the widget
+	WidgetProps map[string]json.RawMessage `json:"widgetProps,omitempty"`
 }
 
 // FormLayout defines form layout type.

@@ -780,6 +780,10 @@ export interface FormPresentationSpec {
   fields?: FormFieldSpec[];
   submitButton?: FormButtonSpec;
   cancelButton?: FormButtonSpec;
+  /** 命名展示变体（SUI-031）：数组顺序即管理列表顺序；additive 可选字段 */
+  variants?: FormVariantSpec[];
+  /** 生效默认变体 key；未声明 = 基础呈现（原表单）生效 */
+  defaultVariant?: string;
 }
 
 /** 表单布局 */
@@ -872,6 +876,50 @@ export interface FormButtonSpec {
   type?: 'primary' | 'default' | 'danger' | 'link';
   icon?: string;
   loading?: boolean;
+}
+
+/** 命名展示变体（SUI-031）：同一表单的多个命名呈现形态，共用 schema、
+ * Binding 与调用治理，只承载 SUI-045 纯展示覆盖；调用相关项（required/
+ * defaultValue/visible/visibleWhen/disabled/validationRules）与 jsonSchema
+ * 不在类型面上——任何变体不得改动调用契约 */
+export interface FormVariantSpec {
+  /** 变体 key：本表单内唯一（无保留 key；"standard"/"compact" 均为普通用户自选 key） */
+  key: string;
+  /** 操作者可见名称（风格列表/切换 UI） */
+  title?: LocalizedText;
+  /** 页面级布局覆盖；未声明继承基础 */
+  layout?: FormLayout;
+  /** 分组覆盖；未声明继承基础（整体替换，不按组合并） */
+  groups?: FormGroupSpec[];
+  /** 逐字段纯展示覆盖（键同 SUI-019；与基础同 key 条目按属性合并） */
+  fields?: FormVariantFieldSpec[];
+  /** 提交按钮覆盖；未声明继承基础 */
+  submitButton?: FormButtonSpec;
+  /** 取消按钮覆盖；未声明继承基础 */
+  cancelButton?: FormButtonSpec;
+}
+
+/** 变体逐字段纯展示子集：发布校验拒绝调用相关键（form_variant_illegal_override） */
+export interface FormVariantFieldSpec {
+  /** 同 FormFieldSpec.key：裸顶层属性名或 JSON Pointer（RFC 6901） */
+  key: string;
+  widget?: FormWidget;
+  label?: LocalizedText;
+  placeholder?: LocalizedText;
+  description?: LocalizedText;
+  /** 显式字段语义（D5）：identity|status|reason|expiry|amount|quantity */
+  role?: 'identity' | 'status' | 'reason' | 'expiry' | 'amount' | 'quantity';
+  /** 显示单位后缀（D5） */
+  unit?: LocalizedText;
+  /** 数量/金额按每个选中目标逐项计（D2） */
+  perTarget?: boolean;
+  /** 12 栏协议值 1-12（SUI-028） */
+  width?: number;
+  order?: number;
+  enumOptions?: EnumOption[];
+  /** 远程选项源；与 enumOptions 互斥，优先 remoteOptions */
+  remoteOptions?: RemoteOptionsSpec;
+  widgetProps?: Record<string, JSONValue>;
 }
 
 // ---------------------------------------------------------------------------
