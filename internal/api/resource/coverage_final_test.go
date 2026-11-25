@@ -10,7 +10,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// List：排序仅按 Key 稳定排序（Category.Order 字段已删除，无持久化来源）。
+// List: sorting is a stable sort by Key only (the Category.Order field was
+// removed and has no persisted source).
 func TestFinalList_SortTieBreaksByKey(t *testing.T) {
 	svcCtx, ctx := newResourceTestServiceContext(t, reg.NewStore(), "resources:read")
 	seedPlayerResource(t, svcCtx, ctx)
@@ -23,7 +24,7 @@ func TestFinalList_SortTieBreaksByKey(t *testing.T) {
 	}
 }
 
-// List：capability 展开时契约查询失败。
+// List: contract query fails while expanding capabilities.
 func TestFinalList_ContractQueryError(t *testing.T) {
 	svcCtx, ctx := newResourceTestServiceContext(t, reg.NewStore(), "resources:read")
 	seedPlayerResource(t, svcCtx, ctx)
@@ -34,7 +35,7 @@ func TestFinalList_ContractQueryError(t *testing.T) {
 	assert.Nil(t, resp)
 }
 
-// Detail：语义查询失败（非 NotFound）。
+// Detail: semantics query fails (not NotFound).
 func TestFinalDetail_SemanticsQueryError(t *testing.T) {
 	svcCtx, ctx := newResourceTestServiceContext(t, reg.NewStore(), "resources:read")
 	seedPlayerResource(t, svcCtx, ctx)
@@ -45,7 +46,7 @@ func TestFinalDetail_SemanticsQueryError(t *testing.T) {
 	assert.Nil(t, resp)
 }
 
-// Detail：契约查询失败被包装为 ResourceNotFoundError → 404。
+// Detail: a contract query failure is wrapped as ResourceNotFoundError -> 404.
 func TestFinalHandler_Detail_ContractQueryError(t *testing.T) {
 	ginCtx, rec, svcCtx, ctx := newResourceHandlerContext(t, http.MethodGet, "/api/v1/resources/player", "resources:read")
 	seedPlayerResource(t, svcCtx, ctx)
@@ -56,7 +57,7 @@ func TestFinalHandler_Detail_ContractQueryError(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, rec.Code)
 }
 
-// Detail：无权限 → 403 走 response.Error（非 404 分支）。
+// Detail: no permission -> 403 through response.Error (not the 404 branch).
 func TestFinalHandler_Detail_Forbidden(t *testing.T) {
 	ginCtx, rec, svcCtx, _ := newResourceHandlerContext(t, http.MethodGet, "/api/v1/resources/player")
 	ginCtx.Params = gin.Params{{Key: "resourceKey", Value: "player"}}
@@ -65,7 +66,8 @@ func TestFinalHandler_Detail_Forbidden(t *testing.T) {
 	assert.Equal(t, http.StatusForbidden, rec.Code)
 }
 
-// Operations：无权限 → 403 走 response.Error（非 404 分支）。
+// Operations: no permission -> 403 through response.Error (not the 404
+// branch).
 func TestFinalHandler_Operations_Forbidden(t *testing.T) {
 	ginCtx, rec, svcCtx, _ := newResourceHandlerContext(t, http.MethodGet, "/api/v1/resources/player/operations")
 	ginCtx.Params = gin.Params{{Key: "resourceKey", Value: "player"}}
@@ -74,7 +76,7 @@ func TestFinalHandler_Operations_Forbidden(t *testing.T) {
 	assert.Equal(t, http.StatusForbidden, rec.Code)
 }
 
-// humanizeKey：空输入返回空串。
+// humanizeKey: empty input returns an empty string.
 func TestFinalHumanizeKey_Empty(t *testing.T) {
 	assert.Equal(t, "", humanizeKey(""))
 	assert.Equal(t, "", humanizeKey(" ._- "))

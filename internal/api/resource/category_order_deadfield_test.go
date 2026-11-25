@@ -1,10 +1,13 @@
 package resource
 
-// 设计债回归测试：List 排序原先先比 Category.Order 再按 Key tie-break，但
-// ResourceCapability 模型无 Order 列、无独立 Category 表，装配
-// ResourceCategorySpec 时只有 Key+Labels，Order 恒 0，排序维度彻底无效。
-// 已定案修法：排序简化为纯 Key 稳定排序，spec.ResourceCategorySpec 删除
-// Order 字段（resource catalog API 响应不再输出 category.order，前端零消费）。
+// Design-debt regression test: the List sort originally compared
+// Category.Order first and used Key as a tie-break, but the ResourceCapability
+// model has no Order column and there is no separate Category table, so
+// assembling a ResourceCategorySpec only yields Key+Labels, Order stays 0, and
+// the sorting dimension is entirely ineffective. Settled fix: simplify the sort
+// to a stable sort by Key alone and delete the Order field from
+// spec.ResourceCategorySpec (the resource catalog API response no longer emits
+// category.order, and the frontend consumes it nowhere).
 
 import (
 	"testing"
@@ -15,13 +18,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// List 返回严格按 Key 升序：构造三个资源（account/guild/player）验证顺序，
-// 并验证响应 JSON 中 category 不再携带 order 字段。
+// List returns strictly ascending Key order: build three resources
+// (account/guild/player) to verify the order, and verify the category in the
+// response JSON no longer carries an order field.
 func TestList_SortByKeyOnly_CategoryOrderRemoved(t *testing.T) {
 	svcCtx, ctx := newResourceTestServiceContext(t, reg.NewStore(), "resources:read")
 	seedPlayerResource(t, svcCtx, ctx)
 
-	// 第三个资源：account，Key 排在 guild/player 之前。
+	// Third resource: account, whose Key sorts before guild/player.
 	contractService := dashboardservice.NewContractService(svcCtx.DB)
 	require.NoError(t, contractService.RebuildContractFromFunctionMeta(ctx, "demo-game", "development", "sdk", dashboardservice.FunctionMetaInput{
 		ID:         "account.get",

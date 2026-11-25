@@ -11,21 +11,24 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// 以下测试文档化本包中不可达的防御分支（对齐 internal/analytics/mq/deadbranch_doc_test.go 惯例）：
+// The tests below document unreachable defensive branches in this package
+// (matching the convention of internal/analytics/mq/deadbranch_doc_test.go):
 //
-//  1. handler.go List（:23）错误分支：ResourceListRequest 仅含 Category/Query
-//     两个 string form 字段，ShouldBindQuery 对纯 string 绑定恒成功，错误
-//     分支不可触发。
-//  2. service.go loadPersistentResources（:96）：ListByScope 使用 GORM
-//     Find(&[]*ResourceCapability)，结果元素恒非 nil，cap==nil 分支不可触发。
-//  3. service.go humanizeKey（:289）：strings.FieldsFunc 不产生空字符串段，
-//     parts[i]=="" 分支不可触发。
+//  1. handler.go List (:23) error branch: ResourceListRequest holds only the
+//     Category/Query string form fields, and ShouldBindQuery always succeeds
+//     for pure strings, so the error branch cannot be triggered.
+//  2. service.go loadPersistentResources (:96): ListByScope uses GORM
+//     Find(&[]*ResourceCapability), whose result elements are never nil, so
+//     the cap==nil branch cannot be triggered.
+//  3. service.go humanizeKey (:289): strings.FieldsFunc never produces empty
+//     string segments, so the parts[i]=="" branch cannot be triggered.
 
 func TestHandlerListQueryBindNeverFailsV11(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	_, ctx := newResourceTestServiceContext(t, reg.NewStore(), "resources:read")
 
-	// 纯 string form 字段对任意查询串（含奇怪编码/重复参数）都不会绑定失败。
+	// Pure string form fields never fail to bind for any query string (odd
+	// encodings / duplicate params included).
 	for _, target := range []string{
 		"/api/v1/resources?category=player&q=guild",
 		"/api/v1/resources?category=%E4%B8&category=x&q[]=",

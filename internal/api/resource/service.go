@@ -45,7 +45,8 @@ func (s *Service) List(ctx context.Context, req *ResourceListRequest) (*Resource
 		items = append(items, resource)
 	}
 
-	// Category.Order 无持久化来源（ResourceCapability 无该列），排序仅按 Key 稳定排序。
+	// Category.Order has no persisted source (ResourceCapability has no such
+	// column), so sorting is a stable sort by Key only.
 	sort.Slice(items, func(i, j int) bool {
 		return items[i].Key < items[j].Key
 	})
@@ -91,8 +92,10 @@ func (s *Service) loadPersistentResources(ctx context.Context) ([]spec.ResourceS
 	}
 	resources := make([]spec.ResourceSpec, 0, len(caps))
 	for _, cap := range caps {
-		// ListByScope 底层是 gorm Find(&[]*ResourceCapability)：结果集元素
-		// 由扫描器逐行构造，主键列非空，恒为非 nil 指针，原防御分支为死代码，已删除。
+		// ListByScope is backed by gorm Find(&[]*ResourceCapability): result
+		// elements are built row by row by the scanner, the primary key column
+		// is non-null, and they are always non-nil pointers, so the original
+		// defensive branch was dead code and has been removed.
 		resource, err := s.resourceSpecFromCapability(ctx, gameID, env, cap)
 		if err != nil {
 			return nil, err
@@ -246,7 +249,7 @@ func parseTagsFromJSON(raw model.JSON) []string {
 	if err := json.Unmarshal(raw, &tags); err != nil {
 		return nil
 	}
-	// 去重并过滤空字符串
+	// Deduplicate and drop empty strings
 	seen := make(map[string]struct{})
 	result := make([]string, 0, len(tags))
 	for _, tag := range tags {
@@ -282,7 +285,8 @@ func humanizeKey(key string) string {
 	parts := strings.FieldsFunc(key, func(r rune) bool {
 		return r == '.' || r == '_' || r == '-'
 	})
-	// strings.FieldsFunc 不产生空片段（连续分隔符被跳过），空片段分支为死代码，已删除。
+	// strings.FieldsFunc never yields empty fragments (consecutive separators
+	// are skipped), so the empty-fragment branch was dead code and removed.
 	for i := range parts {
 		parts[i] = strings.ToUpper(parts[i][:1]) + parts[i][1:]
 	}

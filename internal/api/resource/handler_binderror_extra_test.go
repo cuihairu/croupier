@@ -12,11 +12,12 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// failingBindValidatorV12 在 gin 的可插拔校验器扩展点上注入失败，
-// 使 ShouldBindQuery 在 mapForm 成功后于 validate 阶段返回错误。
-// 默认 validator 下 ResourceListRequest 仅含 string form 字段、绑定恒成功
-// （见 deadbranch_extra_test.go），因此 handler.go List 的绑定错误分支
-// 只能通过该扩展点触达。
+// failingBindValidatorV12 injects a failure at gin's pluggable validator
+// extension point, making ShouldBindQuery return an error at the validate
+// stage after mapForm has succeeded. Under the default validator,
+// ResourceListRequest holds only string form fields and binding always
+// succeeds (see deadbranch_extra_test.go), so the binding error branch of
+// handler.go List is reachable only through this extension point.
 type failingBindValidatorV12 struct{}
 
 func (failingBindValidatorV12) ValidateStruct(interface{}) error {
@@ -25,8 +26,9 @@ func (failingBindValidatorV12) ValidateStruct(interface{}) error {
 
 func (failingBindValidatorV12) Engine() any { return nil }
 
-// TestHandlerListBindErrorV12 覆盖 handler.go List 的 ShouldBindQuery 错误分支：
-// 绑定失败时应直接经 response.Error 返回，不再进入 service.List。
+// TestHandlerListBindErrorV12 covers the ShouldBindQuery error branch of
+// handler.go List: a binding failure should return directly through
+// response.Error without entering service.List.
 func TestHandlerListBindErrorV12(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
