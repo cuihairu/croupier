@@ -38,7 +38,7 @@ interface FormPresentationSpec {
 }
 
 interface FormFieldSpec {
-  key: string; // JSON Schema 字段路径，如 "name"、"address.city"
+  key: string; // 字段标识：裸顶层属性名（"name"）或 JSON Pointer（"/address/city"），见「字段标识」
   label?: LocalizedText; // 覆盖 schema title
   description?: LocalizedText; // 帮助文本
   placeholder?: LocalizedText;
@@ -70,6 +70,15 @@ interface RemoteOptionsSpec {
 ```
 
 渲染器生效语义（`SchemaFormRenderer`，2026-09 收口）：`required` 与 `validationRules[].type="required"` 并入运行时 schema `required`（`required: false` 可撤销 schema 原必填；visibleWhen 隐藏字段仍豁免）；`min`/`max` 按字段类型映射（string→`minLength/maxLength`，number/integer→`minimum/maximum`，array→`minItems/maxItems`），`pattern` 直写 JSON Schema `pattern`；`custom` 无法用 JSON Schema 表达，渲染时显式告警并忽略（不静默丢弃）。required 的字符串字段（schema `required` 与 fields 覆盖两来源一致生效）在派生运行时 schema 时若未显式声明 `minLength` 自动补 `minLength: 1`——AJV `required` 只查键存在、空串合法，不补则「必填」拦不住清空后的提交（BUG-038 关联观察：空串出网到游戏侧才报错）；显式 `minLength`（含 `validationRules` 映射产物）不覆盖，visibleWhen 隐藏豁免字段不注入；错误文案对 `minLength limit=1` 特化为「{title} 不能为空」。`defaultValue` 参与表单初值种入：仅补未提供值的字段，显式 `initialValues` 优先，`null`/空串视为已提供不覆盖。提交取值走唯一投影规则（`projectSubmitValues`，2026-11 收口）：所有提交路径——表单原生提交、函数调试页、资源创建/编辑、行操作表单与命令式句柄调用方——都用同一 `projectSubmitValues(values, spec)` 取 payload（渲染器句柄暴露为 `getSubmitValues()`）；隐藏键按当前值计算（`visible: false` 或 `visibleWhen` 不满足）并从 payload 剔除，值本身保留在表单态，可见性切回时恢复用户已填内容。裸 `getValues()` 仍返回含隐藏字段的全部值，仅用于状态镜像/回显——禁止用它拼提交 payload。
+
+### 字段标识（SUI-019）
+
+`FormFieldSpec.key`（以及 `groups.fields` 的每一项）是字段标识，接受两种形态：
+
+- **旧顶层裸 key**——schema 根上的属性名（`"name"`）。Go 生成器（`buildFormFields`）与历史前端 `derivePresentationSpec` 只产出这一形态，行为不变。带点的名字如 `address.city` **不是**路径，会按字面属性名查找，通常定位不到。
+- **JSON Pointer（RFC 6901）**——对象子字段写作 `/address/city`，数组项字段写作 `/tags/-/label`（`-` 指向 `items`）。`~1` 转义 `/`、`~0` 转义 `~`，因此键名含点或斜杠时也能无歧义定位。
+
+指针标识的渲染语义（`SchemaFormRenderer`，2026-11 收口）：呈现提示（label、description、enumNames、disabled、placeholder、widget、required、validationRules、defaultValue、可见性）作用在指针解析出的 schema 节点上——`label`/`description`/`enumNames` 写入解析到的 `properties` 节点，`required` 并入该节点的宿主 schema，`uiSchema` 分支沿指针路径逐层创建（数组段用 rjsf 的 `-` 约定）。隐藏的指针字段在其嵌套分支注入 `ui:widget: "hidden"` 并从宿主 schema 摘除 required；提交投影按路径剔除（`deleteAtPath`），初值种入按路径写入嵌套 `defaultValue`（`setAtPath`）。边界：指针标识不参与 `ui:order`（rjsf 只接受根属性名）；数组项路径的值删除/写入是空操作，因为数组按整体提交与投影；前端 `derivePresentationSpec` 现在为携带 hints 的嵌套字段产出指针标识（无 hints 时嵌套结构仍整体渲染，行为不变）；Go 侧嵌套派生对齐见 SUI-025。解析不到的指针以 `console.warn` 报出原因（`presentation field path unknown: <key>：<reason>`）而非静默降级；升级为保存/发布期阻断校验见 SUI-021。
 
 `widget` 是受控枚举，取值为 antd/ProComponents 组件名（PascalCase）：`Input`、`TextArea`、`InputNumber`、`Password`、`Select`、`MultiSelect`、`Radio`、`Checkbox`、`Switch`、`DatePicker`、`TimePicker`、`DateRange`、`Upload`、`ImageUpload`、`FileUpload`、`RichText`、`Code`、`Cascader`、`TreeSelect`、`Color`、`Slider`、`Rate`、`JSON`、`KeyValue`、`Array`、`Object`。扩展 widget 需要修改 spec 包并同步前端类型，不允许前端私加。
 

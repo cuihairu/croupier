@@ -692,3 +692,6 @@ wire 契约见 [PageSpec 协议规范](../architecture/pagespec-protocol.md)「�
   表单提交出口产生；无法无损编译的画布（文本节点、非卡片容器）或预览请求失败时回退结构预览并列出
   阻断项，此时预览不是与发布一致。画布被生成链拒绝的原因按统一错误形状返回（`details` 键为请求体
   字段路径），预览栏与保存/发布弹窗共用 `ErrorDetailList` 内联逐条列出
+
+
+- 嵌套表单字段路径（SUI-019）：`FormFieldSpec.key`（以及 `groups.fields` 的每一项）是字段标识，接受旧的顶层裸属性名，或 JSON Pointer（RFC 6901）——对象子字段写作 `/address/city`、数组项写作 `/tags/-/label`，`~0`/`~1` 转义保证键名含点或斜杠时无歧义定位。`derivePresentationSpec` 现在为携带 hints 的嵌套字段产出指针标识（无 hints 时嵌套结构仍整体渲染，行为不变），渲染器把 label/description/required/可见性作用在解析出的节点上，并按路径隐藏与顶层字段同规则一致。边界：指针字段不参与 `ui:order`（rjsf 只接受根属性名）；穿越数组的路径的值删除/写入是空操作，因为数组按整体提交与投影；定位不到的指针会报出原因而非静默丢弃（升级为保存/发布阻断见 SUI-021）；编辑器侧嵌套/分组字段编辑见 SUI-029。见 [PageSpec 协议](../architecture/pagespec-protocol.md#字段标识sui-019)。

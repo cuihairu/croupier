@@ -526,6 +526,7 @@ JSON Schema 是函数输入/输出的持久化标准；表单展示由 `FormPres
 
 **根值类型经往返保持原 JSON 类型（SUI-017）**：`deriveSchemaDefaults` 按 schema 根类型派生参数骨架——根数组种子为 `[]`（或一件 items 骨架），根标量为类型占位值（`''`/`0`/`false`，优先级 `default` > `example` > `enum` 首项），显式 `default: null` 原样保留；旧对象根保持按 properties 逐字段派生不变。调用工作台（Functions Invoke）中结构化表单只表达对象根：根数组/标量的函数只保留原始 JSON 页签，提交直接取 JSON 编辑器文本，因此 `[]`、`false`、`0`、`null` 经编辑 → 取值 → 提交往返不套对象壳。生成的页面表单（PageSpec `FormPresentationSpec`）按构造即对象根；其中的根数组与裸标量由请求兼容性分级归入降级形态（JSON 编辑）。
 **请求初值按明确的默认规则填充（SUI-018）**：种子拆成两层，让作者声明的默认值、示例与显示占位永不混用。**默认值层**（`deriveFormDefaults`）只派生 schema 以 `default` 显式声明的值——含嵌套声明默认；显式 `default: null` 视为「未声明默认」，字段保持缺省而非提交 `null`——表单与 JSON 编辑器都以此为初值。**模板层**（`deriveSchemaDefaults`，优先级 `default` > `example` > `enum` 首项 > 类型占位）只在用户索要时产出：调用工作台与实例调试弹窗各提供显式的「填入示例」动作，以该模板替换当前请求体。因此用户从未触碰的可选字段在提交的 payload 中保持**缺席**（提交投影对缺失键原样保留缺省），而用户确实给出的值——包括显式 `false`、`0`、`null`——原样提交，不被任何层覆盖。占位留在显示侧（`x-placeholder`，见呈现字段语义）；对象根仍忽略根级 `default`/`example`（旧对象表单种子路径不变）。
+**呈现字段路径以 JSON Pointer 定位嵌套字段（SUI-019）**：`FormPresentationSpec` 的字段标识或是旧的顶层裸属性名（Go 生成器与历史前端一直只产这一形态），或是 JSON Pointer（RFC 6901）——对象子字段写作 `/address/city`、数组项写作 `/tags/-/label`，`~0`/`~1` 转义保证键名含点或斜杠时无歧义。呈现提示作用在解析出的节点上（label/description/enumNames 写入该节点，`required` 并入字段的宿主 schema，`uiSchema` 沿指针路径逐层创建），隐藏的指针字段与顶层字段同样按路径豁免与剔除，因此发布页面可以在不动函数契约的前提下重新呈现嵌套输入。指针字段不参与 `ui:order`；穿越数组的路径保持数组整体提交与投影；定位不到的指针会报出原因而不是静默丢弃。
 
 ## Scope、菜单、发布与演进
 
