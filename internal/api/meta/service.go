@@ -58,7 +58,8 @@ func enabledFeatures(flags config.FeatureFlagsConfig, layered *settings.Layered)
 		config.FlagOps,
 		config.FlagExtensions,
 	} {
-		// L2 未裁剪的前提下读合成值（L3 可运行时关闭）。
+		// Read the composed value only when L2 has not trimmed the flag away
+		// (L3 can still turn it off at runtime).
 		if flags.Enabled(domain) && layered.FeatureEnabled(domain) {
 			features = append(features, domain)
 		}

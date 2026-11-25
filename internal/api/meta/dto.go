@@ -1,6 +1,6 @@
 package meta
 
-// RootRequest 根路径请求（空）
+// RootRequest is the root path request (empty).
 type RootRequest struct{}
 
 // RootResponse is the canonical REST response for GET /api/v1.
@@ -14,64 +14,64 @@ type RootResponse struct {
 	Links       map[string]string `json:"links"`
 }
 
-// AgentMetaReportRequest Agent元数据上报请求
+// AgentMetaReportRequest is the agent metadata report request.
 type AgentMetaReportRequest struct{}
 
-// AgentMetaResponse Agent元数据响应
+// AgentMetaResponse is the agent metadata response.
 type AgentMetaResponse struct {
 	Code    int         `json:"code"`
 	Message string      `json:"message"`
 	Data    interface{} `json:"data,omitempty"`
 }
 
-// NodeMetaRequest Node元数据请求
+// NodeMetaRequest is the node metadata request.
 type NodeMetaRequest struct {
 	ID string `uri:"id"`
 }
 
-// NodeMetaResponse Node元数据响应
+// NodeMetaResponse is the node metadata response.
 type NodeMetaResponse struct {
 	Meta interface{} `json:"meta"`
 }
 
-// NodeMetaUpdateRequest Node元数据更新请求
+// NodeMetaUpdateRequest is the node metadata update request.
 type NodeMetaUpdateRequest struct {
 	ID   string      `uri:"id"`
 	Meta interface{} `json:"meta"`
 }
 
-// OpsAgentMetaResponse Ops Agent元数据响应
+// OpsAgentMetaResponse is the ops agent metadata response.
 type OpsAgentMetaResponse struct {
 	Code    int         `json:"code"`
 	Message string      `json:"message"`
 	Data    interface{} `json:"data,omitempty"`
 }
 
-// OpsAgentMetaUpdateRequest Ops Agent元数据更新请求
+// OpsAgentMetaUpdateRequest is the ops agent metadata update request.
 type OpsAgentMetaUpdateRequest struct {
 	AgentID string      `json:"agentId"`
 	Meta    interface{} `json:"meta"`
 }
 
-// OpsNodeMetaRequest Ops Node元数据请求
+// OpsNodeMetaRequest is the ops node metadata request.
 type OpsNodeMetaRequest struct {
 	NodeID string `uri:"nodeId"`
 }
 
-// OpsNodeMetaResponse Ops Node元数据响应
+// OpsNodeMetaResponse is the ops node metadata response.
 type OpsNodeMetaResponse struct {
 	Code    int         `json:"code"`
 	Message string      `json:"message"`
 	Data    interface{} `json:"data,omitempty"`
 }
 
-// OpsServiceMetadata Ops服务元数据
+// OpsServiceMetadata is the ops service metadata.
 type OpsServiceMetadata struct {
 	Processes      []OpsServiceProcess `json:"processes"`
 	ProcessesCount int                 `json:"processesCount"`
 }
 
-// OpsServiceProcess Ops服务进程信息
+// OpsServiceProcess is ops service process information.
 type OpsServiceProcess struct {
 	ServiceID    string   `json:"serviceId"`
 	Addr         string   `json:"addr"`

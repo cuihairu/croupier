@@ -7,9 +7,9 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// RootProvider 是 Root 元信息查询的最小接口缝隙。
-// 生产实现为 *Service（恒返回 nil error），接口化使 handler 的
-// 错误分支可在测试中注入触达。
+// RootProvider is the minimal interface seam for querying Root meta info.
+// Production uses *Service (which always returns a nil error); going through the
+// interface lets tests reach the handler's error branch by injection.
 type RootProvider interface {
 	Root(ctx context.Context) (*RootResponse, error)
 }
