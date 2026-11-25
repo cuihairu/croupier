@@ -12,21 +12,27 @@ import (
 	"gorm.io/gorm"
 )
 
-// service.go 残余错误分支补齐。手法沿用仓库既有两类：
-//   1. 关闭底层连接（首个 DB 调用即失败）；
-//   2. gorm 回调按表名/变量定点注错（alertrule_v8_test.go 先例），带调用
-//      计数器以命中「第 N 次调用才失败」的级联路径。
+// Filling in the remaining error branches of service.go. The approach follows
+// the two kinds already used in the repo:
+//   1. Close the underlying connection (the first DB call fails);
+//   2. Inject errors at a fixed point in a gorm callback by table name or a
+//      variable (precedent: alertrule_v8_test.go), with a call counter to hit
+//      cascading paths where "only the Nth call fails".
 //
-// 论证为不可达、不在此覆盖的 4 个死分支：
-//   - SetLabels error ×2（service.go:108/171）：map[string]string 的
-//     json.Marshal 恒成功，模型注释已声明恒返回 nil；
-//   - filterAccessibleTree service.go:380 的 !check(parent)：递归不变式
-//     保证 check(child)=true 时父链已验证为可达（父不存在走孤儿提升分支），
-//     该二次校验为防御性恒真，无可构造输入使其为假。
+// The 4 dead branches argued unreachable and not covered here:
+//   - SetLabels error ×2 (service.go:108/171): json.Marshal of
+//     map[string]string always succeeds, and the model comment already
+//     states it always returns nil;
+//   - the !check(parent) at filterAccessibleTree service.go:380: the
+//     recursion invariant guarantees the parent chain is already verified as
+//     reachable when check(child)=true (a missing parent takes the orphan
+//     promotion branch), so this second check is defensively always true and
+//     no constructible input makes it false.
 
-// registerMenuQueryError 注册 menu_items 查询注错：needle 非空时仅当查询
-// 变量含该字符串才注错（FindByScopeAndKey 按 key 查询），skip=N 表示前 N
-// 次放行、第 N+1 次起注错。
+// registerMenuQueryError registers a menu_items query error injection: when
+// needle is non-empty, errors are injected only when a query variable contains
+// that string (FindByScopeAndKey queries by key); skip=N means the first N
+// calls pass through and errors start at call N+1.
 func registerMenuQueryError(t *testing.T, db *gorm.DB, name, needle string, skip int) {
 	t.Helper()
 	var calls int
@@ -161,7 +167,7 @@ func TestMenuDelete_ListScopeError(t *testing.T) {
 	first, err := service.Create(ctx, &CreateMenuRequest{MenuKey: "cascade", Labels: menuLabels()})
 	require.NoError(t, err)
 
-	// 第 1 次 menu_items 查询（FindByID）放行，第 2 次（ListByScope）注错。
+	// The 1st menu_items query (FindByID) passes, the 2nd (ListByScope) is injected with an error.
 	registerMenuQueryError(t, service.svcCtx.DB, "gap2:dlist", "", 1)
 
 	err = service.Delete(ctx, &UpdateMenuRequest{ID: formatID(int64(first.ID))})
@@ -173,7 +179,8 @@ func TestMenuDelete_ClearPageRefsError(t *testing.T) {
 	first, err := service.Create(ctx, &CreateMenuRequest{MenuKey: "linked", Labels: menuLabels()})
 	require.NoError(t, err)
 
-	// PageSpecModel 独立挂到已关闭的第二个库：菜单库健康、页面引用清理必败。
+	// PageSpecModel is attached separately to a second, already-closed DB: the
+	// menu DB is healthy, but clearing page references must fail.
 	pdb, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
 	psqlDB, err := pdb.DB()
@@ -203,7 +210,7 @@ func TestMenuDelete_ChildRowError(t *testing.T) {
 	_, err = service.Create(ctx, &CreateMenuRequest{MenuKey: "childc", ParentID: &root.ID, Labels: menuLabels()})
 	require.NoError(t, err)
 
-	// 第 1 次 delete（主行）放行，第 2 次（级联子行）注错。
+	// The 1st delete (main row) passes, the 2nd (cascaded child row) is injected with an error.
 	registerMenuWriteError(t, service.svcCtx.DB, "gap2:dchild", "delete", 1)
 
 	err = service.Delete(ctx, &UpdateMenuRequest{ID: formatID(int64(root.ID))})
@@ -237,7 +244,8 @@ func TestMenuUpdateSort_ReloadError(t *testing.T) {
 	first, err := service.Create(ctx, &CreateMenuRequest{MenuKey: "sorted3", Labels: menuLabels()})
 	require.NoError(t, err)
 
-	// 第 1 次 menu_items 查询（排序前校验）放行，第 2 次（写后重读）注错。
+	// The 1st menu_items query (pre-sort validation) passes, the 2nd (re-read
+	// after the write) is injected with an error.
 	registerMenuQueryError(t, service.svcCtx.DB, "gap2:sreload", "", 1)
 
 	_, err = service.UpdateSort(ctx, &SortMenuRequest{ID: formatID(int64(first.ID)), SortOrder: 4})
@@ -246,7 +254,7 @@ func TestMenuUpdateSort_ReloadError(t *testing.T) {
 
 func TestMenuAccessibleTree_AdminLoadError(t *testing.T) {
 	service, ctx := newMenuTestService(t, "admin:all")
-	// AdminModel 未初始化 → LoadCurrentAdmin 报错。
+	// AdminModel uninitialized → LoadCurrentAdmin errors.
 	bare := &svc.ServiceContext{DB: service.svcCtx.DB, MenuModel: service.svcCtx.MenuModel}
 	_, err := AccessibleTree(ctx, bare)
 	assert.Error(t, err)
@@ -269,7 +277,7 @@ func TestMenuAccessibleTree_PermissionLookupError(t *testing.T) {
 
 func TestMenuAccessibleTree_AdminRoleSeesAll(t *testing.T) {
 	service, ctx := newMenuTestService(t)
-	// 角色名命中 admin → HasAdminRole 分支为 permIDs 追加通配。
+	// The role name matches admin → the HasAdminRole branch appends the wildcard to permIDs.
 	adminRole := model.Role{Name: "admin", Description: "builtin admin"}
 	require.NoError(t, service.svcCtx.DB.Create(&adminRole).Error)
 	var tester model.Admin
@@ -289,8 +297,9 @@ func TestMenuAccessibleTree_ListError(t *testing.T) {
 	assert.Error(t, err)
 }
 
-// filterAccessibleTree 纯函数分支：孤儿节点（父记录缺失）提升为根；父被
-// 权限过滤掉时其子树整体隐藏。
+// Pure-function branches of filterAccessibleTree: an orphan node (parent
+// record missing) is promoted to a root; when the parent is filtered out by
+// permissions, its whole subtree is hidden.
 func TestFilterAccessibleTree_OrphanAndGatedParent(t *testing.T) {
 	secret := "secret:read"
 	visibleRoot := model.MenuItem{MenuKey: "gated", Permission: secret, IsVisible: true}
@@ -304,13 +313,15 @@ func TestFilterAccessibleTree_OrphanAndGatedParent(t *testing.T) {
 	orphan.ParentID = &missing
 
 	items := []model.MenuItem{visibleRoot, child, orphan}
-	// 不持 secret:read → gated 子树整体隐藏；orphan 的父不存在 → 提升为根。
+	// Without secret:read → the gated subtree is hidden as a whole; the
+	// orphan's parent does not exist → promoted to a root.
 	roots := filterAccessibleTree(items, []string{"other:read"})
 	require.Len(t, roots, 1)
 	assert.EqualValues(t, 3, roots[0].ID, "孤儿节点应提升为根")
 	assert.Empty(t, roots[0].Children)
 
-	// 持有通配 → gated 树可见（子挂接正确），孤儿仍提升为根。
+	// With the wildcard → the gated tree is visible (the child is attached
+	// correctly); the orphan is still promoted to a root.
 	roots = filterAccessibleTree(items, []string{"*"})
 	require.Len(t, roots, 2)
 	assert.EqualValues(t, 1, roots[0].ID)
@@ -322,7 +333,8 @@ func TestFilterAccessibleTree_OrphanAndGatedParent(t *testing.T) {
 func TestMenuCreate_ResolveParentFindError(t *testing.T) {
 	service, ctx := newMenuTestService(t, "menu:create")
 
-	// 第 1 次 menu_items 查询（key 查重）放行，第 2 次（父存在性校验）注错。
+	// The 1st menu_items query (key dedup check) passes, the 2nd (parent
+	// existence check) is injected with an error.
 	registerMenuQueryError(t, service.svcCtx.DB, "gap2:parent", "", 1)
 	missing := int64(424242)
 

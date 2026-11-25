@@ -52,7 +52,7 @@ func (h *Handler) Create(c *gin.Context) {
 // Update handles PUT /api/v1/menus/:id.
 func (h *Handler) Update(c *gin.Context) {
 	var req UpdateMenuRequest
-	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required 语义失败路径，保留填充语义
+	_ = c.ShouldBindUri(&req) // uri fields are all strings with no required-semantics failure path, keep populate-only semantics
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, err)
 		return

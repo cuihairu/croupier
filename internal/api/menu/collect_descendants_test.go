@@ -6,10 +6,11 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// collectDescendants 是删除级联的核心：漏收集 = 孤儿菜单行；误收集 = 误删。
+// collectDescendants is the core of the delete cascade: collecting too little
+// leaves orphan menu rows, collecting too much deletes the wrong rows.
 
 func TestCollectDescendants_TreeAndLeaf(t *testing.T) {
-	// 1 → 2,3；2 → 4；5 是旁支（不应被 1 的删除波及）。
+	// 1 → 2,3; 2 → 4; 5 is a side branch (must not be touched by deleting 1).
 	children := map[uint][]uint{
 		1: {2, 3},
 		2: {4},
@@ -19,19 +20,19 @@ func TestCollectDescendants_TreeAndLeaf(t *testing.T) {
 	got := collectDescendants(1, children)
 	assert.ElementsMatch(t, []uint{2, 3, 4}, got)
 
-	// 叶节点 → 空。
+	// leaf node → empty.
 	assert.Empty(t, collectDescendants(4, children))
 	assert.Empty(t, collectDescendants(6, children))
 
-	// 不存在的根 → 空。
+	// nonexistent root → empty.
 	assert.Empty(t, collectDescendants(99, children))
 
-	// 空 map。
+	// empty map.
 	assert.Empty(t, collectDescendants(1, nil))
 }
 
 func TestCollectDescendants_DeepChainNoCycleSafe(t *testing.T) {
-	// 线性链 1→2→3→4→5。
+	// Linear chain 1→2→3→4→5.
 	children := map[uint][]uint{
 		1: {2},
 		2: {3},
@@ -40,6 +41,8 @@ func TestCollectDescendants_DeepChainNoCycleSafe(t *testing.T) {
 	}
 	assert.ElementsMatch(t, []uint{2, 3, 4, 5}, collectDescendants(1, children))
 
-	// 已知边界：实现是无 visited 集的 DFS，脏数据成环会无限展开——
-	// 生产路径由 parent 指针树保证无环，此处不测环（避免挂起）。
+	// Known boundary: the implementation is a DFS without a visited set, so
+	// dirty data forming a cycle would expand forever — the production path
+	// guarantees acyclicity via the parent pointer tree, so cycles are not
+	// tested here (avoiding a hang).
 }
