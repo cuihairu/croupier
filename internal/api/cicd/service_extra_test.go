@@ -7,16 +7,18 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestNormalizeExtra_Float64Branch 直接单测覆盖 normalizeExtra 的 case float64 分支。
-// 该分支在生产路径不可达（入参仅来自 JSON 列 json.Number 或 map[string]string），
-// 但在函数层可直接构造 map[string]interface{} 触发。
+// TestNormalizeExtra_Float64Branch unit-tests the case float64 branch of
+// normalizeExtra directly. The branch is unreachable via production paths (inputs
+// only come from the JSON column as json.Number or from map[string]string), but can
+// be triggered at the function level by building a map[string]interface{} directly.
 func TestNormalizeExtra_Float64Branch(t *testing.T) {
 	in := map[string]interface{}{"v": float64(3.14)}
 	out := normalizeExtra(in)
 	assert.Equal(t, "3.14", out["v"])
 }
 
-// TestNormalizeExtra_TypeCoercion 覆盖 bool/嵌套对象/string 等其它分支（补充完整度）。
+// TestNormalizeExtra_TypeCoercion covers the remaining branches (bool / nested object
+// / string) for completeness.
 func TestNormalizeExtra_TypeCoercion(t *testing.T) {
 	in := map[string]interface{}{
 		"num":  json.Number("42"),

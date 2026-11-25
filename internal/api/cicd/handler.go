@@ -124,7 +124,8 @@ func (h *Handler) Trigger(c *gin.Context) {
 	response.Success(c, resp)
 }
 
-// Builds handles GET /cicd/builds（跨接入构建列表，供打包记录页）。
+// Builds handles GET /cicd/builds (a cross-integration build list, feeding the package
+// records page).
 func (h *Handler) Builds(c *gin.Context) {
 	var req BuildListRequest
 	if err := c.ShouldBindQuery(&req); err != nil {

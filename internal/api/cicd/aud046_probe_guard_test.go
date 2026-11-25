@@ -1,13 +1,16 @@
 package cicd_test
 
-// AUD-046 回归：TestConnection 的 SSRF 收敛与稳定错误码。
+// AUD-046 regression: TestConnection's SSRF convergence and stable error codes.
 //
-// 根因：探测原语此前对客户端回传原始拨号错误（refused / no route /
-// timeout 可区分内网主机存活形态，等于免费内网扫描器），且不校验
-// scheme、不做解析级私网拦截。修复：scheme 只认 http/https（400
-// cicd_probe_invalid_target）；secguard 站点守卫开启时解析级拒绝私网/
-// 回环/链路本地地址（sec.allowIPs 可放行，400 cicd_probe_target_blocked）；
-// 客户端可见信息一律稳定文案，原文只进日志。
+// Root cause: the probe primitive previously returned the raw dial error to the client
+// (refused / no route / timeout can distinguish the liveness shape of an intranet host,
+// effectively a free intranet scanner), did not validate the scheme, and performed no
+// resolution-level private-network blocking. The fix: only http/https schemes are
+// accepted (400 cicd_probe_invalid_target); when the secguard site guard is on,
+// resolution-level rejection covers private/loopback/link-local addresses
+// (sec.allowIPs can let an intranet CICD through, 400 cicd_probe_target_blocked); what
+// the client sees is always stable wording, with the original text going only to the
+// log.
 
 import (
 	"context"
@@ -30,8 +33,9 @@ func aud046CodeOf(t *testing.T, err error) *errorx.CodeError {
 	return cerr
 }
 
-// scheme 只认 http/https：历史行/直写库绕过写入校验（ValidateCicdIntegration
-// 只在 Create/Update 路径生效）时由探测兜底。
+// Only http/https schemes are accepted: when legacy rows or direct DB writes bypass
+// the write-time validation (ValidateCicdIntegration only runs on the Create/Update
+// paths), the probe acts as the fallback guard.
 func TestCicdProbe_Aud046_SchemeRestricted(t *testing.T) {
 	ctxSvc, db := setupCtx(t)
 	svcCicd := cicd.NewService(ctxSvc)
@@ -54,9 +58,10 @@ func TestCicdProbe_Aud046_SchemeRestricted(t *testing.T) {
 	}
 }
 
-// secguard 站点守卫开启：解析级拦截回环/私网地址（sec.allowIPs 可放行内网
-// CICD），拦截以 400 cicd_probe_target_blocked 呈现且不回显目标地址，
-// 真实拨号不再发生。
+// secguard site guard enabled: resolution-level blocking of loopback/private addresses
+// (sec.allowIPs can let an intranet CICD through); the block surfaces as 400
+// cicd_probe_target_blocked without echoing the target address, and no real dial
+// happens.
 func TestCicdProbe_Aud046_SecguardBlocksPrivateTarget(t *testing.T) {
 	ctxSvc, db := setupCtx(t)
 	require.NoError(t, db.AutoMigrate(&model.PlatformSetting{}))
@@ -81,8 +86,9 @@ func TestCicdProbe_Aud046_SecguardBlocksPrivateTarget(t *testing.T) {
 	assert.Equal(t, "cicd_probe_target_blocked", cerr.StableCode)
 	assert.NotContains(t, cerr.Message, "127.0.0.1", "拦截文案不回显内网地址")
 
-	// sec.allowIPs 放行后守卫放行，落到真实拨号（本机端口无监听 → 不可达），
-	// 客户端只见稳定文案，原始 refused 差异只进日志。
+	// Once sec.allowIPs lets it through, the guard lets it through and the call reaches
+	// a real dial (no listener on the local port -> unreachable); the client only sees
+	// the stable wording, with the raw refused difference going only to the log.
 	require.NoError(t, store.Set(context.Background(), settings.KeySecAllowIPs, json.RawMessage(`"127.0.0.1"`), "tester"))
 	settings.Current().Reload(context.Background(), store)
 	resp, err := svcCicd.TestConnection(ctx, row.ID)
@@ -93,9 +99,10 @@ func TestCicdProbe_Aud046_SecguardBlocksPrivateTarget(t *testing.T) {
 	assert.NotContains(t, resp.Message, "refused")
 }
 
-// 守卫关闭（默认）：私网目标沿用拨号级语义不额外收紧（自托管 CICD 常驻
-// 内网），但失败文案仍是稳定形态，不再回传原始拨号错误——内网拓扑线索
-// （refused 可区分主机存活）不外泄。
+// Guard disabled (the default): a private target keeps dial-level semantics with no
+// extra tightening (self-hosted CICD lives on the intranet), but the failure wording
+// still has a stable form and no longer passes back the raw dial error - intranet
+// topology hints (refused can distinguish host liveness) do not leak.
 func TestCicdProbe_Aud046_UnreachableStableMessage(t *testing.T) {
 	ctxSvc, db := setupCtx(t)
 	svcCicd := cicd.NewService(ctxSvc)

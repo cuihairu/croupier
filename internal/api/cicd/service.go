@@ -1,7 +1,8 @@
-// Package cicd 实现外部 CI/CD 接入的管理面 API（OPEN-ISSUES #58）：
-// integrations CRUD（凭据掩码回读）、连通性测试、站内触发、构建记录查询
-// 与 webhook 状态回写（幂等）。触发/查询经 internal/cicd provider 抽象
-// 分发到 jenkins/gitlab-ci/github-actions/generic 实现。
+// Package cicd implements the management-plane API for external CI/CD integrations
+// (OPEN-ISSUES #58): integrations CRUD (credential mask on read-back), connectivity
+// tests, in-product triggering, build record queries, and webhook status write-back
+// (idempotent). Trigger/query go through the internal/cicd provider abstraction and
+// dispatch to the jenkins/gitlab-ci/github-actions/generic implementations.
 package cicd
 
 import (
@@ -17,7 +18,7 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/internal/cicd"
-	_ "github.com/cuihairu/croupier/internal/cicd/providers" // 注册内置 provider
+	_ "github.com/cuihairu/croupier/internal/cicd/providers" // registers the built-in providers
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/db/dbctx"
 	logicutils "github.com/cuihairu/croupier/internal/logic/utils"
@@ -29,8 +30,9 @@ import (
 	"gorm.io/gorm"
 )
 
-// triggerTimeout 限制单次 provider 外呼的挂钟上限（限内不再叠加 secguard
-// 的 per-request timeout；此处只兜 ctx 传染）。
+// triggerTimeout caps the wall-clock limit of a single provider outbound call (within
+// the limit it does not stack another secguard per-request timeout; this only guards
+// against ctx leakage).
 const triggerTimeout = 30 * time.Second
 
 type Service struct {
@@ -38,13 +40,13 @@ type Service struct {
 	httpClient *http.Client
 }
 
-// NewService 创建 cicd 管理面服务。
+// NewService creates the cicd management-plane service.
 func NewService(svcCtx *svc.ServiceContext) *Service {
 	return &Service{svcCtx: svcCtx, httpClient: http.DefaultClient}
 }
 
-// WithHTTPClient 注入出站客户端（生产路径传 secguard 守卫后的客户端；
-// 测试注入 httptest 客户端）。
+// WithHTTPClient injects the outbound client (production passes the secguard-guarded
+// client; tests inject the httptest client).
 func (s *Service) WithHTTPClient(c *http.Client) *Service {
 	s.httpClient = c
 	return s
@@ -52,7 +54,8 @@ func (s *Service) WithHTTPClient(c *http.Client) *Service {
 
 // ---- DTO ----
 
-// Integration DTO。Token 不回显明文：tokenSet/tokenMasked 口径同通知渠道。
+// Integration DTO. The token never echoes plaintext: tokenSet/tokenMasked follow the
+// same convention as the notification channels.
 type Integration struct {
 	ID          uint              `json:"id"`
 	GameID      string            `json:"gameId"`
@@ -87,7 +90,8 @@ type Build struct {
 	CreatedAt        time.Time  `json:"createdAt"`
 }
 
-// normalizeExtra 把 JSONMap 收敛为 string map（provider 配置均为字符串键值）。
+// normalizeExtra converges a JSONMap into a string map (provider configurations are all
+// string key-values).
 func normalizeExtra(in map[string]interface{}) map[string]string {
 	out := make(map[string]string, len(in))
 	for k, v := range in {
@@ -144,7 +148,8 @@ func buildBuildDTO(r *model.CicdBuild) Build {
 	}
 }
 
-// providerFor 按行构造 provider（复用行内凭据；出站客户端走注入）。
+// providerFor constructs a provider per row (reusing the row's credentials; the outbound
+// client comes via injection).
 func (s *Service) providerFor(row *model.CicdIntegration) (cicd.Provider, error) {
 	return cicd.New(row.Kind, cicd.Config{
 		Endpoint: row.Endpoint,
@@ -174,7 +179,7 @@ type IntegrationListRequest struct {
 
 type IntegrationListResponse struct {
 	Items []Integration `json:"items"`
-	Kinds []string      `json:"kinds"` // 注册表可用类型（前端动态表单）
+	Kinds []string      `json:"kinds"` // kinds available from the registry (dynamic frontend form)
 }
 
 func (s *Service) List(ctx context.Context, req *IntegrationListRequest) (*IntegrationListResponse, error) {
@@ -226,7 +231,8 @@ func (s *Service) Create(ctx context.Context, req *IntegrationCreateRequest) (*I
 	if err := model.ValidateCicdIntegration(row); err != nil {
 		return nil, errorx.NewBadRequest(err.Error())
 	}
-	// 构造即校验：provider 配置（Extra 必填键/URL 形态）不合法直接 400
+	// Validate at construction: an invalid provider configuration (Extra required keys /
+	// URL shape) yields 400 directly
 	if _, err := s.providerFor(row); err != nil {
 		return nil, errorx.NewBadRequest(err.Error())
 	}
@@ -242,7 +248,7 @@ type IntegrationUpdateRequest struct {
 	Kind     string            `json:"kind"`
 	Name     string            `json:"name"`
 	Endpoint string            `json:"endpoint"`
-	Token    string            `json:"token"` // 空串 = 保留原凭据
+	Token    string            `json:"token"` // empty string = keep the original credential
 	Extra    map[string]string `json:"extra"`
 	Enabled  *bool             `json:"enabled"`
 }
@@ -262,7 +268,7 @@ func (s *Service) Update(ctx context.Context, req *IntegrationUpdateRequest) (*I
 		row.Endpoint = v
 	}
 	if v := strings.TrimSpace(req.Token); v != "" {
-		row.Token = v // 掩码回存保护：空串不覆盖
+		row.Token = v // masked round-trip protection: an empty string does not overwrite
 	}
 	if req.Extra != nil {
 		row.Extra = datatypes.JSONMap{}
@@ -289,8 +295,10 @@ func (s *Service) Delete(ctx context.Context, id uint) error {
 	if _, err := s.integrationByID(ctx, id); err != nil {
 		return err
 	}
-	// AUD-050：删 builds 与删 integration 同事务——builds 删掉后接入行
-	// 删除失败会留下「有接入无构建」的半提交中间态，回滚保证两删同生同灭。
+	// AUD-050: delete builds and delete the integration in one transaction - if the
+	// integration row's deletion failed after builds were deleted, a half-committed
+	// intermediate state ("integration without builds") would remain; the rollback
+	// guarantees the two deletes live and die together.
 	return s.withCicdTransaction(ctx, func(txCtx context.Context) error {
 		if err := s.svcCtx.CicdBuildModel.DeleteByIntegration(txCtx, id); err != nil {
 			return err
@@ -299,9 +307,11 @@ func (s *Service) Delete(ctx context.Context, id uint) error {
 	})
 }
 
-// withCicdTransaction 在当前作用域连接（dbctx.Resolve）上开事务并把 tx 注入
-// ctx：包内 model 方法经 dbctx.Resolve(ctx, m.db) 自动落到事务连接（与
-// page 域 withPageTransaction 同范式，AUD-050 多步写包事务）。
+// withCicdTransaction opens a transaction on the current scoped connection
+// (dbctx.Resolve) and injects the tx into ctx: in-package model methods land on the
+// transaction connection automatically via dbctx.Resolve(ctx, m.db) (the same paradigm
+// as the page domain's withPageTransaction; AUD-050 multi-step write packaged in one
+// transaction).
 func (s *Service) withCicdTransaction(ctx context.Context, fn func(context.Context) error) error {
 	if s.svcCtx == nil || s.svcCtx.DB == nil {
 		return errorx.NewInternalError("cicd service database is not initialized")
@@ -312,26 +322,31 @@ func (s *Service) withCicdTransaction(ctx context.Context, fn func(context.Conte
 	})
 }
 
-// ---- 连通性测试 ----
+// ---- connectivity test ----
 
 type ConnectionTestResponse struct {
 	OK      bool   `json:"ok"`
 	Message string `json:"message"`
 }
 
-// TestConnection 对 endpoint 发一次只读 GET（任意 HTTP 响应含 4xx 都算
-// 可达——凭据有效性由各系统自身语义决定，不在本探测范围）。
+// TestConnection issues one read-only GET to the endpoint (any HTTP response,
+// including 4xx, counts as reachable - credential validity is decided by each
+// system's own semantics and is out of scope for this probe).
 //
-// AUD-046（SSRF 与信息泄露收敛）：
-//   - endpoint 是管理员可配 URL，本探测是天然的内网扫描原语。scheme 只认
-//     http/https（写入侧 ValidateCicdIntegration 已卡前缀，此处兜住历史行
-//     与直写库形态），违规即 400 cicd_probe_invalid_target。
-//   - secguard 站点守卫（sec.ssrfProtection）开启时先做解析级校验，私网/
-//     回环/链路本地地址一律拒绝（sec.allowIPs 可放行内网 CICD），与既有
-//     webhook 探针同口径；关闭时沿用 routes 装配的拨号级守卫语义，不对
-//     自托管内网部署额外收紧。命中即 400 cicd_probe_target_blocked。
-//   - 客户端可见信息一律稳定文案：原始拨号错误能区分内网主机存活形态
-//     （refused / no route / timeout），只进服务端日志，不再回传 body。
+// AUD-046 (SSRF and information-leakage narrowing):
+//   - endpoint is an admin-configurable URL, so this probe is a natural intranet
+//     scanning primitive. Only http/https schemes are accepted (the write side
+//     ValidateCicdIntegration already pins the prefix; this catches historical rows
+//     and direct-to-DB writes); violations yield 400 cicd_probe_invalid_target.
+//   - When the secguard site guard (sec.ssrfProtection) is on, a resolution-level
+//     check runs first and private/loopback/link-local addresses are rejected
+//     outright (sec.allowIPs can admit intranet CICD), matching the existing
+//     webhook probe; when off, the dial-level guard semantics wired by routes are
+//     kept, without tightening self-hosted intranet deployments further. A hit
+//     yields 400 cicd_probe_target_blocked.
+//   - Client-visible information is always stable wording: raw dial errors can
+//     distinguish whether an intranet host is alive (refused / no route /
+//     timeout) and go to server-side logs only, never back in the body.
 func (s *Service) TestConnection(ctx context.Context, id uint) (*ConnectionTestResponse, error) {
 	row, err := s.integrationByID(ctx, id)
 	if err != nil {
@@ -344,7 +359,8 @@ func (s *Service) TestConnection(ctx context.Context, id uint) (*ConnectionTestR
 	}
 	ctx, cancel := context.WithTimeout(ctx, triggerTimeout)
 	defer cancel()
-	// secguard 四键全关时 CheckURL 零开销直通；开启时含 DNS 解析级私网拦截。
+	// With all four secguard switches off, CheckURL passes through at zero cost;
+	// when on, it includes DNS-resolution-level private-network blocking.
 	guard := secguard.Resolve(settings.Current())
 	if err := secguard.CheckURL(ctx, guard, target); err != nil {
 		slog.WarnContext(ctx, "cicd probe blocked by secguard", "integrationID", id, "error", err)
@@ -366,12 +382,12 @@ func (s *Service) TestConnection(ctx context.Context, id uint) (*ConnectionTestR
 	return &ConnectionTestResponse{OK: true, Message: fmt.Sprintf("HTTP %d", resp.StatusCode)}, nil
 }
 
-// ---- 触发与构建查询 ----
+// ---- triggering and build queries ----
 
 type TriggerRequest struct {
 	Pipeline string            `json:"pipeline"`
 	Params   map[string]string `json:"params"`
-	Version  string            `json:"version"` // 打版本标记，关联发布链
+	Version  string            `json:"version"` // tags a release and links into the release chain
 	GameID   string            `json:"gameId"`
 	Env      string            `json:"env"`
 }
@@ -381,8 +397,8 @@ type TriggerResponse struct {
 	Build       Build       `json:"build"`
 }
 
-// Trigger 经 provider 触发构建并落一条本地构建记录（queued/unknown 起步，
-// 状态由 GetBuild 或 webhook 推进）。
+// Trigger fires a build through the provider and lands a local build record
+// (starting at queued/unknown; status is advanced by GetBuild or the webhook).
 func (s *Service) Trigger(ctx context.Context, id uint, req *TriggerRequest) (*TriggerResponse, error) {
 	row, err := s.integrationByID(ctx, id)
 	if err != nil {
@@ -391,8 +407,9 @@ func (s *Service) Trigger(ctx context.Context, id uint, req *TriggerRequest) (*T
 	if !row.Enabled {
 		return nil, errorx.NewBadRequest("该接入已停用")
 	}
-	// AUD-047：provider 构造失败（未知 kind / 配置不合法）是接入配置问题，
-	// 与 Create/Update 同口径按 400 呈现，不落 opaque 500。
+	// AUD-047: a provider construction failure (unknown kind / invalid config) is an
+	// integration configuration problem, surfaced as 400 like Create/Update, not an
+	// opaque 500.
 	p, err := s.providerFor(row)
 	if err != nil {
 		return nil, errorx.NewBadRequest(err.Error())
@@ -434,7 +451,8 @@ type BuildRefreshResponse struct {
 	Build Build `json:"build"`
 }
 
-// RefreshBuild 从 provider 拉取最新状态回写本地记录。
+// RefreshBuild pulls the latest status from the provider and writes it back to the
+// local record.
 func (s *Service) RefreshBuild(ctx context.Context, buildID uint) (*BuildRefreshResponse, error) {
 	var row model.CicdBuild
 	got, err := s.svcCtx.CicdBuildModel.GetByID(ctx, buildID)
@@ -451,7 +469,8 @@ func (s *Service) RefreshBuild(ctx context.Context, buildID uint) (*BuildRefresh
 	}
 	p, err := s.providerFor(integration)
 	if err != nil {
-		// AUD-047：同 Trigger——provider 构造失败按接入配置问题 400 呈现。
+		// AUD-047: same as Trigger - a provider construction failure surfaces as 400
+		// because it is an integration configuration problem.
 		return nil, errorx.NewBadRequest(err.Error())
 	}
 	ctx, cancel := context.WithTimeout(ctx, triggerTimeout)

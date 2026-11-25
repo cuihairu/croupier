@@ -13,7 +13,8 @@ import (
 	"gorm.io/gorm"
 )
 
-// aud049WebhookEnv 组装带审计内存存储的 webhook 测试环境（AUD-049）。
+// aud049WebhookEnv assembles a webhook test environment with an in-memory audit store
+// (AUD-049).
 func aud049WebhookEnv(t *testing.T) (*Service, *audit.InMemoryAuditStore, uint) {
 	t.Helper()
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
@@ -44,8 +45,8 @@ func aud049WebhookRecords(t *testing.T, store *audit.InMemoryAuditStore, event a
 	return records
 }
 
-// InMemoryAuditStore.List 底层是 map（遍历顺序随机），denied 记录按 reason
-// 子集断言，不依赖顺序。
+// InMemoryAuditStore.List is backed by a map (random iteration order), so denied records
+// are asserted as subsets by reason, without depending on order.
 func aud049WebhookByReason(records []*audit.AuditRecord, reason string) []*audit.AuditRecord {
 	var out []*audit.AuditRecord
 	for _, r := range records {
@@ -56,8 +57,9 @@ func aud049WebhookByReason(records []*audit.AuditRecord, reason string) []*audit
 	return out
 }
 
-// 成功回写 → cicd.webhook_ingest / success；token 不匹配 → denied；scope
-// 冲突 → denied；三种记录同一出口（LogWrite），outcome 区分。
+// Successful write-back -> cicd.webhook_ingest / success; token mismatch -> denied;
+// scope conflict -> denied; all three records share one exit (LogWrite), distinguished
+// by outcome.
 func TestAud049_WebhookAuditSuccessAndDenied(t *testing.T) {
 	s, store, id := aud049WebhookEnv(t)
 	ctx := context.Background()
@@ -78,7 +80,8 @@ func TestAud049_WebhookAuditSuccessAndDenied(t *testing.T) {
 	_, err = s.IngestWebhook(ctx, id, "wrong-token", &WebhookPayload{Pipeline: "deploy", ExternalID: "b-2", Status: "success"})
 	require.Error(t, err)
 
-	// scope 注入：payload 声明 integration 未配置的作用域 → 拒绝并留痕。
+	// Scope injection: the payload declares a scope the integration did not configure
+	// -> rejected and recorded.
 	_, err = s.IngestWebhook(ctx, id, "aud049-token", &WebhookPayload{Pipeline: "deploy", ExternalID: "b-3", Status: "success", GameID: "other-game"})
 	require.Error(t, err)
 

@@ -1,9 +1,10 @@
 package cicd_test
 
-// CI/CD 管理面测试（OPEN-ISSUES #58）：integrations CRUD 与凭据掩码、
-// 触发全链（provider 假服务器 → 构建记录落库）、webhook 幂等回写与令牌
-// 鉴权、构建列表过滤。:memory: sqlite 每次独立建库——模型迁移走
-// AutoMigrate（model 即真值）。
+// CI/CD management-plane tests (OPEN-ISSUES #58): integrations CRUD and credential
+// masking, the full trigger chain (fake provider server -> build record landed), webhook
+// idempotent write-back and token authentication, and build list filtering. :memory:
+// sqlite gets a fresh database each time - model migrations run via AutoMigrate
+// (the model is the source of truth).
 
 import (
 	"bytes"
@@ -56,7 +57,7 @@ func TestCicdService_IntegrationCRUDAndMasking(t *testing.T) {
 	assert.Equal(t, "****9999", created.Integration.TokenMasked)
 	assert.NotContains(t, created.Integration.TokenMasked, "super-secret")
 
-	// 非法 kind / 非 http endpoint → 400
+	// Invalid kind / non-http endpoint -> 400
 	_, err = svcCicd.Create(ctx, &cicd.IntegrationCreateRequest{
 		Kind: "teamcity", Name: "x", Endpoint: "http://x",
 	})
@@ -65,13 +66,13 @@ func TestCicdService_IntegrationCRUDAndMasking(t *testing.T) {
 		Kind: "jenkins", Name: "x", Endpoint: "ftp://x",
 	})
 	require.Error(t, err)
-	// provider 必填键缺失 → 构造即 400（gitlab-ci 缺 project）
+	// Missing required provider key -> 400 right at construction (gitlab-ci missing project)
 	_, err = svcCicd.Create(ctx, &cicd.IntegrationCreateRequest{
 		Kind: "gitlab-ci", Name: "x", Endpoint: "http://x",
 	})
 	require.ErrorContains(t, err, "project")
 
-	// 更新：空 token 保留原凭据；掩码串不落库
+	// Update: an empty token keeps the original credential; the masked string never lands
 	upd, err := svcCicd.Update(ctx, &cicd.IntegrationUpdateRequest{
 		ID: created.Integration.ID, Name: "主 CI 2", Enabled: boolPtr(false),
 	})
@@ -80,13 +81,13 @@ func TestCicdService_IntegrationCRUDAndMasking(t *testing.T) {
 	assert.False(t, upd.Integration.Enabled)
 	assert.Equal(t, "****9999", upd.Integration.TokenMasked)
 
-	// 列表含注册类型闭集
+	// The list carries the closed set of registered kinds
 	list, err := svcCicd.List(ctx, &cicd.IntegrationListRequest{GameID: "demo", Env: "prod"})
 	require.NoError(t, err)
 	require.Len(t, list.Items, 1)
 	assert.Equal(t, []string{"generic", "github-actions", "gitlab-ci", "jenkins"}, list.Kinds)
 
-	// 删除级联清构建
+	// Delete cascades to clear builds
 	require.NoError(t, svcCicd.Delete(ctx, created.Integration.ID))
 	list2, err := svcCicd.List(ctx, &cicd.IntegrationListRequest{})
 	require.NoError(t, err)
@@ -120,7 +121,8 @@ func TestCicdService_TriggerFullChain(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// 触发 → 构建记录落库（queued）→ refresh 拉回 running + 规范化 ExternalID
+	// Trigger -> build record landed (queued) -> refresh pulls back running + a
+	// normalized ExternalID
 	tr, err := svcCicd.Trigger(ctx, created.Integration.ID, &cicd.TriggerRequest{
 		Pipeline: "pack", Version: "1.2.3",
 	})
@@ -136,16 +138,16 @@ func TestCicdService_TriggerFullChain(t *testing.T) {
 	assert.Equal(t, model.CicdBuildRunning, rb.Build.Status)
 	assert.Contains(t, rb.Build.ExternalID, "12")
 
-	// 列表过滤：version 命中
+	// List filter: version hit
 	lst, err := svcCicd.ListBuilds(ctx, &cicd.BuildListRequest{Version: "1.2.3", GameID: "demo", Env: "prod"})
 	require.NoError(t, err)
 	assert.EqualValues(t, 1, lst.Total)
-	// 未命中
+	// No hit
 	lst2, err := svcCicd.ListBuilds(ctx, &cicd.BuildListRequest{Version: "9.9.9"})
 	require.NoError(t, err)
 	assert.EqualValues(t, 0, lst2.Total)
 
-	// 已停用接入拒绝触发
+	// A disabled integration rejects triggering
 	_, err = svcCicd.Update(ctx, &cicd.IntegrationUpdateRequest{ID: created.Integration.ID, Enabled: boolPtr(false)})
 	require.NoError(t, err)
 	_, err = svcCicd.Trigger(ctx, created.Integration.ID, &cicd.TriggerRequest{Pipeline: "pack"})
@@ -191,20 +193,20 @@ func TestCicdService_WebhookIngest(t *testing.T) {
 		return &cicd.WebhookResponse{Build: out.Build}, nil
 	}
 
-	// 令牌缺失 → 401
+	// Missing token -> 401
 	_, err = ingest("")
 	require.Error(t, err)
-	// 令牌错误 → 401
+	// Wrong token -> 401
 	_, err = ingest("wrong")
 	require.Error(t, err)
-	// 正确 → success（passed 归一）+ finishedAt 落
+	// Correct -> success (passed normalized) + finishedAt landed
 	first, err := ingest("hook-secret")
 	require.NoError(t, err)
 	assert.Equal(t, model.CicdBuildSuccess, first.Build.Status)
 	assert.Equal(t, "webhook", first.Build.TriggeredBy)
 	require.NotNil(t, first.Build.FinishedAt)
 
-	// 重复投递 → 幂等更新（状态翻转 failed），不新建行
+	// Duplicate delivery -> idempotent update (status flips to failed), no new row
 	mut := func(status string) *cicd.WebhookResponse {
 		h := cicd.NewHandler(svcCicd)
 		gin.SetMode(gin.TestMode)
@@ -226,7 +228,7 @@ func TestCicdService_WebhookIngest(t *testing.T) {
 	assert.Equal(t, model.CicdBuildFailed, second.Build.Status)
 	assert.Equal(t, first.Build.ID, second.Build.ID, "externalId 相同应幂等更新")
 
-	// externalId 缺失 → 400
+	// Missing externalId -> 400
 	h := cicd.NewHandler(svcCicd)
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
@@ -238,7 +240,7 @@ func TestCicdService_WebhookIngest(t *testing.T) {
 	r.ServeHTTP(w, req)
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 
-	// 无令牌接入 → 开放端点（边界）
+	// Integration without a token -> open endpoint (edge case)
 	opened, err := svcCicd.Create(ctx, &cicd.IntegrationCreateRequest{
 		GameID: "demo", Env: "prod", Kind: "generic", Name: "no-token",
 		Endpoint: "http://ci.internal",
@@ -255,7 +257,7 @@ func TestMaskToken(t *testing.T) {
 }
 
 func TestCicdService_TestConnection(t *testing.T) {
-	// 通过假服务器验证连通性测试成功路径
+	// Verify the connection-test success path against a fake server
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -290,8 +292,9 @@ func stringsReader(s string) *strings.Reader {
 	return strings.NewReader(s)
 }
 
-// ----- handler.List / handler.Trigger / handler.Webhook 覆盖补齐 -----
-// 仅测 handler 层绑定/路径错误（不依赖 provider 假服务器，全链已在 service 测试覆盖）
+// ----- handler.List / handler.Trigger / handler.Webhook coverage supplement -----
+// Only tests handler-layer binding/path errors (no fake provider server needed; the
+// full chain is already covered by the service tests)
 
 func setupHandlerCtx(t *testing.T) (*cicd.Service, *gin.Engine) {
 	t.Helper()
@@ -304,7 +307,8 @@ func setupHandlerCtx(t *testing.T) (*cicd.Service, *gin.Engine) {
 }
 
 func TestCicdHandler_List_BindError(t *testing.T) {
-	// ShouldBindQuery 对 string form 字段无失败路径，空查询 200 即可
+	// ShouldBindQuery has no failure path for string form fields, so an empty query
+	// returning 200 is enough
 	svcCicd, r := setupHandlerCtx(t)
 	h := cicd.NewHandler(svcCicd)
 	r.GET("/cicd/integrations", h.List)
@@ -318,13 +322,13 @@ func TestCicdHandler_Trigger_BindAndPathErrors(t *testing.T) {
 	svcCicd, r := setupHandlerCtx(t)
 	h := cicd.NewHandler(svcCicd)
 	r.POST("/cicd/integrations/:id/trigger", h.Trigger)
-	// 无效路径 id → 400
+	// Invalid path id -> 400
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/cicd/integrations/abc/trigger", strings.NewReader(`{}`))
 	req.Header.Set("Content-Type", "application/json")
 	r.ServeHTTP(w, req)
 	assert.Equal(t, http.StatusBadRequest, w.Code)
-	// 无效 JSON → 400
+	// Invalid JSON -> 400
 	w2 := httptest.NewRecorder()
 	req2 := httptest.NewRequest(http.MethodPost, "/cicd/integrations/1/trigger", strings.NewReader("not json"))
 	req2.Header.Set("Content-Type", "application/json")
@@ -336,19 +340,20 @@ func TestCicdHandler_Webhook_BindAndPathErrors(t *testing.T) {
 	svcCicd, r := setupHandlerCtx(t)
 	h := cicd.NewHandler(svcCicd)
 	r.POST("/cicd/webhooks/:id", h.Webhook)
-	// 无效路径 id → 400
+	// Invalid path id -> 400
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/cicd/webhooks/abc", strings.NewReader(`{}`))
 	req.Header.Set("Content-Type", "application/json")
 	r.ServeHTTP(w, req)
 	assert.Equal(t, http.StatusBadRequest, w.Code)
-	// 无效 JSON → 400
+	// Invalid JSON -> 400
 	w2 := httptest.NewRecorder()
 	req2 := httptest.NewRequest(http.MethodPost, "/cicd/webhooks/1", strings.NewReader("not json"))
 	req2.Header.Set("Content-Type", "application/json")
 	r.ServeHTTP(w2, req2)
 	assert.Equal(t, http.StatusBadRequest, w2.Code)
-	// 缺少 externalId → 先建集成再验 payload 校验（不存在集成先 404）
+	// Missing externalId -> create the integration first, then verify payload validation
+	// (a non-existent integration would 404 first)
 	ctx := context.Background()
 	created, err := svcCicd.Create(ctx, &cicd.IntegrationCreateRequest{
 		GameID: "demo", Env: "prod", Kind: "generic", Name: "hook-test",
@@ -367,9 +372,10 @@ func TestCicdHandler_Webhook_BindAndPathErrors(t *testing.T) {
 
 func TestCicdHandler_TriggerFull(t *testing.T) {
 	svcCicd, r := setupHandlerCtx(t)
-	// jenkins provider 会真发 HTTP 出站：起本地 mock server 兜住（同
-	// TestCicdService_TriggerFullChain 的形态——build 201+Location、queue
-	// executable 拉回构建号），经 WithHTTPClient 注入后 Endpoint 指向 mock。
+	// The jenkins provider really sends outbound HTTP: stand up a local mock server to
+	// catch it (same shape as TestCicdService_TriggerFullChain - build 201+Location,
+	// queue executable pulls back the build number); after injecting via WithHTTPClient
+	// the Endpoint points at the mock.
 	mux := http.NewServeMux()
 	mux.HandleFunc("/job/pack/build", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Location", "/queue/item/3/")
@@ -382,7 +388,7 @@ func TestCicdHandler_TriggerFull(t *testing.T) {
 	t.Cleanup(srv.Close)
 	svcCicd = svcCicd.WithHTTPClient(srv.Client())
 
-	// 先建集成，handler 才有数据可查
+	// Create the integration first so the handler has data to query
 	_, err := svcCicd.Create(context.Background(), &cicd.IntegrationCreateRequest{
 		GameID: "demo", Env: "prod", Kind: "jenkins", Name: "trigger-test",
 		Endpoint: srv.URL,
@@ -391,8 +397,9 @@ func TestCicdHandler_TriggerFull(t *testing.T) {
 
 	h := cicd.NewHandler(svcCicd)
 	gin.SetMode(gin.TestMode)
-	// 路由须带 :id 参数（同生产 routes.go 与本文件 BindAndPathErrors 先例）：
-	// pathID 读 c.Param("id")，字面量注册恒得「路径 id 无效」400。
+	// The route must carry the :id param (same as production routes.go and the
+	// BindAndPathErrors precedent in this file): pathID reads c.Param("id"); a literal
+	// registration always yields the "invalid path id" 400.
 	r.POST("/cicd/integrations/:id/trigger", h.Trigger)
 	w := httptest.NewRecorder()
 	body := `{"pipeline":"pack","version":"1.2.3"}`
@@ -406,11 +413,11 @@ func TestCicdHandler_TriggerFull(t *testing.T) {
 	}
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &out))
 	assert.Equal(t, model.CicdBuildQueued, out.Build.Status)
-	// 触发后再次查询列表，验证记录已落库
+	// Query the list again after triggering to verify the record landed
 	lst, err := svcCicd.ListBuilds(context.Background(), &cicd.BuildListRequest{Version: "1.2.3", GameID: "demo", Env: "prod"})
 	require.NoError(t, err)
 	assert.EqualValues(t, 1, lst.Total)
-	// 未命中的 version 不应出现
+	// A non-matching version should not appear
 	lst2, err := svcCicd.ListBuilds(context.Background(), &cicd.BuildListRequest{Version: "9.9.9", GameID: "demo", Env: "prod"})
 	require.NoError(t, err)
 	assert.EqualValues(t, 0, lst2.Total)
@@ -418,9 +425,10 @@ func TestCicdHandler_TriggerFull(t *testing.T) {
 
 func TestCicdHandler_WebhookFull(t *testing.T) {
 	svcCicd, r := setupHandlerCtx(t)
-	// 先建带 token 的集成，Webhook 才能校验 token；generic provider 要求
-	// triggerUrl/statusUrl 至少配置一个（本用例走 webhook 入口不真打外部，
-	// statusUrl 仅为过 Create 校验）。
+	// Create an integration with a token first so Webhook can validate the token; the
+	// generic provider requires at least one of triggerUrl/statusUrl to be configured
+	// (this case goes through the webhook entry and never actually calls out; statusUrl
+	// exists only to pass Create validation).
 	_, err := svcCicd.Create(context.Background(), &cicd.IntegrationCreateRequest{
 		GameID: "demo", Env: "prod", Kind: "generic", Name: "hook-full-test",
 		Endpoint: "http://ci.internal",
@@ -431,7 +439,7 @@ func TestCicdHandler_WebhookFull(t *testing.T) {
 
 	h := cicd.NewHandler(svcCicd)
 	gin.SetMode(gin.TestMode)
-	// 同上：注册 :id 参数路由，c.Param("id") 才有值
+	// Same as above: register a route with the :id param so c.Param("id") has a value
 	r.POST("/cicd/webhooks/:id", h.Webhook)
 	w := httptest.NewRecorder()
 	body := `{"externalId":"b-3","status":"passed","version":"3.0.0"}`
@@ -446,7 +454,8 @@ func TestCicdHandler_WebhookFull(t *testing.T) {
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &out))
 	assert.Equal(t, model.CicdBuildSuccess, out.Build.Status)
 	assert.NotNil(t, out.Build.FinishedAt)
-	// 令牌错误（新 engine 须注册同款路由，空引擎只会 404）
+	// Wrong token (the new engine must register the same route; an empty engine only
+	// yields 404)
 	r2 := gin.New()
 	r2.POST("/cicd/webhooks/:id", h.Webhook)
 	w2 := httptest.NewRecorder()
@@ -455,7 +464,7 @@ func TestCicdHandler_WebhookFull(t *testing.T) {
 	req2.Header.Set("X-CICD-Token", "wrong-secret")
 	r2.ServeHTTP(w2, req2)
 	assert.Equal(t, http.StatusUnauthorized, w2.Code)
-	// 缺少 externalId → 400
+	// Missing externalId -> 400
 	r3 := gin.New()
 	r3.POST("/cicd/webhooks/:id", h.Webhook)
 	w3 := httptest.NewRecorder()
@@ -464,7 +473,8 @@ func TestCicdHandler_WebhookFull(t *testing.T) {
 	req3.Header.Set("X-CICD-Token", "full-secret")
 	r3.ServeHTTP(w3, req3)
 	assert.Equal(t, http.StatusBadRequest, w3.Code)
-	// 无令牌接入 → fail-closed（AUD-COV-001 P1：未配置 token 一律拒绝投递）
+	// Integration without a token -> fail-closed (AUD-COV-001 P1: deliveries are
+	// rejected whenever no token is configured)
 	created2, _ := svcCicd.Create(context.Background(), &cicd.IntegrationCreateRequest{
 		GameID: "demo", Env: "prod", Kind: "generic", Name: "no-token-e2e",
 		Endpoint: "http://ci.internal",
@@ -476,7 +486,7 @@ func TestCicdHandler_WebhookFull(t *testing.T) {
 	body4 := `{"externalId":"b-4","status":"passed","version":"1.0.0"}`
 	req4 := httptest.NewRequest(http.MethodPost, "/cicd/webhooks/"+strconv.FormatUint(uint64(created2.Integration.ID), 10), strings.NewReader(body4))
 	req4.Header.Set("Content-Type", "application/json")
-	// 未配置 token 的接入拒绝回写（fail-closed）
+	// An integration with no configured token rejects the write-back (fail-closed)
 	r4.ServeHTTP(w4, req4)
 	assert.Equal(t, http.StatusUnauthorized, w4.Code)
 }

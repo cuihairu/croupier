@@ -14,7 +14,8 @@ import (
 	"gorm.io/gorm/logger"
 )
 
-// aud050DeleteEnv 组装一条接入 + 两条挂靠构建记录（AUD-050 级联删除）。
+// aud050DeleteEnv assembles one integration row plus two attached build
+// records (AUD-050 cascade delete).
 func aud050DeleteEnv(t *testing.T) (*Service, *gorm.DB, uint) {
 	t.Helper()
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
@@ -48,14 +49,17 @@ func aud050BuildCount(t *testing.T, db *gorm.DB, integrationID uint) int64 {
 	return count
 }
 
-// 第二步（删接入行）失败时，第一步已删的 builds 必须随事务回滚：级联
-// 删除要么整体发生、要么整体不发生（AUD-050 半提交回归）。
+// When the second step (deleting the integration row) fails, the builds
+// already deleted in the first step must roll back with the transaction: the
+// cascade delete happens entirely or not at all (AUD-050 half-commit
+// regression).
 func TestAud050_DeleteIntegrationRollsBackBuilds(t *testing.T) {
 	s, db, id := aud050DeleteEnv(t)
 	require.EqualValues(t, 2, aud050BuildCount(t, db, id))
 
-	// 仅对 cicd_integrations 注入删除失败：builds 先删成功，接入行删除失败
-	// → 事务回滚，builds 恢复。
+	// Inject the delete failure only for cicd_integrations: the builds are
+	// deleted successfully first, then the integration row delete fails
+	// -> the transaction rolls back and the builds are restored.
 	require.NoError(t, db.Callback().Delete().Before("gorm:delete").Register("aud050_fail_int_delete", func(tx *gorm.DB) {
 		if tx.Statement != nil && tx.Statement.Table == "cicd_integrations" {
 			_ = tx.AddError(errors.New("injected integration delete failure"))
@@ -66,14 +70,15 @@ func TestAud050_DeleteIntegrationRollsBackBuilds(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "injected integration delete failure")
 
-	// 回滚面：接入行仍在、builds 仍在（半提交被事务挡住）。
+	// Rollback surface: the integration row is still there and the builds are
+	// still there (the half-commit was blocked by the transaction).
 	row, err := s.integrationByID(context.Background(), id)
 	require.NoError(t, err, "接入行应随回滚保留")
 	assert.Equal(t, id, row.ID)
 	assert.EqualValues(t, 2, aud050BuildCount(t, db, id), "已删的 builds 应随回滚恢复")
 }
 
-// 无注入时级联删除整体成功（对照）。
+// With no injection the cascade delete succeeds as a whole (control case).
 func TestAud050_DeleteIntegrationCascadesCleanly(t *testing.T) {
 	s, db, id := aud050DeleteEnv(t)
 
