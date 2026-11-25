@@ -233,3 +233,54 @@ describe('OperationPageEditor：readonly', () => {
     expect(layoutSelect).toHaveClass('ant-select-disabled');
   });
 });
+
+describe('OperationPageEditor：表单分组（SUI-029）', () => {
+  const groupedSpec = (): OperationPageSpec => ({
+    form: {
+      jsonSchema: {},
+      fields: [
+        { key: 'name', label: { 'zh-CN': '角色名' } },
+        { key: 'age' },
+      ],
+      groups: [
+        { key: 'basic', title: { 'zh-CN': '基本信息' }, fields: ['name'] },
+        { key: 'extra', fields: ['age'] },
+      ],
+    },
+  });
+
+  it('草稿重开：编辑分组后经 onChange 保存、以新值重渲染，分组与顺序一致回读', async () => {
+    let saved = groupedSpec();
+    const onChange = jest.fn((next: OperationPageSpec) => {
+      saved = next;
+    });
+    const { rerender } = render(<OperationPageEditor value={saved} onChange={onChange} />);
+    // 回读：key、字段归属、折叠开关原样呈现
+    expect(await screen.findByDisplayValue('基本信息')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('basic')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('extra')).toBeInTheDocument();
+    const fieldSelects = await screen.findAllByTestId(/^group-fields-/);
+    expect(fieldSelects[0].textContent).toContain('name');
+    expect(fieldSelects[1].textContent).toContain('age');
+
+    // 编辑：折叠开关切换 + 分组字段换序 → 模拟保存（onChange 回调链）
+    fireEvent.click(screen.getByTestId('group-collapsible-0'));
+    expect(onChange).toHaveBeenLastCalledWith({
+      ...saved,
+      form: { ...saved.form, groups: [{ ...saved.form?.groups?.[0], collapsible: true }, saved.form?.groups?.[1]] },
+    });
+    rerender(<OperationPageEditor value={saved} onChange={onChange} />);
+    expect(screen.getByTestId('group-collapsible-0')).toBeChecked();
+
+    // 重排：分组顺序倒序后重渲染，新顺序成为回读顺序
+    const reorderButtons = screen.getAllByTestId('stub-reorder');
+    fireEvent.click(reorderButtons[1]);
+    expect(onChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        form: expect.objectContaining({
+          groups: [expect.objectContaining({ key: 'extra' }), expect.objectContaining({ key: 'basic' })],
+        }),
+      }),
+    );
+  });
+});

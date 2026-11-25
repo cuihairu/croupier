@@ -5,7 +5,7 @@
 import React from 'react';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import FormPresentationEditor from '../FormPresentationEditor';
-import type { FormFieldSpec } from '@/types/dashboard';
+import type { FormFieldSpec, FormPresentationSpec } from '@/types/dashboard';
 
 jest.setTimeout(15000);
 
@@ -230,6 +230,87 @@ describe('FormPresentationEditor：字段编辑', () => {
       jsonSchema: {},
       fields: [fieldB, fieldA],
     });
+  });
+});
+
+describe('FormPresentationEditor：表单分组（SUI-029）', () => {
+  const withGroups = (): FormPresentationSpec => ({
+    jsonSchema: {},
+    fields: twoFields(),
+    groups: [
+      { key: 'basic', title: { 'zh-CN': '基本信息' }, fields: ['name'] },
+      { key: 'advanced', fields: ['age'], collapsible: true, collapsed: true },
+    ],
+  });
+
+  it('分组回读：key/标题/字段归属/折叠行为原样呈现', async () => {
+    render(<FormPresentationEditor value={withGroups()} onChange={jest.fn()} />);
+    expect(await screen.findByDisplayValue('基本信息')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('basic')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('advanced')).toBeInTheDocument();
+    // 两组的字段 Select 分别回读各组的 fields
+    const selects = screen.getAllByTestId(/^group-fields-/);
+    expect(selects).toHaveLength(2);
+    expect(selects[0].textContent).toContain('name');
+    expect(selects[1].textContent).toContain('age');
+    // 可折叠开关开、默认折叠开；第一组未配置折叠
+    expect(screen.getByTestId('group-collapsible-0')).not.toBeChecked();
+    expect(screen.getByTestId('group-collapsible-1')).toBeChecked();
+    expect(screen.getByTestId('group-collapsed-1')).toBeChecked();
+  });
+
+  it('新增分组：key 唯一顺延，空分组写入 groups', async () => {
+    const onChange = jest.fn();
+    render(<FormPresentationEditor value={withGroups()} onChange={onChange} />);
+    await screen.findByDisplayValue('基本信息');
+    fireEvent.click(screen.getByTestId('group-add'));
+    expect(onChange).toHaveBeenLastCalledWith({
+      ...withGroups(),
+      groups: [...withGroups().groups || [], { key: 'group-3', fields: [] }],
+    });
+  });
+
+  it('重命名/折叠行为/删除：只改目标分组，顺序保留', async () => {
+    const onChange = jest.fn();
+    const value = withGroups();
+    render(<FormPresentationEditor value={value} onChange={onChange} />);
+    await screen.findByDisplayValue('基本信息');
+    fireEvent.change(screen.getByTestId('group-key-input-0'), { target: { value: 'contact' } });
+    expect(onChange).toHaveBeenLastCalledWith({
+      ...value,
+      groups: [{ ...value.groups?.[0], key: 'contact' }, value.groups?.[1]],
+    });
+    fireEvent.click(screen.getByTestId('group-collapsible-0'));
+    expect(onChange).toHaveBeenLastCalledWith({
+      ...value,
+      groups: [{ ...value.groups?.[0], collapsible: true }, value.groups?.[1]],
+    });
+    fireEvent.click(screen.getByTestId('group-delete-0'));
+    expect(onChange).toHaveBeenLastCalledWith({ ...value, groups: [value.groups?.[1]] });
+  });
+
+  it('分组重排：onReorder 透传新的 groups 顺序', async () => {
+    const onChange = jest.fn();
+    render(<FormPresentationEditor value={withGroups()} onChange={onChange} />);
+    await screen.findByDisplayValue('基本信息');
+    // 编辑器内两个 SortableList（字段、分组），第二个是分组列表
+    const reorderButtons = screen.getAllByTestId('stub-reorder');
+    expect(reorderButtons).toHaveLength(2);
+    fireEvent.click(reorderButtons[1]);
+    expect(onChange).toHaveBeenLastCalledWith({
+      ...withGroups(),
+      groups: [withGroups().groups?.[1], withGroups().groups?.[0]],
+    });
+  });
+
+  it('readonly：分组新增/删除手柄隐藏、分组字段选择器禁用', async () => {
+    const { container } = render(
+      <FormPresentationEditor value={withGroups()} onChange={jest.fn()} readonly />,
+    );
+    await screen.findByDisplayValue('基本信息');
+    expect(screen.queryByTestId('group-add')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('group-delete-0')).not.toBeInTheDocument();
+    expect(container.querySelector('.anticon-holder')).toBeNull();
   });
 });
 
