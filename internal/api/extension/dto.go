@@ -52,7 +52,8 @@ type ExtensionCatalogReleasesResponse struct {
 	Releases []ExtensionReleaseItem `json:"releases"`
 }
 
-// ExtensionCatalogCreateRequest（#46 批次 3）：登记扩展到 catalog。
+// ExtensionCatalogCreateRequest (#46 batch 3): registers an extension in the
+// catalog.
 type ExtensionCatalogCreateRequest struct {
 	ExtensionID   string `json:"extensionId" binding:"required"`
 	Name          string `json:"name"`
@@ -66,7 +67,8 @@ type ExtensionCatalogCreateRequest struct {
 	LatestVersion string `json:"latestVersion"`
 }
 
-// ExtensionCatalogUpdateRequest：非空字段覆盖（含 status 上下架 active|delisted）。
+// ExtensionCatalogUpdateRequest: non-empty fields overwrite the existing ones
+// (includes listing status active|delisted).
 type ExtensionCatalogUpdateRequest struct {
 	Name        string `json:"name"`
 	DisplayName string `json:"displayName"`
@@ -82,7 +84,8 @@ type ExtensionCatalogMutateResponse struct {
 	Item ExtensionCatalogItem `json:"item"`
 }
 
-// ExtensionReleasePublishRequest：发布版本（manifest 必须是 JSON 对象）。
+// ExtensionReleasePublishRequest: publishes a release version (manifest must be
+// a JSON object).
 type ExtensionReleasePublishRequest struct {
 	Version        string         `json:"version" binding:"required"`
 	ReleaseChannel string         `json:"releaseChannel"`
@@ -97,8 +100,9 @@ type ExtensionReleasePublishResponse struct {
 	Release ExtensionReleaseItem `json:"release"`
 }
 
-// ExtensionPackImportResponse 是 pack(.tgz) 导入的结果：catalog 行（可能
-// 复用既有登记）、发布出的 release、以及工件存储信息（#46 批次 6）。
+// ExtensionPackImportResponse is the result of a pack(.tgz) import: the
+// catalog row (possibly reusing an existing registration), the published
+// release, and the artifact storage metadata (#46 batch 6).
 type ExtensionPackImportResponse struct {
 	Catalog        ExtensionCatalogItem `json:"catalog"`
 	Release        ExtensionReleaseItem `json:"release"`

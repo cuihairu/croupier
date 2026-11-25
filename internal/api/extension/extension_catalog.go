@@ -130,16 +130,20 @@ func (s *Service) CatalogReleases(ctx context.Context, extensionID string) (*Ext
 	}, nil
 }
 
-// ---- catalog 写路径（#46 批次 3）：登记 / 更新（含上下架）/ 移除 / 发布版本 ----
+// ---- catalog write path (#46 batch 3): register / update (incl. listing
+// status) / remove / publish release ----
 
-// catalogStatuses：上下架语义闭集（delisted=下架，列表与安装入口按 status 过滤）。
+// catalogStatuses: closed set of listing statuses (delisted = delisted; list
+// and install entry points filter by status).
 var catalogStatuses = map[string]bool{"active": true, "delisted": true}
 
-// catalogReleaseChannels：发布渠道闭集。
+// catalogReleaseChannels: closed set of release channels.
 var catalogReleaseChannels = map[string]bool{"stable": true, "beta": true, "alpha": true}
 
-// validateCatalogExtensionID：extension id 形态约束（小写字母/数字开头，允许 . _ -，
-// 与 official.<domain> 命名规则兼容，禁空白防路由参数歧义）。
+// validateCatalogExtensionID enforces the extension id shape: must start with
+// a lowercase letter or digit, allows . _ - to stay compatible with the
+// official.<domain> naming rule, and forbids whitespace to avoid route
+// parameter ambiguity.
 func validateCatalogExtensionID(id string) error {
 	if id == "" {
 		return errorx.NewBadRequest("extensionId is required")
@@ -161,7 +165,8 @@ func validateCatalogExtensionID(id string) error {
 	return nil
 }
 
-// catalogItemFromModel：写路径返回体组装（复用读侧 item 形态，不含 installed 派生）。
+// catalogItemFromModel assembles the write-path response body (reuses the read
+// side item shape; does not derive the installed flag).
 func catalogItemFromModel(item *model.ExtensionCatalog) ExtensionCatalogItem {
 	return ExtensionCatalogItem{
 		ID:            item.ExtensionID,
@@ -227,7 +232,7 @@ func (s *Service) CatalogCreate(ctx context.Context, req ExtensionCatalogCreateR
 	if err := s.svcCtx.Extensions.Catalog.Create(ctx, record); err != nil {
 		return nil, mapServiceError(err)
 	}
-	_ = operator // 审计经 HTTP 层统一审计链；catalog 行无 createdBy 列
+	_ = operator // auditing goes through the unified HTTP-layer audit chain; the catalog row has no createdBy column
 	return &ExtensionCatalogMutateResponse{Item: catalogItemFromModel(record)}, nil
 }
 
@@ -281,7 +286,8 @@ func (s *Service) CatalogDelete(ctx context.Context, extensionID string) error {
 	if err != nil {
 		return mapServiceError(err)
 	}
-	// 有活跃安装实例时拒绝移除（先卸载再移除，避免悬挂引用）
+	// Reject removal while active installations exist (uninstall first, then
+	// remove, to avoid dangling references).
 	if err := s.rejectActiveInstallations(ctx, existing.ExtensionID); err != nil {
 		return err
 	}
@@ -291,7 +297,8 @@ func (s *Service) CatalogDelete(ctx context.Context, extensionID string) error {
 	return mapServiceError(s.svcCtx.Extensions.Catalog.Remove(ctx, existing.ExtensionID))
 }
 
-// rejectActiveInstallations：存在未卸载安装实例时拒绝 catalog 移除/下架外的破坏性操作。
+// rejectActiveInstallations rejects destructive operations other than catalog
+// removal/delisting while uninstall-pending installations exist.
 func (s *Service) rejectActiveInstallations(ctx context.Context, extensionID string) error {
 	items, _, err := s.svcCtx.Extensions.Installation.List(ctx, extensioninstallation.ListQuery{
 		ExtensionID: extensionID,
@@ -357,7 +364,9 @@ func (s *Service) CatalogReleasePublish(ctx context.Context, extensionID string,
 	if err := s.svcCtx.Extensions.Catalog.PublishRelease(ctx, release); err != nil {
 		return nil, mapServiceError(err)
 	}
-	// latestVersion 语义：仅当新版本 semver 更高时回滚 catalog 指针（降渠道补发不回退 latest）
+	// latestVersion semantics: only bump the catalog pointer when the new
+	// version has a higher semver (re-publishing on a lower channel does not
+	// roll latest back).
 	if shouldBumpLatestVersion(existing.LatestVersion, parsed) {
 		if err := s.svcCtx.Extensions.Catalog.UpdateFields(ctx, existing.ExtensionID, map[string]any{"latest_version": version}); err != nil {
 			return nil, mapServiceError(err)
@@ -373,15 +382,17 @@ func (s *Service) CatalogReleasePublish(ctx context.Context, extensionID string,
 	}}, nil
 }
 
-// extensionPackMaxSize 是单个 pack(.tgz) 的字节上限（64 MiB）。
+// extensionPackMaxSize is the byte limit for a single pack(.tgz) file (64 MiB).
 const extensionPackMaxSize = 64 << 20
 
-// extensionPackManifestMaxSize 是包内 manifest.json 的字节上限（1 MiB）。
+// extensionPackManifestMaxSize is the byte limit for manifest.json inside the
+// pack (1 MiB).
 const extensionPackManifestMaxSize = 1 << 20
 
-// extensionPackManifest 是 pack 内 manifest.json 的解析目标。字段语义与
-// catalog 登记 / release 发布请求一致（extensionId/version/manifest 必填），
-// 其余缺省走各自写路径的同一套兜底链。
+// extensionPackManifest is the parse target for manifest.json inside a pack.
+// Field semantics match the catalog register / release publish requests
+// (extensionId/version/manifest required); the remaining fields fall back
+// through the same defaulting chain as their respective write paths.
 type extensionPackManifest struct {
 	ExtensionID    string          `json:"extensionId"`
 	Name           string          `json:"name"`
@@ -398,10 +409,11 @@ type extensionPackManifest struct {
 	Manifest       json.RawMessage `json:"manifest"`
 }
 
-// parseExtensionPack 解包 .tgz 并取出 manifest.json。包根或单一顶层目录下
-// 的 manifest.json 均可（tar czf 常见的 ./ 前缀与 builddir 前缀都容忍）；
-// 多层嵌套取最浅一份。非 gzip/tar、缺 manifest、manifest 坏 JSON 均报
-// 400 语义错误。
+// parseExtensionPack unpacks a .tgz and extracts manifest.json. The manifest
+// may sit at the pack root or inside a single top-level directory (both the
+// common tar czf ./ prefix and a builddir prefix are tolerated); with nested
+// layers the shallowest copy wins. Non-gzip/tar input, a missing manifest, or
+// malformed manifest JSON all return a 400 semantic error.
 func parseExtensionPack(data []byte) (*extensionPackManifest, error) {
 	gz, err := gzip.NewReader(bytes.NewReader(data))
 	if err != nil {
@@ -446,10 +458,13 @@ func parseExtensionPack(data []byte) (*extensionPackManifest, error) {
 	return found, nil
 }
 
-// PackImport 处理 POST /extensions/packs/import：上传 .tgz → 解出
-// manifest.json → 自动登记 catalog（已存在则复用）→ 发布 release（版本查重
-// 409）→ 工件写入对象存储（sha256 服务端计算）。非 catalog 闭集/形态校验
-// 与手填写路径共用同一套规则；包内其余文件不解析，仅随工件整体存储。
+// PackImport handles POST /extensions/packs/import: upload .tgz -> extract
+// manifest.json -> auto-register in the catalog (reusing an existing
+// registration) -> publish the release (version dedupe returns 409) -> write
+// the artifact to object storage (sha256 computed server-side). The catalog
+// closed-set/shape validations share the same rules as the manual write path;
+// other files in the pack are not parsed and are stored as part of the
+// artifact.
 func (s *Service) PackImport(ctx context.Context, data io.Reader, size int64, operator string) (*ExtensionPackImportResponse, error) {
 	if err := s.requireWritePermission(ctx, "无权导入扩展包"); err != nil {
 		return nil, err
@@ -499,7 +514,8 @@ func (s *Service) PackImport(ctx context.Context, data io.Reader, size int64, op
 		return nil, errorx.NewBadRequest("manifest 必须为 JSON 对象")
 	}
 
-	// catalog 登记：已存在则复用（导入迭代版本不改登记元数据）。
+	// Catalog registration: reuse an existing row (importing a newer version
+	// does not change the registration metadata).
 	existing, _, err := s.svcCtx.Extensions.Catalog.Get(ctx, extID)
 	catalogCreated := false
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -563,14 +579,15 @@ func (s *Service) PackImport(ctx context.Context, data io.Reader, size int64, op
 	if err := s.svcCtx.Extensions.Catalog.PublishRelease(ctx, release); err != nil {
 		return nil, mapServiceError(err)
 	}
-	// latestVersion 语义与 CatalogReleasePublish 一致：仅更高 semver 回填。
+	// latestVersion semantics match CatalogReleasePublish: only a higher
+	// semver back-fills.
 	if shouldBumpLatestVersion(existing.LatestVersion, parsed) {
 		if err := s.svcCtx.Extensions.Catalog.UpdateFields(ctx, extID, map[string]any{"latest_version": version}); err != nil {
 			return nil, mapServiceError(err)
 		}
 		existing.LatestVersion = version
 	}
-	_ = operator // 审计经 HTTP 层统一审计链
+	_ = operator // auditing goes through the unified HTTP-layer audit chain
 	return &ExtensionPackImportResponse{
 		Catalog: catalogItemFromModel(existing),
 		Release: ExtensionReleaseItem{
@@ -587,7 +604,8 @@ func (s *Service) PackImport(ctx context.Context, data io.Reader, size int64, op
 	}, nil
 }
 
-// shouldBumpLatestVersion：catalog 无 latest 或新版本 semver 严格更高时回填。
+// shouldBumpLatestVersion back-fills when the catalog has no latest version or
+// the new version has a strictly higher semver.
 func shouldBumpLatestVersion(current string, candidate semVersion) bool {
 	curRaw := strings.TrimSpace(current)
 	if curRaw == "" {

@@ -27,9 +27,11 @@ func (s *Service) Capabilities(ctx context.Context, id uint) (*ExtensionCapabili
 	}
 	caps, details := extractCapabilityDetailsFromBindings(bindings)
 	// Fallback to manifest capabilities when bindings are empty.
-	// 设计债清理：本块仅在 len(caps)==0 时进入，原「遍历 caps 预填 capSet」的
-	// 循环体恒不可执行；extractCapabilities 产物恒非空串且内部已去重，原先的
-	// 空 key/重复 key continue 防御同样恒假——两处死分支已删除。
+	// Design-debt cleanup: this block only runs when len(caps)==0, so the old
+	// "iterate caps to pre-fill capSet" loop body was never executable; the
+	// output of extractCapabilities is always non-empty strings and already
+	// deduplicated, so the former empty-key/duplicate-key continue guards were
+	// equally dead -- both dead branches have been removed.
 	if len(caps) == 0 {
 		manifest, err := s.resolveManifestForRelease(ctx, item.ExtensionID, item.ReleaseVersion)
 		if err == nil {
@@ -113,8 +115,9 @@ func extractCapabilityDetailsFromBindings(bindings []model.ExtensionRuntimeBindi
 		caps = append(caps, key)
 	}
 	appendOperation := func(detail *ExtensionCapabilityDetail, operations []string) {
-		// 设计债清理：调用方恒传 &details[idx]，detail 恒非 nil，
-		// 原 nil 防御分支不可达已删除。
+		// Design-debt cleanup: callers always pass &details[idx], so detail is
+		// never nil; the former nil guard branch was unreachable and has been
+		// removed.
 		seen := map[string]bool{}
 		for _, op := range detail.Operations {
 			seen[strings.TrimSpace(op)] = true
@@ -135,8 +138,9 @@ func extractCapabilityDetailsFromBindings(bindings []model.ExtensionRuntimeBindi
 		if detail.Permissions == nil {
 			detail.Permissions = map[string]string{}
 		}
-		// 设计债清理：permissions 来自 parseStringMapAny，其产出已过滤空 key 与
-		// 空 value，原空串 continue 分支不可达已删除。
+		// Design-debt cleanup: permissions comes from parseStringMapAny, whose
+		// output already filters out empty keys and empty values; the former
+		// empty-string continue branch was unreachable and has been removed.
 		for op, perm := range permissions {
 			detail.Permissions[op] = perm
 		}
@@ -203,9 +207,11 @@ func extractCapabilityDetailsFromBindings(bindings []model.ExtensionRuntimeBindi
 			if !ok {
 				continue
 			}
-			// 设计债清理：ok 时 parsed.Provider 是 SanitizeKey 的非空产物
-			// （仅 [a-z0-9_.-]），Capability 对其再 SanitizeKey 幂等非空，
-			// 原 capability=="" 分支不可达已删除。
+			// Design-debt cleanup: when ok, parsed.Provider is the non-empty
+			// output of SanitizeKey (limited to [a-z0-9_.-]), and applying
+			// SanitizeKey to it again inside Capability is idempotent and
+			// still non-empty, so the former capability=="" branch was
+			// unreachable and has been removed.
 			capability := externalfunc.Capability(parsed.Provider)
 			addCap(capability)
 			if idx, exists := detailIndex[capability]; exists {
@@ -285,8 +291,10 @@ func extractPageDetailsFromBindings(bindings []model.ExtensionRuntimeBinding) []
 		requiredPermission := specString("required_permission")
 		order := 0
 		if rawOrder, ok := spec["order"]; ok {
-			// 设计债清理：spec 为 json.Unmarshal 产物（map[string]any），
-			// JSON 数字的动态类型恒为 float64，原 int/int64 分支不可达已删除。
+			// Design-debt cleanup: spec is the product of json.Unmarshal (a
+			// map[string]any), so the dynamic type of a JSON number is always
+			// float64; the former int/int64 branches were unreachable and have
+			// been removed.
 			if v, isNum := rawOrder.(float64); isNum {
 				order = int(v)
 			}

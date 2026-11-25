@@ -371,8 +371,9 @@ func (h *Handler) action(c *gin.Context, fn func(id uint) (any, error)) {
 }
 
 func parseUintParam(c *gin.Context, key string) (uint, error) {
-	// 按目标类型 uint 自身宽度解析（strconv.IntSize），转换天然安全，
-	// 依据 internal/logic/utils/id_helpers.go 的 ParseUintID 注释。
+	// Parse at the width of uint itself (strconv.IntSize) so the conversion is
+	// inherently safe; see the comment on ParseUintID in
+	// internal/logic/utils/id_helpers.go.
 	value, err := strconv.ParseUint(c.Param(key), 10, strconv.IntSize)
 	if err != nil {
 		return 0, errorx.NewBadRequest("invalid path parameter: " + key)

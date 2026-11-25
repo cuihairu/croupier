@@ -99,8 +99,9 @@ func (s *Service) requireWritePermission(ctx context.Context, message string) er
 }
 
 func (s *Service) ResolveInstallationID(ctx context.Context, identifier string) (uint, error) {
-	// 按目标类型 uint 自身宽度解析（strconv.IntSize），uint(id) 转换在任意平台
-	// 都可证明安全（依据同 id_helpers.go ParseUintID 注释）。
+	// Parse at the width of uint itself (strconv.IntSize) so the uint(id)
+	// conversion is provably safe on every platform (see the comment on
+	// ParseUintID in id_helpers.go).
 	if id, err := strconv.ParseUint(strings.TrimSpace(identifier), 10, strconv.IntSize); err == nil {
 		return uint(id), nil
 	}
@@ -282,13 +283,16 @@ func matchSingleClause(current semVersion, clause string) bool {
 	}
 	cmp := compareSemVersion(current, target)
 
-	// applyVersionOp 对未知操作符恒返 false（显式拒绝），直接传播即可。
+	// applyVersionOp always returns false for an unknown operator (explicit
+	// rejection), so it is safe to propagate directly.
 	return applyVersionOp(op, current, target, cmp)
 }
 
-// applyVersionOp 按 op 对版本比较结果分派。抽为独立函数使未知操作符的
-// 拒绝分支可被单测直接以任意 op 驱动（matchSingleClause 内部的 op 恒为
-// 前缀提取的七种字面量之一，查表 miss 仅在 opMatchers 被裁剪时出现）。
+// applyVersionOp dispatches the comparison result by op. Extracted into a
+// separate function so unit tests can drive the unknown-operator rejection
+// branch with an arbitrary op (inside matchSingleClause the op is always one
+// of the seven literals produced by prefix extraction; a table lookup miss can
+// only happen if opMatchers is trimmed).
 func applyVersionOp(op string, current, target semVersion, cmp int) bool {
 	fn, exists := opMatchers[op]
 	if !exists {
@@ -297,7 +301,7 @@ func applyVersionOp(op string, current, target semVersion, cmp int) bool {
 	return fn(current, target, cmp)
 }
 
-// opMatchers 是版本约束操作符的分派表。
+// opMatchers is the dispatch table for version constraint operators.
 var opMatchers = map[string]func(current, target semVersion, cmp int) bool{
 	"=":  func(_, _ semVersion, cmp int) bool { return cmp == 0 },
 	">":  func(_, _ semVersion, cmp int) bool { return cmp > 0 },

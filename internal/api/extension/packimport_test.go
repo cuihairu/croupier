@@ -20,7 +20,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// buildPack 把多文件内容打成 .tgz 字节流（键为 tar 条目名，含目录前缀语义）。
+// buildPack packs multiple files into a .tgz byte stream (keys are tar entry
+// names, carrying directory-prefix semantics).
 func buildPack(t *testing.T, files map[string]string) []byte {
 	t.Helper()
 	names := make([]string, 0, len(files))
@@ -68,7 +69,8 @@ func newPackEnv(t *testing.T) *extensionTestEnv {
 func TestParseExtensionPack(t *testing.T) {
 	valid := fmt.Sprintf(packManifestTemplate, "com.example.demo", "1.0.0", "stable")
 
-	// 包根（./ 前缀）与单层顶层目录均容忍，多层嵌套取最浅。
+	// Pack root (./ prefix) and a single top-level directory are both
+	// tolerated; with deeper nesting the shallowest wins.
 	for name, files := range map[string]map[string]string{
 		"root":         {"./manifest.json": valid, "schemas/a.json": "{}"},
 		"top-dir":      {"pack/manifest.json": valid, "pack/schemas/a.json": "{}"},
@@ -83,7 +85,7 @@ func TestParseExtensionPack(t *testing.T) {
 		})
 	}
 
-	// 非 gzip / 非 tar / 缺 manifest / 坏 JSON → 400 语义。
+	// Non-gzip / non-tar / missing manifest / bad JSON -> 400 semantics.
 	badCases := []struct {
 		name string
 		data []byte
@@ -128,13 +130,14 @@ func TestService_PackImport_CreatesCatalogAndRelease(t *testing.T) {
 	assert.True(t, len(resp.Checksum) == len("sha256:")+64, "checksum 应为 sha256:<64hex>，got %s", resp.Checksum)
 	assert.Equal(t, int64(len(pack)), resp.Size)
 
-	// 工件真实落库对象存储。
+	// The artifact really lands in object storage.
 	objs, err := env.svcCtx.ObjectStore.List(env.ctx, "extension-packs/", "", "", 10)
 	require.NoError(t, err)
 	require.Len(t, objs.Objects, 1)
 	assert.Equal(t, "extension-packs/com.example.demo/1.0.0.tgz", objs.Objects[0].Key)
 
-	// manifest 落 release 行（经读路径校验回环）。
+	// The manifest lands in the release row (round-tripped through the read
+	// path).
 	item, releases, err := env.svcCtx.Extensions.Catalog.Get(env.ctx, "com.example.demo")
 	require.NoError(t, err)
 	require.Len(t, releases, 1)
@@ -196,7 +199,7 @@ func TestService_PackImport_Validation(t *testing.T) {
 }
 
 func TestService_PackImport_NoObjectStore(t *testing.T) {
-	env := setupExtensionEnv(t) // ObjectStore 恒 nil
+	env := setupExtensionEnv(t) // ObjectStore is always nil
 	pack := buildPack(t, map[string]string{"manifest.json": fmt.Sprintf(packManifestTemplate, "com.example.demo", "1.0.0", "stable")})
 	_, err := env.service.PackImport(env.ctx, bytes.NewReader(pack), int64(len(pack)), "ext_tester")
 	require.Error(t, err)

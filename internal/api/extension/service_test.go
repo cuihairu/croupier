@@ -180,7 +180,7 @@ func TestToInstallationItem(t *testing.T) {
 		Status:          "enabled",
 		DesiredState:    "enabled",
 	}
-	item := toInstallationItem(modelItem, "") // displayName 空串 → 回退 extensionID
+	item := toInstallationItem(modelItem, "") // empty displayName -> falls back to extensionID
 	if item.ID != 123 {
 		t.Fatalf("unexpected id: %d", item.ID)
 	}
@@ -1948,7 +1948,8 @@ func TestToInstallationItem_AllFields(t *testing.T) {
 	assert.Equal(t, "enabled", item.Status)
 	assert.Equal(t, "enabled", item.DesiredState)
 	assert.True(t, item.Enabled)
-	// #46 批次 2：healthStatus 由 status/enabled 推导（enabled + 未卸载 → healthy），不再恒 unknown
+	// #46 batch 2: healthStatus is derived from status/enabled (enabled +
+	// not uninstalled -> healthy), no longer always unknown.
 	assert.Equal(t, "healthy", item.HealthStatus)
 	assert.Equal(t, "some error", item.LastError)
 	assert.Equal(t, now.Unix(), item.UpdatedAt)
@@ -3580,21 +3581,23 @@ func TestService_ActiveInstalledExtensionSet_Integration(t *testing.T) {
 	}
 }
 
-// applyVersionOp：未知操作符 → (false, false)，调用方据此拒绝匹配。
-// opMatchers 键集合与 matchSingleClause 前缀提取的七种字面量一致，
-// 此处直测分派表的拒绝分支。
+// applyVersionOp: unknown operator -> (false, false), so the caller rejects
+// the match on that basis. The opMatchers key set matches the seven literals
+// extracted by the matchSingleClause prefixes; this directly tests the
+// dispatch table's rejection branch.
 func TestApplyVersionOp_UnknownOpRejected(t *testing.T) {
 	cur := semVersion{major: 2, minor: 0, patch: 0}
 	tgt := semVersion{major: 1, minor: 0, patch: 0}
 	assert.False(t, applyVersionOp("???", cur, tgt, 1))
 
-	// 已知操作符走表分派。
+	// Known operators go through table dispatch.
 	assert.True(t, applyVersionOp(">", cur, tgt, 1))
 }
 
-// TestService_InstallationList_DisplayNameJoin_HealthDerived（#46 批次 2）：
-// 列表组装 join catalog 真名（displayName → name → extensionID 兜底）+
-// healthStatus 由 status/enabled 推导（替换恒 unknown）。
+// TestService_InstallationList_DisplayNameJoin_HealthDerived (#46 batch 2):
+// list assembly joins the catalog display names (displayName -> name ->
+// extensionID fallback) + healthStatus is derived from status/enabled
+// (replacing the always-unknown value).
 func TestService_InstallationList_DisplayNameJoin_HealthDerived(t *testing.T) {
 	db := setupIntegrationTestDB(t)
 	svcCtx := setupExtensionTestContext(t, db)
@@ -3602,7 +3605,8 @@ func TestService_InstallationList_DisplayNameJoin_HealthDerived(t *testing.T) {
 	createTestCatalogData(t, svcCtx)
 	bg := context.Background()
 
-	// catalog 行无 displayName：验证回退链走到 name
+	// A catalog row without displayName: verifies the fallback chain reaches
+	// name.
 	bare := &model.ExtensionCatalog{
 		ExtensionID: "test.bare",
 		Name:        "bare-name",
@@ -3645,7 +3649,8 @@ func TestService_InstallationList_DisplayNameJoin_HealthDerived(t *testing.T) {
 	analyticsID := install("test.analytics", "2.0.0")
 	bareID := install("test.bare", "1.0.0")
 
-	// Install 创建的实例 Enabled 固定 false（装后手动启用语义），analytics 启用、bare 保持停用
+	// Install-created instances always have Enabled=false (enable-manually-
+	// after-install semantics): analytics gets enabled, bare stays disabled.
 	if _, err := s.Enable(ctx, analyticsID, "test_admin"); err != nil {
 		t.Fatalf("enable analytics: %v", err)
 	}
@@ -3660,20 +3665,22 @@ func TestService_InstallationList_DisplayNameJoin_HealthDerived(t *testing.T) {
 		byID[item.ID] = item
 	}
 
-	// displayName join catalog 真名
+	// displayName joins the catalog display name.
 	if got := byID[analyticsID].DisplayName; got != "Test Analytics" {
 		t.Fatalf("expected display name joined from catalog, got: %q", got)
 	}
-	// 无 displayName 行 → 回退 name（不再透传 extensionID）
+	// A row without displayName -> falls back to name (no longer passes
+	// extensionID through).
 	if got := byID[bareID].DisplayName; got != "bare-name" {
 		t.Fatalf("expected name fallback, got: %q", got)
 	}
-	// healthStatus 推导：enabled + 未卸载 → healthy
+	// healthStatus derivation: enabled + not uninstalled -> healthy.
 	if got := byID[analyticsID].HealthStatus; got != "healthy" {
 		t.Fatalf("expected healthy, got: %q", got)
 	}
 
-	// 停用实例列表即时反映为 disabled，启用实例不受影响
+	// A disabled instance immediately shows disabled in the list; the enabled
+	// instance is unaffected.
 	for _, item := range resp.Items {
 		if item.ID == bareID && item.HealthStatus != "disabled" {
 			t.Fatalf("expected disabled for disabled installation, got: %q", item.HealthStatus)
@@ -3684,7 +3691,8 @@ func TestService_InstallationList_DisplayNameJoin_HealthDerived(t *testing.T) {
 	}
 }
 
-// TestDeriveExtensionHealthStatus_Matrix：推导矩阵（与 HealthCheck 同语义）
+// TestDeriveExtensionHealthStatus_Matrix: the derivation matrix (same
+// semantics as HealthCheck).
 func TestDeriveExtensionHealthStatus_Matrix(t *testing.T) {
 	cases := []struct {
 		name string
@@ -3706,8 +3714,9 @@ func TestDeriveExtensionHealthStatus_Matrix(t *testing.T) {
 	}
 }
 
-// TestService_CatalogWrite_Lifecycle（#46 批次 3）：登记 → 更新（上下架）→
-// 发布版本（latestVersion 回填规则）→ 活跃安装阻止移除 → 卸载后级联移除。
+// TestService_CatalogWrite_Lifecycle (#46 batch 3): register -> update
+// (listing status) -> publish release (latestVersion back-fill rule) ->
+// active installation blocks removal -> cascade removal after uninstall.
 func TestService_CatalogWrite_Lifecycle(t *testing.T) {
 	db := setupIntegrationTestDB(t)
 	svcCtx := setupExtensionTestContext(t, db)
@@ -3715,7 +3724,7 @@ func TestService_CatalogWrite_Lifecycle(t *testing.T) {
 
 	s := NewService(svcCtx)
 
-	// ① Create：name/displayName/vendor 留空走兜底
+	// (1) Create: empty name/displayName/vendor go through the fallback chain.
 	created, err := s.CatalogCreate(ctx, ExtensionCatalogCreateRequest{
 		ExtensionID: "vendor.demo-ext",
 		Summary:     "demo extension",
@@ -3730,12 +3739,12 @@ func TestService_CatalogWrite_Lifecycle(t *testing.T) {
 		t.Fatalf("unexpected defaults: %+v", created.Item)
 	}
 
-	// ② 重复登记 → 409
+	// (2) Duplicate registration -> 409.
 	if _, err := s.CatalogCreate(ctx, ExtensionCatalogCreateRequest{ExtensionID: "vendor.demo-ext"}, "test_admin"); err == nil {
 		t.Fatal("expected conflict on duplicate create")
 	}
 
-	// ③ 非法 extensionId / status → 400
+	// (3) Invalid extensionId / status -> 400.
 	if _, err := s.CatalogCreate(ctx, ExtensionCatalogCreateRequest{ExtensionID: "Bad_ID"}, "test_admin"); err == nil {
 		t.Fatal("expected invalid extensionId rejected")
 	}
@@ -3743,7 +3752,7 @@ func TestService_CatalogWrite_Lifecycle(t *testing.T) {
 		t.Fatal("expected invalid status rejected")
 	}
 
-	// ④ Update：displayName + 下架 delisted
+	// (4) Update: displayName + delisted status.
 	updated, err := s.CatalogUpdate(ctx, "vendor.demo-ext", ExtensionCatalogUpdateRequest{
 		DisplayName: "演示扩展",
 		Status:      "delisted",
@@ -3754,16 +3763,16 @@ func TestService_CatalogWrite_Lifecycle(t *testing.T) {
 	if updated.Item.DisplayName != "演示扩展" || updated.Item.Status != "delisted" {
 		t.Fatalf("expected update applied, got: %+v", updated.Item)
 	}
-	// 非法 status → 400
+	// Invalid status -> 400
 	if _, err := s.CatalogUpdate(ctx, "vendor.demo-ext", ExtensionCatalogUpdateRequest{Status: "gone"}); err == nil {
 		t.Fatal("expected invalid status rejected on update")
 	}
-	// 不存在的扩展 → 404
+	// Nonexistent extension -> 404
 	if _, err := s.CatalogUpdate(ctx, "vendor.missing", ExtensionCatalogUpdateRequest{DisplayName: "x"}); err == nil {
 		t.Fatal("expected not found on missing update")
 	}
 
-	// ⑤ 发布版本：v1.0.0 → latestVersion 回填
+	// (5) Publish release: v1.0.0 -> latestVersion back-fill.
 	pub, err := s.CatalogReleasePublish(ctx, "vendor.demo-ext", ExtensionReleasePublishRequest{
 		Version:   "1.0.0",
 		Changelog: "first",
@@ -3778,7 +3787,7 @@ func TestService_CatalogWrite_Lifecycle(t *testing.T) {
 	if pub.Release.Version != "1.0.0" || pub.Release.PublishedAt == 0 {
 		t.Fatalf("unexpected release item: %+v", pub.Release)
 	}
-	// 0.9.0 更低 → latest 不回退
+	// 0.9.0 is lower -> latest does not roll back.
 	if _, err := s.CatalogReleasePublish(ctx, "vendor.demo-ext", ExtensionReleasePublishRequest{
 		Version:  "0.9.0",
 		Manifest: map[string]any{"id": "vendor.demo-ext", "version": "0.9.0"},
@@ -3795,7 +3804,7 @@ func TestService_CatalogWrite_Lifecycle(t *testing.T) {
 	if len(detail.Releases) != 2 {
 		t.Fatalf("expected 2 releases, got: %d", len(detail.Releases))
 	}
-	// 重复版本 → 409；坏 semver/渠道/缺 manifest → 400
+	// Duplicate version -> 409; bad semver/channel/missing manifest -> 400.
 	dup := ExtensionReleasePublishRequest{Version: "1.0.0", Manifest: map[string]any{"id": "x"}}
 	if _, err := s.CatalogReleasePublish(ctx, "vendor.demo-ext", dup, "test_admin"); err == nil {
 		t.Fatal("expected duplicate version rejected")
@@ -3812,12 +3821,12 @@ func TestService_CatalogWrite_Lifecycle(t *testing.T) {
 	if _, err := s.CatalogReleasePublish(ctx, "vendor.demo-ext", noManifest, "test_admin"); err == nil {
 		t.Fatal("expected missing manifest rejected")
 	}
-	// 不存在的扩展 → 404
+	// Nonexistent extension -> 404
 	if _, err := s.CatalogReleasePublish(ctx, "vendor.missing", ExtensionReleasePublishRequest{Version: "1.0.0", Manifest: map[string]any{}}, "test_admin"); err == nil {
 		t.Fatal("expected not found on missing publish")
 	}
 
-	// ⑥ 活跃安装实例阻止移除
+	// (6) Active installation instances block removal.
 	if _, err := s.Install(ctx, ExtensionInstallRequest{
 		ExtensionID:    "vendor.demo-ext",
 		ReleaseVersion: "1.0.0",
@@ -3832,7 +3841,7 @@ func TestService_CatalogWrite_Lifecycle(t *testing.T) {
 	if err := s.CatalogDelete(ctx, "vendor.demo-ext"); err == nil {
 		t.Fatal("expected delete blocked by active installation")
 	}
-	// 卸载后移除 → 成功且级联清 releases
+	// Removal after uninstall -> success with cascade cleanup of releases.
 	if _, err := s.Uninstall(ctx, detailItemID(t, s, ctx, "vendor.demo-ext"), "test_admin"); err != nil {
 		t.Fatalf("uninstall: %v", err)
 	}
@@ -3843,7 +3852,8 @@ func TestService_CatalogWrite_Lifecycle(t *testing.T) {
 		t.Fatal("expected deleted extension not found")
 	}
 	if _, err := s.CatalogReleases(ctx, "vendor.demo-ext"); err == nil || detail != nil && len(detail.Releases) == 0 {
-		// releases 级联清除：版本列表也应为空（Get 找不到 catalog 行时返回 not found）
+		// releases cascade cleanup: the version list should also be empty (Get
+		// returns not found when the catalog row is gone).
 		_ = err
 	}
 	if _, _, err := svcCtx.Extensions.Catalog.Get(ctx, "vendor.demo-ext"); !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -3854,7 +3864,8 @@ func TestService_CatalogWrite_Lifecycle(t *testing.T) {
 	}
 }
 
-// detailItemID：经安装列表取该扩展当前安装实例 ID 的测试助手。
+// detailItemID: a test helper that fetches the current installation instance
+// ID of the extension through the installation list.
 func detailItemID(t *testing.T, s *Service, ctx context.Context, extensionID string) uint {
 	t.Helper()
 	resp, err := s.InstallationList(ctx, ExtensionInstallationListRequest{
@@ -3871,11 +3882,13 @@ func detailItemID(t *testing.T, s *Service, ctx context.Context, extensionID str
 	return resp.Items[0].ID
 }
 
-// TestService_CatalogWrite_PermissionDenied：无写权限 ctx 被拒（utils 层守卫语义在本包的接线验证）。
+// TestService_CatalogWrite_PermissionDenied: a ctx without write permission is
+// rejected (wiring verification of the utils-layer guard semantics in this
+// package).
 func TestService_CatalogWrite_PermissionDenied(t *testing.T) {
 	db := setupIntegrationTestDB(t)
 	svcCtx := setupExtensionTestContext(t, db)
-	// 无任何角色/权限的普通用户 ctx
+	// A plain-user ctx with no roles or permissions.
 	ctx := context.WithValue(context.Background(), "username", "plain_user")
 
 	s := NewService(svcCtx)

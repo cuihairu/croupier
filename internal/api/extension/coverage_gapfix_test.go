@@ -11,7 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// handler 层成功路径：Install / InstallationList / UpdateConfig / Upgrade。
+// handler-layer success paths: Install / InstallationList / UpdateConfig /
+// Upgrade.
 func TestExtensionGapfix_HandlerSuccessPaths(t *testing.T) {
 	env := setupExtensionEnv(t)
 	env.seedCatalog(t, "demo.gapfix", "1.0.0", nil)
@@ -40,9 +41,10 @@ func TestExtensionGapfix_HandlerSuccessPaths(t *testing.T) {
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 }
 
-// CompatUpgrade 成功路径（扩展 id 或数字 id 均可）。
+// CompatUpgrade success path (both extension id and numeric id work).
 
-// Upgrade 目标版本依赖缺失扩展 → validateDependencies 错误透传。
+// Upgrade target version depends on a missing extension -> the
+// validateDependencies error passes through.
 func TestExtensionGapfix_UpgradeDependencyFailure(t *testing.T) {
 	env := setupExtensionEnv(t)
 	env.seedCatalog(t, "demo.gapup", "1.0.0", nil)
@@ -56,10 +58,12 @@ func TestExtensionGapfix_UpgradeDependencyFailure(t *testing.T) {
 	assert.Contains(t, err.Error(), "missing dependency extension")
 }
 
-// 同 provider（不同 BindingKey，经 spec.provider 归一）双绑定：第二条
-// 命中 provider 分支的 detailIndex 已存在路径，操作列表合并。
-// 注：capability 的 config_keys 合并路径要求同 installation 同 BindingKey
-// 的两条绑定，被 (installation_id, binding_key) 唯一索引排除，不可达。
+// Two bindings for the same provider (different BindingKey, normalized via
+// spec.provider): the second hits the provider branch where detailIndex
+// already exists, so the operation lists merge.
+// Note: the capability config_keys merge path requires two bindings with the
+// same installation and the same BindingKey, which the (installation_id,
+// binding_key) unique index rules out -- unreachable.
 func TestExtensionGapfix_ProviderBindingMerge(t *testing.T) {
 	env := setupExtensionEnv(t)
 	env.seedCatalog(t, "demo.gapprov", "1.0.0", nil)

@@ -1,11 +1,15 @@
-// 覆盖目标（组 E）：
-//   - Upgrade 的 Installation.Upgrade 失败分支（service.go:779-781）
-//   - ensureNoActiveDependents 的 Installation.List 失败分支（service.go:1567-1569）
+// Coverage targets (group E):
+//   - the Installation.Upgrade failure branch of Upgrade (service.go:779-781)
+//   - the Installation.List failure branch of ensureNoActiveDependents
+//     (service.go:1567-1569)
 //
-// 另含三组行为回归用例（manifest 重复 capability、空依赖 ID）：
-// validateDependencies/extractCapabilities 的空 ID/重复项 continue 分支
-// 实际由 parseDependencies/extractCapabilities 的上游过滤保证，行覆盖
-// 无法触达，此处仅锁定“空依赖与重复能力不阻塞安装/展示”的行为契约。
+// Also contains three behavioral regression cases (duplicate manifest
+// capability, empty dependency ID): the empty-ID/duplicate-item continue
+// branches of validateDependencies/extractCapabilities are in fact guaranteed
+// by the upstream filtering of parseDependencies/extractCapabilities and
+// cannot be reached at line-coverage level; this file only pins the behavioral
+// contract that "empty dependencies and duplicate capabilities do not block
+// install/display".
 package extension
 
 import (
@@ -18,8 +22,9 @@ import (
 	"gorm.io/gorm"
 )
 
-// manifest 声明重复 capability：extractCapabilities 已去重，能力列表只保留
-// 一项；锁定 manifest fallback 的展示行为。
+// The manifest declares a duplicate capability: extractCapabilities already
+// deduplicates, so the capability list keeps a single item; pins the display
+// behavior of the manifest fallback.
 func TestExtensionGroupE_CapabilitiesManifestDuplicate(t *testing.T) {
 	env := setupExtensionEnv(t)
 	env.seedCatalog(t, "demo.groupe.cap", "1.0.0", map[string]any{
@@ -37,8 +42,9 @@ func TestExtensionGroupE_CapabilitiesManifestDuplicate(t *testing.T) {
 	assert.ElementsMatch(t, []string{"manifest", "manifest"}, sources)
 }
 
-// 全部 UPDATE 注入失败：校验链全过，仅 Installation.Upgrade 落库时报错，
-// 覆盖 upgrade 存储错误分支。
+// All UPDATEs injected to fail: the validation chain passes entirely, only
+// Installation.Upgrade errors when landing in the database, covering the
+// upgrade storage-error branch.
 func TestExtensionGroupE_UpgradeInstallFails(t *testing.T) {
 	env := setupExtensionEnv(t)
 	env.seedCatalog(t, "demo.groupe.up", "1.0.0", nil)
@@ -56,7 +62,8 @@ func TestExtensionGroupE_UpgradeInstallFails(t *testing.T) {
 	assert.Nil(t, resp)
 }
 
-// 顶层依赖列表包含空 ID：parseDependencies 过滤后安装成功，不报“缺失依赖”。
+// The top-level dependency list contains empty IDs: after parseDependencies
+// filters them, the install succeeds and no "missing dependency" is reported.
 func TestExtensionGroupE_InstallSkipsEmptyDependencyID(t *testing.T) {
 	env := setupExtensionEnv(t)
 	env.seedCatalog(t, "demo.groupe.emptydep", "1.0.0", map[string]any{
@@ -66,8 +73,9 @@ func TestExtensionGroupE_InstallSkipsEmptyDependencyID(t *testing.T) {
 	require.Greater(t, id, uint(0))
 }
 
-// 递归层：被依赖扩展的 manifest 里包含空 ID 依赖项，子依赖解析后为空，
-// 递归校验直接通过，安装成功。
+// Recursion level: the depended-on extension's manifest contains an empty-ID
+// dependency item, which parses to nothing, so the recursive validation passes
+// directly and the install succeeds.
 func TestExtensionGroupE_NestedEmptyDependencySkipped(t *testing.T) {
 	env := setupExtensionEnv(t)
 	env.seedCatalog(t, "demo.groupe.dep.b", "1.0.0", map[string]any{
@@ -82,10 +90,12 @@ func TestExtensionGroupE_NestedEmptyDependencySkipped(t *testing.T) {
 	require.Greater(t, id, uint(0))
 }
 
-// capability 分支重入：唯一索引按 BindingKey 存储原值约束，而 capability
-// 取 TrimSpace(BindingKey) 归一——“ws.cap”/“ ws.cap”/“ws.cap ”三个变体
-// 互不冲突但归一到同一 capability。第二条触发 appendConfigKeys 的 seen
-// 预填充循环，第三条传入重复 key 触发 continue 去重分支。
+// capability branch re-entry: the unique index constrains the stored raw
+// BindingKey, while capability normalizes to TrimSpace(BindingKey) -- the
+// three variants "ws.cap" / " ws.cap" / "ws.cap " do not collide but normalize
+// to the same capability. The second binding triggers the seen pre-fill loop
+// of appendConfigKeys; the third passes a duplicate key, triggering the
+// continue dedup branch.
 func TestExtensionGroupE_CapabilityBindingKeyWhitespaceReentry(t *testing.T) {
 	env := setupExtensionEnv(t)
 	env.seedCatalog(t, "demo.groupe.ws", "1.0.0", nil)
@@ -123,8 +133,9 @@ func TestExtensionGroupE_CapabilityBindingKeyWhitespaceReentry(t *testing.T) {
 	assert.Contains(t, resp.Capabilities, "ws.cap")
 }
 
-// 精确匹配 ListBindings 同形的列表查询（Dest 为 installation 切片）注入
-// 失败：Get 成功、List 失败，覆盖 ensureNoActiveDependents 的列表错误分支。
+// Injection fails a list query shaped exactly like ListBindings (Dest being a
+// slice of installations): Get succeeds, List fails, covering the list error
+// branch of ensureNoActiveDependents.
 func TestExtensionGroupE_UninstallDependentsListFails(t *testing.T) {
 	env := setupExtensionEnv(t)
 	env.seedCatalog(t, "demo.groupe.uninstall", "1.0.0", nil)

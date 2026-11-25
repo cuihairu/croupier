@@ -1,11 +1,13 @@
 package extension
 
-// 覆盖率巡检第二十八轮（wt-api）：PackImport 的 manifest 非 JSON 对象翼
-// （service.go:508-509 的 Unmarshal 失败/nil 半边）——内层 "manifest" 值
-// 为数组或 null 时：extensionPackManifest.Manifest 是 json.RawMessage，
-// 解包期原样透传，落库前的对象校验在此拦截。另一边 service.go:513 的
-// json.Marshal(manifestObj) 失败翼由 catalog_writes_paths_test.go 登记
-// （解码产物再序列化无失败路径）。
+// Coverage sweep round 28 (wt-api): the non-JSON-object manifest arm of
+// PackImport (the Unmarshal failure/nil half at service.go:508-509) -- when
+// the inner "manifest" value is an array or null:
+// extensionPackManifest.Manifest is a json.RawMessage, so it passes through
+// untouched during unpacking, and the object validation before landing in the
+// database intercepts it. The other arm, the json.Marshal(manifestObj)
+// failure at service.go:513, is registered by catalog_writes_paths_test.go
+// (a decoded product has no failure path when re-serialized).
 
 import (
 	"bytes"

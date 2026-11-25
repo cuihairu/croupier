@@ -304,9 +304,11 @@ func (s *Service) Events(ctx context.Context, id uint, req ExtensionEventListReq
 }
 
 func (s *Service) AgentSyncPayload(ctx context.Context, agentID string) (*ExtensionAgentSyncResponse, error) {
-	// ARCH-021：受限机器身份走 scope 授权——机器 token 绑定单个 agentID，
-	// 请求其它 agent 的 payload 即 403（跨 scope 拒绝）；管理员身份仍走
-	// RBAC 读权限，服务端授权不因机器接入被取消。
+	// ARCH-021: restricted machine identities are authorized by scope -- a
+	// machine token is bound to a single agentID, so requesting another
+	// agent's payload yields 403 (cross-scope rejection); admin identities
+	// still go through RBAC read permission, so server-side authorization is
+	// not relaxed just because the caller is a machine.
 	if claims, ok := jwtutil.MachineIdentityFrom(ctx); ok {
 		if claims.AgentID != strings.TrimSpace(agentID) {
 			return nil, errorx.NewForbidden("agent scope mismatch")
@@ -497,8 +499,9 @@ func ptrInstallationItem(item model.ExtensionInstallation, displayName string) *
 	return &out
 }
 
-// deriveExtensionHealthStatus 与 HealthCheck 同口径（无健康探测落库，按 status/enabled 推导）：
-// uninstalled（status 或 desired_state）→ uninstalled；enabled → healthy；否则 disabled。
+// deriveExtensionHealthStatus uses the same criteria as HealthCheck (no health
+// probe is persisted; derived from status/enabled): uninstalled (status or
+// desired_state) -> uninstalled; enabled -> healthy; otherwise disabled.
 func deriveExtensionHealthStatus(item *model.ExtensionInstallation) string {
 	if item == nil {
 		return "unknown"
@@ -512,9 +515,11 @@ func deriveExtensionHealthStatus(item *model.ExtensionInstallation) string {
 	return "disabled"
 }
 
-// catalogDisplayNames 批量取安装实例对应 catalog 行的真名（#46 批次 2）：
-// 归一 extensionID → displayName（空则回退 name）；查表失败返回空 map，
-// 调用侧回退 extensionID 原值，不阻塞列表。
+// catalogDisplayNames batch-fetches the display names of the catalog rows
+// behind the given installations (#46 batch 2): normalized extensionID ->
+// displayName (falling back to name when empty); a lookup failure returns an
+// empty map and callers fall back to the raw extensionID without blocking the
+// list.
 func (s *Service) catalogDisplayNames(ctx context.Context, items []model.ExtensionInstallation) map[string]string {
 	names := make(map[string]string)
 	ids := make([]string, 0, len(items))
@@ -651,8 +656,10 @@ func (s *Service) validateDependencies(ctx context.Context, extensionID, release
 	deps := parseDependencies(manifest)
 	path := map[string]bool{normalizeExtensionID(extensionID): true}
 	visited := map[string]bool{}
-	// 设计债清理：parseDependencies 只在 ExtensionID TrimSpace 非空时产出条目
-	// （string 与 map 两种形态同），原先的空 ID continue 防御恒假已删除（下同）。
+	// Design-debt cleanup: parseDependencies only yields entries when the
+	// TrimSpace'd ExtensionID is non-empty (true for both the string and map
+	// shapes), so the former defensive continue on an empty ID, which could
+	// never fire, has been removed (same below).
 	for _, dep := range deps {
 		if err := s.validateDependencyNode(ctx, dep, path, visited); err != nil {
 			return err
@@ -722,7 +729,8 @@ func (s *Service) validateDependencyNode(
 		return err
 	}
 	children := parseDependencies(manifest)
-	// 设计债清理：同 validateDependencies，parseDependencies 产物 ID 恒非空。
+	// Design-debt cleanup: as in validateDependencies, the IDs produced by
+	// parseDependencies are never empty.
 	for _, child := range children {
 		if err := s.validateDependencyNode(ctx, child, path, visited); err != nil {
 			return err

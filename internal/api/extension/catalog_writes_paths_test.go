@@ -1,22 +1,33 @@
 package extension
 
-// catalog 写路径（#46 批次 3：登记/改/删/发版）与 pack 导入（批次 6）的错误翼
-// 补测：批次 3/6 只补了成功主链，handler.go 五个写端点的错误分支与 service 侧
-// 的存储失败翼整段未覆盖（包覆盖停在 94.7%，handler 写段 0%）。
+// Error-arm supplemental tests for the catalog write path (#46 batch 3:
+// register/update/delete/publish) and pack import (batch 6): batches 3/6 only
+// covered the success mainline, and the error branches of the five write
+// endpoints in handler.go plus the storage-failure arms on the service side
+// were entirely uncovered (package coverage stalled at 94.7%, handler write
+// segment at 0%).
 //
-// 注入口径沿用本仓既有批次：
-//   - 读翼「缺表」：DropTable 后 gorm 立即报错且无副作用，命中「非 NotFound
-//     原样透传」那一翼（若误判成 NotFound 会走进重复登记/新建分支，测不出来）；
-//   - 写翼「触发器拦写」：BEFORE {INSERT,UPDATE,DELETE} TRIGGER + RAISE(ABORT)，
-//     覆盖「校验全过、SQL 真执行才炸」这一类；
-//   - 「写成功→复读失败」：BEFORE UPDATE 触发器把行标记软删——UpdateFields 仍
-//     报 1 行受影响（仓储按 RowsAffected 判空），紧随其后的复读落 NotFound；
-//   - 权限翼：ctx 不带 username，RequireAnyPermission 在 LoadCurrentAdmin 即拦。
+// Injection conventions follow the repo's existing batches:
+//   - Read arm "missing table": after DropTable, gorm errors immediately with
+//     no side effects, hitting the "non-NotFound passes through as-is" arm
+//     (if it were misjudged as NotFound it would enter the duplicate-register
+//     / create branches, which this cannot detect);
+//   - Write arm "trigger blocks write": BEFORE {INSERT,UPDATE,DELETE} TRIGGER
+//     + RAISE(ABORT), covering the class where all validation passes and it
+//     only blows up when the SQL actually executes;
+//   - "Write succeeds -> re-read fails": a BEFORE UPDATE trigger soft-deletes
+//     the row -- UpdateFields still reports 1 row affected (the repository
+//     checks RowsAffected for emptiness), and the immediate re-read lands in
+//     NotFound;
+//   - Permission arm: ctx carries no username, RequireAnyPermission stops at
+//     LoadCurrentAdmin.
 //
-// 不可达登记：PackImport 第 513 行（json.Marshal(manifestObj) 失败）——入参
-// 唯一来源是包内 manifest.json 经 json.Unmarshal 得到的 map[string]any，
-// 其值只可能是 string/float64/bool/nil/map/slice，Marshal 无失败形态
-// （chan/func/NaN 均无法从 JSON 产生），按房规不造假用例、不删防御分支。
+// Unreachable register: PackImport line 513 (json.Marshal(manifestObj)
+// failure) -- the only source of the input is the map[string]any obtained by
+// json.Unmarshal from the in-pack manifest.json, whose values can only be
+// string/float64/bool/nil/map/slice, so Marshal has no failure mode
+// (chan/func/NaN cannot be produced from JSON); per house rules we neither
+// fabricate a case nor delete the defensive branch.
 
 import (
 	"archive/tar"
@@ -43,19 +54,22 @@ import (
 
 const cwExtID = "com.example.demo"
 
-// cwDrop 读翼注入：缺表（表名取自 model 的 TableName，不手写）。
+// cwDrop read-arm injection: missing table (table name taken from the model's
+// TableName, not hand-written).
 func cwDrop(t *testing.T, db *gorm.DB, m any) {
 	t.Helper()
 	require.NoError(t, db.Migrator().DropTable(m))
 }
 
-// cwTrigger 写翼注入：真实执行 SQL 时才炸的拦写触发器。
+// cwTrigger write-arm injection: a blocking trigger that only fires when the
+// SQL actually executes.
 func cwTrigger(t *testing.T, db *gorm.DB, sql string) {
 	t.Helper()
 	require.NoError(t, db.Exec(sql).Error)
 }
 
-// cwRegister 写路径五端点（路径与 internal/handler/routes.go 注册序一致）。
+// cwRegister registers the five write-path endpoints (paths consistent with
+// the registration order in internal/handler/routes.go).
 func cwRegister(env *extensionTestEnv) {
 	env.router.POST("/api/v1/extensions/catalog", env.handler.CatalogCreate)
 	env.router.PUT("/api/v1/extensions/catalog/:id", env.handler.CatalogUpdate)
@@ -64,9 +78,11 @@ func cwRegister(env *extensionTestEnv) {
 	env.router.POST("/api/v1/extensions/packs/import", env.handler.PackImport)
 }
 
-// cwFailQuery 精确到「某条查询形态」的存储故障注入：catalog Get 内部也会读
-// releases，缺表注入到不了「表都在、只有按版本查这一次失败」的形态，故在 gorm
-// 查询回调上对命中表名+子串的 SQL 注入错误。
+// cwFailQuery injects a storage failure targeting one specific query shape:
+// the catalog Get also reads releases internally, so a missing-table injection
+// cannot reach the "all tables exist, only this version lookup fails" shape;
+// therefore an error is injected on the gorm query callback for SQL matching
+// the table name + substring.
 func cwFailQuery(t *testing.T, db *gorm.DB, name, table, substr string) {
 	t.Helper()
 	require.NoError(t, db.Callback().Query().After("gorm:query").Register(name, func(tx *gorm.DB) {
@@ -76,8 +92,10 @@ func cwFailQuery(t *testing.T, db *gorm.DB, name, table, substr string) {
 	}))
 }
 
-// cwReadOnlyStore 把对象存储底目录置为只读（Put 的 MkdirAll/Create 必失败）。
-// 权限在 TempDir 清理前复原（cleanup 后进先出，本注册晚于 TempDir）。
+// cwReadOnlyStore makes the object storage base directory read-only (Put's
+// MkdirAll/Create will then fail). Permissions are restored before the TempDir
+// cleanup (cleanup is last-in-first-out; this registration happens after
+// TempDir).
 func cwReadOnlyStore(t *testing.T, env *extensionTestEnv) {
 	t.Helper()
 	dir := t.TempDir()
@@ -91,26 +109,27 @@ func cwReadOnlyStore(t *testing.T, env *extensionTestEnv) {
 // ---- validateCatalogExtensionID ----
 
 func TestValidateCatalogExtensionID_LengthAndLeadingChar(t *testing.T) {
-	// 长度上限（129 > 128）。
+	// Length cap (129 > 128).
 	err := validateCatalogExtensionID(strings.Repeat("a", 129))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "128")
 
-	// 首字符禁 . _ -（路由参数歧义防护）。
+	// The leading character forbids . _ - (route parameter ambiguity guard).
 	for _, bad := range []string{".lead", "_lead", "-lead"} {
 		err := validateCatalogExtensionID(bad)
 		require.Error(t, err, bad)
 		assert.Contains(t, err.Error(), "start with", bad)
 	}
 
-	// 边界内合法形态不误伤。
+	// Legal shapes inside the boundary must not be wrongly rejected.
 	assert.NoError(t, validateCatalogExtensionID(strings.Repeat("a", 128)))
 	assert.NoError(t, validateCatalogExtensionID("a.lead-_1"))
 }
 
 // ---- CatalogCreate ----
 
-// 登记前的存在性探测拿到非 NotFound 错误时原样透传（不得当成「可新建」）。
+// When the pre-registration existence probe returns a non-NotFound error it is
+// passed through as-is (it must not be treated as "creatable").
 func TestService_CatalogCreate_LookupErrorPassthrough(t *testing.T) {
 	env := setupExtensionEnv(t)
 	cwDrop(t, env.db, &model.ExtensionCatalog{})
@@ -120,7 +139,7 @@ func TestService_CatalogCreate_LookupErrorPassthrough(t *testing.T) {
 	assert.Contains(t, err.Error(), "no such table", "缺表属非 NotFound，应原样透传而非当未登记处理")
 }
 
-// 校验全过、INSERT 才炸的拦写翼。
+// Write-blocking arm where all validation passes and the INSERT is what fails.
 func TestService_CatalogCreate_InsertBlockedByTrigger(t *testing.T) {
 	env := setupExtensionEnv(t)
 	cwTrigger(t, env.db, `CREATE TRIGGER cw_block_catalog_insert BEFORE INSERT ON extension_catalogs
@@ -137,7 +156,8 @@ func TestService_CatalogUpdate_PermissionDenied(t *testing.T) {
 	env := setupExtensionEnv(t)
 	env.seedCatalog(t, cwExtID, "1.0.0", map[string]any{"capabilities": []any{"cap.echo"}})
 
-	// ctx 不带 username：权限守卫在管理员装载阶段即拦，写路径不得落库。
+	// ctx carries no username: the permission guard stops at the admin loading
+	// stage, so the write path must not land anything in the database.
 	_, err := env.service.CatalogUpdate(context.Background(), cwExtID, ExtensionCatalogUpdateRequest{Name: "renamed"})
 	require.Error(t, err)
 
@@ -146,7 +166,8 @@ func TestService_CatalogUpdate_PermissionDenied(t *testing.T) {
 	assert.Equal(t, cwExtID, item.Name, "被拒请求不得改写登记行")
 }
 
-// name/vendor/kind 三个非空覆盖分支（其余字段无条件写入，与本用例无关）。
+// The three non-empty override branches for name/vendor/kind (the remaining
+// fields are written unconditionally and are irrelevant to this case).
 func TestService_CatalogUpdate_AppliesNameVendorKind(t *testing.T) {
 	env := setupExtensionEnv(t)
 	env.seedCatalog(t, cwExtID, "1.0.0", map[string]any{"capabilities": []any{"cap.echo"}})
@@ -181,8 +202,9 @@ BEGIN SELECT RAISE(ABORT, 'cw: catalog update blocked'); END`)
 	assert.Contains(t, err.Error(), "cw: catalog update blocked")
 }
 
-// 写成功后复读失败翼：BEFORE UPDATE 触发器把行标记软删，UpdateFields 仍算
-// 1 行受影响（仓储按 RowsAffected 判空），紧随的复读落 NotFound。
+// "Write succeeds -> re-read fails" arm: a BEFORE UPDATE trigger soft-deletes
+// the row, UpdateFields still counts 1 affected row (the repository checks
+// RowsAffected for emptiness), and the following re-read lands in NotFound.
 func TestService_CatalogUpdate_RereadAfterSoftDelete(t *testing.T) {
 	env := setupExtensionEnv(t)
 	env.seedCatalog(t, cwExtID, "1.0.0", map[string]any{"capabilities": []any{"cap.echo"}})
@@ -207,7 +229,8 @@ func TestService_CatalogDelete_LookupError(t *testing.T) {
 	assert.Contains(t, err.Error(), "no such table")
 }
 
-// 版本记录清理（RemoveReleases）被拦：登记行必须仍在，不得出现半删状态。
+// Release cleanup (RemoveReleases) blocked: the catalog row must still be
+// there; no half-deleted state is allowed.
 func TestService_CatalogDelete_RemoveReleasesBlocked(t *testing.T) {
 	env := setupExtensionEnv(t)
 	env.seedCatalog(t, cwExtID, "1.0.0", map[string]any{"capabilities": []any{"cap.echo"}})
@@ -223,7 +246,7 @@ BEGIN SELECT RAISE(ABORT, 'cw: release delete blocked'); END`)
 	assert.Equal(t, cwExtID, item.ExtensionID)
 }
 
-// 活跃实例探测的读翼。
+// Read arm of the active installation probe.
 func TestService_RejectActiveInstallations_ListError(t *testing.T) {
 	env := setupExtensionEnv(t)
 	cwDrop(t, env.db, &model.ExtensionInstallation{})
@@ -238,8 +261,9 @@ func TestService_RejectActiveInstallations_ListError(t *testing.T) {
 func TestService_CatalogReleasePublish_ReleaseLookupError(t *testing.T) {
 	env := setupExtensionEnv(t)
 	env.seedCatalog(t, cwExtID, "1.0.0", map[string]any{"capabilities": []any{"cap.echo"}})
-	// 只有「按 extension_id+version 查重」这一次失败：前面的 catalog Get
-	// （内部读 releases 列表）不受影响，故不能靠缺表注入。
+	// Only the "dedupe lookup by extension_id+version" fails: the preceding
+	// catalog Get (which internally reads the releases list) is unaffected, so
+	// this cannot be injected by a missing table.
 	cwFailQuery(t, env.db, "cw:fail_release_version_lookup", "extension_releases", "version =")
 
 	_, err := env.service.CatalogReleasePublish(env.ctx, cwExtID, ExtensionReleasePublishRequest{
@@ -250,7 +274,7 @@ func TestService_CatalogReleasePublish_ReleaseLookupError(t *testing.T) {
 	assert.Contains(t, err.Error(), "cw: injected query failure")
 }
 
-// 发版写入（PublishRelease）被拦。
+// The publish-release write (PublishRelease) is blocked.
 func TestService_CatalogReleasePublish_PublishReleaseBlocked(t *testing.T) {
 	env := setupExtensionEnv(t)
 	env.seedCatalog(t, cwExtID, "1.0.0", map[string]any{"capabilities": []any{"cap.echo"}})
@@ -265,8 +289,9 @@ BEGIN SELECT RAISE(ABORT, 'cw: release insert blocked'); END`)
 	assert.Contains(t, err.Error(), "cw: release insert blocked")
 }
 
-// 版本已发布但 latestVersion 回填写入失败：接口须报错，不得静默留下
-// 「已发版、指针未回填」的中间态。
+// The version was published but the latestVersion back-fill write fails: the
+// API must report an error and must not silently leave the intermediate
+// state of "released, pointer not back-filled".
 func TestService_CatalogReleasePublish_LatestBumpBlocked(t *testing.T) {
 	env := setupExtensionEnv(t)
 	env.seedCatalog(t, cwExtID, "1.0.0", map[string]any{"capabilities": []any{"cap.echo"}})
@@ -286,7 +311,8 @@ BEGIN SELECT RAISE(ABORT, 'cw: catalog update blocked'); END`)
 	assert.Len(t, releases, 2, "版本行已发布（错误发生在其后的指针回填）")
 }
 
-// manifest 不可序列化翼：服务层是导出方法，进程内调用方可传入非 JSON 来源的值。
+// Manifest-unserializable arm: the service layer is an exported method, so an
+// in-process caller can pass a value from a non-JSON source.
 func TestService_CatalogReleasePublish_ManifestMarshalError(t *testing.T) {
 	env := setupExtensionEnv(t)
 	env.seedCatalog(t, cwExtID, "1.0.0", map[string]any{"capabilities": []any{"cap.echo"}})
@@ -299,7 +325,8 @@ func TestService_CatalogReleasePublish_ManifestMarshalError(t *testing.T) {
 	assert.Contains(t, err.Error(), "invalid manifest")
 }
 
-// 存量 latestVersion 不可解析时按「未知即回填」处理（不回退指针即失去语义）。
+// When an unparsable pre-existing latestVersion is treated as "unknown ->
+// back-fill" (not back-filling the pointer would lose the semantics).
 func TestService_CatalogReleasePublish_BumpsUnparsableLatest(t *testing.T) {
 	env := setupExtensionEnv(t)
 	_, err := env.service.CatalogCreate(env.ctx, ExtensionCatalogCreateRequest{
@@ -322,7 +349,8 @@ func TestService_CatalogReleasePublish_BumpsUnparsableLatest(t *testing.T) {
 
 // ---- parseExtensionPack ----
 
-// 同深度第二份 manifest 被跳过（取最先出现的那份，不做覆盖）。
+// A second manifest at the same depth is skipped (the first one found wins;
+// there is no overwrite).
 func TestParseExtensionPack_SameDepthLaterSkipped(t *testing.T) {
 	files := map[string]string{
 		"a/manifest.json": fmt.Sprintf(packManifestTemplate, "com.example.first", "1.0.0", "stable"),
@@ -341,7 +369,8 @@ func TestParseExtensionPack_ManifestTooLarge(t *testing.T) {
 	assert.Contains(t, err.Error(), "大小上限")
 }
 
-// 归档中途截断：条目头声明了尺寸但数据不足，读 manifest 失败。
+// Truncated mid-archive: the entry header declares a size but the data is
+// short, so reading the manifest fails.
 func TestParseExtensionPack_TruncatedManifestRead(t *testing.T) {
 	body := fmt.Sprintf(packManifestTemplate, cwExtID, "1.0.0", "stable")
 	var raw bytes.Buffer
@@ -351,7 +380,8 @@ func TestParseExtensionPack_TruncatedManifestRead(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, tw.Close())
 
-	// 只留 512 字节条目头 + 100 字节正文（声明尺寸更大），使条目数据不足。
+	// Keep only a 512-byte entry header + 100-byte body (the declared size is
+	// larger), so the entry data is short.
 	const keep = 512 + 100
 	require.Greater(t, raw.Len(), keep)
 	var gzipped bytes.Buffer
@@ -371,7 +401,8 @@ type cwErrReader struct{}
 
 func (cwErrReader) Read([]byte) (int, error) { return 0, errors.New("cw: reader boom") }
 
-// cwZeroReader 产出指定长度的零流（避免真造 64MiB 缓冲）。
+// cwZeroReader produces a zero stream of a given length (avoids actually
+// building a 64MiB buffer).
 type cwZeroReader struct{ remaining int64 }
 
 func (r *cwZeroReader) Read(p []byte) (int, error) {
@@ -410,7 +441,8 @@ func TestService_PackImport_ReaderError(t *testing.T) {
 	assert.Contains(t, err.Error(), "读取上传内容失败")
 }
 
-// 声明尺寸合规但实际流超限（上传头不可信）→ 读后复检拦截。
+// Declared size is compliant but the actual stream exceeds the cap (the upload
+// header is untrusted) -> intercepted by re-checking after the read.
 func TestService_PackImport_StreamExceedsCap(t *testing.T) {
 	env := newPackEnv(t)
 	_, err := env.service.PackImport(env.ctx,
@@ -428,7 +460,8 @@ func TestService_PackImport_PackParseError(t *testing.T) {
 	assert.Contains(t, err.Error(), "manifest.json")
 }
 
-// 包内未给 name/displayName/vendor/kind 时按登记默认值兜底。
+// When the pack gives no name/displayName/vendor/kind, the registration
+// defaults are used as the fallback.
 func TestService_PackImport_ManifestDefaults(t *testing.T) {
 	env := newPackEnv(t)
 	manifest := `{"extensionId": "com.example.min", "version": "1.0.0", "manifest": {}}`
@@ -481,7 +514,8 @@ func TestService_PackImport_ReleaseLookupError(t *testing.T) {
 	assert.Contains(t, err.Error(), "cw: injected query failure")
 }
 
-// 工件写入对象存储失败（底目录只读 → MkdirAll/Create 皆失败）。
+// Writing the artifact to object storage fails (read-only base directory ->
+// both MkdirAll/Create fail).
 func TestService_PackImport_ObjectStorePutFailure(t *testing.T) {
 	env := newPackEnv(t)
 	cwReadOnlyStore(t, env)
@@ -492,7 +526,8 @@ func TestService_PackImport_ObjectStorePutFailure(t *testing.T) {
 	assert.Contains(t, err.Error(), "写入对象存储失败")
 }
 
-// 发版写入被拦：工件已落存储但不得留下无版本记录的导入结果。
+// The publish-release write is blocked: the artifact has already landed in
+// storage but the import must not leave a result without a version record.
 func TestService_PackImport_PublishReleaseBlocked(t *testing.T) {
 	env := newPackEnv(t)
 	cwTrigger(t, env.db, `CREATE TRIGGER cw_block_release_insert BEFORE INSERT ON extension_releases
@@ -508,7 +543,8 @@ BEGIN SELECT RAISE(ABORT, 'cw: release insert blocked'); END`)
 	assert.Zero(t, releaseRows)
 }
 
-// 存量登记（latestVersion 为空）导入时回填指针失败。
+// Back-filling the pointer fails on import for a pre-existing registration
+// (latestVersion empty).
 func TestService_PackImport_LatestBumpBlocked(t *testing.T) {
 	env := newPackEnv(t)
 	_, err := env.service.CatalogCreate(env.ctx, ExtensionCatalogCreateRequest{ExtensionID: cwExtID}, "ext_tester")
@@ -528,7 +564,8 @@ BEGIN SELECT RAISE(ABORT, 'cw: catalog update blocked'); END`)
 
 // ---- catalogDisplayNames ----
 
-// 归一后重复的 extensionID 与空值只取一次（避免重复查表）。
+// extensionIDs that are duplicates after normalization and empty values are
+// fetched only once (avoids repeated lookups).
 func TestCatalogDisplayNames_DedupSkipsEmpty(t *testing.T) {
 	env := setupExtensionEnv(t)
 	env.seedCatalog(t, "Com.Example.Demo", "1.0.0", map[string]any{"capabilities": []any{"cap.echo"}})
@@ -541,12 +578,14 @@ func TestCatalogDisplayNames_DedupSkipsEmpty(t *testing.T) {
 	names := env.service.catalogDisplayNames(env.ctx, items)
 	assert.Equal(t, map[string]string{"com.example.demo": "Com.Example.Demo display"}, names)
 
-	// 全空/全重复到只剩空值时不得触达查表。
+	// When everything is empty/duplicate down to a single empty value, the
+	// lookup must not be touched.
 	empty := env.service.catalogDisplayNames(env.ctx, []model.ExtensionInstallation{{ExtensionID: " "}})
 	assert.Empty(t, empty)
 }
 
-// 查表失败按设计静默回退 extensionID 原值（不阻塞列表）。
+// On lookup failure the raw extensionID is silently restored by design (the
+// list is not blocked).
 func TestCatalogDisplayNames_LookupErrorSwallowed(t *testing.T) {
 	env := setupExtensionEnv(t)
 	cwDrop(t, env.db, &model.ExtensionCatalog{})
@@ -555,13 +594,13 @@ func TestCatalogDisplayNames_LookupErrorSwallowed(t *testing.T) {
 	assert.Empty(t, names, "查表失败应返回空 map，由调用侧回退原值")
 }
 
-// ---- handler 层：写端点错误分支 ----
+// ---- handler layer: write endpoint error branches ----
 
 func TestHandler_CatalogCreate_HTTP(t *testing.T) {
 	env := setupExtensionEnv(t)
 	cwRegister(env)
 
-	// 畸形 JSON 与缺必填字段都是 400。
+	// Both malformed JSON and a missing required field are 400.
 	rec := env.do(t, http.MethodPost, "/api/v1/extensions/catalog", "{")
 	assert.Equal(t, http.StatusBadRequest, rec.Code, rec.Body.String())
 	rec = env.do(t, http.MethodPost, "/api/v1/extensions/catalog", `{"name":"no id"}`)
@@ -574,7 +613,7 @@ func TestHandler_CatalogCreate_HTTP(t *testing.T) {
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &created))
 	assert.Equal(t, cwExtID, created.Item.ID)
 
-	// 重复登记 409。
+	// Duplicate registration is 409.
 	rec = env.do(t, http.MethodPost, "/api/v1/extensions/catalog",
 		fmt.Sprintf(`{"extensionId":%q}`, cwExtID))
 	assert.Equal(t, http.StatusConflict, rec.Code, rec.Body.String())
@@ -646,7 +685,8 @@ func TestHandler_PackImport_MissingFileField(t *testing.T) {
 	assert.Contains(t, rec.Body.String(), "file")
 }
 
-// 上传得到文件但包体不可解析：服务层错误须原样透出（不吞成 200）。
+// A file comes through but the pack body is unparseable: the service-layer
+// error must pass through untouched (not be swallowed into a 200).
 func TestHandler_PackImport_ServiceErrorPassthrough(t *testing.T) {
 	env := newPackEnv(t)
 	cwRegister(env)

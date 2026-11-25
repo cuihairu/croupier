@@ -144,7 +144,7 @@ func TestParseUintParamHandlerErrors_V9(t *testing.T) {
 		assert.Equal(t, http.StatusBadRequest, rec.Code, "%s %s", tc.method, tc.path)
 	}
 
-	// Events: 合法 id + 非法分页参数 → ShouldBindQuery 失败
+	// Events: valid id + invalid pagination params -> ShouldBindQuery fails
 	rec := doV9Request(t, r, http.MethodGet, "/installations/1/events?page=abc", "")
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }
@@ -244,7 +244,8 @@ func TestInstall_Errors_V9(t *testing.T) {
 		_, err := f.svc.Install(f.ctx, req, "v9-op")
 		require.NoError(t, err)
 
-		// 标记为已卸载 → 冲突检查放行，但 InstallationKey 唯一索引冲突
+		// Mark as uninstalled -> the conflict check lets it through, but the
+		// InstallationKey unique index conflicts.
 		require.NoError(t, f.db.Exec(
 			"UPDATE extension_installations SET status='uninstalled', desired_state='uninstalled'",
 		).Error)
@@ -368,7 +369,7 @@ func TestUpgrade_Errors_V9(t *testing.T) {
 	t.Run("config schema violation", func(t *testing.T) {
 		f := newV9Fixture(t)
 		createV9Catalog(t, f.db, "cfg.ext", "1.0.0", `{"id":"cfg.ext","version":"1.0.0"}`)
-		// 2.0.0 要求 enabled 字段
+		// 2.0.0 requires the enabled field.
 		require.NoError(t, f.db.Create(&model.ExtensionRelease{
 			ExtensionID:    "cfg.ext",
 			Version:        "2.0.0",
@@ -422,14 +423,14 @@ func TestResolveConfigSchema_CamelCase_V9(t *testing.T) {
 }
 
 func TestValidateConfigAgainstSchema_EdgeRules_V9(t *testing.T) {
-	// required 中含空键 → 跳过
+	// required containing an empty key -> skipped.
 	err := validateConfigAgainstSchema(map[string]any{}, map[string]any{
 		"properties": map[string]any{},
 		"required":   []any{"", "host"},
 	})
 	require.Error(t, err)
 
-	// properties 值非 map → 规则被跳过
+	// properties value that is not a map -> the rule is skipped.
 	err = validateConfigAgainstSchema(map[string]any{"x": 1}, map[string]any{
 		"properties": map[string]any{"x": "string"},
 	})
@@ -483,7 +484,8 @@ func TestValidateDependencyNode_Branches_V9(t *testing.T) {
 		createV9Catalog(t, f.db, "dep.ext", "1.0.0", `{"id":"dep.ext","dependencies":["child.ext"]}`)
 		createV9Installation(t, f.db, "dep.ext", "1.0.0", `{}`)
 
-		// 子依赖的 manifest 读取失败（目录被删）
+		// Reading the child dependency's manifest fails (catalog table
+		// dropped).
 		require.NoError(t, f.db.Migrator().DropTable("extension_catalogs"))
 		err := f.svc.validateDependencyNode(f.ctx, extensionDependency{ExtensionID: "dep.ext"},
 			map[string]bool{}, map[string]bool{})
@@ -518,7 +520,7 @@ func TestActiveInstalledExtensionSet_V9(t *testing.T) {
 				DesiredState:    "enabled",
 			})
 		}
-		// 一条已卸载 → 应被跳过
+		// One uninstalled row -> should be skipped.
 		rows = append(rows, &model.ExtensionInstallation{
 			InstallationKey: extKeyV9("paged", 999),
 			ExtensionID:     "gone.ext",
@@ -551,7 +553,8 @@ func TestExtractCapabilityDetails_ProviderFunctionEdge_V9(t *testing.T) {
 			{BindingType: "provider", BindingKey: "", SpecJSON: nil},
 		}
 		caps, details := extractCapabilityDetailsFromBindings(bindings)
-		// 复合键 "provider:" 仍会记录，但 provider 细节不生成
+		// The composite key "provider:" is still recorded, but no provider
+		// detail is generated.
 		assert.Equal(t, []string{"provider:"}, caps)
 		assert.Empty(t, details)
 	})
@@ -595,11 +598,12 @@ func TestExtractCapabilityDetails_ProviderFunctionEdge_V9(t *testing.T) {
 		caps, details := extractCapabilityDetailsFromBindings(bindings)
 		assert.Contains(t, caps, "external.demo")
 		require.Len(t, details, 1)
-		// 两个 function 绑定的操作合并去重
+		// Operations of the two function bindings are merged and deduped.
 		assert.ElementsMatch(t, []string{"query", "export"}, details[0].Operations)
-		// permissions 空键/空值被过滤，仅保留 query=read
+		// Empty keys/values in permissions are filtered; only query=read is
+		// kept.
 		assert.Equal(t, map[string]string{"query": "read"}, details[0].Permissions)
-		// config_keys 去重
+		// config_keys are deduplicated.
 		assert.Equal(t, []string{"host"}, details[0].ConfigKeys)
 	})
 
@@ -633,7 +637,7 @@ func TestPages_SortTieBreaker_V9(t *testing.T) {
 	resp, err := f.svc.Pages(f.ctx, id)
 	require.NoError(t, err)
 	require.Len(t, resp.Pages, 3)
-	// order 升序；order 相同时按 key 字典序（tie-breaker）
+	// Ascending order; when order ties, by key lexicographically (tie-breaker).
 	assert.Equal(t, "first", resp.Pages[0].Key)
 	assert.Equal(t, "a-page", resp.Pages[1].Key)
 	assert.Equal(t, "b-page", resp.Pages[2].Key)
