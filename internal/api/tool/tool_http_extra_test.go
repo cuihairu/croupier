@@ -12,7 +12,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// HTTP 全端点分支：绑定失败 / 校验失败 / 更新不存在 / 删除非法 ID。
+// All HTTP endpoint branches: bind failure / validation failure / update of
+// a missing target / delete with an invalid ID.
 func TestToolHTTPHandlerBranches(t *testing.T) {
 	db := newToolTestDB(t)
 	h := newToolHandler(db)
@@ -42,31 +43,31 @@ func TestToolHTTPHandlerBranches(t *testing.T) {
 		return w.Code
 	}
 
-	// List：成功（请求字段全为可选 string，query 绑定不会失败）
+	// List: success (all request fields are optional strings, so query binding cannot fail)
 	assert.Equal(t, http.StatusOK, do(http.MethodGet, "/tools?gameId=g1&env=prod", ""))
 
-	// Create：JSON 非法 → 绑定失败
+	// Create: invalid JSON → bind failure
 	assert.Equal(t, http.StatusBadRequest, do(http.MethodPost, "/tools", "{broken"))
-	// Create：缺名称 → 校验失败 400
+	// Create: missing name → validation failure 400
 	assert.Equal(t, http.StatusBadRequest, do(http.MethodPost, "/tools",
 		`{"url":"https://example.com"}`))
-	// Create：成功（带用户名上下文 → CreatedBy=ops-admin）
+	// Create: success (username context present → CreatedBy=ops-admin)
 	assert.Equal(t, http.StatusOK, do(http.MethodPost, "/tools",
 		`{"name":"Grafana","url":"https://grafana.example.com"}`))
 
-	// Update：无可更新字段 → 400
+	// Update: no updatable fields → 400
 	assert.Equal(t, http.StatusBadRequest, do(http.MethodPut, "/tools/1", `{}`))
-	// Update：目标不存在（回读列表缺失）→ 400
+	// Update: target does not exist (missing re-read list) → 400
 	assert.Equal(t, http.StatusBadRequest, do(http.MethodPut, "/tools/9999",
 		`{"name":"Ghost"}`))
 
-	// Delete：非法 ID → 400
+	// Delete: invalid ID → 400
 	assert.Equal(t, http.StatusBadRequest, do(http.MethodDelete, "/tools/abc", ""))
-	// Delete：成功
+	// Delete: success
 	assert.Equal(t, http.StatusOK, do(http.MethodDelete, "/tools/1", ""))
 }
 
-// 底层表缺失：Create/Update 模型错误透传。
+// Underlying table missing: Create/Update model errors are propagated.
 func TestToolHTTPModelFailure(t *testing.T) {
 	db := newToolTestDB(t)
 	require.NoError(t, db.Migrator().DropTable("tool_links"))

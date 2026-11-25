@@ -1,5 +1,6 @@
-// 覆盖目标：tool service 的 Update 全字段/无字段/不存在、Delete、
-// handler 的 bind 失败与服务错误路径。
+// Coverage target: the tool service's Update all-fields / no-fields /
+// not-exist paths, Delete, and the handler's bind-failure and service-error
+// paths.
 package tool
 
 import (
@@ -95,7 +96,7 @@ func TestToolHandler_CRUDThroughHandler(t *testing.T) {
 	h.Create(c)
 	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
 
-	// List（含关键字/分页 query）
+	// List (with keyword / pagination query)
 	c, w = toolRequest(http.MethodGet, "/tools?keyword=h1&page=1&pageSize=10", "")
 	h.List(c)
 	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
@@ -171,7 +172,7 @@ func TestToolService_Create_InvalidURL(t *testing.T) {
 
 func TestToolService_List_ScopeFilter(t *testing.T) {
 	s := newToolSvc(t)
-	// 全局 + scoped 两条
+	// one global + one scoped entry
 	_, err := s.Create(context.Background(), &ToolCreateRequest{Name: "global1", URL: "https://g", Category: "ci"})
 	require.NoError(t, err)
 	_, err = s.Create(context.Background(), &ToolCreateRequest{Name: "scoped1", URL: "https://s", Category: "ci", GameID: "demo", Env: "prod"})

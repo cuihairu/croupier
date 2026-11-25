@@ -1,7 +1,7 @@
-// 覆盖目标（coverage final）：
-//  1. handler.List 的 query 绑定失败分支（binding.Validator 注入失败）。
-//  2. service.Update 中 ListAll 回读失败分支（gorm query callback 注错，
-//     Updates 走 update callback 不受影响）。
+// Coverage target (coverage final):
+//  1. The query bind failure branch of handler.List (binding.Validator failure injected).
+//  2. The ListAll re-read failure branch in service.Update (error injected via the
+//     gorm query callback; Updates goes through the update callback and is unaffected).
 package tool
 
 import (
@@ -19,8 +19,9 @@ import (
 	"gorm.io/gorm"
 )
 
-// failValidator 让任意 Bind 的 validate 步骤返回错误，
-// 用于覆盖「DTO 全为可选 string、正常请求无法触发」的绑定失败分支。
+// failValidator makes the validate step of any Bind return an error, used to
+// cover the bind-failure branch that a normal request cannot trigger because
+// every DTO field is an optional string.
 type failValidator struct{}
 
 func (failValidator) ValidateStruct(any) error { return errors.New("injected validate failure") }
@@ -51,8 +52,9 @@ func TestToolService_Update_ListAllFailure(t *testing.T) {
 	created, err := s.Create(context.Background(), &ToolCreateRequest{Name: "n1", URL: "https://u", Category: "docs"})
 	require.NoError(t, err)
 
-	// Updates 走 update callback，ListAll（Find/SELECT）走 query callback：
-	// 仅令 query 失败 → Update 成功、ListAll 回读失败。
+	// Updates goes through the update callback, while ListAll (Find/SELECT)
+	// goes through the query callback: failing the query alone leaves Update
+	// itself succeeding but the ListAll re-read failing.
 	require.NoError(t, db.Callback().Query().Before("gorm.query").
 		Register("test:tool_fail_listall", func(tx *gorm.DB) {
 			_ = tx.AddError(errors.New("listall boom"))
