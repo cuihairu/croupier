@@ -10,10 +10,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// vanishingUsernameContext 注入「同一请求内 username 在鉴权之后消失」故障：
-// 第一次读取（RequireAnyPermission → LoadCurrentAdmin → CurrentUsername）
-// 返回有效用户名，之后读取返回空串， deterministic 地触发
-// CurrentUsername 错误分支与 "system" 操作者回落。
+// vanishingUsernameContext injects the fault "the username vanishes within the
+// same request after authorization":
+// the first read (RequireAnyPermission → LoadCurrentAdmin → CurrentUsername)
+// returns a valid username, and later reads return an empty string, which
+// deterministically triggers
+// the CurrentUsername error branch and the "system" operator fallback.
 type vanishingUsernameContext struct {
 	context.Context
 	reads int
@@ -30,8 +32,9 @@ func (c *vanishingUsernameContext) Value(key any) any {
 	return c.Context.Value(key)
 }
 
-// authorizeCloneTarget：game_env_bindings 表被破坏（缺表）→
-// HasEnvBinding 的 COUNT 查询报错 → 500「校验目标环境失败」。
+// authorizeCloneTarget: the game_env_bindings table is destroyed (missing) →
+// the COUNT query of HasEnvBinding errors out → 500 with the env-validation
+// failure message asserted below.
 func TestService_Update_CloneTargetEnvBindingStoreError(t *testing.T) {
 	db, svcCtx := setupAssignmentTestDB(t)
 	ctx := createAssignmentTestContext(t, db)
@@ -51,8 +54,9 @@ func TestService_Update_CloneTargetEnvBindingStoreError(t *testing.T) {
 	assert.Contains(t, err.Error(), "校验目标环境失败")
 }
 
-// authorizeCloneTarget：目标环境绑定存在，但鉴权后用户名消失 →
-// LoadCurrentAdmin 报 ErrCurrentUserNotFound 并透传。
+// authorizeCloneTarget: the target environment binding exists, but the username
+// vanishes after authorization →
+// LoadCurrentAdmin reports ErrCurrentUserNotFound and it is passed through.
 func TestService_Update_CloneTargetAdminLookupError(t *testing.T) {
 	db, svcCtx := setupAssignmentTestDB(t)
 	ctx := createAssignmentTestContext(t, db)
@@ -74,7 +78,8 @@ func TestService_Update_CloneTargetAdminLookupError(t *testing.T) {
 	assert.Contains(t, err.Error(), "未找到登录用户")
 }
 
-// Update：鉴权通过后 username 读取失败 → 历史操作者回落 "system"。
+// Update: reading the username fails after authorization passes → the history
+// operator falls back to "system".
 func TestService_Update_HistoryOperatorFallsBackToSystem(t *testing.T) {
 	db, svcCtx := setupAssignmentTestDB(t)
 	ctx := createAssignmentTestContext(t, db)

@@ -66,10 +66,14 @@ func loadAssignments(path string) (map[string][]string, error) {
 	if assignments == nil {
 		assignments = map[string][]string{}
 	}
-	// 旧版「空选保存」会落盘 `"game|env": null`（BUG-032 前语义，volume 跨
-	// 部署持久化成化石值）：null 被 GET 原样透出、前端 Object.values().flat()
-	// 卷成 [null] 选中态幻影。产品语义「清空列表保存即恢复默认开放」等价于
-	// 无记录，删除 null 键（新代码空保存本就走 delete-on-empty，不再产生）。
+	// The old "save with nothing selected" behavior persisted
+	// `"game|env": null` (pre-BUG-032 semantics, kept alive across deploys by
+	// the volume as a fossil value): GET passed the null straight through and
+	// the frontend Object.values().flat() rolled it into a [null] phantom
+	// selection. The product rule "clearing the list and saving restores the
+	// default open state" is equivalent to having no record, so null keys are
+	// deleted (new code already goes delete-on-empty, so it no longer produces
+	// them).
 	for key, fns := range assignments {
 		if fns == nil {
 			delete(assignments, key)
@@ -82,7 +86,8 @@ func saveAssignments(path string, data map[string][]string) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
-	// data 为 map[string][]string，MarshalIndent 恒成功，error 分支不可达，已删除。
+	// data is map[string][]string, so MarshalIndent always succeeds; the error
+	// branch is unreachable and has been removed.
 	bytes, _ := json.MarshalIndent(data, "", "  ")
 	return fsutil.WriteFileAtomic(path, bytes, 0o644)
 }

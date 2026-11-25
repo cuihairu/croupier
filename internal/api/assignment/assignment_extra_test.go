@@ -1,5 +1,6 @@
-// 覆盖目标：saveAssignments/saveAssignmentHistory 的目录创建失败分支、
-// authorizeCloneTarget 的无权限/未知来源分支、deriveGameDBName 路由回落。
+// Coverage targets: the directory-creation failure branches of
+// saveAssignments/saveAssignmentHistory, the no-permission/unknown-source
+// branches of authorizeCloneTarget, and the deriveGameDBName routing fallback.
 package assignment
 
 import (
@@ -27,7 +28,7 @@ func TestSaveAssignments_DirIsFile(t *testing.T) {
 	blocker := filepath.Join(dir, "blocker")
 	require.NoError(t, os.WriteFile(blocker, []byte("x"), 0o644))
 
-	// blocker/sub/assignments.json 的父目录创建失败
+	// Creating the parent directory of blocker/sub/assignments.json fails
 	err := saveAssignments(filepath.Join(blocker, "sub", "assignments.json"), nil)
 	require.Error(t, err)
 }

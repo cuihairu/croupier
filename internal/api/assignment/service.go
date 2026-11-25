@@ -135,8 +135,10 @@ func (s *Service) Update(ctx context.Context, req *AssignmentsUpdateRequest) (*A
 	accepted, unknown := splitKnownAndUnknown(functions, known)
 	key := buildAssignmentKey(gameID, env)
 	before := append([]string(nil), assignments[key]...)
-	// 清空保存 = 删除记录回到默认开放（BUG-032 闸门语义的另一半：空 key
-	// 若保留会被闸门视为白名单空集全拒，用户无法通过 UI 恢复默认开放）
+	// Saving an empty list = deleting the record and returning to the default
+	// open state (the other half of the BUG-032 gate semantics: if the empty
+	// key were kept, the gate would treat it as an empty whitelist and reject
+	// everything, so the user could not restore the default open state via the UI)
 	if len(accepted) == 0 {
 		delete(assignments, key)
 	} else {

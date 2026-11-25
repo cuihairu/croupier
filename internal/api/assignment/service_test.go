@@ -287,8 +287,10 @@ func TestService_Update_RemoveAll(t *testing.T) {
 	assert.NotNil(t, resp)
 	assert.True(t, resp.OK)
 
-	// 清空保存 = 删除记录回到默认开放（BUG-032 闸门语义：空 key 若保留
-	// 会被 EnsureFunctionAssigned 视为白名单空集全拒，无法恢复默认开放）
+	// Saving an empty list = deleting the record and returning to the default
+	// open state (BUG-032 gate semantics: if the empty key were kept,
+	// EnsureFunctionAssigned would treat it as an empty whitelist and reject
+	// everything, so the default open state could not be restored)
 	loaded, err := loadAssignments(assignmentsPath)
 	require.NoError(t, err)
 	_, exists := loaded["game1|prod"]

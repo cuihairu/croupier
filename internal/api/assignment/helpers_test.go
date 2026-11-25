@@ -604,10 +604,13 @@ func TestLoadAssignmentsEmptyFile(t *testing.T) {
 	}
 }
 
-// 旧版「空选保存」落盘的 `"game|env": null` 化石值（BUG-032 前语义，volume
-// 跨部署持久化）必须在读取时清除：null 被 GET 原样透出、前端
-// Object.values().flat() 卷成 [null] 选中态幻影。产品语义「清空列表保存即
-// 恢复默认开放」等价于无记录，读取侧删除 null 键。
+// The fossil `"game|env": null` values persisted by the old "save with nothing
+// selected" behavior (pre-BUG-032 semantics, kept alive across deploys by the
+// volume) must be scrubbed on read: GET passed the null straight through and
+// the frontend Object.values().flat() rolled it into a [null] phantom
+// selection. The product rule "clearing the list and saving restores the
+// default open state" is equivalent to having no record, so the read side
+// deletes null keys.
 func TestLoadAssignmentsScrubsNullFossilValues(t *testing.T) {
 	t.Parallel()
 
