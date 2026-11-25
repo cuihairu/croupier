@@ -1,6 +1,13 @@
 /**
  * F8 验收测试：visibleWhen 条件隐藏不丢值
+ *
+ * SUI-030：隐藏切换用例以「真实 UI 事件 + 显式回填等待」稳定——点击 Radio 后
+ * 必须 waitFor 字段从 DOM 消失（或重现）再继续断言，消除派生 schema 重算与
+ * antd 重渲染之间的异步窗口；jest 预算放宽到 20s，覆盖满载机器上 transformer
+ * 与渲染排队（历史上默认 5s 曾在负载下误报超时）。
  */
+jest.setTimeout(20000);
+
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { deriveRuntimeSchema } from '@/components/SchemaFormRenderer';
 import SchemaFormRenderer from '@/components/SchemaFormRenderer';
@@ -72,10 +79,12 @@ describe('F8: 交互——切回恢复、提交剔除', () => {
     await waitFor(() => expect(onFinish).toHaveBeenCalled());
     expect(onFinish.mock.calls[0][0]).toEqual({ mode: 'batch' });
 
-    // 切回 single → 值恢复
+    // 切回 single → 等字段重新挂载并回填旧值再断言（避免读到重渲染前的 DOM）
     fireEvent.click(screen.getByRole('radio', { name: 'single' }));
-    const restored = screen.getByLabelText('目标玩家') as HTMLInputElement;
-    expect(restored.value).toBe('p1');
+    await waitFor(() => {
+      const restored = screen.getByLabelText('目标玩家') as HTMLInputElement;
+      expect(restored.value).toBe('p1');
+    });
     void container;
   });
 

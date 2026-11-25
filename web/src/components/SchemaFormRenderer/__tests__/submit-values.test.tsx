@@ -5,7 +5,12 @@
  * - 原生提交（onFinish）与命令式 getSubmitValues() 输出恒等（同一取值逻辑）
  * - 隐藏前后的编辑值可恢复（值保留在表单态，getValues 含隐藏字段）
  * - deriveRuntimeSchema.hiddenKeys 与 computeHiddenKeys 恒等（渲染与投影不漂移）
+ *
+ * SUI-030：隐藏切换断言等待真实 UI 回填（onFinish 到达 / 字段值恢复）后才读值，
+ * 消除点击与派生 schema 重算之间的竞态；jest 预算放宽到 20s（负载下 5s 曾误报）。
  */
+jest.setTimeout(20000);
+
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import {
@@ -106,8 +111,12 @@ describe('SUI-014: 原生提交与 getSubmitValues 同一取值逻辑', () => {
       remark: 'note',
     });
 
-    // 切到 batch → 隐藏：原生提交与 getSubmitValues 输出恒等（都不含隐藏字段）
+    // 切到 batch → 等字段从 DOM 消失（派生 schema 重算落地）再提交
     fireEvent.click(screen.getByRole('radio', { name: 'batch' }));
+    await waitFor(() => {
+      expect(screen.queryByLabelText('目标玩家')).toBeNull();
+    });
+    // 原生提交与 getSubmitValues 输出恒等（都不含隐藏字段）
     fireEvent.click(screen.getByRole('button', { name: /提\s*交/ }));
     await waitFor(() => expect(onFinish).toHaveBeenCalled());
     expect(onFinish.mock.calls[0][0]).toEqual({ mode: 'batch', remark: 'note' });
@@ -120,8 +129,12 @@ describe('SUI-014: 原生提交与 getSubmitValues 同一取值逻辑', () => {
       remark: 'note',
     });
 
-    // 切回 single → 编辑值恢复，命令式取值与投影一致带回
+    // 切回 single → 等编辑值真实回填 DOM 后再断言命令式取值
     fireEvent.click(screen.getByRole('radio', { name: 'single' }));
+    await waitFor(() => {
+      const restored = screen.getByLabelText('目标玩家') as HTMLInputElement;
+      expect(restored.value).toBe('p2');
+    });
     expect(ref.current?.getSubmitValues()).toEqual({
       mode: 'single',
       targetPlayer: 'p2',
