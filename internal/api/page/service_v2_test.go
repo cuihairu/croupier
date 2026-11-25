@@ -1058,3 +1058,34 @@ func TestValidatePageSpecV2(t *testing.T) {
 	}
 	assert.True(t, found)
 }
+
+// SUI-021: 保存/校验路径（非 publish）也要看到表单呈现校验诊断。
+func TestValidatePageSpecV2SurfacesFormDiagnostics(t *testing.T) {
+	service, ctx, _ := newPageTestService(t, "pages:read")
+
+	// 非法宽度与非兼容控件必须出现在 validatePageSpec(publish=false) 的诊断中。
+	diags := service.validatePageSpec(ctx, spec.PageSpec{
+		Type: spec.PageTypeOperation,
+		Operation: &spec.OperationPageSpec{
+			Form: &spec.FormPresentationSpec{
+				JSONSchema: spec.JSONSchema(`{"type":"object","properties":{"name":{"type":"string"}}}`),
+				Fields: []spec.FormFieldSpec{
+					{Key: "name", Widget: spec.FormWidgetNumber, Width: 13},
+				},
+			},
+		},
+		Title: spec.LocalizedText{"zh-CN": "测试", "en-US": "测试 en"},
+		Category: spec.PageCategorySpec{
+			Key: "test",
+		},
+		Bindings: []spec.PageFunctionBinding{{ID: "main", Usage: spec.BindingUsageAction}},
+	}, false)
+	found := false
+	for _, d := range diags {
+		if d.Code == "form_width_invalid" || d.Code == "form_widget_incompatible" {
+			found = true
+			break
+		}
+	}
+	assert.True(t, found, "form presentation diagnostics must surface on the validate path")
+}

@@ -28,6 +28,7 @@ func ValidatePublishablePageShape(page PageSpec) []Diagnostic {
 	}
 	// 无需 default：validatePageVariant 已保证 page.Type 必为上述五种之一，
 	// 其余取值在到达此 switch 前已被拒绝；即使落空也仅跳过类型专属校验。
+	diags = append(diags, ValidateFormPresentations(page)...)
 	return diags
 }
 

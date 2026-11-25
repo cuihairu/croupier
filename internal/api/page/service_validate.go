@@ -77,7 +77,13 @@ func (s *Service) ValidatePageSpecInScope(ctx context.Context, gameID, env strin
 	}
 	diags = append(diags, validatePageShape(page)...)
 	if publish {
+		// Publish path: ValidatePublishablePageShape 已包含表单呈现校验，
+		// 避免重复诊断。
 		diags = append(diags, spec.ValidatePublishablePageShape(page)...)
+	} else {
+		// 保存/预览路径只跑形状校验，补上表单呈现校验（全部为 error 严重度，
+		// 行为幂等）。
+		diags = append(diags, spec.ValidateFormPresentations(page)...)
 	}
 
 	bindingsByID := map[string]spec.PageFunctionBinding{}
