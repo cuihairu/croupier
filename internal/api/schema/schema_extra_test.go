@@ -1,5 +1,6 @@
-// 覆盖目标：schema helpers 的错误分支（空 ID、坏 JSON、路径遍历、
-// schema 定义/负载校验失败、唯一 ID 冲突）与 handler 的 service 错误路径。
+// Coverage target: the error branches of the schema helpers (empty ID, bad JSON,
+// path traversal, schema definition/payload validation failure, unique ID
+// collision) and the service error paths of the handler.
 package schema
 
 import (
@@ -67,7 +68,7 @@ func TestService_Validate_ExistingSchema(t *testing.T) {
 	created, err := svc.Create(ctx, &CreateRequest{Name: "V Schema", Schema: mustParseSchema(t)})
 	require.NoError(t, err)
 
-	// validSchemaJSON 要求 name 字段：合法/非法 payload 两个方向都覆盖
+	// validSchemaJSON requires the name field: both the valid and invalid payload directions are covered
 	resp, err := svc.Validate(ctx, &ValidateRequest{ID: created.ID, Data: map[string]interface{}{"name": "ok"}})
 	require.NoError(t, err)
 	assert.True(t, resp.Valid)
@@ -96,7 +97,7 @@ func TestLoadSchema_CorruptJSON(t *testing.T) {
 
 func TestLoadSchema_PathTraversal(t *testing.T) {
 	_, cfg := newExtraService(t)
-	// id 带 ../ 会被 validateSchemaPath 拒绝
+	// An id carrying ../ is rejected by validateSchemaPath
 	_, err := loadSchema(cfg, "../../etc/passwd")
 	require.Error(t, err)
 }
@@ -114,7 +115,7 @@ func TestDeleteSchemaByID_PathTraversal(t *testing.T) {
 
 func TestSaveSchema_DirUnwritable(t *testing.T) {
 	_, cfg := newExtraService(t)
-	// 把 schemas/custom 换成一个文件，MkdirAll 失败
+	// Replace schemas/custom with a file so MkdirAll fails
 	cfg.Schemas.Dir = filepath.Join(t.TempDir(), "not-a-dir")
 	require.NoError(t, os.WriteFile(cfg.Schemas.Dir, []byte("x"), 0o644))
 	err := saveSchema(cfg, &schemaDocument{ID: "s1", Name: "s1"})
@@ -153,7 +154,7 @@ func TestListSchemas_MixedEntries(t *testing.T) {
 	_, cfg := newExtraService(t)
 	dir, err := ensureSchemasDir(cfg)
 	require.NoError(t, err)
-	// 一个合法 + 一个非 json 后缀 + 一个损坏文件，listSchemas 应跳过坏文件
+	// One valid file + one non-json suffix + one corrupt file: listSchemas should skip the bad ones
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "good.json"), []byte(`{"id":"good","name":"G"}`), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "readme.txt"), []byte("skip"), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "corrupt.json"), []byte("{"), 0o644))
@@ -184,7 +185,7 @@ func TestHandler_Update_MalformedJSON_BadRequest(t *testing.T) {
 }
 
 func TestHandler_List_ServiceError(t *testing.T) {
-	// Dir 指向文件：listSchemas 失败
+	// Dir points at a file: listSchemas fails
 	dir := filepath.Join(t.TempDir(), "f")
 	require.NoError(t, os.WriteFile(dir, []byte("x"), 0o644))
 	router := newRouter(NewHandler(NewService(&svc.ServiceContext{Config: config.Config{Schemas: config.SchemasConfig{Dir: dir}}})))

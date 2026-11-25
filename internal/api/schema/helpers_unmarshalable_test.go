@@ -8,7 +8,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// 非法 schema（type 为 NaN 数值）应被 schema 定义校验拒绝。
+// An invalid schema (type set to a NaN number) must be rejected by the schema
+// definition validation.
 func TestValidateSchemaDefinition_RejectsInvalidKeywordValue(t *testing.T) {
 	schema := map[string]interface{}{"type": math.NaN()}
 
@@ -17,7 +18,8 @@ func TestValidateSchemaDefinition_RejectsInvalidKeywordValue(t *testing.T) {
 	require.Error(t, err)
 }
 
-// 同一非法 schema 在 payload 校验 helper 中也应返回错误而不是 panic。
+// The same invalid schema must also return an error, rather than panic, from the
+// payload validation helper.
 func TestValidatePayloadAgainst_RejectsInvalidKeywordValue(t *testing.T) {
 	schema := map[string]interface{}{"type": math.NaN()}
 

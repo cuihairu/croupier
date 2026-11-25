@@ -87,7 +87,7 @@ func loadSchema(cfg config.Config, id string) (*schemaDocument, error) {
 	}
 	rawPath := schemaFilePath(cfg, id)
 
-	// 确保路径在 schemas 目录内，防止路径遍历攻击
+	// Make sure the path stays inside the schemas directory, blocking path traversal attacks
 	safePath, err := validateSchemaPath(cfg, rawPath)
 	if err != nil {
 		return nil, err
@@ -113,7 +113,7 @@ func deleteSchemaByID(cfg config.Config, id string) error {
 	}
 	rawPath := schemaFilePath(cfg, id)
 
-	// 确保路径在 schemas 目录内，防止路径遍历攻击
+	// Make sure the path stays inside the schemas directory, blocking path traversal attacks
 	safePath, err := validateSchemaPath(cfg, rawPath)
 	if err != nil {
 		return err
@@ -275,9 +275,10 @@ func validatePayloadAgainst(schema interface{}, payload interface{}) (bool, []st
 	}
 
 	if err := sch.Validate(payload); err != nil {
-		// jsonschema v6 的 Schema.Validate 出错时恒返回 *ValidationError
-		//（见其 validator.go：err.(*ValidationError) 直接断言并重新构造），
-		// 下方非 ValidationError 回退分支为死代码，已删除。
+		// On error, jsonschema v6's Schema.Validate always returns a *ValidationError
+		// (see its validator.go: err.(*ValidationError) is asserted directly and
+		// reconstructed), so the non-ValidationError fallback branch below was dead
+		// code and has been removed.
 		ve := err.(*jsonschema.ValidationError)
 		errors := extractErrors(ve)
 		return false, errors, nil
@@ -306,10 +307,11 @@ func validateSchemaPath(cfg config.Config, path string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("invalid path: %w", err)
 	}
-	// schemasDir 来自上方 ensureSchemasDir 的成功返回：要么是绝对路径
-	//（filepath.Abs 不再依赖 Getwd，恒成功），要么是相对路径但 MkdirAll 已
-	// 成功证明 cwd 有效（Getwd 恒成功）。两种情形 Abs(schemasDir) 均恒成功，
-	// 原 err 分支为死代码，已删除。
+	// schemasDir comes from ensureSchemasDir's successful return above: it is either an
+	// absolute path (filepath.Abs no longer depends on Getwd, so this always
+	// succeeds) or a relative path whose MkdirAll success already proves the cwd is
+	// valid (Getwd always succeeds). In both cases Abs(schemasDir) always succeeds,
+	// so the old err branch was dead code and has been removed.
 	absSchemasDir, _ := filepath.Abs(schemasDir)
 	if !strings.HasPrefix(absPath, absSchemasDir+string(filepath.Separator)) {
 		return "", fmt.Errorf("path traversal detected: path is outside schemas directory")

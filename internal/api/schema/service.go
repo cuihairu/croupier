@@ -127,9 +127,11 @@ func (s *Service) RawValidate(ctx context.Context, req *RawValidateRequest) (*Ra
 		return nil, err
 	}
 
-	// 上方 validateSchemaDefinition 已对同一 schema 用全新 Compiler 完成相同的
-	// AddResource+Compile 且成功；此处第二次执行相同操作不可能产生不同结果
-	//（AddResource/Compile 均无副作用依赖），err 恒 nil，原分支为死代码，已删除。
+	// The validateSchemaDefinition call above already ran the same AddResource+Compile on
+	// this same schema with a fresh Compiler and succeeded; repeating the identical
+	// operation here cannot yield a different outcome (neither AddResource nor
+	// Compile depends on side effects), so err is always nil and the old branch was
+	// dead code -- removed.
 	valid, issues, _ := validatePayloadAgainst(req.Schema, req.Data)
 
 	return &RawValidateResponse{

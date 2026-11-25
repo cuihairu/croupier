@@ -1,6 +1,8 @@
-// 覆盖目标：handler 绑定失败分支、saveSchema 序列化/写盘失败、loadSchema
-// 非常规读错误、listSchemas 断链条目、validateSchemaPath 的 MkdirAll 与
-// Abs 失败、service 的 Update/UpdateUIConfig/Validate 错误路径。
+// Coverage target: the handler binding failure branch, saveSchema
+// serialization/write-to-disk failures, non-standard read errors in loadSchema,
+// broken entries in listSchemas, the MkdirAll and Abs failures of
+// validateSchemaPath, and the Update/UpdateUIConfig/Validate error paths of the
+// service.
 package schema
 
 import (
@@ -31,7 +33,7 @@ func TestHandler_Update_InvalidSchemaRejected(t *testing.T) {
 	svcCtx := &svc.ServiceContext{Config: config.Config{Schemas: config.SchemasConfig{Dir: t.TempDir()}}}
 	router := newRouter(NewHandler(NewService(svcCtx)))
 
-	// schema 定义非法 → service.Update 校验失败 → 400
+	// An invalid schema definition -> service.Update validation fails -> 400
 	rec := doReq(t, router, http.MethodPut, "/schemas/whatever", `{"schema":{"type":"banana"}}`)
 	assertStatus(t, rec, http.StatusBadRequest)
 }
@@ -46,7 +48,7 @@ func TestHandler_RawValidate_MalformedJSON(t *testing.T) {
 
 func TestService_Create_NaNSchemaMarshalFails(t *testing.T) {
 	s, _ := newExtraService(t)
-	// NaN 能通过 jsonschema Compile，但 json.MarshalIndent 必定失败。
+	// A NaN value passes jsonschema Compile, but json.MarshalIndent is guaranteed to fail.
 	_, err := s.Create(t.Context(), &CreateRequest{
 		Name:   "NaN Schema",
 		Schema: map[string]interface{}{"type": "object", "nan": math.NaN()},
@@ -58,7 +60,8 @@ func TestLoadSchema_IDResolvesToDirectory(t *testing.T) {
 	_, cfg := newExtraService(t)
 	dir, err := ensureSchemasDir(cfg)
 	require.NoError(t, err)
-	// 目录名恰好以 .json 结尾：ReadFile 返回 EISDIR（非 NotExist）错误。
+	// A directory whose name happens to end in .json: ReadFile returns an EISDIR error
+	// (not NotExist).
 	require.NoError(t, os.Mkdir(filepath.Join(dir, "direntry.json"), 0o755))
 
 	_, err = loadSchema(cfg, "direntry")
@@ -71,7 +74,7 @@ func TestListSchemas_SkipsBrokenSymlink(t *testing.T) {
 	dir, err := ensureSchemasDir(cfg)
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "good.json"), []byte(`{"id":"good","name":"G"}`), 0o644))
-	// 断链符号链接：ReadFile 返回 ENOENT → entry 被跳过。
+	// A dangling symlink: ReadFile returns ENOENT -> the entry is skipped.
 	require.NoError(t, os.Symlink(filepath.Join(dir, "missing-target.json"), filepath.Join(dir, "broken.json")))
 
 	items, err := listSchemas(cfg)
@@ -85,8 +88,8 @@ func TestService_Validate_CorruptSchemaDefinition(t *testing.T) {
 	s, cfg := newExtraService(t)
 	dir, err := ensureSchemasDir(cfg)
 	require.NoError(t, err)
-	// 手写文件绕过 Create 校验：loadSchema 成功但 schema 定义非法，
-	// validatePayloadAgainst 的 Compile 失败。
+	// Hand-write the file to bypass Create's validation: loadSchema succeeds but the
+	// schema definition is invalid, so validatePayloadAgainst's Compile fails.
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "broken.json"),
 		[]byte(`{"id":"broken","name":"B","schema":{"type":"banana"}}`), 0o644))
 
@@ -108,7 +111,8 @@ func TestService_Update_SaveFailsOnReadOnlyFile(t *testing.T) {
 
 	dir, err := ensureSchemasDir(cfg)
 	require.NoError(t, err)
-	// 文件只读：O_TRUNC 打开失败（目录仍可读，loadSchema 成功）。
+	// A read-only file: opening with O_TRUNC fails (the directory is still readable,
+	// so loadSchema succeeds).
 	makeReadOnlyFile(t, filepath.Join(dir, created.ID+".json"))
 
 	_, err = s.Update(ctx, &UpdateRequest{ID: created.ID, Schema: mustParseSchema(t)})
@@ -145,7 +149,7 @@ func TestValidateSchemaPath_MkdirAllFails(t *testing.T) {
 }
 
 func TestValidateSchemaPath_RelativePathAbsFails(t *testing.T) {
-	// cwd 被删除后 filepath.Abs(相对路径) 失败（Getwd ENOENT）。
+	// After the cwd is removed, filepath.Abs on a relative path fails (Getwd ENOENT).
 	wd := t.TempDir()
 	base := t.TempDir()
 	t.Chdir(wd)
@@ -161,14 +165,14 @@ func TestRawValidateHandlerBranches(t *testing.T) {
 	h, r := handler, newRouter(handler)
 	_ = h
 
-	// bind 失败：非法 JSON
+	// Binding fails: malformed JSON
 	req := httptest.NewRequest(http.MethodPost, "/schemas/raw-validate", bytes.NewReader([]byte("{bad")))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 	require.Equal(t, http.StatusBadRequest, w.Code)
 
-	// service 错误：schema 带不可解析 $ref → 编译失败 → BadRequest
+	// Service error: a schema with an unresolvable $ref -> compilation fails -> BadRequest
 	body := `{"schema":{"$ref":"#/$defs/missing"},"data":{}}`
 	req = httptest.NewRequest(http.MethodPost, "/schemas/raw-validate", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
@@ -196,9 +200,10 @@ func TestValidatePayloadAgainstCompileFailure(t *testing.T) {
 }
 
 func TestValidateSchemaAddResourceFailsWhenCwdRemoved(t *testing.T) {
-	// cwd 被删除后，jsonschema v6 Compiler.AddResource 对相对 URL "schema.json"
-	// 调 absolute() 时依赖 Getwd（ENOENT），错误传导为 AddResource 失败，
-	// 覆盖 validateSchemaDefinition / validatePayloadAgainst 的 AddResource err 分支。
+	// With the cwd removed, jsonschema v6's Compiler.AddResource calls absolute() on the
+	// relative URL "schema.json", which depends on Getwd (ENOENT); the error
+	// propagates as an AddResource failure, covering the AddResource err branches
+	// of validateSchemaDefinition / validatePayloadAgainst.
 	wd := t.TempDir()
 	t.Chdir(wd)
 	require.NoError(t, os.RemoveAll(wd))
