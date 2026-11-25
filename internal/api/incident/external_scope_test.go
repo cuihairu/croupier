@@ -1,7 +1,8 @@
 package incident
 
-// AUD-036 回归用例：外部 incident token 的 game/env 允许面——签发（写）与
-// 查询（读）都强制按 token scope 过滤，含越权访问负例。
+// AUD-036 regression cases: the game/env allowlist of external incident tokens -
+// both issuing (write) and querying (read) are strictly filtered by the token
+// scope, including unauthorized-access negative cases.
 
 import (
 	"context"
@@ -26,10 +27,10 @@ func tokenWithAllowlist(games, envs []string) *model.ExternalToken {
 	}
 }
 
-// ---- model 允许面解析 ----
+// ---- model allowlist parsing ----
 
 func TestTokenAllowlistParse(t *testing.T) {
-	// null / 空 = 不限（nil）
+	// null / empty = unrestricted (nil)
 	tok := &model.ExternalToken{}
 	assert.Nil(t, tok.ScopeGameIDs(), "null game allowlist should be nil")
 	assert.Nil(t, tok.ScopeEnvs(), "null env allowlist should be nil")
@@ -39,26 +40,26 @@ func TestTokenAllowlistParse(t *testing.T) {
 	assert.Equal(t, []string{"game-a", "game-b"}, tok.ScopeGameIDs())
 	assert.Equal(t, []string{"prod", "staging"}, tok.ScopeEnvs())
 
-	// 空数组 = 不限
+	// Empty array = unrestricted
 	tok.GameAllowlist = model.JSON(`[]`)
 	assert.Nil(t, tok.ScopeGameIDs(), "empty array should be nil")
 
-	// 坏 JSON = 不限兜底
+	// Bad JSON = unrestricted fallback
 	tok.GameAllowlist = model.JSON(`{bad`)
 	assert.Nil(t, tok.ScopeGameIDs())
 }
 
-// ---- 写入强制（RegisterIncident）----
+// ---- Write enforcement (RegisterIncident) ----
 
 func TestRegisterIncident_ScopeEnforced(t *testing.T) {
 	s, _ := setupExternal(t)
 	ctx := context.Background()
 	cat := mustCategory(t, s.incSvc, model.IncidentCatOps)
 
-	// 允许面限定 game-a/prod
+	// Allowlist limited to game-a/prod
 	tok := tokenWithAllowlist([]string{"game-a"}, []string{"prod"})
 
-	// 面内 → 成功
+	// In scope -> success
 	dto, created, err := s.RegisterIncident(ctx, &CreateIncidentFromExternalRequest{
 		Title: "面内事故", CategoryID: cat.ID, Subcategory: "部署", GameID: "game-a", Env: "prod",
 	}, tok, "scope-ok-1")
@@ -67,32 +68,33 @@ func TestRegisterIncident_ScopeEnforced(t *testing.T) {
 	assert.Equal(t, "game-a", dto.GameID)
 	assert.Equal(t, "prod", dto.Env)
 
-	// 越权负例：其他 game → 403
+	// Unauthorized negative case: another game -> 403
 	_, _, err = s.RegisterIncident(ctx, &CreateIncidentFromExternalRequest{
 		Title: "越权 game", CategoryID: cat.ID, Subcategory: "部署", GameID: "game-b", Env: "prod",
 	}, tok, "scope-ko-game")
 	require.Equal(t, http.StatusForbidden, codeOf(t, err).Code, err)
 
-	// 越权负例：其他 env → 403
+	// Unauthorized negative case: another env -> 403
 	_, _, err = s.RegisterIncident(ctx, &CreateIncidentFromExternalRequest{
 		Title: "越权 env", CategoryID: cat.ID, Subcategory: "部署", GameID: "game-a", Env: "staging",
 	}, tok, "scope-ko-env")
 	require.Equal(t, http.StatusForbidden, codeOf(t, err).Code, err)
 
-	// 缺省 scope（空 game/env）→ 403：无法证明在面内，拒绝而非回落全局
+	// Missing scope (empty game/env) -> 403: an empty target cannot be proven
+	// in-scope, so reject rather than fall back to the global scope
 	_, _, err = s.RegisterIncident(ctx, &CreateIncidentFromExternalRequest{
 		Title: "缺省 scope", CategoryID: cat.ID, Subcategory: "部署", GameID: "", Env: "prod",
 	}, tok, "scope-ko-empty")
 	require.Equal(t, http.StatusForbidden, codeOf(t, err).Code, err)
 
-	// 无允许面 token → 任意 game/env 可写（向后兼容）
+	// Token with no allowlist -> any game/env is writable (backwards compatible)
 	openTok := &model.ExternalToken{Name: "open-bot"}
 	_, _, err = s.RegisterIncident(ctx, &CreateIncidentFromExternalRequest{
 		Title: "开放 token", CategoryID: cat.ID, Subcategory: "部署", GameID: "game-z", Env: "dev",
 	}, openTok, "scope-open-1")
 	require.NoError(t, err)
 
-	// 只限 game（env 不限）→ env 任意、game 受限
+	// Game only (env unrestricted) -> env is free, game is restricted
 	gameOnly := tokenWithAllowlist([]string{"game-a"}, nil)
 	_, _, err = s.RegisterIncident(ctx, &CreateIncidentFromExternalRequest{
 		Title: "只限 game", CategoryID: cat.ID, Subcategory: "部署", GameID: "game-a", Env: "any-env",
@@ -104,7 +106,7 @@ func TestRegisterIncident_ScopeEnforced(t *testing.T) {
 	require.Equal(t, http.StatusForbidden, codeOf(t, err).Code, err)
 }
 
-// ---- 写入强制（CreateBug）----
+// ---- Write enforcement (CreateBug) ----
 
 func TestCreateBug_ScopeEnforced(t *testing.T) {
 	s, _ := setupExternal(t)
@@ -112,16 +114,16 @@ func TestCreateBug_ScopeEnforced(t *testing.T) {
 
 	tok := tokenWithAllowlist([]string{"game-a"}, []string{"prod"})
 
-	// 面内 → 成功
+	// In scope -> success
 	_, err := s.CreateBug(ctx, &bug.BugCreateRequest{Title: "面内 bug", GameID: "game-a", Env: "prod"}, tok)
 	require.NoError(t, err)
 
-	// 越权负例：其他 env → 403
+	// Unauthorized negative case: another env -> 403
 	_, err = s.CreateBug(ctx, &bug.BugCreateRequest{Title: "越权 bug", GameID: "game-a", Env: "staging"}, tok)
 	require.Equal(t, http.StatusForbidden, codeOf(t, err).Code, err)
 }
 
-// ---- 读取强制（ListIncidents）----
+// ---- Read enforcement (ListIncidents) ----
 
 func TestListIncidents_GameEnvScopeFilter(t *testing.T) {
 	s, _ := setupExternal(t)
@@ -129,7 +131,7 @@ func TestListIncidents_GameEnvScopeFilter(t *testing.T) {
 	cat := mustCategory(t, s.incSvc, model.IncidentCatOps)
 	openTok := &model.ExternalToken{Name: "open-bot"}
 
-	// 播种三条跨 game/env 的事故
+	// Seed three incidents spread across game/env
 	seeds := []struct {
 		key, game, env string
 	}{
@@ -146,37 +148,37 @@ func TestListIncidents_GameEnvScopeFilter(t *testing.T) {
 
 	scoped := tokenWithAllowlist([]string{"game-a"}, []string{"prod"})
 
-	// 无过滤条件 → 只收窄到 game-a/prod
+	// No filter conditions -> narrowed to game-a/prod only
 	resp, err := s.ListIncidents(ctx, model.IncidentQueryOptions{}, scoped)
 	require.NoError(t, err)
 	require.Len(t, resp.Items, 1)
 	assert.Equal(t, "k-game-a-prod", resp.Items[0].Title)
 	assert.EqualValues(t, 1, resp.Total)
 
-	// 显式查面外 game → 空（不降级为全量）
+	// Explicit out-of-scope game query -> empty (no degrade to the full list)
 	resp, err = s.ListIncidents(ctx, model.IncidentQueryOptions{GameID: "game-b"}, scoped)
 	require.NoError(t, err)
 	assert.Empty(t, resp.Items)
 	assert.EqualValues(t, 0, resp.Total)
 
-	// 显式查面外 env → 空
+	// Explicit out-of-scope env query -> empty
 	resp, err = s.ListIncidents(ctx, model.IncidentQueryOptions{Env: "staging"}, scoped)
 	require.NoError(t, err)
 	assert.Empty(t, resp.Items)
 
-	// 显式查面内 game → 只回该 game 且 env 仍收窄
+	// Explicit in-scope game query -> only that game, and env is still narrowed
 	resp, err = s.ListIncidents(ctx, model.IncidentQueryOptions{GameID: "game-a"}, scoped)
 	require.NoError(t, err)
 	require.Len(t, resp.Items, 1)
 	assert.Equal(t, "k-game-a-prod", resp.Items[0].Title)
 
-	// 无允许面 token → 全量（向后兼容）
+	// Token with no allowlist -> full list (backwards compatible)
 	resp, err = s.ListIncidents(ctx, model.IncidentQueryOptions{}, openTok)
 	require.NoError(t, err)
 	require.Len(t, resp.Items, 3)
 }
 
-// ---- handler 签发持久化 ----
+// ---- handler issuance persistence ----
 
 func TestCreateToken_PersistsAllowlist(t *testing.T) {
 	s, db := setupExternal(t)
@@ -197,7 +199,7 @@ func TestCreateToken_PersistsAllowlist(t *testing.T) {
 	assert.Equal(t, []interface{}{"game-a", "game-b"}, resp.Scope["gameIds"])
 	assert.Equal(t, []interface{}{"prod", "staging"}, resp.Scope["envs"])
 
-	// 落库列已持久化
+	// The allowlist columns are persisted in the database
 	var row model.ExternalToken
 	require.NoError(t, db.First(&row, "name = ?", "scoped-issue").Error)
 	assert.Equal(t, []string{"game-a", "game-b"}, row.ScopeGameIDs())

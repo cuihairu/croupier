@@ -1,13 +1,16 @@
 package incident
 
-// handler.go / external_handler.go 补测（错误臂口径）：各 HTTP 入口的
-// service 失败透传臂（经 failpoint 注入或不存在 ID 触发）、DeleteCategory
-// 的成功/内建拒绝两臂、ListIncidents 的 to 时间解析成功臂、
-// TransitionIncident 的参数/绑定/成功三臂；外部面 ListIncidents 的
-// from/to 解析臂与 service 失败臂、CreateBug 的未鉴权返回与 service 失败
-// 臂、令牌管理四入口的失败/分支臂。
+// Additional tests for handler.go / external_handler.go (error-branch coverage):
+// the service-failure passthrough branch of each HTTP entry point (triggered via
+// failpoint injection or a non-existent ID), the success and builtin-refusal
+// branches of DeleteCategory, the successful to-time parsing branch of
+// ListIncidents, and the param/bind/success branches of TransitionIncident; on
+// the external side, the from/to parsing branches and service-failure branch of
+// ListIncidents, the unauthenticated return and service-failure branches of
+// CreateBug, and the failure/branch arms of the four token management entry
+// points.
 //
-// 诚实跳过：无。
+// Honestly skipped: none.
 
 import (
 	"context"
@@ -20,7 +23,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// setupFullRouter 注册全部 incident 面板路由（setupRouter 只挂了子集）。
+// setupFullRouter registers all incident panel routes (setupRouter mounts only a subset).
 func setupFullRouter(t *testing.T) (*gin.Engine, *Service) {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
@@ -68,11 +71,11 @@ func TestHandler_CategoryUsage_ServiceError(t *testing.T) {
 func TestHandler_DeleteCategory_BuiltinRefusedAndSuccess(t *testing.T) {
 	router, s := setupFullRouter(t)
 
-	// 内建行拒绝删除 → 错误臂
+	// Builtin row refuses deletion -> error branch
 	w := doJSON(t, router, http.MethodDelete, "/incident-categories/"+itoa(t, mustCategory(t, s, model.IncidentCatQA).ID), "")
 	require.GreaterOrEqual(t, w.Code, 400)
 
-	// 非内建行删除成功 → response.Success(c, nil)
+	// Non-builtin row deletes successfully -> response.Success(c, nil)
 	tmp, err := s.CreateCategory(context.Background(), &CategoryUpsertRequest{Name: strPtr("可删域"), Slug: "dele"})
 	require.NoError(t, err)
 	w = doJSON(t, router, http.MethodDelete, "/incident-categories/"+itoa(t, tmp.ID), "")
@@ -82,11 +85,11 @@ func TestHandler_DeleteCategory_BuiltinRefusedAndSuccess(t *testing.T) {
 func TestHandler_ListIncidents_ToTimeAndServiceError(t *testing.T) {
 	router, s := setupFullRouter(t)
 
-	// to 时间解析成功臂（RFC3339）
+	// Successful to-time parsing branch (RFC3339)
 	w := doJSON(t, router, http.MethodGet, "/incidents?to=2026-11-09T00:00:00Z", "")
 	require.Equal(t, http.StatusOK, w.Code)
 
-	// service 失败臂
+	// Service failure branch
 	applyDBFailpoint(t, s.svcCtx.DB, dbFailpoint{table: "incidents", op: "query", n: 1, err: errFailpoint})
 	w = doJSON(t, router, http.MethodGet, "/incidents", "")
 	require.GreaterOrEqual(t, w.Code, 400)
@@ -111,15 +114,15 @@ func TestHandler_TransitionIncident_ParamBindAndSuccess(t *testing.T) {
 	w := doJSON(t, router, http.MethodPost, "/incidents", body)
 	require.Equal(t, http.StatusCreated, w.Code)
 
-	// 参数非法臂
+	// Invalid parameter branch
 	w = doJSON(t, router, http.MethodPost, "/incidents/abc/status", `{"status":"acknowledged"}`)
 	require.GreaterOrEqual(t, w.Code, 400)
 
-	// 绑定失败臂（空 body）
+	// Binding failure branch (empty body)
 	w = doJSON(t, router, http.MethodPost, "/incidents/1/status", "")
 	require.GreaterOrEqual(t, w.Code, 400)
 
-	// 成功臂
+	// Success branch
 	w = doJSON(t, router, http.MethodPost, "/incidents/1/status", `{"status":"acknowledged"}`)
 	require.Equal(t, http.StatusOK, w.Code)
 }
@@ -129,12 +132,12 @@ func TestHandler_TransitionIncident_ParamBindAndSuccess(t *testing.T) {
 func TestExternalHandler_ListIncidents_FromToAndError(t *testing.T) {
 	router, _, db, plain := setupExternalRouter(t, []string{"admin"})
 
-	// from/to 解析成功臂
+	// from/to parse successfully
 	w := extReq(t, router, http.MethodGet,
 		"/ext/incidents?from=2026-01-01T00:00:00Z&to=2026-12-31T00:00:00Z", "", plain, "")
 	require.Equal(t, http.StatusOK, w.Code)
 
-	// service 失败臂 + audit fail
+	// Service failure branch + audit fail
 	applyDBFailpoint(t, db, dbFailpoint{table: "incidents", op: "query", n: 1, err: errFailpoint})
 	w = extReq(t, router, http.MethodGet, "/ext/incidents", "", plain, "")
 	require.GreaterOrEqual(t, w.Code, 400)
@@ -143,11 +146,11 @@ func TestExternalHandler_ListIncidents_FromToAndError(t *testing.T) {
 func TestExternalHandler_CreateBug_AuthFailAndServiceError(t *testing.T) {
 	router, _, db, plain := setupExternalRouter(t, []string{"admin"})
 
-	// 未鉴权臂（tok==nil 直接返回）
+	// Unauthenticated branch (returns immediately when tok==nil)
 	w := extReq(t, router, http.MethodPost, "/ext/bugs", `{"title":"b"}`, "", "")
 	require.GreaterOrEqual(t, w.Code, 400)
 
-	// service 失败臂 + audit fail
+	// Service failure branch + audit fail
 	applyDBFailpoint(t, db, dbFailpoint{table: "bugs", op: "create", n: 1, err: errFailpoint})
 	w = extReq(t, router, http.MethodPost, "/ext/bugs", `{"title":"b"}`, plain, "")
 	require.GreaterOrEqual(t, w.Code, 400)
@@ -156,12 +159,12 @@ func TestExternalHandler_CreateBug_AuthFailAndServiceError(t *testing.T) {
 func TestExternalHandler_TokenCreate_ListErrors(t *testing.T) {
 	router, _, db, _ := setupExternalRouter(t, []string{"admin"})
 
-	// CreateToken 落库失败
+	// CreateToken fails to land in the database
 	applyDBFailpoint(t, db, dbFailpoint{table: "external_tokens", op: "create", n: 1, err: errFailpoint})
 	w := extReq(t, router, http.MethodPost, "/ext/tokens", `{"name":"t1"}`, "", "")
 	require.GreaterOrEqual(t, w.Code, 400)
 
-	// ListTokens 失败
+	// ListTokens fails
 	applyDBFailpoint(t, db, dbFailpoint{table: "external_tokens", op: "query", n: 1, err: errFailpoint})
 	w = extReq(t, router, http.MethodGet, "/ext/tokens", "", "", "")
 	require.GreaterOrEqual(t, w.Code, 400)
@@ -170,17 +173,17 @@ func TestExternalHandler_TokenCreate_ListErrors(t *testing.T) {
 func TestExternalHandler_TokenUpdate_Branches(t *testing.T) {
 	router, _, db, _ := setupExternalRouter(t, []string{"admin"})
 
-	// name 分支
+	// name branch
 	var tok model.ExternalToken
 	require.NoError(t, db.First(&tok).Error)
 	w := extReq(t, router, http.MethodPut, "/ext/tokens/"+itoa(t, tok.ID), `{"name":"renamed"}`, "", "")
 	require.Equal(t, http.StatusNoContent, w.Code)
 
-	// scope 分支（json.Marshal 成功落库）
+	// scope branch (json.Marshal succeeds and the value lands in the database)
 	w = extReq(t, router, http.MethodPut, "/ext/tokens/"+itoa(t, tok.ID), `{"scope":{"categories":["qa"]}}`, "", "")
 	require.Equal(t, http.StatusNoContent, w.Code)
 
-	// Update 失败臂
+	// Update failure branch
 	applyDBFailpoint(t, db, dbFailpoint{table: "external_tokens", op: "update", n: 1, err: errFailpoint})
 	w = extReq(t, router, http.MethodPut, "/ext/tokens/"+itoa(t, tok.ID), `{"name":"again"}`, "", "")
 	require.GreaterOrEqual(t, w.Code, 400)
@@ -189,11 +192,11 @@ func TestExternalHandler_TokenUpdate_Branches(t *testing.T) {
 func TestExternalHandler_TokenDelete_ParamErrorAndDeleteError(t *testing.T) {
 	router, _, db, _ := setupExternalRouter(t, []string{"admin"})
 
-	// 参数非法臂
+	// Invalid parameter branch
 	w := extReq(t, router, http.MethodDelete, "/ext/tokens/abc", "", "", "")
 	require.GreaterOrEqual(t, w.Code, 400)
 
-	// Delete 失败臂
+	// Delete failure branch
 	applyDBFailpoint(t, db, dbFailpoint{table: "external_tokens", op: "delete", n: 1, err: errFailpoint})
 	w = extReq(t, router, http.MethodDelete, "/ext/tokens/1", "", "", "")
 	require.GreaterOrEqual(t, w.Code, 400)

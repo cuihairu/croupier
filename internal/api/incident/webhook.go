@@ -10,7 +10,7 @@ import (
 	"github.com/cuihairu/croupier/internal/svc"
 )
 
-// IncidentLifecycleKind 生命周期事件类型闭集（M2 风格信封）。
+// IncidentLifecycleKind is the closed set of lifecycle event kinds (M2-style envelope).
 type IncidentLifecycleKind string
 
 const (
@@ -19,7 +19,7 @@ const (
 	LifecycleIncidentResolved  IncidentLifecycleKind = "incident.resolved"
 )
 
-// IncidentLifecycleEvent M2 风格生命周期信封。
+// IncidentLifecycleEvent is the M2-style lifecycle envelope.
 type IncidentLifecycleEvent struct {
 	Kind    IncidentLifecycleKind
 	EventID string
@@ -27,8 +27,9 @@ type IncidentLifecycleEvent struct {
 	Body    string
 }
 
-// DispatchLifecycle 异步推一条生命周期事件到外部出口链（§9.3）。
-// OutletManager 未布线时静默跳过；失败仅记日志不抛错。
+// DispatchLifecycle pushes one lifecycle event asynchronously to the external
+// outlet chain (§9.3). Skips silently when OutletManager is not wired; failures
+// are only logged, never propagated.
 func DispatchLifecycle(ctx context.Context, svcCtx *svc.ServiceContext, row *model.Incident, kind IncidentLifecycleKind) {
 	if svcCtx == nil || svcCtx.OutletManager == nil || row == nil {
 		return
@@ -37,13 +38,15 @@ func DispatchLifecycle(ctx context.Context, svcCtx *svc.ServiceContext, row *mod
 	if ev == nil {
 		return
 	}
-	// WithoutCancel 从入参派生：推送与请求生命周期解绑（客户端断开不
-	// 取消外发），保留 ctx 值（game DB 路由等）（CR-FIX-22）。
+	// WithoutCancel derives from the input ctx: the push is decoupled from
+	// the request lifecycle (client disconnect does not cancel the outgoing
+	// send) while ctx values (game DB routing etc.) are kept (CR-FIX-22).
 	go func() {
 		dctx := context.WithoutCancel(ctx)
 		evOut := outlet.AlertEvent{
 			Kind: "incident-lifecycle",
-			// 严重度直传：model 与 outlet 的取值同为 info/warning/critical
+			// Severity passed through as-is: model and outlet share the same
+			// info/warning/critical values
 			Severity:         row.Severity,
 			EventID:          ev.EventID,
 			DedupKey:         ev.EventID,
@@ -55,7 +58,7 @@ func DispatchLifecycle(ctx context.Context, svcCtx *svc.ServiceContext, row *mod
 	}()
 }
 
-// lifecycleEvent 构造生命周期事件。
+// lifecycleEvent builds a lifecycle event.
 func lifecycleEvent(row *model.Incident, kind IncidentLifecycleKind) *IncidentLifecycleEvent {
 	eventID := fmt.Sprintf("incident:%d:%s", row.ID, string(kind))
 	title := fmt.Sprintf("[%s] %s", kind, row.Title)
@@ -68,7 +71,7 @@ func lifecycleEvent(row *model.Incident, kind IncidentLifecycleKind) *IncidentLi
 	}
 }
 
-// severityRank 严重度排序（用于升级检测）。
+// severityRank orders severities (used for escalation detection).
 func severityRank(v string) int {
 	switch v {
 	case model.IncidentSeverityInfo:

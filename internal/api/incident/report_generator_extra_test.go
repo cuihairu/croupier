@@ -1,8 +1,10 @@
 package incident
 
-// report_generator.go 补测：调度 payload 坏 JSON、重推缺 summary、
-// 历史 payload 损坏/无同类分片时不判恶化、站内 sink 失败与外部出口
-// 全不接的回执、聚合信封 Top3 截断，及 periodLabel/format* 纯函数表。
+// Extra coverage for report_generator.go: malformed JSON in the schedule
+// payload, repush without a summary, no escalation when the historical payload
+// is corrupt or has no matching category piece, receipts for a failing station
+// sink and for no external outlet accepting, Top3 clipping of the aggregate
+// envelope, and the periodLabel/format* pure-function table.
 
 import (
 	"context"
@@ -17,14 +19,16 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// failingSink 站内落库面恒失败（回执应记错误且 OK=false）。
+// failingSink always fails on the in-app write path (the receipt must record
+// the error with OK=false).
 type failingSink struct{}
 
 func (failingSink) Create(context.Context, outlet.StationNotice) error {
 	return errors.New("station down")
 }
 
-// noAcceptOutlet 外部出口接了但不收（Delivered=false 无错 → 记 no accept）。
+// noAcceptOutlet is wired up as an external outlet but refuses delivery
+// (Delivered=false with no error -> recorded as "no accept").
 type noAcceptOutlet struct{}
 
 func (noAcceptOutlet) Name() string { return "noop" }
@@ -61,13 +65,15 @@ func TestGenerateReport_HistoryEdgeCasesDoNotEscalate(t *testing.T) {
 	h := setupGenerator(t)
 	ctx := context.Background()
 	qa := mustCategory(t, h.svc, model.IncidentCatQA)
-	// 锚定当前周起点：避免挂钟翻周把种子落到窗外
+	// Anchor on the current week start so the clock rolling into the next week
+	// cannot push the seed outside the window.
 	p, err := resolvePeriod(PeriodWeek, "", time.Now())
 	require.NoError(t, err)
 	seedIncident(t, h.svc, qa.ID, p.Start.Add(2*time.Hour), p.Start.Add(3*time.Hour),
 		"", "", model.IncidentRespOperator, "op-1")
 
-	// 历史两期 payload 损坏 → 按无历史处理，不判连续恶化
+	// Two corrupt historical payloads -> treated as no history, no sustained
+	// worsening verdict.
 	for _, key := range []string{"2026-W40", "2026-W41"} {
 		require.NoError(t, h.db.Create(&model.IncidentReport{
 			PeriodType: PeriodWeek, PeriodStart: key,
@@ -84,7 +90,8 @@ func TestGenerateReport_HistoryEdgeCasesDoNotEscalate(t *testing.T) {
 		require.Equal(t, model.MessageLevelInfo, c.Level, "corrupt history must not escalate")
 	}
 
-	// 历史存在但无同类 slug 分片 → 同样不判恶化
+	// History exists but has no piece with a matching slug -> likewise no
+	// worsening verdict.
 	h2 := setupGenerator(t)
 	seedIncident(t, h2.svc, qa.ID, p.Start.Add(2*time.Hour), p.Start.Add(3*time.Hour),
 		"", "", model.IncidentRespOperator, "op-1")
@@ -118,7 +125,8 @@ func TestGenerateReport_StationSinkFailureAndNoAcceptOutlet(t *testing.T) {
 	seedIncident(t, h.svc, qa.ID, p.Start.Add(2*time.Hour), p.Start.Add(3*time.Hour),
 		"", "", model.IncidentRespOperator, leader)
 
-	// 站内恒失败：internal 回执 OK=false 且 Error 记原文
+	// Station path always fails: the internal receipt is OK=false and Error
+	// carries the original text.
 	h.svc.svcCtx.StationSink = failingSink{}
 	h.svc.svcCtx.OutletManager = outlet.NewManager()
 	h.svc.svcCtx.OutletManager.Register(noAcceptOutlet{})

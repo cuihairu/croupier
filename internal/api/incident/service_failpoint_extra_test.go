@@ -1,16 +1,21 @@
 package incident
 
-// service.go 补测（failpoint 注入口径）：全部「模型层错误透传」臂——
-// List/Get/Create/Update/Count 的 DB 失败臂经 GORM 回调注入确定性错误
-// （Query/Update/Create/Delete 用 After 注入、Scan 的 row 处理器用
-// Before 注入防连接泄漏，均按表+次数精确定位目标查询）；幂等键唯一
-// 冲突臂用「软删行占坑」真实触发（唯一索引不含 deleted_at 过滤，Find
-// 按 gorm 软删过滤 miss，Create 撞真约束）。
+// Extra coverage for service.go (failpoint injection style): every "model-layer
+// error passthrough" arm. The DB failure arms of List/Get/Create/Update/Count
+// inject deterministic errors via GORM callbacks (After injection for
+// Query/Update/Create/Delete, Before injection for the Scan row processor to
+// avoid connection leaks, all targeted precisely by table plus hit count); the
+// idempotency-key unique-conflict arm is triggered for real via a "soft-deleted
+// row squatting the slot" trick (the unique index does not filter deleted_at, so
+// Find misses under gorm soft-delete filtering while Create hits the real
+// constraint).
 //
-// 诚实跳过：CreateIncident 幂等冲突恢复的 FindByKey 命中臂（service.go
-// 226-228）——同一查询需先 miss 后 hit，只能并发竞窗触发，不可稳定覆盖；
-// DispatchLifecycle 的 ev==nil 防御臂（webhook.go 38-39）——lifecycleEvent
-// 由非 nil row 恒构造出事件，不可达。
+// Honest skips: the FindByKey hit arm of CreateIncident's idempotency conflict
+// recovery (service.go 226-228) - that same query has to miss first and hit
+// later, which only a concurrent race window can produce, so it cannot be
+// covered reliably; DispatchLifecycle's ev==nil defensive arm (webhook.go
+// 38-39) - lifecycleEvent always builds an event from a non-nil row, so it is
+// unreachable.
 
 import (
 	"context"
@@ -27,21 +32,25 @@ import (
 	"gorm.io/gorm"
 )
 
-// dbFailpoint 描述一次确定性失败注入：第 n 次触达 table 的 op 操作时注入
-// err（回调阶段置 tx.AddError，调用方按错误返回）。
+// dbFailpoint describes one deterministic failure injection: err is injected on
+// the nth time the op operation reaches table (the callback stage sets
+// tx.AddError, so the caller returns with that error).
 //
-// Scan（row 处理器）必须用 Before 注入：gorm 的 Scan 在 Rows() 返回错误时
-// 不会 Close 已打开的 *sql.Rows（连接泄漏）——Before 注入令 RowQuery 直接
-// 跳过执行，不触碰连接池；After 注入会泄漏连接（无界池下表现为后续查询
-// 撞新连接的空 :memory: 库，单连接池下死锁）。
+// Scan (row processor) must be injected with Before: gorm's Scan does not Close
+// an already-opened *sql.Rows when Rows() returns an error (connection leak).
+// Before injection makes RowQuery skip execution entirely and never touch the
+// connection pool; After injection leaks the connection (under an unbounded pool
+// this surfaces as later queries hitting an empty :memory: database on a fresh
+// connection, and under a single-connection pool it deadlocks).
 type dbFailpoint struct {
 	table string // incidents / bugs / incident_categories / incident_reports / external_tokens
 	op    string // query / update / create / delete
-	n     int    // 第 n 次命中注入（1 起）
+	n     int    // inject on the nth hit (1-based)
 	err   error
 }
 
-// applyDBFailpoint 在测试 DB 上注册注入回调（每个测试独享 DB，回调互不干扰）。
+// applyDBFailpoint registers the injection callback on the test DB (each test
+// has its own DB, so the callbacks never interfere).
 func applyDBFailpoint(t *testing.T, db *gorm.DB, fp dbFailpoint) {
 	t.Helper()
 	var hits atomic.Int64
@@ -56,9 +65,11 @@ func applyDBFailpoint(t *testing.T, db *gorm.DB, fp dbFailpoint) {
 	name := "test:fail_" + fp.table + "_" + fp.op
 	switch fp.op {
 	case "query":
-		// Scan（Rows）走 row 处理器（Before 注入防连接泄漏），Find/First/Count
-		// 走 Query 处理器（After 注入安全：行读毕即 Close）——两侧共用同一计数，
-		// 形成该表的统一查询序。
+		// Scan (Rows) goes through the row processor (Before injection prevents
+		// connection leaks); Find/First/Count go through the Query processor
+		// (After injection is safe: rows are closed right after being read).
+		// Both sides share the same counter, forming one unified query order for
+		// the table.
 		require.NoError(t, db.Callback().Query().After("gorm:query").Register(name, reg))
 		require.NoError(t, db.Callback().Row().Before("gorm:row").Register(name+"_row", reg))
 	case "update":
@@ -93,12 +104,12 @@ func TestUpdateCategory_UpdateErrorAndReGetError(t *testing.T) {
 	ctx := context.Background()
 	qa := mustCategory(t, s, model.IncidentCatQA)
 
-	// Update 本体失败（非唯一冲突 → 原样透传）
+	// The Update itself fails (not a unique conflict -> passed through as-is)
 	applyDBFailpoint(t, s.svcCtx.DB, dbFailpoint{table: "incident_categories", op: "update", n: 1, err: errFailpoint})
 	_, err := s.UpdateCategory(ctx, qa.ID, &CategoryUpsertRequest{Leader: strPtr("op")})
 	require.ErrorIs(t, err, errFailpoint)
 
-	// Update 成功后回读失败
+	// The read-back after a successful Update fails
 	applyDBFailpoint(t, s.svcCtx.DB, dbFailpoint{table: "incident_categories", op: "query", n: 2, err: errFailpoint})
 	_, err = s.UpdateCategory(ctx, qa.ID, &CategoryUpsertRequest{Leader: strPtr("op2")})
 	require.ErrorIs(t, err, errFailpoint)
@@ -109,12 +120,12 @@ func TestCategoryUsage_CountErrors(t *testing.T) {
 	ctx := context.Background()
 	qa := mustCategory(t, s, model.IncidentCatQA)
 
-	// incidents 计数失败
+	// The incidents count fails
 	applyDBFailpoint(t, s.svcCtx.DB, dbFailpoint{table: "incidents", op: "query", n: 1, err: errFailpoint})
 	_, err := s.CategoryUsage(ctx, qa.ID)
 	require.ErrorIs(t, err, errFailpoint)
 
-	// bugs 计数失败
+	// The bugs count fails
 	applyDBFailpoint(t, s.svcCtx.DB, dbFailpoint{table: "bugs", op: "query", n: 1, err: errFailpoint})
 	_, err = s.CategoryUsage(ctx, qa.ID)
 	require.ErrorIs(t, err, errFailpoint)
@@ -126,15 +137,15 @@ func TestDeleteCategory_ErrorArms(t *testing.T) {
 	tmp, err := s.CreateCategory(ctx, &CategoryUpsertRequest{Name: strPtr("临时域"), Slug: "tmp"})
 	require.NoError(t, err)
 
-	// 未分类兜底行查询失败（第二次 incident_categories 查询）
+	// The unclassified fallback row lookup fails (2nd incident_categories query)
 	applyDBFailpoint(t, s.svcCtx.DB, dbFailpoint{table: "incident_categories", op: "query", n: 2, err: errFailpoint})
 	require.ErrorIs(t, s.DeleteCategory(ctx, tmp.ID), errFailpoint)
 
-	// 事务内 incidents 归并失败 → 回滚
+	// The in-transaction incidents merge fails -> rollback
 	applyDBFailpoint(t, s.svcCtx.DB, dbFailpoint{table: "incidents", op: "update", n: 1, err: errFailpoint})
 	require.ErrorIs(t, s.DeleteCategory(ctx, tmp.ID), errFailpoint)
 
-	// 事务内 bugs 归并失败 → 回滚
+	// The in-transaction bugs merge fails -> rollback
 	applyDBFailpoint(t, s.svcCtx.DB, dbFailpoint{table: "bugs", op: "update", n: 1, err: errFailpoint})
 	require.ErrorIs(t, s.DeleteCategory(ctx, tmp.ID), errFailpoint)
 }
@@ -148,8 +159,9 @@ func TestCreateIncident_FindByKeyError(t *testing.T) {
 	require.ErrorIs(t, err, errFailpoint)
 }
 
-// 软删行占坑：FindByKey（软删过滤）miss → Create 撞真实唯一索引 →
-// isUniqueViolation 命中 → 冲突恢复查询仍 miss → 显式 conflict。
+// A soft-deleted row squats the slot: FindByKey (soft-delete filtered) misses
+// -> Create hits the real unique index -> isUniqueViolation matches -> the
+// conflict recovery query still misses -> explicit conflict.
 func TestCreateIncident_IdempotencyConflictWithSoftDeletedRow(t *testing.T) {
 	s := setupService(t)
 	ctx := context.Background()
@@ -185,9 +197,11 @@ func TestGetIncident_GetError(t *testing.T) {
 	require.ErrorIs(t, err, errFailpoint)
 }
 
-// AUD-020 修复后的契约：Details 更新经 JSON 编码落库并回读。此前该路径因 map
-// 更新绕过 JSON 序列化器报「unsupported type map[string]interface {}」，本处
-// 曾钉住缺陷行为，缺陷修复后改为成功落库断言。
+// Contract after the AUD-020 fix: a Details update is JSON encoded, lands in the
+// database, and reads back correctly. This path used to bypass the JSON
+// serializer on map updates and report "unsupported type
+// map[string]interface {}"; this test once pinned that buggy behavior, and now
+// asserts a successful write after the fix.
 func TestUpdateIncident_DetailsJSONPersisted(t *testing.T) {
 	s := setupService(t)
 	ctx := context.Background()
@@ -209,12 +223,13 @@ func TestUpdateIncident_UpdateErrorAndReGetError(t *testing.T) {
 	inc, _, err := s.CreateIncident(ctx, &IncidentCreateRequest{Title: "u", CategoryID: qa.ID}, "tester")
 	require.NoError(t, err)
 
-	// Update 本体失败
+	// The Update itself fails
 	applyDBFailpoint(t, s.svcCtx.DB, dbFailpoint{table: "incidents", op: "update", n: 1, err: errFailpoint})
 	_, err = s.UpdateIncident(ctx, inc.ID, &IncidentUpdateRequest{GameID: strPtr("g1")})
 	require.ErrorIs(t, err, errFailpoint)
 
-	// Update 成功后回读失败（Get 初读为第 1 次，回读为第 2 次）
+	// The read-back after a successful Update fails (Get's first read is hit #1,
+	// the read-back is #2)
 	applyDBFailpoint(t, s.svcCtx.DB, dbFailpoint{table: "incidents", op: "query", n: 2, err: errFailpoint})
 	_, err = s.UpdateIncident(ctx, inc.ID, &IncidentUpdateRequest{GameID: strPtr("g2")})
 	require.ErrorIs(t, err, errFailpoint)
@@ -266,7 +281,7 @@ func TestListIncidents_CategoryNamesErrorSwallowed(t *testing.T) {
 	require.Empty(t, resp.Items[0].CategorySlug, "降级后无类别冗余字段")
 }
 
-// ---- external.go 错误/守卫臂 ----
+// ---- external.go error / guard arms ----
 
 func TestNewExternalService_DefaultAndCustomRPM(t *testing.T) {
 	db := setupService(t).svcCtx.DB

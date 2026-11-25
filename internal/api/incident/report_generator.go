@@ -14,21 +14,25 @@ import (
 	"gorm.io/gorm"
 )
 
-// 报告生成与分发（docs/design/incident-reports.md §6）：调度器 Kind=
-// incident_report 经 scheduler.LocalRunner 触发（server-local 执行，不经
-// agent 派发链；svc 布线由 cmd/server 注入）。流程 = 聚合（§5 口径）→
-// 类别分级（固定口径，不配置化）→ upsert incident_reports → 分发（站内
-// 链首 + 外部链可选降级）→ PushStatus 写回。
+// Report generation and distribution (docs/design/incident-reports.md §6):
+// the scheduler Kind=incident_report fires through scheduler.LocalRunner
+// (server-local execution, not the agent dispatch chain; the svc wiring is
+// injected by cmd/server). Flow = aggregate (§5 definitions) -> category
+// severity classification (fixed thresholds, not configurable) -> upsert
+// incident_reports -> distribute (in-app chain first + optional external
+// chain degrade) -> write back PushStatus.
 
-// 分级固定阈值（§6 v1 口径）：环比翻倍 / 复发率超 20% → warn；连续两期
-// 恶化或含 critical 未解决事故 → critical。
+// Fixed classification thresholds (§6 v1 definition): PoP doubling /
+// recurrence above 20% -> warn; two consecutive worsening periods, or an
+// unresolved critical incident, -> critical.
 const (
 	escalateDoubleFactor  = 2.0
 	escalateRecurrencePct = 20.0
 )
 
-// ReportCategorySlice 单类别分片（分级与分发的最小单元；落库 payload 组成
-// 部分，重推按存库值原样重发不改写）。
+// ReportCategorySlice is one category piece (the smallest unit for
+// classification and distribution; part of the payload landed in the database,
+// and a repush resends the stored value verbatim without rewriting it).
 type ReportCategorySlice struct {
 	CategoryID         uint    `json:"categoryId"`
 	Slug               string  `json:"slug,omitempty"`
@@ -36,21 +40,22 @@ type ReportCategorySlice struct {
 	Leader             string  `json:"leader,omitempty"`
 	Count              int64   `json:"count"`
 	PrevCount          int64   `json:"prevCount"`
-	RecurrencePct      float64 `json:"recurrencePct"`      // 0-100；空样本 0
-	UnresolvedCritical int64   `json:"unresolvedCritical"` // 期内 critical 未解决数
+	RecurrencePct      float64 `json:"recurrencePct"`      // 0-100; 0 with no sample
+	UnresolvedCritical int64   `json:"unresolvedCritical"` // unresolved critical incidents within the period
 	Level              string  `json:"level"`              // info|warn|critical
 }
 
-// ReportPayload 是 incident_reports.Payload 的顶层结构：完整 summary +
-// 类别分片分级 + 全报告最高级。
+// ReportPayload is the top-level shape of incident_reports.Payload: the full
+// summary + per-category piece levels + the highest level across the report.
 type ReportPayload struct {
 	Summary    *ReportSummaryResponse `json:"summary"`
 	Categories []ReportCategorySlice  `json:"categories"`
 	Level      string                 `json:"level"` // info|warn|critical
 }
 
-// PushStatusEntry 分发回执（§6 PushStatus 数组元素）：每片一条，channel
-// 为外部链收尾出口（herald/noop/…）或 skipped（未配 leader / 出口未布线）。
+// PushStatusEntry is a distribution receipt (a §6 PushStatus array element):
+// one per piece, with channel being the terminal outlet of the external chain
+// (herald/noop/...) or skipped (no leader configured / outlet not wired).
 type PushStatusEntry struct {
 	Slug     string    `json:"slug"`
 	Leader   string    `json:"leader,omitempty"`
@@ -61,9 +66,10 @@ type PushStatusEntry struct {
 	Error    string    `json:"error,omitempty"`
 }
 
-// GenerateReport 生成并分发一期报表（periodType: week|month|quarter|year；
-// periodKey 空 = 当前周期）。幂等：同档同期 upsert 覆盖；外部出口按确定
-// 性 event_id 折叠重发。
+// GenerateReport generates and distributes one report period (periodType:
+// week|month|quarter|year; empty periodKey = the current period). Idempotent:
+// upserts overwrite the same period within the same tier; external outlets
+// fold resends by the deterministic event_id.
 func (s *Service) GenerateReport(ctx context.Context, periodType, periodKey string) (*model.IncidentReport, error) {
 	now := time.Now()
 	p, err := resolvePeriod(periodType, periodKey, now)
@@ -98,9 +104,10 @@ func (s *Service) GenerateReport(ctx context.Context, periodType, periodKey stri
 	return row, nil
 }
 
-// Run implements scheduler.LocalRunner：调度入口（task_schedules.Kind=
-// incident_report）。Payload {"period":"week"}；缺 period 或档位非法报错
-// （调度器按连续失败计数处理，达上限进 dead_letter）。
+// Run implements scheduler.LocalRunner: the schedule entry point
+// (task_schedules.Kind=incident_report). Payload {"period":"week"}; a missing
+// period or an invalid tier is an error (the scheduler counts consecutive
+// failures and moves to dead_letter at the ceiling).
 func (s *Service) Run(ctx context.Context, sched *model.TaskSchedule) error {
 	if sched == nil {
 		return errors.New("incident report runner: nil schedule")
@@ -125,8 +132,9 @@ func (s *Service) Run(ctx context.Context, sched *model.TaskSchedule) error {
 	return nil
 }
 
-// RepushReport 手动重推（§6：按存库 payload 同 event_id 重发，出口侧幂等
-// 折叠；不改 payload）。回执覆盖写回 PushStatus。
+// RepushReport is the manual repush (§6: resends with the same event_id from
+// the stored payload so outlets fold it idempotently; does not change the
+// payload). Receipts overwrite PushStatus.
 func (s *Service) RepushReport(ctx context.Context, id uint) (*model.IncidentReport, error) {
 	var row model.IncidentReport
 	if err := s.svcCtx.DB.WithContext(ctx).First(&row, id).Error; err != nil {
@@ -148,10 +156,11 @@ func (s *Service) RepushReport(ctx context.Context, id uint) (*model.IncidentRep
 	return &row, nil
 }
 
-// ---- 分类分级 ----
+// ---- Category classification ----
 
-// buildCategorySlices 聚合每类别的计数/环比/复发率/未解决 critical，并按
-// 固定口径分级。计数含 bugs（与 summary 口径一致）。
+// buildCategorySlices aggregates each category's count / PoP / recurrence rate
+// / unresolved critical and classifies under the fixed thresholds. Counts
+// include bugs (consistent with the summary definition).
 func (s *Service) buildCategorySlices(ctx context.Context, p *resolvedPeriod, now time.Time) ([]ReportCategorySlice, error) {
 	cur, err := s.periodStats(ctx, p.Start, p.End, now)
 	if err != nil {
@@ -165,7 +174,9 @@ func (s *Service) buildCategorySlices(ctx context.Context, p *resolvedPeriod, no
 	for _, sh := range prevShare {
 		prevByID[sh.CategoryID] = sh.Count
 	}
-	// 复发率分母/分子按类别：链首来自本期+期前窗口，分母=期内 resolved。
+	// Recurrence rate numerator/denominator per category: chain heads come
+	// from the current period plus the pre-period window, the denominator is
+	// resolved incidents within the period.
 	rows := append(append([]incidentAggRow{}, cur.rows...), s.preWindowRows(ctx, p.Start)...)
 	heads := recurrenceHeads(rows, p.Start, p.End)
 	recurByCat := map[uint]int64{}
@@ -178,7 +189,7 @@ func (s *Service) buildCategorySlices(ctx context.Context, p *resolvedPeriod, no
 			resolvedByCat[r.CategoryID]++
 		}
 	}
-	// 期内 critical 未解决按类别计数。
+	// Unresolved critical incidents within the period, counted per category.
 	type critRow struct {
 		CategoryID uint
 	}
@@ -194,7 +205,8 @@ func (s *Service) buildCategorySlices(ctx context.Context, p *resolvedPeriod, no
 	for _, r := range crit {
 		critByCat[r.CategoryID]++
 	}
-	// leader/slug/name 索引（停用行也参与——报表面向存量类别）。
+	// leader/slug/name index (disabled rows also participate -- reports cover
+	// pre-existing categories).
 	cats, err := model.NewIncidentCategoryModel(s.svcCtx.DB).List(ctx, false)
 	if err != nil {
 		return nil, err
@@ -203,7 +215,8 @@ func (s *Service) buildCategorySlices(ctx context.Context, p *resolvedPeriod, no
 	for _, c := range cats {
 		catByID[c.ID] = c
 	}
-	// 计数按类别（incidents + bugs，与 categoryShare 同口径复用）。
+	// Counts per category (incidents + bugs, reusing the same definition as
+	// categoryShare).
 	curShare, err := s.categoryShare(ctx, p.Start, p.End, cur.Total)
 	if err != nil {
 		return nil, err
@@ -236,9 +249,11 @@ func (s *Service) buildCategorySlices(ctx context.Context, p *resolvedPeriod, no
 	return pieces, nil
 }
 
-// classifySlice 固定口径分级（§6）：warn=环比×2（基数>0 才有意义）或复发
-// 率>20%；critical=含 critical 未解决事故或连续两期恶化（存库历史：
-// cur > prev > prev-prev，缺任一期历史不判）。级别只升不降。
+// classifySlice classifies under fixed thresholds (§6): warn = PoP x2
+// (meaningful only with a base > 0) or recurrence > 20%; critical = an
+// unresolved critical incident, or two consecutive worsening periods (stored
+// history: cur > prev > prev-prev; verdict withheld when any period's history
+// is missing). Levels only escalate, never de-escalate.
 func classifySlice(ctx context.Context, s *Service, p *resolvedPeriod, piece *ReportCategorySlice) {
 	level := model.MessageLevelInfo
 	if piece.PrevCount > 0 && piece.Count > 0 &&
@@ -259,9 +274,10 @@ func classifySlice(ctx context.Context, s *Service, p *resolvedPeriod, piece *Re
 	piece.Level = level
 }
 
-// worsenedTwoPeriods 连续两期恶化判定：读同档已存报表（period_start 早于
-// 本期，倒序取两期），该类别 cur > prev > prev-prev。缺任一期历史 → false
-// （首期报表无从判趋势）。
+// worsenedTwoPeriods decides sustained worsening: reads stored reports of the
+// same tier (period_start earlier than the current one, the two most recent in
+// reverse order) and requires cur > prev > prev-prev for the category. Missing
+// history for any period -> false (the first report has no trend to judge).
 func (s *Service) worsenedTwoPeriods(ctx context.Context, periodType, periodKey, slug string, curCount int64) (bool, error) {
 	if slug == "" {
 		return false, nil
@@ -280,7 +296,7 @@ func (s *Service) worsenedTwoPeriods(ctx context.Context, periodType, periodKey,
 	for _, r := range rows {
 		var payload ReportPayload
 		if err := json.Unmarshal(r.Payload, &payload); err != nil {
-			return false, nil // 历史 payload 损坏按无历史处理，不阻塞生成
+			return false, nil // corrupt history payload treated as no history, does not block generation
 		}
 		for _, c := range payload.Categories {
 			if c.Slug == slug {
@@ -295,10 +311,11 @@ func (s *Service) worsenedTwoPeriods(ctx context.Context, periodType, periodKey,
 	return curCount > counts[0] && counts[0] > counts[1], nil
 }
 
-// ---- 落库 ----
+// ---- Persistence ----
 
-// upsertReportRow 同档同期 upsert（唯一索引 uidx_incident_reports_period；
-// 并发双写兜底冲突转查询）。
+// upsertReportRow upserts one period within one tier (unique index
+// uidx_incident_reports_period; concurrent double-write falls back to
+// conflict-then-query).
 func (s *Service) upsertReportRow(ctx context.Context, periodType, periodKey string, payload ReportPayload, now time.Time) (*model.IncidentReport, error) {
 	raw, err := json.Marshal(payload)
 	if err != nil {
@@ -346,18 +363,23 @@ func (s *Service) writePushStatus(ctx context.Context, id uint, status []PushSta
 		Where("id = ?", id).Update("push_status", model.JSON(raw)).Error
 }
 
-// ---- 分发 ----
+// ---- Distribution ----
 
-// distribute 执行分发（§6）：站内经 MessageSink 直写（总聚合落默认接收
-// 组、分片落 leader 账号——类别→leader 映射只有生成器可见），外部经出口
-// 链 DispatchExternal（target=category-leader:<slug>）。每片每渠道一条
-// PushStatus；未配 leader 的分片记 skipped(no leader) 不投——数据仍在总
-// 聚合与面板，不落空。重推同 event_id：站内 upsert 折叠、出口侧 dedup。
+// distribute performs distribution (§6): in-app writes go directly through
+// MessageSink (the aggregate lands in the default recipient group and pieces
+// land in the leader account -- only the generator can see the category->leader
+// mapping); external chains go through the outlet DispatchExternal
+// (target=category-leader:<slug>). One PushStatus per piece per channel; pieces
+// without a configured leader are recorded as skipped(no leader) and not
+// delivered -- the data still lives in the aggregate and on the panel, nothing
+// is dropped. A repush uses the same event_id: folded by in-app upsert and
+// deduped on the outlet side.
 func (s *Service) distribute(ctx context.Context, periodType, periodKey string, payload *ReportPayload, now time.Time) []PushStatusEntry {
 	base := eventIDBase(periodType, periodKey)
 	status := make([]PushStatusEntry, 0, 2*len(payload.Categories)+2)
 
-	// 总聚合片：站内默认接收组（管理员聚合）+ 外部默认受众。
+	// Aggregate piece: in-app default recipient group (admin aggregate) +
+	// external default audience.
 	aggEv := s.aggregateEvent(base, periodType, periodKey, payload, now)
 	status = append(status, s.deliverSlice(ctx, sliceRef{
 		slug: "", leader: "", level: payload.Level,
@@ -368,7 +390,7 @@ func (s *Service) distribute(ctx context.Context, periodType, periodKey string, 
 	for i := range payload.Categories {
 		piece := &payload.Categories[i]
 		if piece.Count <= 0 {
-			continue // 零量类别不投分片（leader 不被零事件打扰；数据在总聚合）
+			continue // zero-count category does not get a piece delivered (no zero-event noise for the leader; data lives in the aggregate)
 		}
 		if piece.Leader == "" {
 			status = append(status, PushStatusEntry{
@@ -387,7 +409,8 @@ func (s *Service) distribute(ctx context.Context, periodType, periodKey string, 
 	return status
 }
 
-// sliceRef 是一片投递的全部上下文（站内与外部信封共用标题/正文/事件键）。
+// sliceRef is the full context of one delivery (in-app and external envelopes
+// share the title/body/event key).
 type sliceRef struct {
 	slug    string
 	leader  string
@@ -399,12 +422,14 @@ type sliceRef struct {
 	ev      *outlet.AlertEvent
 }
 
-// deliverSlice 投递一片：站内一条回执（channel=internal，收件人 leader
-// 或默认接收组）+ 外部一条回执（channel=实际收尾出口或 skipped）。
+// deliverSlice delivers one piece: one in-app receipt (channel=internal,
+// recipient the leader or the default recipient group) plus one external
+// receipt (channel = the actual terminal outlet or skipped).
 func (s *Service) deliverSlice(ctx context.Context, ref sliceRef, now time.Time) []PushStatusEntry {
 	entries := make([]PushStatusEntry, 0, 2)
 
-	// 站内：直接落 messages（To=leader 账号；无 leader 的片不产生站内行）。
+	// In-app: writes straight into messages (To=the leader account; a piece
+	// without a leader produces no in-app row).
 	station := PushStatusEntry{
 		Slug: ref.slug, Leader: ref.leader, Channel: "internal", PushedAt: now,
 		EventID: ref.eventID, OK: false, Error: "station sink not wired",
@@ -430,7 +455,7 @@ func (s *Service) deliverSlice(ctx context.Context, ref sliceRef, now time.Time)
 	}
 	entries = append(entries, station)
 
-	// 外部：出口链同步收尾回执。
+	// External: a synchronous terminal receipt from the outlet chain.
 	external := PushStatusEntry{
 		Slug: ref.slug, Leader: ref.leader, Channel: "skipped", PushedAt: now,
 		EventID: ref.eventID, OK: false, Error: "outlets not wired",
@@ -451,7 +476,8 @@ func (s *Service) deliverSlice(ctx context.Context, ref sliceRef, now time.Time)
 	return entries
 }
 
-// aggregateEvent 总聚合信封：标题带总量与环比，正文列 Top 类别摘要。
+// aggregateEvent builds the aggregate envelope: the title carries the total
+// count and PoP, the body lists a top-categories summary.
 func (s *Service) aggregateEvent(base, periodType, periodKey string, payload *ReportPayload, now time.Time) outlet.AlertEvent {
 	sum := payload.Summary
 	title := fmt.Sprintf("%s %s：共 %s 起", periodLabel(periodType), periodKey, formatCount(sum.Metrics.Total.Value))
@@ -480,8 +506,10 @@ func (s *Service) aggregateEvent(base, periodType, periodKey string, payload *Re
 	}
 }
 
-// sliceEvent 类别分片信封：站内经 category-leader 前缀投 leader，外部带
-// 同 target；scope 携类别 slug（messages 读时按类别受众过滤，批 4d）。
+// sliceEvent builds the category piece envelope: in-app it goes to the leader
+// via the category-leader prefix, external carries the same target; the scope
+// carries the category slug (messages filters by category audience at read
+// time, batch 4d).
 func (s *Service) sliceEvent(base, periodType, periodKey string, piece *ReportCategorySlice, now time.Time) outlet.AlertEvent {
 	name := piece.Name
 	if name == "" {
@@ -503,15 +531,16 @@ func (s *Service) sliceEvent(base, periodType, periodKey string, piece *ReportCa
 	}
 }
 
-// eventIDBase 确定性事件主键前缀（§6：report:<PeriodType>:<PeriodStart>）。
+// eventIDBase is the deterministic event key prefix
+// (§6: report:<PeriodType>:<PeriodStart>).
 func eventIDBase(periodType, periodKey string) string {
 	return "report:" + periodType + ":" + periodKey
 }
 
-// ---- 存量报表列表 ----
+// ---- Stored report list ----
 
-// StoredReportItem 报表历史行（payload 摘要 + 分发回执；面板历史页与重推
-// 按钮数据源）。
+// StoredReportItem is a report history row (payload digest + distribution
+// receipts; the data source for the panel history page and repush button).
 type StoredReportItem struct {
 	ID          uint              `json:"id"`
 	PeriodType  string            `json:"periodType"`
@@ -523,13 +552,15 @@ type StoredReportItem struct {
 	PushStatus  []PushStatusEntry `json:"pushStatus"`
 }
 
-// StoredReportListResponse 报表历史分页（GET /incident-reports/stored）。
+// StoredReportListResponse is the report history page (GET
+// /incident-reports/stored).
 type StoredReportListResponse struct {
 	Items []StoredReportItem `json:"items"`
 	Total int64              `json:"total"`
 }
 
-// ListStoredReports 报表历史分页（periodType 空 = 全档位）。
+// ListStoredReports pages through report history (empty periodType = all
+// tiers).
 func (s *Service) ListStoredReports(ctx context.Context, periodType string, page, pageSize int) (*StoredReportListResponse, error) {
 	if periodType != "" &&
 		periodType != PeriodWeek && periodType != PeriodMonth &&
@@ -574,7 +605,7 @@ func (s *Service) ListStoredReports(ctx context.Context, periodType string, page
 	return &StoredReportListResponse{Items: items, Total: total}, nil
 }
 
-// ---- 小工具 ----
+// ---- Small helpers ----
 
 func sliceLevelRank(level string) int {
 	switch level {
@@ -598,7 +629,8 @@ func levelToSeverity(level string) string {
 	}
 }
 
-// periodLabel 档位中文展示名（通知标题用）。
+// periodLabel is the Chinese display name of a tier (used in notification
+// titles).
 func periodLabel(periodType string) string {
 	switch periodType {
 	case PeriodWeek:
@@ -645,7 +677,8 @@ func formatPct(v *float64) string {
 	return fmt.Sprintf("%.0f%%", *v*100)
 }
 
-// formatDelta 环比差（cur-prev 与方向箭头；基期 0 记 "+N"）。
+// formatDelta renders the PoP delta (cur-prev with a direction arrow; a base
+// of 0 is recorded as "+N").
 func formatDelta(cur, prev int64) string {
 	switch {
 	case prev <= 0:

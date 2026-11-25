@@ -13,10 +13,12 @@ import (
 	"gorm.io/gorm"
 )
 
-// ---- 对外 REST API（incident-reports §9）----
+// ---- External REST API (incident-reports section 9) ----
 
-// ExternalService 承载对外 REST API 的业务逻辑：令牌鉴权、限流、事故注册、
-// 外部查询、webhook 发送——全部复用既有 service/handler，外层仅做鉴权与审计。
+// ExternalService carries the business logic of the external REST API: token
+// authentication, rate limiting, incident registration, external queries and
+// webhook dispatch. It reuses the existing service/handler layers; the outer
+// layer only performs authentication and auditing.
 type ExternalService struct {
 	svcCtx   *svc.ServiceContext
 	incSvc   *Service
@@ -25,7 +27,8 @@ type ExternalService struct {
 	limiter  *ratelimit.SlidingWindowLimiter
 }
 
-// NewExternalService 创建外部 API 服务。rpm<=0 时用默认值 30。
+// NewExternalService creates the external API service. When rpm<=0 the default
+// value 30 is used.
 func NewExternalService(svcCtx *svc.ServiceContext) *ExternalService {
 	rpm := svcCtx.Config.ExternalAPI.RateLimitPerMinute
 	if rpm <= 0 {
@@ -40,7 +43,8 @@ func NewExternalService(svcCtx *svc.ServiceContext) *ExternalService {
 	}
 }
 
-// ResolveToken 从明文 token 解析出 ExternalToken 记录并执行启停校验。
+// ResolveToken resolves the plain token into an ExternalToken record and runs the
+// enabled/disabled check.
 func (s *ExternalService) ResolveToken(ctx context.Context, plain string) (*model.ExternalToken, error) {
 	if plain == "" {
 		return nil, errorx.NewUnauthorized("缺少认证 token")
@@ -59,7 +63,8 @@ func (s *ExternalService) ResolveToken(ctx context.Context, plain string) (*mode
 	return tok, nil
 }
 
-// TouchUsed 刷新令牌最近使用时间（非阻塞，失败静默）。
+// TouchUsed refreshes the token's last-used time (non-blocking; failures are
+// silently ignored).
 func (s *ExternalService) TouchUsed(ctx context.Context, tok *model.ExternalToken) {
 	if tok == nil {
 		return
@@ -68,7 +73,8 @@ func (s *ExternalService) TouchUsed(ctx context.Context, tok *model.ExternalToke
 	_ = s.tokenMod.TouchUsed(ctx, tok.ID, now)
 }
 
-// CheckRateLimit 按令牌名做滑动窗口限流。超限时返回 rate_limited CodeError。
+// CheckRateLimit applies sliding-window rate limiting by token name. On
+// overflow it returns a rate_limited CodeError.
 func (s *ExternalService) CheckRateLimit(ctx context.Context, name string) error {
 	result, err := s.limiter.Allow(ctx, name)
 	if err != nil {
@@ -80,9 +86,10 @@ func (s *ExternalService) CheckRateLimit(ctx context.Context, name string) error
 	return nil
 }
 
-// RegisterIncident 外部登记事故：复用 incSvc.CreateIncident，Source=external，
-// CreatedBy=ext:<tokenName>，IncidentKey=idempotencyKey。写入前按 token 的
-// game/env 允许面强校验（AUD-036）。
+// RegisterIncident registers an incident externally: it reuses
+// incSvc.CreateIncident with Source=external, CreatedBy=ext:<tokenName> and
+// IncidentKey=idempotencyKey. Before writing it strictly validates the target
+// against the token's game/env allowlist (AUD-036).
 func (s *ExternalService) RegisterIncident(ctx context.Context, req *CreateIncidentFromExternalRequest, token *model.ExternalToken, idempotencyKey string) (*IncidentDTO, bool, error) {
 	if err := s.checkScopeWrite(token, req.GameID, req.Env); err != nil {
 		return nil, false, err
@@ -117,10 +124,14 @@ func (s *ExternalService) RegisterIncident(ctx context.Context, req *CreateIncid
 	return dto, created, nil
 }
 
-// ListIncidents 外部事故查询，按 token scope 限可见面：无过滤条件时行级
-// 收窄到 scope 类别集；显式查询 scope 外类别直接返回空（不降级为全量）。
-// AUD-036：同时按 token 的 game/env 允许面强制 SQL 过滤——允许面非空时
-// 显式查面外 game/env 直接返回空，无过滤条件则按允许面收窄。
+// ListIncidents is the external incident query; it limits the visible surface
+// by the token scope: with no filter conditions rows are narrowed at the row
+// level to the scope category set; querying a category outside the scope
+// directly returns an empty set (it does not degrade to the full list).
+// AUD-036: it also enforces SQL-level filtering by the token's game/env
+// allowlist - when the allowlist is non-empty, an explicit out-of-scope game/env
+// query returns empty directly, and an unfiltered query is narrowed by the
+// allowlist.
 func (s *ExternalService) ListIncidents(ctx context.Context, opts model.IncidentQueryOptions, token *model.ExternalToken) (*IncidentListResponse, error) {
 	allowed := s.scopeMap(token)
 	games := token.ScopeGameIDs()
@@ -132,14 +143,14 @@ func (s *ExternalService) ListIncidents(ctx context.Context, opts model.Incident
 			return &IncidentListResponse{Items: []IncidentDTO{}}, nil
 		}
 	}
-	// 显式查询允许面外的 game/env → 空（不降级为全量）。
+	// Explicit query for game/env outside the allowlist -> empty (no degrade to full list).
 	if len(games) > 0 && opts.GameID != "" && !containsString(games, opts.GameID) {
 		return &IncidentListResponse{Items: []IncidentDTO{}}, nil
 	}
 	if len(envs) > 0 && opts.Env != "" && !containsString(envs, opts.Env) {
 		return &IncidentListResponse{Items: []IncidentDTO{}}, nil
 	}
-	// 允许面非空 → 强制收窄到允许面（SQL 级，Total 同步收窄）。
+	// Allowlist non-empty -> force narrowing to the allowlist (SQL level; Total is narrowed too).
 	if len(games) > 0 {
 		sqlFilter.GameIDs = games
 	}
@@ -170,8 +181,9 @@ func (s *ExternalService) ListIncidents(ctx context.Context, opts model.Incident
 	return &IncidentListResponse{Items: items, Total: total}, nil
 }
 
-// CreateBug 外部注册 bug：透传至 bug.Service.Create。写入前按 token 的
-// game/env 允许面强校验（AUD-036）。
+// CreateBug registers a bug externally: it passes through to
+// bug.Service.Create. Before writing it strictly validates the target against the
+// token's game/env allowlist (AUD-036).
 func (s *ExternalService) CreateBug(ctx context.Context, req *bug.BugCreateRequest, token *model.ExternalToken) (*bug.Bug, error) {
 	if err := s.checkScopeWrite(token, req.GameID, req.Env); err != nil {
 		return nil, err
@@ -183,9 +195,12 @@ func (s *ExternalService) CreateBug(ctx context.Context, req *bug.BugCreateReque
 	return &resp.Bug, nil
 }
 
-// checkScopeWrite 校验写入目标 game/env 落在 token 允许面内（AUD-036）。
-// 允许面为空 = 不限（向后兼容，行为与现状一致）；允许面非空时目标缺省
-// 或落在面外 → 403（缺省无法证明在面内，拒绝而非回落全局）。
+// checkScopeWrite validates that the write target game/env falls inside the
+// token's allowlist (AUD-036).
+// An empty allowlist means unrestricted (backwards compatible, same behavior as
+// today); when the allowlist is non-empty a missing or out-of-scope target is
+// rejected with 403 (an empty target cannot be proven in-scope, so reject rather
+// than fall back to the global scope).
 func (s *ExternalService) checkScopeWrite(token *model.ExternalToken, gameID, env string) error {
 	if token == nil {
 		return nil
@@ -201,7 +216,7 @@ func (s *ExternalService) checkScopeWrite(token *model.ExternalToken, gameID, en
 	return nil
 }
 
-// containsString 判断 val 是否在 slice 中。
+// containsString reports whether val is in slice.
 func containsString(slice []string, val string) bool {
 	for _, v := range slice {
 		if v == val {
@@ -211,7 +226,8 @@ func containsString(slice []string, val string) bool {
 	return false
 }
 
-// scopeMap 把 token scope 的 categories 转成集合；空 scope 返回空 map（全量）。
+// scopeMap converts the token scope categories into a set; an empty scope
+// returns an empty map (full list).
 func (s *ExternalService) scopeMap(token *model.ExternalToken) map[string]bool {
 	m := make(map[string]bool)
 	if token == nil {
@@ -224,7 +240,7 @@ func (s *ExternalService) scopeMap(token *model.ExternalToken) map[string]bool {
 	return m
 }
 
-// SendLifecycleWebhook 推一条生命周期事件到外部出口链（§9.3）。
+// SendLifecycleWebhook pushes one lifecycle event to the external egress chain (section 9.3).
 func (s *ExternalService) SendLifecycleWebhook(ctx context.Context, row *model.Incident, kind IncidentLifecycleKind) {
 	DispatchLifecycle(ctx, s.svcCtx, row, kind)
 }

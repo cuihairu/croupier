@@ -16,7 +16,8 @@ import (
 	"gorm.io/gorm"
 )
 
-// captureOutlet 记录外部链收到的信封（分发断言用）。
+// captureOutlet records the envelopes the external chain receives (for
+// distribution assertions).
 type captureOutlet struct {
 	mu     sync.Mutex
 	events []outlet.AlertEvent
@@ -41,7 +42,8 @@ func (c *captureOutlet) snapshot() []outlet.AlertEvent {
 	return append([]outlet.AlertEvent{}, c.events...)
 }
 
-// reportEvents 过滤出报表分发事件（排除异步 incident.created 等生命周期信封）。
+// reportEvents filters out the report distribution events (excluding async
+// lifecycle envelopes such as incident.created).
 func reportEvents(all []outlet.AlertEvent) []outlet.AlertEvent {
 	out := make([]outlet.AlertEvent, 0, len(all))
 	for _, ev := range all {
@@ -60,7 +62,7 @@ type errDeliveryDown struct{}
 
 func (errDeliveryDown) Error() string { return "capture down" }
 
-// recordingSink 记录站内通知（站内链首断言用）。
+// recordingSink records in-app notifications (for first-hop in-app assertions).
 type recordingSink struct {
 	mu   sync.Mutex
 	msgs []model.Message
@@ -127,7 +129,7 @@ func (h *generatorHarness) addIncident(t *testing.T, categoryID uint, sub string
 		t.Fatalf("create incident: %v", err)
 	}
 	if severity == model.IncidentSeverityCritical {
-		// 保持未解决（默认 open）
+		// Left unresolved (the default status is open)
 		_ = dto
 	}
 }
@@ -173,7 +175,7 @@ func pushBySlugChannel(entries []PushStatusEntry, slug, channel string) *PushSta
 	return nil
 }
 
-// ---- 端到端生成 + 分发 ----
+// ---- End-to-end generation + distribution ----
 
 func TestGenerateReport_EndToEnd(t *testing.T) {
 	h := setupGenerator(t)
@@ -181,7 +183,8 @@ func TestGenerateReport_EndToEnd(t *testing.T) {
 	opsID := h.setLeader(t, model.IncidentCatOps, "")
 	curAt, prevAt, _, curKey, _, _ := weekBounds(t)
 
-	// 本期：client 2 起（1 起 critical 已解决）+ ops 1 起；上期 client 1 起。
+	// Current period: client 2 (1 critical resolved) + ops 1; previous period
+	// client 1.
 	h.addIncident(t, clientID, "崩溃", curAt, model.IncidentSeverityWarning, model.IncidentRespOperator, "op-1")
 	h.addIncident(t, clientID, "性能", curAt.Add(time.Hour), model.IncidentSeverityInfo, "", "")
 	h.addIncident(t, opsID, "部署", curAt, model.IncidentSeverityInfo, "", "")
@@ -201,7 +204,8 @@ func TestGenerateReport_EndToEnd(t *testing.T) {
 	if payload.Summary == nil || payload.Summary.Metrics.Total.Value == nil || *payload.Summary.Metrics.Total.Value != 3 {
 		t.Fatalf("summary total = %v, want 3（环比期事故不计入本期）", payload.Summary.Metrics.Total.Value)
 	}
-	// 分级：client 2 vs prev 1（翻倍）→ warn；ops prev=0 不按环比判 → info。
+	// Classification: client 2 vs prev 1 (doubled) -> warn; ops prev=0 is not
+	// judged by PoP -> info.
 	client := sliceBySlug(payload.Categories, model.IncidentCatClient)
 	if client == nil || client.Level != model.MessageLevelWarn {
 		t.Fatalf("client slice = %+v, want warn（环比×2）", client)
@@ -217,13 +221,14 @@ func TestGenerateReport_EndToEnd(t *testing.T) {
 		t.Fatalf("overall level = %s, want warn", payload.Level)
 	}
 
-	// 分发回执：总聚合 + client 分片（leader 有值）+ ops skipped(no leader)。
+	// Distribution receipts: aggregate + client piece (leader set) +
+	// ops skipped(no leader).
 	var status []PushStatusEntry
 	if err := json.Unmarshal(row.PushStatus, &status); err != nil {
 		t.Fatalf("parse push status: %v", err)
 	}
-	// 每片每渠道一条：总聚合 internal+capture、client internal+capture、
-	// ops skipped(no leader)。
+	// One per piece per channel: aggregate internal+capture, client
+	// internal+capture, ops skipped(no leader).
 	aggStation := pushBySlugChannel(status, "", "internal")
 	if aggStation == nil || !aggStation.OK || aggStation.EventID != "report:week:"+curKey+":all" {
 		t.Fatalf("aggregate station entry = %+v", aggStation)
@@ -245,7 +250,8 @@ func TestGenerateReport_EndToEnd(t *testing.T) {
 		t.Fatalf("ops entry = %+v", opsPush)
 	}
 
-	// 信封：分片 Target/Severity/Scope；总聚合无 Target。
+	// Envelopes: the piece carries Target/Severity/Scope; the aggregate has no
+	// Target.
 	events := h.capture.snapshot()
 	var clientEv, aggEv *outlet.AlertEvent
 	for i := range events {
@@ -264,7 +270,8 @@ func TestGenerateReport_EndToEnd(t *testing.T) {
 		t.Fatalf("aggregate event = %+v", aggEv)
 	}
 
-	// 站内：总聚合落默认组、client 分片落 leader（scope 携类别）。
+	// In-app: the aggregate lands in the default group, the client piece lands
+	// with the leader (scope carries the category).
 	msgs := h.sink.all()
 	var aggMsg, leaderMsg *model.Message
 	for i := range msgs {
@@ -287,7 +294,7 @@ func TestGenerateReport_EndToEnd(t *testing.T) {
 	}
 }
 
-// ---- 分级口径 ----
+// ---- Severity classification definition ----
 
 func TestGenerateReport_CriticalByUnresolvedCritical(t *testing.T) {
 	h := setupGenerator(t)
@@ -320,7 +327,8 @@ func TestGenerateReport_CriticalByWorsenedTwoPeriods(t *testing.T) {
 	clientID := h.setLeader(t, model.IncidentCatClient, "leader-a")
 	curAt, _, _, _, prevKey, prev2Key := weekBounds(t)
 
-	// 存库历史：前两期 1 → 2 连续上升，本期 3 → 连续两期恶化 → critical。
+	// Stored history: the previous two periods rise 1 -> 2 consecutively, the
+	// current period is 3 -> two consecutive worsening periods -> critical.
 	storeHistory := func(key string, count int64) {
 		raw, _ := json.Marshal(ReportPayload{Categories: []ReportCategorySlice{
 			{Slug: model.IncidentCatClient, Count: count},
@@ -363,7 +371,8 @@ func TestGenerateReport_NoHistoryNoTrendCritical(t *testing.T) {
 	var payload ReportPayload
 	_ = json.Unmarshal(row.Payload, &payload)
 	client := sliceBySlug(payload.Categories, model.IncidentCatClient)
-	// prev=0（环比基数缺失）且无历史：首期不判恶化。
+	// prev=0 (no PoP base) and no history: the first period is not judged as
+	// worsening.
 	if client == nil || client.Level != model.MessageLevelInfo {
 		t.Fatalf("client slice = %+v, want info（无环比基数/无历史）", client)
 	}
@@ -374,8 +383,10 @@ func TestGenerateReport_RecurrenceRateWarn(t *testing.T) {
 	clientID := h.setLeader(t, model.IncidentCatClient, "leader-a")
 	curAt, _, _, _, _, _ := weekBounds(t)
 
-	// 同签名（source+refId）：resolved 后 7 天内再发 = 复发链，复发率
-	// 100% → warn。首起显式 ResolvedAt（早于再发时间，链条件成立）。
+	// Same signature (source+refId): a recurrence within 7 days of a resolved
+	// incident forms a recurrence chain, recurrence rate 100% -> warn. The
+	// first incident has an explicit ResolvedAt (earlier than the recurrence,
+	// so the chain condition holds).
 	resolvedAt := curAt.Add(30 * time.Minute)
 	first, _, err := h.svc.CreateIncident(context.Background(), &IncidentCreateRequest{
 		Title: "first", CategoryID: clientID, Subcategory: "崩溃", Severity: model.IncidentSeverityWarning,
@@ -410,7 +421,7 @@ func TestGenerateReport_RecurrenceRateWarn(t *testing.T) {
 	}
 }
 
-// ---- upsert / 重推 / 调度入口 ----
+// ---- upsert / repush / schedule entry point ----
 
 func TestGenerateReport_UpsertSamePeriod(t *testing.T) {
 	h := setupGenerator(t)
@@ -458,8 +469,9 @@ func TestRepushReport_RedispatchesSameEventIDs(t *testing.T) {
 	if string(repushed.Payload) != payloadBefore {
 		t.Fatal("repush must not rewrite payload")
 	}
-	// 只统计 report 类事件：事故创建会异步派发 incident.created（§9.3 生命
-	// 周期 webhook），与本测试关注的报表重推无关，计数须排除。
+	// Count only report events: incident creation asynchronously dispatches
+	// the incident.created lifecycle webhook (§9.3), which is unrelated to the
+	// report repush under test, so it must be excluded from the count.
 	events := reportEvents(h.capture.snapshot())
 	if len(events) != before*2 {
 		t.Fatalf("events after repush = %d, want %d", len(events), before*2)
@@ -514,7 +526,8 @@ func TestRunnerRun_ParsesSchedulePayload(t *testing.T) {
 		t.Fatalf("reports = %d, want 1", count)
 	}
 
-	// 缺 period / 非法 period / nil schedule → 报错（调度器按失败计数）。
+	// Missing period / invalid period / nil schedule -> error (the scheduler
+	// counts failures).
 	if err := h.svc.Run(context.Background(), &model.TaskSchedule{Name: "s"}); err == nil {
 		t.Fatal("missing period must error")
 	}
@@ -548,25 +561,25 @@ func TestListStoredReports_PaginationAndFilter(t *testing.T) {
 	if resp.Total != 2 || len(resp.Items) != 2 {
 		t.Fatalf("list = %d/%d, want 2/2", len(resp.Items), resp.Total)
 	}
-	// 倒序：最新期在前。
+	// Descending order: the newest period first.
 	if resp.Items[0].PeriodStart <= resp.Items[1].PeriodStart {
 		t.Fatalf("order = %s then %s, want desc", resp.Items[0].PeriodStart, resp.Items[1].PeriodStart)
 	}
 	if resp.Items[1].Level != model.MessageLevelInfo || resp.Items[1].Total == nil || *resp.Items[1].Total != 3 {
 		t.Fatalf("payload summary parse: %+v", resp.Items[1])
 	}
-	// 档位过滤。
+	// Tier filter.
 	monthResp, err := h.svc.ListStoredReports(context.Background(), PeriodMonth, 1, 10)
 	if err != nil || monthResp.Total != 0 {
 		t.Fatalf("month filter: %v/%d", err, monthResp.Total)
 	}
-	// 非法档位。
+	// Invalid tier.
 	if _, err := h.svc.ListStoredReports(context.Background(), "bogus", 1, 10); err == nil {
 		t.Fatal("bogus period must error")
 	}
 }
 
-// ---- 出口异常路径 ----
+// ---- Outlet failure paths ----
 
 func TestGenerateReport_OutletFailureRecordsError(t *testing.T) {
 	h := setupGenerator(t)
@@ -586,7 +599,7 @@ func TestGenerateReport_OutletFailureRecordsError(t *testing.T) {
 	if agg == nil || agg.OK || agg.Error == "" {
 		t.Fatalf("aggregate external entry = %+v, want failed with error", agg)
 	}
-	// 站内腿不受外部失败影响。
+	// The in-app leg is unaffected by the external failure.
 	if st := pushBySlugChannel(status, "", "internal"); st == nil || !st.OK {
 		t.Fatalf("aggregate station entry = %+v, want ok", st)
 	}
@@ -616,7 +629,7 @@ func TestGenerateReport_OutletsNotWired(t *testing.T) {
 
 func ptrTime(v time.Time) *time.Time { return &v }
 
-// ---- HTTP 入口 ----
+// ---- HTTP entry points ----
 
 func TestReportHandlers_RepushAndStored(t *testing.T) {
 	gin.SetMode(gin.TestMode)
@@ -635,14 +648,14 @@ func TestReportHandlers_RepushAndStored(t *testing.T) {
 	rg.POST("/:id/repush", handler.RepushReport)
 	rg.GET("/stored", handler.ListStoredReports)
 
-	// 重推：200 + payload 不变。
+	// Repush: 200 + payload unchanged.
 	if w := doJSON(t, router, http.MethodPost, "/incident-reports/9999", ""); w.Code != http.StatusNotFound {
 		t.Fatalf("repush missing = %d, want 404", w.Code)
 	}
 	if w := doJSON(t, router, http.MethodPost, fmt.Sprintf("/incident-reports/%d/repush", row.ID), ""); w.Code != http.StatusOK {
 		t.Fatalf("repush = %d: %s", w.Code, w.Body.String())
 	}
-	// 历史：200 + 本期一条。
+	// History: 200 + one row for the current period.
 	wList := doJSON(t, router, http.MethodGet, "/incident-reports/stored?period=week", "")
 	if wList.Code != http.StatusOK {
 		t.Fatalf("stored = %d: %s", wList.Code, wList.Body.String())
@@ -654,7 +667,7 @@ func TestReportHandlers_RepushAndStored(t *testing.T) {
 	if list.Total != 1 || len(list.Items) != 1 || list.Items[0].ID != row.ID {
 		t.Fatalf("list = %+v, want 1 row id=%d", list, row.ID)
 	}
-	// 非法档位 → 400。
+	// Invalid tier -> 400.
 	if w := doJSON(t, router, http.MethodGet, "/incident-reports/stored?period=decade", ""); w.Code != http.StatusBadRequest {
 		t.Fatalf("bad period = %d, want 400", w.Code)
 	}

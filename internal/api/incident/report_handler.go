@@ -7,8 +7,10 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// 报表 API 的 HTTP 入口（docs/design/incident-reports.md §5/§7）。挂在独立
-// 组 /incident-reports，避开 /incidents/:id 通配段。
+// HTTP entry points for the report APIs
+// (docs/design/incident-reports.md §5/§7). Mounted on the dedicated
+// /incident-reports group so it does not collide with the /incidents/:id
+// wildcard segment.
 
 // GetSummary handles GET /incident-reports/summary?period=week&key=2026-W41。
 func (h *Handler) GetSummary(c *gin.Context) {
@@ -54,7 +56,7 @@ func (h *Handler) GetLeaderboard(c *gin.Context) {
 	response.Success(c, resp)
 }
 
-// GetResponsibility handles GET /incident-reports/responsibility?period=week&key=2026-W41（仅周/月档）。
+// GetResponsibility handles GET /incident-reports/responsibility?period=week&key=2026-W41 (week/month tiers only).
 func (h *Handler) GetResponsibility(c *gin.Context) {
 	resp, err := h.service.ReportResponsibility(c.Request.Context(), parsePeriodQuery(c), c.Query("key"))
 	if err != nil {
@@ -64,8 +66,9 @@ func (h *Handler) GetResponsibility(c *gin.Context) {
 	response.Success(c, resp)
 }
 
-// RepushReport handles POST /incident-reports/:id/repush（§6 手动重推：
-// 按存库 payload 同 event_id 重发，不改 payload；回执覆盖 PushStatus）。
+// RepushReport handles POST /incident-reports/:id/repush (§6 manual repush:
+// re-sends the stored payload under the same event_id without altering it;
+// the receipt overwrites PushStatus).
 func (h *Handler) RepushReport(c *gin.Context) {
 	id, err := parseUintParam(c, "id")
 	if err != nil {
@@ -91,7 +94,7 @@ func (h *Handler) ListStoredReports(c *gin.Context) {
 	response.Success(c, resp)
 }
 
-// parsePeriodQuery 档位 query 解析（缺省 week）。
+// parsePeriodQuery parses the period tier from the query (defaults to week).
 func parsePeriodQuery(c *gin.Context) string {
 	if v := c.Query("period"); v != "" {
 		return v

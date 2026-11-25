@@ -1,8 +1,10 @@
 package incident
 
-// Handler 端点补测：UpdateCategory / CategoryUsage / GetIncident /
-// UpdateIncident 及坏 JSON / 坏 id 参数错误分支，此前无用例触达。
-// 复用 setupService，路由注册在本文件内（含 setupRouter 未覆盖的四个端点）。
+// Additional Handler endpoint tests: UpdateCategory / CategoryUsage /
+// GetIncident / UpdateIncident plus the bad-JSON and bad-id parameter error
+// branches, none of which were touched by prior cases.
+// Reuses setupService; routes are registered inside this file (covering the four
+// endpoints setupRouter does not).
 
 import (
 	"encoding/json"

@@ -1,7 +1,10 @@
-// Package incident 实现事故报表体系批 1 的事故登记与类别管理 API
-// （docs/design/incident-reports.md §2/§3/§4）。类别存库可配（枚举校验=
-// 配置表合法值），incident 按 category_id 关联（改名不断链），删除类别
-// 级联归并到内建「未分类」行。
+// Package incident implements the batch 1 incident registry and category
+// management APIs of the incident report system
+// (docs/design/incident-reports.md §2/§3/§4). Categories are stored in the
+// database and configurable (enum validation = the allowed values of the
+// config table); incidents link by category_id (renames do not break the
+// chain), and deleting a category cascades its rows into the built-in
+// "uncategorized" entry.
 package incident
 
 import (
@@ -21,8 +24,10 @@ import (
 	"gorm.io/gorm"
 )
 
-// auditIncident 是事故域敏感写路径的统一留痕（AUD-049）：类别变更、事故
-// 登记与状态流转共用事件类型，成功/失败/denied 差异只在 outcome。
+// auditIncident is the unified audit trail for sensitive write paths in the
+// incident domain (AUD-049): category changes, incident registration and state
+// transitions share one event type; success/failure/denied differ only by
+// outcome.
 func (s *Service) auditIncident(ctx context.Context, event audit.AuditEventType, state, action, resourceID string, extra map[string]interface{}) {
 	details := map[string]interface{}{"action": action}
 	for k, v := range extra {
@@ -35,7 +40,8 @@ func (s *Service) auditIncident(ctx context.Context, event audit.AuditEventType,
 	audit.LogWrite(s.svcCtx.AuditService, ctx, event, state, actor, "incident", resourceID, details)
 }
 
-// categorySlugPattern 类别 slug 闭式约束（小写字母/数字/连字符）。
+// categorySlugPattern is the closed-form constraint on a category slug
+// (lowercase letters/digits/hyphens).
 var categorySlugPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,63}$`)
 
 // Service implements the incident registry API.
@@ -48,10 +54,13 @@ func NewService(svcCtx *svc.ServiceContext) *Service {
 	return &Service{svcCtx: svcCtx}
 }
 
-// requireIncidentScope 单条事故行级作用域校验（对齐 task 的 requireTaskScope）：
-// 当前请求带 game/env scope 时，行内归属必须一致，否则 403。错误不回显目标行
-// 的 game/env，避免越权者借响应枚举其他作用域的资源。外部 token 面
-// （external.go）无 header scope，走 token 自身过滤，不经过本守卫。
+// requireIncidentScope is row-level scope validation for a single incident row
+// (aligned with requireTaskScope in the task domain): when the current request
+// carries a game/env scope, the row's own attribution must match it or the
+// request gets 403. The error does not echo the target row's game/env, so an
+// unauthorized caller cannot enumerate resources in other scopes via the
+// response. The external token surface (external.go) has no header scope and
+// relies on token-based filtering; it does not pass through this guard.
 func requireIncidentScope(ctx context.Context, row *model.Incident) error {
 	scope := svc.GameScopeFromContext(ctx)
 	if row == nil || ((scope.GameID != "" || scope.Env != "") && !svc.ScopeMatches(ctx, row.GameID, row.Env)) {
@@ -60,9 +69,10 @@ func requireIncidentScope(ctx context.Context, row *model.Incident) error {
 	return nil
 }
 
-// ---- 类别管理 ----
+// ---- Category management ----
 
-// ListCategories 全量类别（含停用行；enabledOnly 供登记选择器）。
+// ListCategories returns all categories (including disabled rows; enabledOnly
+// feeds the registration selector).
 func (s *Service) ListCategories(ctx context.Context, enabledOnly bool) (*CategoryListResponse, error) {
 	rows, err := model.NewIncidentCategoryModel(s.svcCtx.DB).List(ctx, enabledOnly)
 	if err != nil {
@@ -75,7 +85,7 @@ func (s *Service) ListCategories(ctx context.Context, enabledOnly bool) (*Catego
 	return &CategoryListResponse{Items: items, Total: int64(len(items))}, nil
 }
 
-// CreateCategory 新建类别（slug 校验 + 唯一性）。
+// CreateCategory creates a category (slug validation + uniqueness).
 func (s *Service) CreateCategory(ctx context.Context, req *CategoryUpsertRequest) (*CategoryDTO, error) {
 	if req.Name == nil || strings.TrimSpace(*req.Name) == "" {
 		return nil, errorx.NewBadRequest("类别名称不能为空")
@@ -102,7 +112,8 @@ func (s *Service) CreateCategory(ctx context.Context, req *CategoryUpsertRequest
 	return &dto, nil
 }
 
-// UpdateCategory 更新类别（slug 不可改；未分类行名称可改但不可删）。
+// UpdateCategory updates a category (the slug is immutable; the uncategorized
+// row's name can be renamed but the row can never be deleted).
 func (s *Service) UpdateCategory(ctx context.Context, id uint, req *CategoryUpsertRequest) (*CategoryDTO, error) {
 	m := model.NewIncidentCategoryModel(s.svcCtx.DB)
 	row, err := m.Get(ctx, id)
@@ -132,7 +143,7 @@ func (s *Service) UpdateCategory(ctx context.Context, id uint, req *CategoryUpse
 	return &dto, nil
 }
 
-// CategoryUsage 删除前的级联提示计数。
+// CategoryUsage counts the cascade impact before deleting a category.
 func (s *Service) CategoryUsage(ctx context.Context, id uint) (*CategoryUsageResponse, error) {
 	if _, err := model.NewIncidentCategoryModel(s.svcCtx.DB).Get(ctx, id); err != nil {
 		return nil, err
@@ -148,8 +159,10 @@ func (s *Service) CategoryUsage(ctx context.Context, id uint) (*CategoryUsageRes
 	return &CategoryUsageResponse{Incidents: incidents, Bugs: bugs}, nil
 }
 
-// DeleteCategory 删除类别：事故与 bug 归并到内建「未分类」行后物理删行
-// （设计 §2.1 两段删除——调用方应先 GET usage 级联提示）。builtin 行拒绝删除。
+// DeleteCategory deletes a category: incidents and bugs are first merged into
+// the built-in "uncategorized" row, then the row is physically deleted
+// (design §2.1 two-phase delete — callers should GET usage for the cascade
+// prompt first). Builtin rows refuse deletion.
 func (s *Service) DeleteCategory(ctx context.Context, id uint) error {
 	m := model.NewIncidentCategoryModel(s.svcCtx.DB)
 	row, err := m.Get(ctx, id)
@@ -180,14 +193,18 @@ func (s *Service) DeleteCategory(ctx context.Context, id uint) error {
 	})
 }
 
-// ---- 事故登记 ----
+// ---- Incident registration ----
 
-// CreateIncident 登记事故：类别必选且须为启用行，子类按类别白名单校验；
-// incidentKey 非空时幂等（同键返回已存在行）。
+// CreateIncident registers an incident: the category is required and must be an
+// enabled row; subcategories are validated against the category whitelist; a
+// non-empty incidentKey makes the call idempotent (the existing row for the
+// same key is returned).
 func (s *Service) CreateIncident(ctx context.Context, req *IncidentCreateRequest, createdBy string) (*IncidentDTO, bool, error) {
-	// 归属强制当前请求 scope：面板登记一律落在本 scope，body 里的
-	// game/env 不作为归属真值（外部 token 面无 header scope，不受影响，
-	// 其归属绑定由 external 层另行治理）。
+	// Attribution is forced to the current request scope: dashboard
+	// registrations always land in this scope, and the game/env values in
+	// the body are not the source of truth for attribution (the external
+	// token surface has no header scope and is unaffected; its attribution
+	// binding is governed separately by the external layer).
 	if scope := svc.GameScopeFromContext(ctx); scope.GameID != "" {
 		req.GameID = scope.GameID
 	}
@@ -280,7 +297,7 @@ func (s *Service) CreateIncident(ctx context.Context, req *IncidentCreateRequest
 	return &dto, true, nil
 }
 
-// GetIncident 单条查询（带类别冗余字段）。
+// GetIncident fetches a single incident (with the denormalized category fields).
 func (s *Service) GetIncident(ctx context.Context, id uint) (*IncidentDTO, error) {
 	row, err := model.NewIncidentModel(s.svcCtx.DB).Get(ctx, id)
 	if err != nil {
@@ -293,7 +310,7 @@ func (s *Service) GetIncident(ctx context.Context, id uint) (*IncidentDTO, error
 	return &dto, nil
 }
 
-// ListIncidents 分页 + 过滤。
+// ListIncidents returns paginated and filtered incidents.
 func (s *Service) ListIncidents(ctx context.Context, opts model.IncidentQueryOptions) (*IncidentListResponse, error) {
 	rows, total, err := model.NewIncidentModel(s.svcCtx.DB).List(ctx, opts)
 	if err != nil {
@@ -312,7 +329,8 @@ func (s *Service) ListIncidents(ctx context.Context, opts model.IncidentQueryOpt
 	return &IncidentListResponse{Items: items, Total: total}, nil
 }
 
-// UpdateIncident 更新可编辑字段；类别/子类变更重新校验白名单。
+// UpdateIncident updates the editable fields; category/subcategory changes are
+// re-validated against the whitelist.
 func (s *Service) UpdateIncident(ctx context.Context, id uint, req *IncidentUpdateRequest) (*IncidentDTO, error) {
 	m := model.NewIncidentModel(s.svcCtx.DB)
 	row, err := m.Get(ctx, id)
@@ -323,8 +341,10 @@ func (s *Service) UpdateIncident(ctx context.Context, id uint, req *IncidentUpda
 		s.auditIncident(ctx, audit.EventIncidentUpdate, audit.StateDenied, "update", fmt.Sprint(id), nil)
 		return nil, err
 	}
-	// 归属迁移只允许落进当前 scope：把事故改挂到别的 game/env 等价于跨
-	// scope 写入（迁移出本 scope 同样拒绝，防止把行移出可见域后失察）。
+	// Attribution migration may only land inside the current scope: moving an
+	// incident to another game/env is equivalent to a cross-scope write
+	// (migrating out of this scope is rejected too, so rows cannot be moved
+	// out of the visible domain unnoticed).
 	if req.GameID != nil || req.Env != nil {
 		targetGame, targetEnv := row.GameID, row.Env
 		if req.GameID != nil {
@@ -396,9 +416,10 @@ func (s *Service) UpdateIncident(ctx context.Context, id uint, req *IncidentUpda
 		updates["ref_id"] = strings.TrimSpace(*req.RefID)
 	}
 	if req.Details != nil {
-		// AUD-020：详情列是 JSON 类型（模型 Details datatypes.JSONMap），裸
-		// map 进 Updates 无法序列化（sql: unsupported type map[...]）；与
-		// exec_log_ids 同型，先 JSON 编码为 model.JSON 再写。
+		// AUD-020: the details column is a JSON type (model Details
+		// datatypes.JSONMap); a raw map going into Updates cannot be
+		// serialized (sql: unsupported type map[...]). Same pattern as
+		// exec_log_ids: JSON-encode into model.JSON before writing.
 		raw, err := json.Marshal(req.Details)
 		if err != nil {
 			return nil, errorx.NewBadRequest("无效的详情数据: " + err.Error())
@@ -424,8 +445,9 @@ func (s *Service) UpdateIncident(ctx context.Context, id uint, req *IncidentUpda
 	return &dto, nil
 }
 
-// TransitionIncident 状态流转：open→acknowledged→resolved；resolved 可
-// 重开（清 ResolvedAt）；同态重复流转幂等放行。
+// TransitionIncident performs the state transition open→acknowledged→resolved;
+// resolved can be reopened (clearing ResolvedAt); repeating a transition to the
+// same state is idempotent and passes through.
 func (s *Service) TransitionIncident(ctx context.Context, id uint, req *IncidentStatusRequest) (*IncidentDTO, error) {
 	if _, ok := model.ValidIncidentStatuses[req.Status]; !ok {
 		return nil, errorx.NewBadRequest("无效的事故状态: " + req.Status)
@@ -450,7 +472,8 @@ func (s *Service) TransitionIncident(ctx context.Context, id uint, req *Incident
 			updates["resolved_at"] = resolvedAt
 		}
 	case model.IncidentStatusOpen, model.IncidentStatusAcked:
-		// 重开/回退清恢复时间（复发统计按 resolved 历史另表，批 2）
+		// Reopening or rolling back clears the recovery time (recurrence
+		// statistics use the resolved history in a separate table, batch 2)
 		updates["resolved_at"] = nil
 	}
 	if err := m.Update(ctx, id, updates); err != nil {
@@ -469,10 +492,11 @@ func (s *Service) TransitionIncident(ctx context.Context, id uint, req *Incident
 	return &dto, nil
 }
 
-// ---- 内部辅助 ----
+// ---- Internal helpers ----
 
-// validateCategoryAndSubcategory 类别须为启用行；子类按该类白名单校验
-// （未配置白名单=不限，≤64 字符）。
+// validateCategoryAndSubcategory checks that the category is an enabled row;
+// the subcategory is validated against that category's whitelist (no configured
+// whitelist = unrestricted, ≤64 chars).
 func (s *Service) validateCategoryAndSubcategory(ctx context.Context, categoryID uint, subcategory string) error {
 	row, err := model.NewIncidentCategoryModel(s.svcCtx.DB).Get(ctx, categoryID)
 	if err != nil {
@@ -503,8 +527,9 @@ func (s *Service) validateCategoryAndSubcategory(ctx context.Context, categoryID
 	return nil
 }
 
-// sourceOf 推导事故来源（无显式来源字段时按 createdBy/调用面；批 1 由
-// handler 决定 manual，外部 API 批次覆写 external）。
+// sourceOf derives the incident source (when no explicit source field is set,
+// from the ref type; batch 1 lets the handler decide manual, and the external
+// API batch overrides it with external).
 func (s *Service) sourceOf(req *IncidentCreateRequest) string {
 	if req.Source != "" {
 		return req.Source
@@ -724,8 +749,9 @@ func derefOrEmpty(p *string) string {
 	return *p
 }
 
-// countBugsByCategory 某类别下的 bug 数（删除级联提示；Bug 侧只有列，
-// 无独立模型方法，直查）。
+// countBugsByCategory counts bugs under a category (for the delete cascade
+// prompt; the Bug side only has columns and no dedicated model method, so
+// query it directly).
 func (s *Service) countBugsByCategory(ctx context.Context, categoryID uint) (int64, error) {
 	var count int64
 	err := s.svcCtx.DB.WithContext(ctx).Model(&model.Bug{}).
@@ -733,7 +759,8 @@ func (s *Service) countBugsByCategory(ctx context.Context, categoryID uint) (int
 	return count, err
 }
 
-// isUniqueViolation 跨方言唯一约束冲突判定（sqlite/mysql/postgres）。
+// isUniqueViolation detects unique-constraint conflicts across dialects
+// (sqlite/mysql/postgres).
 func isUniqueViolation(err error) bool {
 	if err == nil {
 		return false

@@ -8,7 +8,7 @@ import (
 	"github.com/cuihairu/croupier/internal/common/errorx"
 )
 
-// ReportLeaderboard 排行榜（GET /incident-reports/leaderboard）。
+// ReportLeaderboard builds the leaderboard (GET /incident-reports/leaderboard).
 func (s *Service) ReportLeaderboard(ctx context.Context, periodType, periodKey, view, board string) (*ReportLeaderboardResponse, error) {
 	if view == "" {
 		view = ViewResponsible
@@ -77,7 +77,8 @@ func (s *Service) ReportLeaderboard(ctx context.Context, periodType, periodKey, 
 	}, nil
 }
 
-// groupDelta 榜单行的对照期差值（与 buildDelta 同语义，按 groupAgg 取值）。
+// groupDelta computes the comparison-period delta for a leaderboard row
+// (same semantics as buildDelta, taking values from groupAgg).
 func groupDelta(cur, base *groupAgg, board string, baseEnd time.Time, epochOK bool, epoch time.Time) *CompareDelta {
 	if base == nil || !epochOK || !baseEnd.After(epoch) {
 		return &CompareDelta{Missing: true}
@@ -106,7 +107,8 @@ func groupDelta(cur, base *groupAgg, board string, baseEnd time.Time, epochOK bo
 	return d
 }
 
-// filterAndSortLeaderboard 按榜单口径过滤（空样本不进榜）并排序。
+// filterAndSortLeaderboard filters rows by the board's metric (empty samples
+// do not make the board) and sorts them.
 func filterAndSortLeaderboard(rows []LeaderboardRow, board string) []LeaderboardRow {
 	out := rows[:0]
 	for _, r := range rows {
@@ -117,7 +119,7 @@ func filterAndSortLeaderboard(rows []LeaderboardRow, board string) []Leaderboard
 			}
 		case BoardMTTR:
 			if r.Resolved == 0 {
-				continue // 空样本不进榜（§5.5）
+				continue // empty samples do not make the board (§5.5)
 			}
 		default:
 			if r.Incidents+r.Bugs == 0 {
@@ -129,7 +131,7 @@ func filterAndSortLeaderboard(rows []LeaderboardRow, board string) []Leaderboard
 	sort.Slice(out, func(i, j int) bool {
 		if out[i].Value != out[j].Value {
 			if board == BoardMTTR {
-				return out[i].Value < out[j].Value // MTTR 升序=修复快者在前
+				return out[i].Value < out[j].Value // ascending MTTR = fastest fixes first
 			}
 			return out[i].Value > out[j].Value
 		}
@@ -138,4 +140,4 @@ func filterAndSortLeaderboard(rows []LeaderboardRow, board string) []Leaderboard
 	return out
 }
 
-// ---- Service：责任人报告 ----
+// ---- Service: responsibility report ----

@@ -8,12 +8,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// AUD-020：事故详情更新使用数据库可序列化的 JSON 类型。
+// AUD-020: incident detail updates must use a database-serializable JSON type.
 //
-// 模型 Details 列是 JSON 类型（datatypes.JSONMap），此前 UpdateIncident 把裸
-// map 直接塞进 updates map——gorm 的 map 更新绕过列类型的序列化器，普通详情
-// 更新一律失败：sql: unsupported type map[string]interface {}。本用例覆盖
-// 正常对象、嵌套值、空对象的保存与回读。
+// The model's Details column is a JSON type (datatypes.JSONMap); UpdateIncident
+// previously stuffed a bare map straight into the updates map -- gorm's map
+// update bypasses the column type's serializer, so ordinary detail updates
+// always failed with: sql: unsupported type map[string]interface {}. This
+// test covers save and read-back for a normal object, nested values, and an
+// empty object.
 func TestUpdateIncident_DetailsJSONRoundtrip(t *testing.T) {
 	s := setupService(t)
 	ctx := context.Background()
@@ -25,7 +27,7 @@ func TestUpdateIncident_DetailsJSONRoundtrip(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "first", inc.Details["reason"])
 
-	// 正常对象 + 嵌套值（列表与对象）。
+	// Normal object plus nested values (a list and an object).
 	upd, err := s.UpdateIncident(ctx, inc.ID, &IncidentUpdateRequest{
 		Details: map[string]interface{}{
 			"reason": "second",
@@ -44,13 +46,15 @@ func TestUpdateIncident_DetailsJSONRoundtrip(t *testing.T) {
 	require.True(t, ok, "nested object should round-trip")
 	require.Equal(t, "ops", nested["owner"])
 
-	// 独立读回（非 Update 返回值，走 GetIncident 再查库）。
+	// Independent read-back (not the Update return value; go through GetIncident
+	// to re-query the database).
 	got, err := s.GetIncident(ctx, inc.ID)
 	require.NoError(t, err)
 	require.Equal(t, "second", got.Details["reason"])
 	require.Len(t, got.Details, 3)
 
-	// 空对象：保存为 {} 并回读，不得静默丢弃或报错。
+	// Empty object: saved as {} and read back; it must not be silently dropped
+	// or raise an error.
 	upd, err = s.UpdateIncident(ctx, inc.ID, &IncidentUpdateRequest{Details: map[string]interface{}{}})
 	require.NoError(t, err)
 	require.NotNil(t, upd.Details)

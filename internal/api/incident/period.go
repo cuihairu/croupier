@@ -9,7 +9,7 @@ import (
 	"github.com/cuihairu/croupier/internal/common/errorx"
 )
 
-// 报表周期档位（docs/design/incident-reports.md §5.1）。
+// Report period tiers (docs/design/incident-reports.md section 5.1).
 const (
 	PeriodWeek    = "week"
 	PeriodMonth   = "month"
@@ -24,9 +24,12 @@ var (
 	yearKeyRe    = regexp.MustCompile(`^(\d{4})$`)
 )
 
-// resolvedPeriod 是一个已解析的报表周期：本期 [Start,End)、环比上一同档
-// 周期、同比去年同档周期（年档无同比 → YoyMissing）。边界在 server 本地
-// 时区计算（§5.1），库内时间戳一律 UTC 由调用方按需转换。
+// resolvedPeriod is a resolved report period: the current period [Start,End),
+// the period-over-period window of the same tier, and the year-over-year window
+// of the same tier last year (the year tier has no YoY -> YoyMissing).
+// Boundaries are computed in the server's local time zone (section 5.1); the
+// timestamps stored in the database are always UTC and are converted by the
+// caller as needed.
 type resolvedPeriod struct {
 	Type      string
 	Key       string
@@ -36,14 +39,17 @@ type resolvedPeriod struct {
 	PrevEnd   time.Time
 	YoyStart  time.Time
 	YoyEnd    time.Time
-	// YoyMissing：年档恒真；周档去年无同 ISO 周号（如 W53）亦真。
-	// 其余档案由数据 epoch 判定（report.go），不在此预处理。
+	// YoyMissing: always true for the year tier; also true for the week tier
+	// when last year has no such ISO week number (e.g. W53).
+	// For the remaining tiers it is decided from the data epoch (report.go) and
+	// is not precomputed here.
 	YoyMissing bool
-	// PrevMissing：环比周期整体早于数据起点时由调用方判定，此处不判。
+	// PrevMissing: decided by the caller when the PoP window as a whole
+	// predates the start of the data; not decided here.
 }
 
-// resolvePeriod 把档位 + 周期标识解析为三组区间。periodKey 为空 = 当前
-// 周期（含 now）。
+// resolvePeriod resolves a tier + period key into three interval groups.
+// An empty periodKey means the current period (including now).
 func resolvePeriod(periodType, periodKey string, now time.Time) (*resolvedPeriod, error) {
 	switch periodType {
 	case PeriodWeek:
@@ -70,7 +76,8 @@ func resolveWeekPeriod(key string, now time.Time) (*resolvedPeriod, error) {
 		Start: start, End: end,
 		PrevStart: start.AddDate(0, 0, -7), PrevEnd: start,
 	}
-	// 同比 = 去年同 ISO 周号；去年不足该周号（W53 对 52 周年）→ missing。
+	// YoY = the same ISO week number last year; if last year does not have that
+	// week number (W53 against a 52-week year) -> missing.
 	yoy, err := isoWeekMonday(wkYear-1, wkNum)
 	if err != nil {
 		p.YoyMissing = true
@@ -99,9 +106,11 @@ func weekStartOf(key string, now time.Time) (time.Time, int, int, error) {
 	return start, year, week, err
 }
 
-// isoWeekMonday 求 ISO 年第 week 周的周一 00:00（本地时区）。1 月 4 日恒在
-// W1，以其所在周的周一为锚。构造结果经 ISOWeek 回读校验（52 周年请求 W53
-// 等非法组合报错）。
+// isoWeekMonday returns the Monday 00:00 of week of the ISO year (local time
+// zone). January 4 always falls in W1, so the Monday of the week containing it
+// is used as the anchor. The constructed result is verified by reading back
+// through ISOWeek (invalid combinations such as asking for W53 in a 52-week
+// year error out).
 func isoWeekMonday(year, week int) (time.Time, error) {
 	jan4 := time.Date(year, time.January, 4, 0, 0, 0, 0, time.Local)
 	wd := int(jan4.Weekday())
@@ -183,6 +192,6 @@ func resolveYearPeriod(key string, now time.Time) (*resolvedPeriod, error) {
 		Type: PeriodYear, Key: start.Format("2006"),
 		Start: start, End: end,
 		PrevStart: start.AddDate(-1, 0, 0), PrevEnd: end.AddDate(-1, 0, 0),
-		YoyMissing: true, // 年档无同比列（§5.1）
+		YoyMissing: true, // the year tier has no YoY column (section 5.1)
 	}, nil
 }

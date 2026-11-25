@@ -11,7 +11,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// Handler 是事故报表批 1 的 HTTP 入口（类别管理 + 事故登记）。
+// Handler is the HTTP entry point of incident-reports batch 1
+// (category management + incident registration).
 type Handler struct {
 	service *Service
 }
@@ -21,7 +22,7 @@ func NewHandler(service *Service) *Handler {
 	return &Handler{service: service}
 }
 
-// ListCategories handles GET /incident-categories?enabledOnly=true。
+// ListCategories handles GET /incident-categories?enabledOnly=true.
 func (h *Handler) ListCategories(c *gin.Context) {
 	resp, err := h.service.ListCategories(c.Request.Context(), c.Query("enabledOnly") == "true")
 	if err != nil {
@@ -31,7 +32,7 @@ func (h *Handler) ListCategories(c *gin.Context) {
 	response.Success(c, resp)
 }
 
-// CreateCategory handles POST /incident-categories。
+// CreateCategory handles POST /incident-categories.
 func (h *Handler) CreateCategory(c *gin.Context) {
 	var req CategoryUpsertRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -46,7 +47,7 @@ func (h *Handler) CreateCategory(c *gin.Context) {
 	response.Success(c, resp)
 }
 
-// UpdateCategory handles PUT /incident-categories/:id。
+// UpdateCategory handles PUT /incident-categories/:id.
 func (h *Handler) UpdateCategory(c *gin.Context) {
 	id, err := parseUintParam(c, "id")
 	if err != nil {
@@ -66,7 +67,7 @@ func (h *Handler) UpdateCategory(c *gin.Context) {
 	response.Success(c, resp)
 }
 
-// CategoryUsage handles GET /incident-categories/:id/usage（删除级联提示）。
+// CategoryUsage handles GET /incident-categories/:id/usage (delete cascade hint).
 func (h *Handler) CategoryUsage(c *gin.Context) {
 	id, err := parseUintParam(c, "id")
 	if err != nil {
@@ -81,7 +82,7 @@ func (h *Handler) CategoryUsage(c *gin.Context) {
 	response.Success(c, resp)
 }
 
-// DeleteCategory handles DELETE /incident-categories/:id（级联归并未分类）。
+// DeleteCategory handles DELETE /incident-categories/:id (cascade merges into uncategorized).
 func (h *Handler) DeleteCategory(c *gin.Context) {
 	id, err := parseUintParam(c, "id")
 	if err != nil {
@@ -127,7 +128,8 @@ func (h *Handler) ListIncidents(c *gin.Context) {
 	response.Success(c, resp)
 }
 
-// CreateIncident handles POST /incidents（面板登记；CreatedBy=JWT 操作者）。
+// CreateIncident handles POST /incidents (panel registration;
+// CreatedBy=the JWT operator).
 func (h *Handler) CreateIncident(c *gin.Context) {
 	var req IncidentCreateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -143,7 +145,7 @@ func (h *Handler) CreateIncident(c *gin.Context) {
 		response.Created(c, resp)
 		return
 	}
-	// 幂等重放：返回已存在行
+	// Idempotent replay: return the already-existing row
 	response.Success(c, resp)
 }
 
@@ -202,11 +204,12 @@ func (h *Handler) TransitionIncident(c *gin.Context) {
 	response.Success(c, resp)
 }
 
-// ---- 辅助 ----
+// ---- helpers ----
 
 func parseUintParam(c *gin.Context, name string) (uint, error) {
-	// bitSize=strconv.IntSize：直接按平台 uint 位宽解析（code scanning
-	// #226/#227），64 位输入在 32 位平台超界即报错，uint(v) 恒无截断。
+	// bitSize=strconv.IntSize: parse directly at the platform uint width (code
+	// scanning #226/#227); on 32-bit platforms a 64-bit input errors out once it
+	// overflows the bound, so uint(v) is never truncated.
 	v, err := strconv.ParseUint(c.Param(name), 10, strconv.IntSize)
 	if err != nil || v == 0 {
 		return 0, errorx.NewBadRequest("无效的 " + name + " 参数")
@@ -222,9 +225,11 @@ func parseUintQuery(c *gin.Context, name string) uint {
 	return uint(v)
 }
 
-// parseIntQuery 分页 query 解析（0=走 Normalize 缺省）：uint→int 直接转换
-// 在 64 位平台对 >MaxInt64 的输入回绕为负（code scanning #228/#229），解析
-// 后钳 MaxInt32——分页取值远达不到该界，超界回落缺省路径。
+// parseIntQuery parses pagination query params (0=fall to the Normalize
+// defaults): a direct uint->int conversion wraps negative on 64-bit platforms
+// for inputs >MaxInt64 (code scanning #228/#229). After parsing it is clamped to
+// MaxInt32 - page values never approach that bound; anything above it falls back
+// to the default path.
 func parseIntQuery(c *gin.Context, name string) int {
 	v, err := strconv.ParseUint(c.Query(name), 10, strconv.IntSize)
 	if err != nil || v > math.MaxInt32 {
@@ -233,7 +238,7 @@ func parseIntQuery(c *gin.Context, name string) int {
 	return int(v)
 }
 
-// parseTime 支持 RFC3339 与 unix 秒两种形态（RangePicker toISOString 走前者）。
+// parseTime supports both RFC3339 and unix seconds (RangePicker toISOString uses the former).
 func parseTime(v string) (time.Time, error) {
 	if t, err := time.Parse(time.RFC3339, v); err == nil {
 		return t, nil

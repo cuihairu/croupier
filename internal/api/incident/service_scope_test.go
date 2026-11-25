@@ -11,9 +11,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// 单条事故行级作用域守卫回归（AUD-COV-001 P0：Get/Update/Transition 按 id
-// 直查直改可跨 game/env 越权）。作用域经 GameDBMiddleware 注入 context，
-// 测试用 WithGameScope 模拟。
+// Row-level scope guard regression for a single incident (AUD-COV-001 P0:
+// Get/Update/Transition read and mutate directly by id, which could cross
+// game/env boundaries). The scope is injected into the context by
+// GameDBMiddleware; the tests simulate it with WithGameScope.
 func scopeCtx(gameID, env string) context.Context {
 	return svc.WithGameScope(context.Background(), svc.GameScope{GameID: gameID, Env: env})
 }
@@ -35,7 +36,8 @@ func seedScopedIncident(t *testing.T, s *Service, gameID, env string) *IncidentD
 
 func TestCreateIncidentForcesCurrentScope(t *testing.T) {
 	s := setupService(t)
-	// body 伪造其他 game/env：归属必须落当前 scope
+	// The body spoofs another game/env: attribution must still land in the
+	// current scope
 	req := &IncidentCreateRequest{
 		Title:      "spoofed-attribution",
 		CategoryID: 1,
@@ -59,7 +61,7 @@ func TestGetIncidentRejectsForeignScope(t *testing.T) {
 	require.True(t, ok, "expected *errorx.CodeError, got %T", err)
 	assert.Contains(t, codeErr.Message, "无权访问该事故")
 
-	// 同 scope 正常读
+	// Same-scope read works normally
 	got, err := s.GetIncident(scopeCtx("game-a", "prod"), dto.ID)
 	require.NoError(t, err)
 	assert.Equal(t, dto.ID, got.ID)
@@ -69,7 +71,7 @@ func TestUpdateIncidentRejectsForeignScopeAndCrossScopeMove(t *testing.T) {
 	s := setupService(t)
 	dto := seedScopedIncident(t, s, "game-a", "prod")
 
-	// 跨 scope 更新被拒
+	// Cross-scope update is rejected
 	_, err := s.UpdateIncident(scopeCtx("game-b", "prod"), dto.ID, &IncidentUpdateRequest{
 		Title: strPtr("hijacked"),
 	})
@@ -78,7 +80,8 @@ func TestUpdateIncidentRejectsForeignScopeAndCrossScopeMove(t *testing.T) {
 	require.True(t, ok)
 	assert.Contains(t, codeErr.Message, "无权访问该事故")
 
-	// 同 scope 内把归属迁出当前 scope 也被拒
+	// Moving attribution out of the current scope from within the same scope
+	// is rejected too
 	_, err = s.UpdateIncident(scopeCtx("game-a", "prod"), dto.ID, &IncidentUpdateRequest{
 		GameID: strPtr("game-b"),
 	})
@@ -87,7 +90,7 @@ func TestUpdateIncidentRejectsForeignScopeAndCrossScopeMove(t *testing.T) {
 	require.True(t, ok)
 	assert.Contains(t, codeErr.Message, "归属迁移只允许落在当前游戏/环境内")
 
-	// 行内归属未被改动
+	// The in-row attribution was not altered
 	row, err := model.NewIncidentModel(s.svcCtx.DB).Get(context.Background(), dto.ID)
 	require.NoError(t, err)
 	assert.Equal(t, "game-a", row.GameID)
@@ -105,7 +108,7 @@ func TestTransitionIncidentRejectsForeignScope(t *testing.T) {
 	require.True(t, ok)
 	assert.Contains(t, codeErr.Message, "无权访问该事故")
 
-	// 同 scope 流转正常
+	// Same-scope transition works normally
 	out, err := s.TransitionIncident(scopeCtx("game-a", "prod"), dto.ID, &IncidentStatusRequest{
 		Status: model.IncidentStatusResolved,
 	})

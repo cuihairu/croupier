@@ -36,7 +36,8 @@ func setupExternalWithLimit(t *testing.T, rpm int) (*ExternalService, *gorm.DB) 
 	if err != nil {
 		t.Fatalf("open sqlite: %v", err)
 	}
-	// :memory: 每个连接都是独立空库，必须钉住单连接（否则多连接查询撞 no such table）
+	// :memory: gives each connection its own empty database; pin a single
+	// connection (otherwise multi-connection queries hit "no such table")
 	if sqlDB, err := db.DB(); err != nil {
 		t.Fatalf("sql db: %v", err)
 	} else {
@@ -71,7 +72,8 @@ func createTokenRow(t *testing.T, db *gorm.DB, name, plain string, enabled bool,
 		t.Fatalf("create token: %v", err)
 	}
 	if !enabled {
-		// Enabled 列 default:true，零值 false 会被建库默认值覆盖，显式回写
+		// The Enabled column is default:true, so a zero-value false gets overridden
+		// by the schema default; write it back explicitly
 		if err := db.Model(&model.ExternalToken{}).Where("id = ?", row.ID).Update("enabled", false).Error; err != nil {
 			t.Fatalf("disable token: %v", err)
 		}
@@ -88,7 +90,7 @@ func codeOf(t *testing.T, err error) *errorx.CodeError {
 	return ce
 }
 
-// ---- 哈希 / scope 解析 ----
+// ---- Hashing / scope parsing ----
 
 func TestHashExternalToken(t *testing.T) {
 	h1 := model.HashExternalToken("secret-a")
@@ -103,7 +105,7 @@ func TestHashExternalToken(t *testing.T) {
 }
 
 func TestScopeCategories(t *testing.T) {
-	// null / 空 = 全量
+	// null / empty = full list
 	tok := &model.ExternalToken{}
 	if cats := tok.ScopeCategories(); cats != nil {
 		t.Fatalf("null scope should be nil, got %v", cats)
@@ -114,14 +116,14 @@ func TestScopeCategories(t *testing.T) {
 	if len(cats) != 2 || cats[0] != "ops" || cats[1] != "qa" {
 		t.Fatalf("cats = %v", cats)
 	}
-	// 坏 JSON = 全量兜底
+	// Bad JSON = full-list fallback
 	tok.Scope = model.JSON("{bad")
 	if cats := tok.ScopeCategories(); cats != nil {
 		t.Fatalf("broken scope should be nil, got %v", cats)
 	}
 }
 
-// ---- 鉴权 ----
+// ---- Authentication ----
 
 func TestResolveToken(t *testing.T) {
 	s, db := setupExternal(t)
@@ -147,7 +149,7 @@ func TestResolveToken(t *testing.T) {
 func TestCheckRateLimit(t *testing.T) {
 	s, _ := setupExternal(t)
 	ctx := context.Background()
-	// limiter 窗口上限 2：前两次放行，第三次 429
+	// limiter window ceiling 2: the first two pass, the third gets 429
 	if err := s.CheckRateLimit(ctx, "bucket"); err != nil {
 		t.Fatalf("first allow: %v", err)
 	}
@@ -157,13 +159,13 @@ func TestCheckRateLimit(t *testing.T) {
 	if err := s.CheckRateLimit(ctx, "bucket"); codeOf(t, err).Code != http.StatusTooManyRequests {
 		t.Fatalf("third should be limited: %v", err)
 	}
-	// 不同令牌名独立分桶
+	// Different token names get independent buckets
 	if err := s.CheckRateLimit(ctx, "other"); err != nil {
 		t.Fatalf("other bucket: %v", err)
 	}
 }
 
-// ---- 事故登记（幂等 + 来源标记）----
+// ---- Incident registration (idempotency + source marking) ----
 
 func TestRegisterIncident_IdempotentReplay(t *testing.T) {
 	s, _ := setupExternal(t)
@@ -196,7 +198,7 @@ func TestRegisterIncident_IdempotentReplay(t *testing.T) {
 	if first.IncidentKey != "evt-001" {
 		t.Fatalf("incidentKey = %q", first.IncidentKey)
 	}
-	// 省略 severity 默认 info
+	// Omitting severity defaults to info
 	req2 := &CreateIncidentFromExternalRequest{Title: "无严重度", CategoryID: cat.ID, Subcategory: "崩溃"}
 	dto, _, err := s.RegisterIncident(ctx, req2, tok, "evt-002")
 	if err != nil {
@@ -207,7 +209,7 @@ func TestRegisterIncident_IdempotentReplay(t *testing.T) {
 	}
 }
 
-// ---- 查询 scope 收窄 ----
+// ---- Query scope narrowing ----
 
 func TestListIncidents_ScopeFilter(t *testing.T) {
 	s, _ := setupExternal(t)
@@ -227,7 +229,7 @@ func TestListIncidents_ScopeFilter(t *testing.T) {
 		t.Fatalf("create qa: %v", err)
 	}
 
-	// 无 scope = 全量
+	// No scope = full list
 	resp, err := s.ListIncidents(ctx, model.IncidentQueryOptions{}, tok)
 	if err != nil {
 		t.Fatalf("list all: %v", err)
@@ -236,7 +238,7 @@ func TestListIncidents_ScopeFilter(t *testing.T) {
 		t.Fatalf("unscoped items = %d, want 2", len(resp.Items))
 	}
 
-	// scope 限定 ops → 只见部署事故
+	// Scope limited to ops -> only the ops incident is visible
 	scoped := &model.ExternalToken{
 		Name:  "ops-only",
 		Scope: model.JSON(`{"categories":["ops"]}`),
@@ -249,7 +251,7 @@ func TestListIncidents_ScopeFilter(t *testing.T) {
 		t.Fatalf("scoped items = %+v", resp.Items)
 	}
 
-	// 显式查 scope 外类别 → 空结果
+	// Explicit query for an out-of-scope category -> empty result
 	if _, err := s.ListIncidents(ctx, model.IncidentQueryOptions{CategoryID: qaCat.ID}, scoped); err != nil {
 		t.Fatalf("list foreign category: %v", err)
 	}
@@ -262,7 +264,7 @@ func TestListIncidents_ScopeFilter(t *testing.T) {
 	}
 }
 
-// ---- 外部 bug ----
+// ---- External bugs ----
 
 func TestCreateBug_ExternalActor(t *testing.T) {
 	s, db := setupExternal(t)
@@ -283,7 +285,7 @@ func TestCreateBug_ExternalActor(t *testing.T) {
 	}
 }
 
-// ---- 生命周期信封 ----
+// ---- Lifecycle envelope ----
 
 func TestLifecycleEventEnvelope(t *testing.T) {
 	row := &model.Incident{Title: "登录崩溃", Severity: model.IncidentSeverityCritical, Status: model.IncidentStatusOpen, CategoryID: 3}
@@ -295,7 +297,8 @@ func TestLifecycleEventEnvelope(t *testing.T) {
 	if ev.Kind != LifecycleIncidentCreated || ev.Title == "" || ev.Body == "" {
 		t.Fatalf("envelope = %+v", ev)
 	}
-	// 同行同事件 → 确定性 event_id（幂等去重锚点）
+	// Same row, same event -> deterministic event_id (the idempotency
+	// deduplication anchor)
 	if again := lifecycleEvent(row, LifecycleIncidentCreated); again.EventID != ev.EventID {
 		t.Fatalf("event id not deterministic")
 	}
@@ -313,9 +316,11 @@ func TestSeverityRank(t *testing.T) {
 }
 
 func TestSeverityEscalationDispatches(t *testing.T) {
-	// UpdateIncident severity 升级路径派发 escalated；降级不派发。
-	// OutletManager 为 nil 时 DispatchLifecycle 静默跳过——这里只验证
-	// 状态机不因 escalated 分支报错，且降级/同级不炸。
+	// The UpdateIncident severity escalation path dispatches escalated; a
+	// downgrade does not dispatch. When OutletManager is nil DispatchLifecycle
+	// silently skips - here we only verify that the state machine does not error
+	// on the escalated branch and that downgrades/same-level changes do not blow
+	// up.
 	s, db := setupExternal(t)
 	ctx := context.Background()
 	cat := mustCategory(t, s.incSvc, model.IncidentCatOps)
@@ -340,7 +345,7 @@ func TestSeverityEscalationDispatches(t *testing.T) {
 	}
 }
 
-// ---- HTTP 层冒烟（curl 等价，§10 批 5 验收）----
+// ---- HTTP-layer smoke (curl equivalent, section 10 batch 5 acceptance) ----
 
 func newExternalRouter(t *testing.T, rpm int) (*gin.Engine, *Service, string) {
 	t.Helper()
@@ -359,7 +364,7 @@ func TestExternalHTTPSmoke(t *testing.T) {
 	r, incSvc, tok := newExternalRouter(t, 1000)
 	opsCat := mustCategory(t, incSvc, model.IncidentCatOps)
 
-	// 无 token → 401
+	// No token -> 401
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/api/v1/ext/incidents", strings.NewReader("{}")))
 	if w.Code != http.StatusUnauthorized {
@@ -367,7 +372,7 @@ func TestExternalHTTPSmoke(t *testing.T) {
 	}
 
 	body := fmt.Sprintf(`{"title":"HTTP 冒烟","categoryId":%d,"subcategory":"部署","severity":"warning"}`, opsCat.ID)
-	// 首建 → 201
+	// First create -> 201
 	w = httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/ext/incidents", strings.NewReader(body))
 	req.Header.Set("Authorization", "Bearer "+tok)
@@ -377,7 +382,7 @@ func TestExternalHTTPSmoke(t *testing.T) {
 	if w.Code != http.StatusCreated {
 		t.Fatalf("first create status = %d body=%s", w.Code, w.Body.String())
 	}
-	// 幂等重放 → 200 同 ID
+	// Idempotent replay -> 200 with the same ID
 	w = httptest.NewRecorder()
 	req = httptest.NewRequest(http.MethodPost, "/api/v1/ext/incidents", strings.NewReader(body))
 	req.Header.Set("Authorization", "Bearer "+tok)
@@ -388,7 +393,7 @@ func TestExternalHTTPSmoke(t *testing.T) {
 		t.Fatalf("replay status = %d, want 200", w.Code)
 	}
 
-	// 外部查询 → 200 裸数组契约
+	// External query -> 200 bare-array contract
 	w = httptest.NewRecorder()
 	req = httptest.NewRequest(http.MethodGet, "/api/v1/ext/incidents?page=1&pageSize=10", nil)
 	req.Header.Set("Authorization", "Bearer "+tok)
@@ -401,7 +406,7 @@ func TestExternalHTTPSmoke(t *testing.T) {
 		t.Fatalf("list = %s err=%v", w.Body.String(), err)
 	}
 
-	// 外部 bug → 201
+	// External bug -> 201
 	w = httptest.NewRecorder()
 	req = httptest.NewRequest(http.MethodPost, "/api/v1/ext/bugs", strings.NewReader(`{"title":"HTTP 冒烟 bug"}`))
 	req.Header.Set("Authorization", "Bearer "+tok)
@@ -413,7 +418,8 @@ func TestExternalHTTPSmoke(t *testing.T) {
 }
 
 func TestExternalHTTPRateLimited(t *testing.T) {
-	// 桶容量 1：第二个请求 429（限流在鉴权之后、业务之前）
+	// Bucket capacity 1: the second request gets 429 (rate limiting sits after
+	// authentication and before business logic)
 	r, _, tok := newExternalRouter(t, 1)
 	post := func() int {
 		w := httptest.NewRecorder()
@@ -450,7 +456,7 @@ func TestRequireAdminRole(t *testing.T) {
 	if code := run([]string{}); code != http.StatusForbidden {
 		t.Fatalf("no roles allowed, status = %d", code)
 	}
-	// 大小写不敏感
+	// Case-insensitive
 	if code := run([]string{"Admin"}); code != http.StatusTeapot {
 		t.Fatalf("Admin case blocked, status = %d", code)
 	}

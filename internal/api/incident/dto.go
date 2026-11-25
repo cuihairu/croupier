@@ -2,15 +2,15 @@ package incident
 
 import "time"
 
-// ---- 类别（incident_categories）DTO ----
+// ---- Category (incident_categories) DTOs ----
 
-// CategoryAudience 类别可见范围（角色 + 显式账号）。
+// CategoryAudience is the visibility scope of a category (roles + explicit accounts).
 type CategoryAudience struct {
 	Roles []string `json:"roles"`
 	Users []string `json:"users"`
 }
 
-// CategoryDTO 是 incident_categories 的响应体。
+// CategoryDTO is the response body for incident_categories.
 type CategoryDTO struct {
 	ID            uint              `json:"id"`
 	Name          string            `json:"name"`
@@ -25,8 +25,9 @@ type CategoryDTO struct {
 	UpdatedAt     time.Time         `json:"updatedAt"`
 }
 
-// CategoryUpsertRequest 创建/更新类别的请求体（slug 仅创建可传，建后不可改；
-// 指针字段=部分更新语义，create 时 name 必填）。
+// CategoryUpsertRequest is the request body for creating/updating a category
+// (slug may only be passed on create and is immutable afterwards; pointer fields
+// mean partial-update semantics, and name is required on create).
 type CategoryUpsertRequest struct {
 	Name          *string           `json:"name,omitempty"`
 	Slug          string            `json:"slug,omitempty"`
@@ -37,21 +38,21 @@ type CategoryUpsertRequest struct {
 	Enabled       *bool             `json:"enabled,omitempty"`
 }
 
-// CategoryUsageResponse 删除类别前的级联提示计数。
+// CategoryUsageResponse is the cascade hint counters shown before deleting a category.
 type CategoryUsageResponse struct {
 	Incidents int64 `json:"incidents"`
 	Bugs      int64 `json:"bugs"`
 }
 
-// CategoryListResponse 类别列表。
+// CategoryListResponse is the category list.
 type CategoryListResponse struct {
 	Items []CategoryDTO `json:"items"`
 	Total int64         `json:"total"`
 }
 
-// ---- 对外 REST API（incident-reports §9）----
+// ---- External REST API (incident-reports section 9) ----
 
-// ExternalTokenDTO 外部令牌响应体。
+// ExternalTokenDTO is the response body for external tokens.
 type ExternalTokenDTO struct {
 	ID         uint                   `json:"id"`
 	Name       string                 `json:"name"`
@@ -64,27 +65,27 @@ type ExternalTokenDTO struct {
 	PlainText  string                 `json:"plainText,omitempty"`
 }
 
-// CreateExternalTokenRequest 新建外部令牌。
+// CreateExternalTokenRequest creates a new external token.
 type CreateExternalTokenRequest struct {
 	Name    string                 `json:"name"`
 	Scope   map[string]interface{} `json:"scope,omitempty"`
 	Enabled *bool                  `json:"enabled,omitempty"`
 }
 
-// UpdateExternalTokenRequest 更新外部令牌元数据。
+// UpdateExternalTokenRequest updates external token metadata.
 type UpdateExternalTokenRequest struct {
 	Name    *string                 `json:"name,omitempty"`
 	Scope   *map[string]interface{} `json:"scope,omitempty"`
 	Enabled *bool                   `json:"enabled,omitempty"`
 }
 
-// ListTokensResponse 分页列表。
+// ListTokensResponse is the paginated list.
 type ListTokensResponse struct {
 	Items []ExternalTokenDTO `json:"items"`
 	Total int64              `json:"total"`
 }
 
-// CreateIncidentFromExternalRequest 外部登记事故请求体。
+// CreateIncidentFromExternalRequest is the external incident registration request body.
 type CreateIncidentFromExternalRequest struct {
 	Title           string                 `json:"title"`
 	CategoryID      uint                   `json:"categoryId"`
@@ -102,7 +103,7 @@ type CreateIncidentFromExternalRequest struct {
 	Source          string                 `json:"source,omitempty"`
 }
 
-// QueryExternalIncidentsRequest 外部查询参数。
+// QueryExternalIncidentsRequest holds the external query parameters.
 type QueryExternalIncidentsRequest struct {
 	CategoryID  *uint      `json:"categoryId,omitempty"`
 	Subcategory *string    `json:"subcategory,omitempty"`
@@ -115,9 +116,9 @@ type QueryExternalIncidentsRequest struct {
 	PageSize    *int       `json:"pageSize,omitempty"`
 }
 
-// ---- 事故（incidents）DTO ----
+// ---- Incident (incidents) DTOs ----
 
-// IncidentDTO 是 incidents 的响应体。
+// IncidentDTO is the response body for incidents.
 type IncidentDTO struct {
 	ID              uint                   `json:"id"`
 	IncidentKey     string                 `json:"incidentKey,omitempty"`
@@ -144,7 +145,8 @@ type IncidentDTO struct {
 	UpdatedAt       time.Time              `json:"updatedAt"`
 }
 
-// IncidentCreateRequest 登记事故（面板/自动源转换共用；类别必选且须启用行）。
+// IncidentCreateRequest registers an incident (shared by the panel and the
+// automatic-source conversion path; the category is required and must be an enabled row).
 type IncidentCreateRequest struct {
 	Title           string                 `json:"title"`
 	CategoryID      uint                   `json:"categoryId"`
@@ -160,11 +162,13 @@ type IncidentCreateRequest struct {
 	RefID           string                 `json:"refId,omitempty"`
 	Details         map[string]interface{} `json:"details,omitempty"`
 	IncidentKey     string                 `json:"incidentKey,omitempty"`
-	// Source 显式来源（外部 API 批次覆写 external）；空时按 refType 推导。
+	// Source is the explicit source (the external API overrides it with "external");
+	// when empty it is derived from refType.
 	Source string `json:"source,omitempty"`
 }
 
-// IncidentUpdateRequest 更新事故（可改标题/类别/子类/严重度/归因/关联/明细）。
+// IncidentUpdateRequest updates an incident (title, category, subcategory, severity,
+// attribution, relations and details are all mutable).
 type IncidentUpdateRequest struct {
 	Title           *string                `json:"title,omitempty"`
 	CategoryID      *uint                  `json:"categoryId,omitempty"`
@@ -180,13 +184,14 @@ type IncidentUpdateRequest struct {
 	Details         map[string]interface{} `json:"details,omitempty"`
 }
 
-// IncidentStatusRequest 状态流转请求（open→acknowledged→resolved，resolved 可重开）。
+// IncidentStatusRequest is the status transition request
+// (open -> acknowledged -> resolved, resolved may be reopened).
 type IncidentStatusRequest struct {
 	Status     string     `json:"status"`
 	ResolvedAt *time.Time `json:"resolvedAt,omitempty"`
 }
 
-// IncidentListResponse 事故分页列表。
+// IncidentListResponse is the paginated incident list.
 type IncidentListResponse struct {
 	Items []IncidentDTO `json:"items"`
 	Total int64         `json:"total"`

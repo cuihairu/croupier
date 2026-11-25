@@ -18,18 +18,20 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// ExternalHandler 承载对外 REST API 的 HTTP 端点（incident-reports §9）。
+// ExternalHandler carries the HTTP endpoints of the external REST API
+// (incident-reports section 9).
 type ExternalHandler struct {
 	svc     *ExternalService
 	execLog *executionlog.Writer
 }
 
-// NewExternalHandler 创建外部 API handler。execLog 可为 nil（留痕未启用）。
+// NewExternalHandler creates the external API handler. execLog may be nil
+// (audit trail not enabled).
 func NewExternalHandler(svcSvc *ExternalService, execLog *executionlog.Writer) *ExternalHandler {
 	return &ExternalHandler{svc: svcSvc, execLog: execLog}
 }
 
-// bearerToken 从 Authorization header 提取 token（支持 "Bearer xxx"）。
+// bearerToken extracts the token from the Authorization header (supports "Bearer xxx").
 func bearerToken(header string) string {
 	if header == "" {
 		return ""
@@ -41,7 +43,8 @@ func bearerToken(header string) string {
 	return parts[0]
 }
 
-// Authenticate 校验 Bearer token + 限流 + 记录使用时间。鉴权失败直接 Abort。
+// Authenticate validates the Bearer token, applies rate limiting and records the
+// usage time. On authentication failure it aborts immediately.
 func (h *ExternalHandler) Authenticate(c *gin.Context) *model.ExternalToken {
 	tok, err := h.svc.ResolveToken(c.Request.Context(), bearerToken(c.GetHeader("Authorization")))
 	if err != nil {
@@ -58,7 +61,7 @@ func (h *ExternalHandler) Authenticate(c *gin.Context) *model.ExternalToken {
 	return tok
 }
 
-// RegisterIncident 外部登记事故。
+// RegisterIncident registers an incident externally.
 func (h *ExternalHandler) RegisterIncident(c *gin.Context) {
 	ctx := c.Request.Context()
 	start := time.Now()
@@ -87,7 +90,7 @@ func (h *ExternalHandler) RegisterIncident(c *gin.Context) {
 	}
 }
 
-// ListIncidents 外部查询事故。
+// ListIncidents queries incidents externally.
 func (h *ExternalHandler) ListIncidents(c *gin.Context) {
 	ctx := c.Request.Context()
 	start := time.Now()
@@ -129,7 +132,8 @@ func (h *ExternalHandler) ListIncidents(c *gin.Context) {
 	response.Success(c, resp)
 }
 
-// CreateBug 外部 bug 登记（字段白名单约束在 handler，透传至 bug.Service.Create）。
+// CreateBug registers a bug externally (field allowlist constraints live in the
+// handler; it passes through to bug.Service.Create).
 func (h *ExternalHandler) CreateBug(c *gin.Context) {
 	ctx := c.Request.Context()
 	start := time.Now()
@@ -154,7 +158,8 @@ func (h *ExternalHandler) CreateBug(c *gin.Context) {
 	response.Created(c, resp)
 }
 
-// CreateToken 管理员创建外部令牌（明文返回一次）。
+// CreateToken lets an administrator create an external token (the plaintext is
+// returned once).
 func (h *ExternalHandler) CreateToken(c *gin.Context) {
 	ctx := c.Request.Context()
 	var req CreateExternalTokenRequest
@@ -194,7 +199,7 @@ func (h *ExternalHandler) CreateToken(c *gin.Context) {
 	response.Created(c, dto)
 }
 
-// ListTokens 列出外部令牌。
+// ListTokens lists external tokens.
 func (h *ExternalHandler) ListTokens(c *gin.Context) {
 	rows, total, err := h.svc.tokenMod.List(c.Request.Context(), model.ListTokensOptions{})
 	if err != nil {
@@ -208,7 +213,7 @@ func (h *ExternalHandler) ListTokens(c *gin.Context) {
 	response.Success(c, &ListTokensResponse{Items: items, Total: total})
 }
 
-// UpdateToken 更新外部令牌元数据。
+// UpdateToken updates external token metadata.
 func (h *ExternalHandler) UpdateToken(c *gin.Context) {
 	ctx := c.Request.Context()
 	id, err := parseUintParam(c, "id")
@@ -233,9 +238,11 @@ func (h *ExternalHandler) UpdateToken(c *gin.Context) {
 		if merr == nil {
 			updates["scope"] = model.JSON(b)
 		}
-		// game/env 允许面随 scope 整体替换（与 scope 一致的整对象语义）：
-		// 新 scope 未带 gameIds/envs 则清空（不限）——nil 值必须是无类型 nil
-		// （GORM Updates map 会跳过 []byte 零值，只有 interface nil 才落 NULL）。
+		// The game/env allowlist is replaced wholesale together with scope (whole
+		// object semantics, consistent with scope): if the new scope carries no
+		// gameIds/envs it is cleared (unrestricted) - the nil value must be an
+		// untyped nil (GORM's Updates map skips zero-value []byte; only an
+		// interface nil lands as NULL).
 		updates["game_allowlist"] = allowlistColumnValue(scopeStrings(*req.Scope, "gameIds"))
 		updates["env_allowlist"] = allowlistColumnValue(scopeStrings(*req.Scope, "envs"))
 	}
@@ -250,7 +257,7 @@ func (h *ExternalHandler) UpdateToken(c *gin.Context) {
 	response.NoContent(c)
 }
 
-// DeleteToken 吊销外部令牌。
+// DeleteToken revokes an external token.
 func (h *ExternalHandler) DeleteToken(c *gin.Context) {
 	ctx := c.Request.Context()
 	id, err := parseUintParam(c, "id")
@@ -267,9 +274,11 @@ func (h *ExternalHandler) DeleteToken(c *gin.Context) {
 
 // ---- helpers ----
 
-// audit 写对外操作留痕（Source=external，Actor=ext:<tokenName>，§9.2）。
-// writer 未启用或鉴权未过时静默跳过；Request/Response 载荷由 writer 统一
-// 脱敏截断。
+// audit writes the audit trail for external operations (Source=external,
+// Actor=ext:<tokenName>, section 9.2).
+// It silently skips when the writer is not enabled or authentication did not
+// pass; the Request/Response payloads are masked and truncated uniformly by the
+// writer.
 func (h *ExternalHandler) audit(c *gin.Context, tok *model.ExternalToken, functionID, status string, start time.Time, req, resp interface{}) {
 	if h.execLog == nil || tok == nil {
 		return
@@ -286,8 +295,9 @@ func (h *ExternalHandler) audit(c *gin.Context, tok *model.ExternalToken, functi
 	})
 }
 
-// RequireAdminRole 外部令牌管理端点守卫：仅 admin 角色可访问
-// （roles 由 AuthMiddleware 注入 gin context）。
+// RequireAdminRole guards the external token management endpoints: only the
+// admin role may access them (roles are injected into the gin context by
+// AuthMiddleware).
 func RequireAdminRole() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		for _, r := range c.GetStringSlice("roles") {
@@ -333,7 +343,8 @@ func externalTokenDTO(row *model.ExternalToken) ExternalTokenDTO {
 			scope = sc
 		}
 	}
-	// AUD-036：允许面单独列，回读时并入 scope 响应便于客户端感知约束。
+	// AUD-036: the allowlist is listed separately and merged back into the scope
+	// response on read so clients can perceive the constraints.
 	if games := row.ScopeGameIDs(); len(games) > 0 {
 		scope["gameIds"] = games
 	}
@@ -346,8 +357,9 @@ func externalTokenDTO(row *model.ExternalToken) ExternalTokenDTO {
 	return dto
 }
 
-// scopeStrings 从 scope map 提取 string 数组键（AUD-036 gameIds/envs）。
-// 类型不符、空串跳过；缺失返回 nil。
+// scopeStrings extracts string-array keys from the scope map (AUD-036
+// gameIds/envs). Wrong-typed or empty-string entries are skipped; a missing key
+// returns nil.
 func scopeStrings(m map[string]interface{}, key string) []string {
 	raw, ok := m[key].([]interface{})
 	if !ok {
@@ -364,7 +376,7 @@ func scopeStrings(m map[string]interface{}, key string) []string {
 	return out
 }
 
-// stringSliceJSON 序列化 string 切片为 model.JSON；空返回 nil。
+// stringSliceJSON serializes a string slice into model.JSON; empty returns nil.
 func stringSliceJSON(in []string) model.JSON {
 	if len(in) == 0 {
 		return nil
@@ -376,8 +388,8 @@ func stringSliceJSON(in []string) model.JSON {
 	return model.JSON(b)
 }
 
-// allowlistColumnValue 生成允许面列更新值：空 → 无类型 nil（GORM 落 NULL），
-// 非空 → model.JSON 数组。
+// allowlistColumnValue builds the update value for an allowlist column:
+// empty -> untyped nil (GORM writes NULL), non-empty -> a model.JSON array.
 func allowlistColumnValue(in []string) interface{} {
 	if len(in) == 0 {
 		return nil

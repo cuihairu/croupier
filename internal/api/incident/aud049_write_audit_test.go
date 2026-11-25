@@ -15,7 +15,8 @@ import (
 	"gorm.io/gorm/logger"
 )
 
-// aud049IncidentEnv 组装带审计内存存储的事故服务（AUD-049）。
+// aud049IncidentEnv assembles the incident service wired with an in-memory
+// audit store (AUD-049).
 func aud049IncidentEnv(t *testing.T) (*Service, *audit.InMemoryAuditStore) {
 	t.Helper()
 	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
@@ -37,8 +38,8 @@ func aud049IncidentRecords(t *testing.T, store *audit.InMemoryAuditStore, event 
 	return records
 }
 
-// InMemoryAuditStore.List 底层是 map（遍历顺序随机），断言按 outcome 子集
-// 过滤，不依赖顺序。
+// InMemoryAuditStore.List is backed by a map (random iteration order), so
+// assertions filter by outcome subset and do not depend on order.
 func aud049ByOutcome(records []*audit.AuditRecord, outcome string) []*audit.AuditRecord {
 	var out []*audit.AuditRecord
 	for _, r := range records {
@@ -49,7 +50,8 @@ func aud049ByOutcome(records []*audit.AuditRecord, outcome string) []*audit.Audi
 	return out
 }
 
-// 类别增删改、事故登记、状态流转成功留痕；跨 scope 的更新/流转落 denied。
+// Category create/update/delete, incident registration, and status transitions
+// leave a success trail; cross-scope updates/transitions land as denied.
 func TestAud049_IncidentWriteAudit(t *testing.T) {
 	s, store := aud049IncidentEnv(t)
 	ctx := context.Background()
@@ -82,7 +84,8 @@ func TestAud049_IncidentWriteAudit(t *testing.T) {
 	assert.Equal(t, "denied", updates[0].Outcome)
 	assert.Equal(t, "update", updates[0].Details["action"])
 
-	// 跨 scope 流转 → denied 且带目标状态（便于回查操作意图）。
+	// Cross-scope transition -> denied, carrying the target status (to make
+	// the operator's intent traceable later).
 	_, err = s.TransitionIncident(foreign, created.ID, &IncidentStatusRequest{Status: "acknowledged"})
 	require.Error(t, err)
 	transitions := aud049IncidentRecords(t, store, audit.EventIncidentTransition)
@@ -90,8 +93,9 @@ func TestAud049_IncidentWriteAudit(t *testing.T) {
 	assert.Equal(t, "denied", transitions[0].Outcome)
 	assert.Equal(t, "acknowledged", transitions[0].Details["to"])
 
-	// 同 scope 流转 → success，"to" 记录目标状态（两侧均为请求态字符串，
-	// 按 outcome 子集断言，不依赖 List 的随机遍历顺序）。
+	// Same-scope transition -> success, with "to" recording the target status
+	// (both sides are requested-status strings; asserted by outcome subset,
+	// not by List's random iteration order).
 	matching := svc.WithGameScope(context.Background(), svc.GameScope{GameID: "game-a", Env: "prod"})
 	_, err = s.TransitionIncident(matching, created.ID, &IncidentStatusRequest{Status: "acknowledged"})
 	require.NoError(t, err)

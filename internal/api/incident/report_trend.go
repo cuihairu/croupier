@@ -10,7 +10,7 @@ import (
 	"github.com/cuihairu/croupier/internal/model"
 )
 
-// ReportTrend 时间序列（GET /incident-reports/trend）。
+// ReportTrend builds the time series (GET /incident-reports/trend).
 func (s *Service) ReportTrend(ctx context.Context, bucket string, from, to *time.Time) (*ReportTrendResponse, error) {
 	if bucket == "" {
 		bucket = BucketDay
@@ -44,8 +44,9 @@ func (s *Service) ReportTrend(ctx context.Context, bucket string, from, to *time
 	return resp, nil
 }
 
-// trendWindow 解析趋势时间窗：显式 from/to 优先；缺省按桶粒度给近 30 天/
-// 12 周/12 个月。
+// trendWindow resolves the trend window: explicit from/to take precedence;
+// the defaults per bucket granularity are the last 30 days / 12 weeks /
+// 12 months.
 func trendWindow(bucket string, from, to *time.Time, now time.Time) (time.Time, time.Time) {
 	end := now
 	if to != nil {
@@ -64,7 +65,8 @@ func trendWindow(bucket string, from, to *time.Time, now time.Time) (time.Time, 
 	}
 }
 
-// trendPoints 把窗口内 incidents + bugs 按桶聚合（Go 侧分桶，§7）。
+// trendPoints aggregates incidents + bugs inside the window into buckets
+// (bucketing happens on the Go side, §7).
 func (s *Service) trendPoints(ctx context.Context, bucket string, start, end time.Time) ([]TrendPoint, []TrendCategory, error) {
 	type row struct {
 		T          time.Time
@@ -122,7 +124,8 @@ func (s *Service) trendPoints(ctx context.Context, bucket string, start, end tim
 	return points, cats, nil
 }
 
-// bucketKey 桶键：day=日期；week=该 ISO 周周一日期；month=年月。
+// bucketKey builds the bucket key: day=date; week=the Monday date of the
+// ISO week; month=year-month.
 func bucketKey(bucket string, t time.Time) string {
 	switch bucket {
 	case BucketWeek:
@@ -138,4 +141,4 @@ func bucketKey(bucket string, t time.Time) string {
 	}
 }
 
-// ---- Service：排行榜 ----
+// ---- Service: leaderboard ----

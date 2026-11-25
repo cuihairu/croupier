@@ -10,7 +10,8 @@ import (
 	"github.com/cuihairu/croupier/internal/model"
 )
 
-// ReportResponsibility 责任人报告（GET /incident-reports/responsibility，仅周/月档）。
+// ReportResponsibility builds the responsibility report
+// (GET /incident-reports/responsibility; week/month tiers only).
 func (s *Service) ReportResponsibility(ctx context.Context, periodType, periodKey string) (*ResponsibilityReportResponse, error) {
 	if periodType != PeriodWeek && periodType != PeriodMonth {
 		return nil, errorx.NewBadRequest("责任人报告仅支持 week/month 档位")
@@ -42,7 +43,8 @@ func (s *Service) ReportResponsibility(ctx context.Context, periodType, periodKe
 		Recurrence: buildCompare(cur, prev, yoy, pickRecurrence, epochOK, epoch, p.PrevEnd, p.YoyEnd, p.YoyMissing),
 	}
 
-	// 类别矩阵：类别 → 计数/leader/按责任人分布（bugs 计入类别计数）
+	// Category matrix: category → count/leader/distribution by responsible
+	// (bugs count toward the category count)
 	names, err := s.categoryIndex(ctx)
 	if err != nil {
 		return nil, err
@@ -96,7 +98,8 @@ func (s *Service) ReportResponsibility(ctx context.Context, periodType, periodKe
 		return cats[i].CategoryID < cats[j].CategoryID
 	})
 
-	// 责任人明细：计数/类别分布/时长/MTTR/复发（复发链按链首归因）
+	// Responsible detail rows: count/category distribution/duration/MTTR/
+	// recurrence (recurrence chains are attributed at the chain head)
 	respGroups, err := s.groupStats(ctx, ViewResponsible, p.Start, p.End, now)
 	if err != nil {
 		return nil, err
@@ -159,7 +162,8 @@ func (s *Service) ReportResponsibility(ctx context.Context, periodType, periodKe
 	}, nil
 }
 
-// responsibleKeyOf 责任人分组键（空=未归因桶）。
+// responsibleKeyOf returns the responsible grouping key (empty means the
+// unattributed bucket).
 func responsibleKeyOf(id string) string {
 	if id == "" {
 		return "unknown"
@@ -167,7 +171,8 @@ func responsibleKeyOf(id string) string {
 	return id
 }
 
-// preWindowRows 取本期前复发窗口内的行（复发链需要期前 resolve 记录）。
+// preWindowRows fetches the rows inside the recurrence window preceding this
+// period (recurrence chains need pre-period resolve records).
 func (s *Service) preWindowRows(ctx context.Context, start time.Time) []incidentAggRow {
 	rows, err := s.scanIncidents(ctx, start.Add(-recurrenceWindow), start)
 	if err != nil {
@@ -176,7 +181,7 @@ func (s *Service) preWindowRows(ctx context.Context, start time.Time) []incident
 	return rows
 }
 
-// categoryLeaders 类别 → leader 映射（矩阵行展示）。
+// categoryLeaders maps category → leader (shown on the matrix rows).
 func (s *Service) categoryLeaders(ctx context.Context) (map[uint]string, error) {
 	rows, err := model.NewIncidentCategoryModel(s.svcCtx.DB).List(ctx, false)
 	if err != nil {
@@ -189,7 +194,8 @@ func (s *Service) categoryLeaders(ctx context.Context) (map[uint]string, error) 
 	return out, nil
 }
 
-// unattributedList 未归因清单（responsible_type=unknown 或 responsible_id 空）。
+// unattributedList lists unattributed incidents (responsible_type=unknown or
+// an empty responsible_id).
 func (s *Service) unattributedList(ctx context.Context, start, end time.Time) ([]UnattributedIncident, error) {
 	out := []UnattributedIncident{}
 	err := s.svcCtx.DB.WithContext(ctx).Model(&model.Incident{}).

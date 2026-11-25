@@ -1,15 +1,20 @@
 package incident
 
-// report.go / report_generator.go 补测（failpoint 注入口径）：聚合链上全部
-// 「模型层错误透传」臂。查询序确定（periodStats cur/prev/yoy → epoch →
-// categoryShare/categoryIndex → groupStats → preWindowRows →
-// unattributedList），按表内第 n 次查询注入可精确定位各臂；报表 upsert 的
-// 唯一冲突恢复臂用 Before create 回调先注入同键行真实撞唯一索引。
+// Extra coverage for report.go / report_generator.go (failpoint injection
+// scope): every "model-layer error passthrough" arm on the aggregation chains.
+// The query order is deterministic (periodStats cur/prev/yoy -> epoch ->
+// categoryShare/categoryIndex -> groupStats -> preWindowRows ->
+// unattributedList), so injecting on the n-th query for a table pins each arm
+// precisely; the report upsert's unique-conflict recovery arm uses a Before
+// create callback to pre-insert a same-key row that genuinely hits the unique
+// index.
 //
-// 诚实跳过（json.Marshal 不可失败的防御臂）：upsertReportRow 的 Marshal
-// 错误臂（report_generator.go 305-306）与 writePushStatus 的 Marshal 错误
-// 臂（343-344）——ReportPayload/PushStatusEntry 全字段为 string/bool/time/
-// 可序列化结构，Marshal 恒成功；filterAndSortLeaderboard 直测补零量过滤臂。
+// Honestly skipped (defensive arms where json.Marshal cannot fail): the
+// Marshal error arm of upsertReportRow (report_generator.go 305-306) and the
+// Marshal error arm of writePushStatus (343-344) -- all fields of
+// ReportPayload/PushStatusEntry are string/bool/time/serializable structs, so
+// Marshal always succeeds; filterAndSortLeaderboard covers the zero-count
+// filter arm via a direct test of the pure function.
 
 import (
 	"context"
@@ -22,12 +27,16 @@ import (
 	"gorm.io/gorm"
 )
 
-// insertConflictReportBeforeCreate 在 create 事务开启前先落一条同键行（自动
-// 提交），令随后的 Create 撞真实唯一索引（模拟并发双写竞窗）。必须挂
-// Before("gorm:begin_transaction")：挂 create 阶段时默认事务已开启且
-// Session(NewDB) 会继承事务连接，注入行会随 Create 失败一起回滚、恢复查询
-// 落空。此阶段 Schema 未解析，按 Dest 具体类型识别目标 Create；单连接池下
-// 此时无连接被占用，Exec 可安全自动提交。
+// insertConflictReportBeforeCreate lands a same-key row (autocommitted)
+// before the create transaction opens, so the subsequent Create genuinely hits
+// the unique index (simulating a concurrent double-write race window). It must
+// hook Before("gorm:begin_transaction"): if hooked at the create stage the
+// default transaction is already open and Session(NewDB) inherits the
+// transaction connection, so the injected row would roll back together with
+// the failed Create and the recovery query would come up empty. At this stage
+// the Schema is not resolved yet, so the target Create is identified by the
+// concrete type of Dest; with a single-connection pool no connection is held
+// at this point, so Exec can safely autocommit.
 func insertConflictReportBeforeCreate(t *testing.T, db *gorm.DB, periodType, periodKey string) {
 	t.Helper()
 	require.NoError(t, db.Callback().Create().Before("gorm:begin_transaction").
@@ -44,18 +53,18 @@ func insertConflictReportBeforeCreate(t *testing.T, db *gorm.DB, periodType, per
 		}))
 }
 
-// ---- report.go：summary 链 ----
+// ---- report.go: summary chain ----
 
 func TestReportSummary_ErrorArms(t *testing.T) {
 	cases := []struct {
 		name string
-		n    int // 第 n 次 incidents 查询注入
+		n    int // inject on the n-th incidents query
 	}{
-		{"cur-scan", 1},   // periodStats(cur) 扫描失败
-		{"prev-scan", 2},  // periodStats(prev) 扫描失败
-		{"yoy-scan", 3},   // periodStats(yoy) 扫描失败
-		{"epoch-scan", 4}, // oldestTime 失败被吞（按无基点处理）→ 报告整体成功
-		{"share-scan", 5}, // categoryShare 的 incidents 扫描失败
+		{"cur-scan", 1},   // periodStats(cur) scan fails
+		{"prev-scan", 2},  // periodStats(prev) scan fails
+		{"yoy-scan", 3},   // periodStats(yoy) scan fails
+		{"epoch-scan", 4}, // oldestTime failure is swallowed (treated as no base point) -> the report still succeeds
+		{"share-scan", 5}, // categoryShare's incidents scan fails
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -74,31 +83,31 @@ func TestReportSummary_ErrorArms(t *testing.T) {
 func TestReportSummary_BugsAndCategoryIndexErrors(t *testing.T) {
 	ctx := context.Background()
 
-	// periodStats 的 bugs 计数失败（incidents 扫描成功之后）
+	// periodStats's bug count fails (after the incidents scan succeeds)
 	s := setupService(t)
 	applyDBFailpoint(t, s.svcCtx.DB, dbFailpoint{table: "bugs", op: "query", n: 1, err: errFailpoint})
 	_, err := s.ReportSummary(ctx, PeriodWeek, "")
 	require.ErrorIs(t, err, errFailpoint)
 
-	// categoryShare 的 bugs 扫描失败（第 5 次 bugs 查询）
+	// categoryShare's bugs scan fails (the 5th bugs query)
 	s = setupService(t)
 	applyDBFailpoint(t, s.svcCtx.DB, dbFailpoint{table: "bugs", op: "query", n: 5, err: errFailpoint})
 	_, err = s.ReportSummary(ctx, PeriodWeek, "")
 	require.ErrorIs(t, err, errFailpoint)
 
-	// categoryIndex 的类别清单失败
+	// categoryIndex's category listing fails
 	s = setupService(t)
 	applyDBFailpoint(t, s.svcCtx.DB, dbFailpoint{table: "incident_categories", op: "query", n: 1, err: errFailpoint})
 	_, err = s.ReportSummary(ctx, PeriodWeek, "")
 	require.ErrorIs(t, err, errFailpoint)
 }
 
-// ---- report.go：trend 链 ----
+// ---- report.go: trend chain ----
 
 func TestReportTrend_ErrorArms(t *testing.T) {
 	ctx := context.Background()
 
-	// 当前窗 incidents / bugs / categoryIndex 失败
+	// Current-window incidents / bugs / categoryIndex failures
 	s := setupService(t)
 	applyDBFailpoint(t, s.svcCtx.DB, dbFailpoint{table: "incidents", op: "query", n: 1, err: errFailpoint})
 	_, err := s.ReportTrend(ctx, BucketDay, nil, nil)
@@ -115,8 +124,8 @@ func TestReportTrend_ErrorArms(t *testing.T) {
 	require.ErrorIs(t, err, errFailpoint)
 }
 
-// 同比窗：数据起点早于一年前（epoch 判定通过）后，同比 trendPoints 的
-// incidents 扫描（第 3 次）失败。
+// YoY window: after the data epoch predates one year (the epoch gate passes),
+// the YoY trendPoints incidents scan (the 3rd query) fails.
 func TestReportTrend_YoyScanError(t *testing.T) {
 	s := setupService(t)
 	old := time.Now().Add(-400 * 24 * time.Hour)
@@ -126,7 +135,7 @@ func TestReportTrend_YoyScanError(t *testing.T) {
 	require.ErrorIs(t, err, errFailpoint)
 }
 
-// ---- report.go：leaderboard 链 ----
+// ---- report.go: leaderboard chain ----
 
 func TestReportLeaderboard_BadPeriod(t *testing.T) {
 	s := setupService(t)
@@ -139,9 +148,9 @@ func TestReportLeaderboard_ErrorArms(t *testing.T) {
 		name string
 		n    int
 	}{
-		{"cur-scan", 1},  // groupStats(cur) 扫描失败
-		{"prev-scan", 2}, // groupStats(prev) 扫描失败
-		{"yoy-scan", 3},  // groupStats(yoy) 扫描失败
+		{"cur-scan", 1},  // groupStats(cur) scan fails
+		{"prev-scan", 2}, // groupStats(prev) scan fails
+		{"yoy-scan", 3},  // groupStats(yoy) scan fails
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -156,20 +165,21 @@ func TestReportLeaderboard_ErrorArms(t *testing.T) {
 func TestReportLeaderboard_BugsAndCategoryIndexErrors(t *testing.T) {
 	ctx := context.Background()
 
-	// groupStats 的 bugs 扫描失败（scanIncidents 成功之后）
+	// groupStats's bugs scan fails (after scanIncidents succeeds)
 	s := setupService(t)
 	applyDBFailpoint(t, s.svcCtx.DB, dbFailpoint{table: "bugs", op: "query", n: 1, err: errFailpoint})
 	_, err := s.ReportLeaderboard(ctx, PeriodWeek, "", ViewResponsible, BoardIncidents)
 	require.ErrorIs(t, err, errFailpoint)
 
-	// groupStats 的类别索引失败
+	// groupStats's category index fails
 	s = setupService(t)
 	applyDBFailpoint(t, s.svcCtx.DB, dbFailpoint{table: "incident_categories", op: "query", n: 1, err: errFailpoint})
 	_, err = s.ReportLeaderboard(ctx, PeriodWeek, "", ViewResponsible, BoardIncidents)
 	require.ErrorIs(t, err, errFailpoint)
 }
 
-// 零量行不进榜（incidents+bugs==0 的过滤臂，直测纯函数）。
+// Zero-count rows do not enter the leaderboard (the incidents+bugs==0 filter
+// arm, tested directly as a pure function).
 func TestFilterAndSortLeaderboard_DropsZeroRowsOnDefaultBoard(t *testing.T) {
 	out := filterAndSortLeaderboard([]LeaderboardRow{
 		{Key: "zero", Incidents: 0, Bugs: 0, DurationMS: 9},
@@ -179,7 +189,7 @@ func TestFilterAndSortLeaderboard_DropsZeroRowsOnDefaultBoard(t *testing.T) {
 	require.Equal(t, "hit", out[0].Key)
 }
 
-// ---- report.go：responsibility 链（12 次 incidents 查询逐一注入） ----
+// ---- report.go: responsibility chain (12 incidents queries injected one by one) ----
 
 func TestReportResponsibility_ErrorArms(t *testing.T) {
 	cases := []struct {
@@ -195,8 +205,8 @@ func TestReportResponsibility_ErrorArms(t *testing.T) {
 		{"vr-cur", 8},        // groupStats(responsible) cur
 		{"vr-prev", 9},       // groupStats(responsible) prev
 		{"vr-yoy", 10},       // groupStats(responsible) yoy
-		{"pre-window", 11},   // preWindowRows 失败被静默吞掉（报告整体成功）
-		{"unattributed", 12}, // unattributedList 失败透传
+		{"pre-window", 11},   // preWindowRows failure is silently swallowed (the report still succeeds)
+		{"unattributed", 12}, // unattributedList failure is passed through
 	}
 	for _, tc := range cases {
 		if tc.n == 0 {
@@ -215,7 +225,8 @@ func TestReportResponsibility_ErrorArms(t *testing.T) {
 		})
 	}
 
-	// categoryIndex（第 1 次 incident_categories 查询）与 categoryLeaders（第 2 次）
+	// categoryIndex (the 1st incident_categories query) and categoryLeaders
+	// (the 2nd)
 	s := setupService(t)
 	applyDBFailpoint(t, s.svcCtx.DB, dbFailpoint{table: "incident_categories", op: "query", n: 1, err: errFailpoint})
 	_, err := s.ReportResponsibility(context.Background(), PeriodWeek, "")
@@ -227,7 +238,7 @@ func TestReportResponsibility_ErrorArms(t *testing.T) {
 	require.ErrorIs(t, err, errFailpoint)
 }
 
-// ---- report_generator.go：生成链 ----
+// ---- report_generator.go: generation chain ----
 
 func TestGenerateReport_ErrorArms(t *testing.T) {
 	cases := []struct {
@@ -235,12 +246,12 @@ func TestGenerateReport_ErrorArms(t *testing.T) {
 		table string
 		n     int
 	}{
-		{"summary", "incidents", 1},               // ReportSummary 失败
-		{"slices-period", "incidents", 6},         // buildCategorySlices 的 periodStats
-		{"slices-prevshare", "incidents", 7},      // prevShare 的 incidents 扫描
-		{"slices-crit", "incidents", 9},           // critical 未解决扫描
-		{"slices-curshare", "incidents", 10},      // curShare 的 incidents 扫描
-		{"slices-cats", "incident_categories", 3}, // 类别清单（upsert 前）
+		{"summary", "incidents", 1},               // ReportSummary fails
+		{"slices-period", "incidents", 6},         // buildCategorySlices's periodStats
+		{"slices-prevshare", "incidents", 7},      // prevShare's incidents scan
+		{"slices-crit", "incidents", 9},           // unresolved critical scan
+		{"slices-curshare", "incidents", 10},      // curShare's incidents scan
+		{"slices-cats", "incident_categories", 3}, // category listing (before upsert)
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -259,7 +270,8 @@ func TestGenerateReport_CategoryIndexInsidePrevShare(t *testing.T) {
 	require.ErrorIs(t, err, errFailpoint)
 }
 
-// worsenedTwoPeriods 读历史失败：告警后不阻塞生成（生成本体成功）。
+// worsenedTwoPeriods history read failure: warns but does not block generation
+// (generation itself succeeds).
 func TestGenerateReport_WorsenedHistoryReadWarns(t *testing.T) {
 	h := setupGenerator(t)
 	qa := mustCategory(t, h.svc, model.IncidentCatQA)
@@ -270,8 +282,9 @@ func TestGenerateReport_WorsenedHistoryReadWarns(t *testing.T) {
 	require.NotNil(t, row)
 }
 
-// upsert 首查失败（非 NotFound）→ 整体失败（第 2 次 incident_reports 查询：
-// 第 1 次是分类分级的 worsened 历史读取）。
+// upsert's initial lookup fails (not NotFound) -> overall failure (the 2nd
+// incident_reports query: the 1st is the worsened history read during category
+// classification).
 func TestGenerateReport_UpsertLookupError(t *testing.T) {
 	h := setupGenerator(t)
 	qa := mustCategory(t, h.svc, model.IncidentCatQA)
@@ -281,7 +294,8 @@ func TestGenerateReport_UpsertLookupError(t *testing.T) {
 	require.ErrorIs(t, err, errFailpoint)
 }
 
-// 已有行 → upsert 走 Updates 路径；Updates 失败透传。
+// Existing row -> upsert takes the Updates path; an Updates failure is passed
+// through.
 func TestGenerateReport_UpsertUpdateError(t *testing.T) {
 	h := setupGenerator(t)
 	ctx := context.Background()
@@ -292,7 +306,7 @@ func TestGenerateReport_UpsertUpdateError(t *testing.T) {
 	require.ErrorIs(t, err, errFailpoint)
 }
 
-// Create 失败（非唯一冲突）→ 透传。
+// Create fails (not a unique conflict) -> passed through.
 func TestGenerateReport_UpsertCreateError(t *testing.T) {
 	h := setupGenerator(t)
 	applyDBFailpoint(t, h.db, dbFailpoint{table: "incident_reports", op: "create", n: 1, err: errFailpoint})
@@ -300,8 +314,9 @@ func TestGenerateReport_UpsertCreateError(t *testing.T) {
 	require.ErrorIs(t, err, errFailpoint)
 }
 
-// 并发双写竞窗：Create 前注入同键行 → 撞真实唯一索引 → 冲突恢复查询命中
-// → 返回已存在行（不报错）。
+// Concurrent double-write race window: inject a same-key row before Create ->
+// hit the real unique index -> the conflict-recovery query finds it -> return
+// the existing row (no error).
 func TestGenerateReport_UpsertConflictRecovers(t *testing.T) {
 	h := setupGenerator(t)
 	ctx := context.Background()
@@ -315,7 +330,7 @@ func TestGenerateReport_UpsertConflictRecovers(t *testing.T) {
 	require.Equal(t, p.Key, row.PeriodStart)
 }
 
-// writePushStatus 失败透传（upsert 成功之后）。
+// writePushStatus failure is passed through (after upsert succeeds).
 func TestGenerateReport_WritePushStatusError(t *testing.T) {
 	h := setupGenerator(t)
 	applyDBFailpoint(t, h.db, dbFailpoint{table: "incident_reports", op: "update", n: 1, err: errFailpoint})
@@ -323,8 +338,10 @@ func TestGenerateReport_WritePushStatusError(t *testing.T) {
 	require.ErrorIs(t, err, errFailpoint)
 }
 
-// 空名类别回退臂：piece.Name/Slug 空 → 回退类别表值；聚合信封与分片信封
-// 的空名回退臂同步覆盖；worsened 判定 slug 为空直接短路。
+// Empty-name category fallback arm: piece.Name/Slug empty -> fall back to the
+// category table values; the empty-name fallback arms of both the aggregate
+// envelope and the piece envelope are covered as well; the worsened check
+// short-circuits directly when slug is empty.
 func TestGenerateReport_EmptyNameCategoryFallbacks(t *testing.T) {
 	h := setupGenerator(t)
 	ctx := context.Background()
@@ -388,7 +405,7 @@ func TestWorsenedTwoPeriods_EmptySlugShortCircuit(t *testing.T) {
 	require.False(t, worsened)
 }
 
-// ---- report_generator.go：存量报表列表 ----
+// ---- report_generator.go: stored report list ----
 
 func TestListStoredReports_CountAndFindErrors(t *testing.T) {
 	h := setupGenerator(t)
@@ -409,7 +426,8 @@ func TestRepushReport_MissingRowError(t *testing.T) {
 	require.Error(t, err)
 }
 
-// Repush 路径的 writePushStatus 失败透传（report_generator 144-145）。
+// The writePushStatus failure on the Repush path is passed through
+// (report_generator 144-145).
 func TestRepushReport_WritePushStatusError(t *testing.T) {
 	h := setupGenerator(t)
 	ctx := context.Background()

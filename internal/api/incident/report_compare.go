@@ -4,7 +4,7 @@ import (
 	"time"
 )
 
-// buildCompare 组装指标三列（§5.4）。
+// buildCompare assembles the three columns of a metric (§5.4).
 func buildCompare(cur *periodStats, prev, yoy *periodStats, pick metricPick,
 	epochOK bool, epoch time.Time, prevEnd, yoyEnd time.Time, yoyForceMissing bool) CompareValue {
 	curVal, curHas := pick(cur)
@@ -22,8 +22,10 @@ func buildCompare(cur *periodStats, prev, yoy *periodStats, pick metricPick,
 	return cv
 }
 
-// buildDelta 计算单个对照期差值；对照期整体晚于数据起点（该期完全无数据）
-// 或基期无样本 → missing（不置 0、不算假数，§5.4）。
+// buildDelta computes the delta for a single comparison period; when the whole
+// comparison period lies after the start of the data (the period has no data at
+// all) or the base period has no samples -> missing (no zero, no fabricated
+// number, §5.4).
 func buildDelta(curVal float64, curHas bool, base *periodStats, pick metricPick,
 	baseEnd time.Time, epochOK bool, epoch time.Time) *CompareDelta {
 	if base == nil || !epochOK || !baseEnd.After(epoch) {
@@ -47,4 +49,4 @@ func buildDelta(curVal float64, curHas bool, base *periodStats, pick metricPick,
 	return d
 }
 
-// ---- Service：汇总 ----
+// ---- Service: aggregate ----

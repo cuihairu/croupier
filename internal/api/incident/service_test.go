@@ -19,7 +19,8 @@ func setupService(t *testing.T) *Service {
 	if err != nil {
 		t.Fatalf("open sqlite: %v", err)
 	}
-	// :memory: 每个连接都是独立空库，必须钉住单连接（否则多连接查询撞 no such table）
+	// :memory: gives every connection its own empty database; pin a single
+	// connection (otherwise multi-connection queries hit "no such table")
 	if sqlDB, err := db.DB(); err != nil {
 		t.Fatalf("sql db: %v", err)
 	} else {
@@ -51,7 +52,7 @@ func mustCategory(t *testing.T, s *Service, slug string) *CategoryDTO {
 	return nil
 }
 
-// ---- 类别管理 ----
+// ---- category management ----
 
 func TestCreateCategory_OK(t *testing.T) {
 	s := setupService(t)
@@ -108,7 +109,7 @@ func TestCategoryUsage_Delete_MergesToUncategorized(t *testing.T) {
 	s := setupService(t)
 	ctx := context.Background()
 	ops := mustCategory(t, s, model.IncidentCatOps)
-	// ops 类别下挂 1 事故 + 1 bug
+	// 1 incident + 1 bug under the ops category
 	if _, _, err := s.CreateIncident(ctx, &IncidentCreateRequest{
 		Title: "deploy fail", CategoryID: ops.ID, Subcategory: "部署",
 		RefType: model.IncidentRefCicdBuild, RefID: "b-1",
@@ -125,11 +126,12 @@ func TestCategoryUsage_Delete_MergesToUncategorized(t *testing.T) {
 	if usage.Incidents != 1 || usage.Bugs != 1 {
 		t.Fatalf("usage = %+v, want 1/1", usage)
 	}
-	// 内建行不可删
+	// Builtin rows cannot be deleted
 	if err := s.DeleteCategory(ctx, ops.ID); err == nil {
 		t.Fatal("builtin delete should fail")
 	}
-	// 自建类别删除 → 事故与 bug 归并未分类
+	// Deleting a custom category -> incidents and bugs merge into
+	// uncategorized
 	if _, err := s.CreateCategory(ctx, &CategoryUpsertRequest{Name: strPtr("临时"), Slug: "tmp"}); err != nil {
 		t.Fatalf("create tmp: %v", err)
 	}
@@ -148,14 +150,15 @@ func TestCategoryUsage_Delete_MergesToUncategorized(t *testing.T) {
 	if err := s.svcCtx.DB.Model(&model.Incident{}).Where("category_id = ?", uncatID).Count(&merged).Error; err != nil || merged != 0 {
 		t.Fatalf("uncategorized incidents = %d err=%v (tmp had none)", merged, err)
 	}
-	// ops 下的行还在（builtin 未删），证明删除只影响目标类别
+	// The rows under ops are still there (builtin was not deleted), proving
+	// the delete only affected the target category
 	incidents, err := s.ListIncidents(ctx, model.IncidentQueryOptions{})
 	if err != nil || incidents.Total != 1 {
 		t.Fatalf("incidents total = %d err=%v", incidents.Total, err)
 	}
 }
 
-// ---- 事故登记 ----
+// ---- incident registration ----
 
 func TestCreateIncident_ManualDefaults(t *testing.T) {
 	s := setupService(t)
@@ -173,7 +176,7 @@ func TestCreateIncident_ManualDefaults(t *testing.T) {
 	if dto.ResponsibleType != model.IncidentRespOperator || dto.CategoryName != "测试" {
 		t.Fatalf("dto = %+v", dto)
 	}
-	// 未指定 severity/responsibleType 的默认值
+	// Defaults when severity/responsibleType are not specified
 	dto2, _, err := s.CreateIncident(context.Background(), &IncidentCreateRequest{
 		Title: "裸登记", CategoryID: qa.ID,
 	}, "bob")
@@ -199,19 +202,19 @@ func TestCreateIncident_SubcategoryWhitelist(t *testing.T) {
 	s := setupService(t)
 	ctx := context.Background()
 	client := mustCategory(t, s, model.IncidentCatClient)
-	// 白名单内
+	// Inside the whitelist
 	if _, _, err := s.CreateIncident(ctx, &IncidentCreateRequest{
 		Title: "crash", CategoryID: client.ID, Subcategory: "崩溃",
 	}, "a"); err != nil {
 		t.Fatalf("whitelisted sub should pass: %v", err)
 	}
-	// 白名单外
+	// Outside the whitelist
 	if _, _, err := s.CreateIncident(ctx, &IncidentCreateRequest{
 		Title: "x", CategoryID: client.ID, Subcategory: "不存在的子类",
 	}, "a"); err == nil {
 		t.Fatal("off-whitelist sub should fail")
 	}
-	// 无白名单类别不限子类
+	// A category without a whitelist allows any subcategory
 	art := mustCategory(t, s, model.IncidentCatArt)
 	if _, _, err := s.CreateIncident(ctx, &IncidentCreateRequest{
 		Title: "y", CategoryID: art.ID, Subcategory: "任意",
@@ -231,7 +234,7 @@ func TestCreateIncident_DisabledCategoryRejected(t *testing.T) {
 	if _, _, err := s.CreateIncident(ctx, &IncidentCreateRequest{Title: "x", CategoryID: art.ID}, "a"); err == nil {
 		t.Fatal("disabled category should be rejected")
 	}
-	// enabledOnly 列表里不再出现
+	// No longer appears in the enabledOnly list
 	cats, err := s.ListCategories(ctx, true)
 	if err != nil {
 		t.Fatalf("list: %v", err)
@@ -288,7 +291,7 @@ func TestCreateIncident_RefValidation(t *testing.T) {
 	}
 }
 
-// ---- 状态流转 ----
+// ---- status transitions ----
 
 func TestTransitionIncident_Lifecycle(t *testing.T) {
 	s := setupService(t)
@@ -309,7 +312,7 @@ func TestTransitionIncident_Lifecycle(t *testing.T) {
 	if err != nil || resolved.ResolvedAt == nil {
 		t.Fatalf("resolve: %+v err=%v", resolved, err)
 	}
-	// 重开清 resolvedAt
+	// Reopening clears resolvedAt
 	reopened, err := s.TransitionIncident(ctx, dto.ID, &IncidentStatusRequest{Status: model.IncidentStatusOpen})
 	if err != nil || reopened.ResolvedAt != nil {
 		t.Fatalf("reopen: %+v err=%v", reopened, err)
@@ -319,7 +322,7 @@ func TestTransitionIncident_Lifecycle(t *testing.T) {
 	}
 }
 
-// ---- 更新与列表 ----
+// ---- update and list ----
 
 func TestUpdateIncident_PartialFields(t *testing.T) {
 	s := setupService(t)
@@ -339,7 +342,7 @@ func TestUpdateIncident_PartialFields(t *testing.T) {
 	if updated.Title != "新标题" || updated.Severity != model.IncidentSeverityCritical {
 		t.Fatalf("updated = %+v", updated)
 	}
-	// 类别变更重校验子类白名单
+	// A category change re-validates the subcategory whitelist
 	client := mustCategory(t, s, model.IncidentCatClient)
 	if _, err := s.UpdateIncident(ctx, dto.ID, &IncidentUpdateRequest{
 		CategoryID: &client.ID, Subcategory: strPtr("不在白名单"),
@@ -380,7 +383,7 @@ func TestListIncidents_Filters(t *testing.T) {
 	if err != nil || all.Total != 2 {
 		t.Fatalf("all = %+v err=%v", all, err)
 	}
-	// 分页
+	// Pagination
 	page1, err := s.ListIncidents(ctx, model.IncidentQueryOptions{PaginationOptions: model.PaginationOptions{Page: 1, PageSize: 1}})
 	if err != nil || len(page1.Items) != 1 || page1.Total != 2 {
 		t.Fatalf("page1 = %+v err=%v", page1, err)

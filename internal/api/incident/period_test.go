@@ -1,7 +1,9 @@
 package incident
 
-// resolvePeriod 四档位解析：当前周期（空 key）、显式 key、坏 key、以及
-// W53 同比缺失分支。此前月/季显式键与年/周空键、YoyMissing 均无用例。
+// resolvePeriod parsing across the four tiers: the current period (empty key),
+// explicit keys, bad keys, and the W53 YoY-missing branch. Previously there were
+// no cases for the explicit month/quarter keys, the empty year/week keys, or
+// YoyMissing.
 
 import (
 	"testing"
@@ -27,14 +29,15 @@ func TestResolveWeekPeriod_ExplicitKeyAndBounds(t *testing.T) {
 	require.False(t, p.YoyMissing)
 	require.False(t, p.YoyStart.IsZero())
 
-	// 2026 是 53 周年；2025 只有 52 周 → 去年同周号缺失 → YoyMissing。
+	// 2026 is a 53-week year; 2025 has only 52 weeks -> last year lacks the same
+	// week number -> YoyMissing.
 	p, err = resolvePeriod(PeriodWeek, "2026-W53", now)
 	require.NoError(t, err)
 	require.Equal(t, "2026-W53", p.Key)
 	require.True(t, p.YoyMissing)
 	require.True(t, p.YoyStart.IsZero())
 
-	// 坏形态与越界周号。
+	// Malformed shapes and out-of-range week numbers.
 	for _, key := range []string{"2026/13", "W41", "2026-W0", "2026-W54"} {
 		_, err = resolvePeriod(PeriodWeek, key, now)
 		require.Error(t, err, "key %q must be rejected", key)

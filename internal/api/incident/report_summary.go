@@ -8,7 +8,7 @@ import (
 	"github.com/cuihairu/croupier/internal/model"
 )
 
-// ReportSummary 统计卡聚合（GET /incident-reports/summary）。
+// ReportSummary aggregates the stat-card metrics (GET /incident-reports/summary).
 func (s *Service) ReportSummary(ctx context.Context, periodType, periodKey string) (*ReportSummaryResponse, error) {
 	now := time.Now()
 	p, err := resolvePeriod(periodType, periodKey, now)
@@ -49,7 +49,7 @@ func (s *Service) ReportSummary(ctx context.Context, periodType, periodKey strin
 	}, nil
 }
 
-// categoryShare 分类占比（incidents + bugs，§5.2）。
+// categoryShare computes the per-category share (incidents + bugs, §5.2).
 func (s *Service) categoryShare(ctx context.Context, start, end time.Time, total int64) ([]CategoryShare, error) {
 	counts := map[uint]int64{}
 	var incRows []struct {
@@ -111,4 +111,4 @@ func (s *Service) categoryIndex(ctx context.Context) (map[uint]categoryName, err
 	return out, nil
 }
 
-// ---- Service：趋势 ----
+// ---- Service: trend ----

@@ -8,7 +8,7 @@ import (
 	"github.com/cuihairu/croupier/internal/model"
 )
 
-// groupAgg 是一个分组（责任人/类别）在单周期的聚合。
+// groupAgg is the per-period aggregate for one group (owner/category).
 type groupAgg struct {
 	Key            string
 	Label          string
@@ -22,7 +22,8 @@ type groupAgg struct {
 	MTTRMS         float64
 }
 
-// groupStats 按视图分组聚合一个周期（incidents 影响时长/MTTR + bugs 计数）。
+// groupStats aggregates one period grouped by view (incident impact
+// duration/MTTR plus bug counts).
 func (s *Service) groupStats(ctx context.Context, view string, start, end, now time.Time) (map[string]*groupAgg, error) {
 	rows, err := s.scanIncidents(ctx, start, end)
 	if err != nil {
@@ -61,7 +62,7 @@ func (s *Service) groupStats(ctx context.Context, view string, start, end, now t
 			g.MTTRMS /= float64(g.ResolvedSample)
 		}
 	}
-	// bugs：责任人视图按 assignee，类别视图按 category_id
+	// bugs: by assignee in the owner view, by category_id in the category view
 	type bugRow struct {
 		CategoryID uint
 		Assignee   string
@@ -99,8 +100,9 @@ func (s *Service) groupStats(ctx context.Context, view string, start, end, now t
 	return groups, nil
 }
 
-// groupKeyOf 视图分组键：责任人视图按 responsibleID（空=未归因桶），
-// 类别视图按 category_id。
+// groupKeyOf is the grouping key per view: the owner view keys on
+// responsibleID (empty = unattributed bucket), the category view on
+// category_id.
 func groupKeyOf(view, responsibleID string, categoryID uint) (string, string) {
 	if view == ViewCategory {
 		return "c" + strconv.FormatUint(uint64(categoryID), 10), ""

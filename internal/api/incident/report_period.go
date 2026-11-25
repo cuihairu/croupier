@@ -10,8 +10,9 @@ import (
 	"gorm.io/gorm"
 )
 
-// periodStats 汇总 [start,end) 的指标。now 用于未解决事故的拖尾截断
-// （§5.2：期末仍 open 的计到 min(now, 期末)）。
+// periodStats aggregates the metrics over [start,end). now is used to clip the
+// tail of unresolved incidents (§5.2: those still open at the period end are
+// counted up to min(now, period end)).
 func (s *Service) periodStats(ctx context.Context, start, end, now time.Time) (*periodStats, error) {
 	rows, err := s.scanIncidents(ctx, start.Add(-recurrenceWindow), end)
 	if err != nil {
@@ -20,7 +21,7 @@ func (s *Service) periodStats(ctx context.Context, start, end, now time.Time) (*
 	st := &periodStats{}
 	for _, r := range rows {
 		if r.DetectedAt.Before(start) || !r.DetectedAt.Before(end) {
-			continue // 仅复发窗口需要的期前行，不计入本期指标
+			continue // pre-period rows needed only for the recurrence window, not this period's metrics
 		}
 		st.rows = append(st.rows, r)
 		st.Incidents++
@@ -52,7 +53,8 @@ func (s *Service) periodStats(ctx context.Context, start, end, now time.Time) (*
 	return st, nil
 }
 
-// scanIncidents 扫时间窗内 incidents 的聚合所需列。
+// scanIncidents scans the columns needed for aggregation for incidents inside
+// the time window.
 func (s *Service) scanIncidents(ctx context.Context, start, end time.Time) ([]incidentAggRow, error) {
 	rows := []incidentAggRow{}
 	err := s.svcCtx.DB.WithContext(ctx).Model(&model.Incident{}).
@@ -64,8 +66,9 @@ func (s *Service) scanIncidents(ctx context.Context, start, end time.Time) ([]in
 	return rows, err
 }
 
-// signatureOf 复发签名（§5.3）：自动源 = source + RefID 派生；人工登记 =
-// category + subcategory（无子类用 category）。
+// signatureOf builds the recurrence signature (§5.3): automated sources derive
+// it from source + RefID; manual registration uses category + subcategory
+// (category alone when there is no subcategory).
 func signatureOf(r incidentAggRow) string {
 	if r.RefType != "" && r.RefID != "" {
 		return r.Source + "|" + r.RefID
@@ -77,8 +80,11 @@ func signatureOf(r incidentAggRow) string {
 	return sig
 }
 
-// recurrenceHeads 返回本期内的复发链链首事故（§5.3：同签名 resolve 后 7
-// 天内再发 = 复发；连续多次按链首记 1 次）。rows 须含本期前 7 天窗口的行。
+// recurrenceHeads returns the head incidents of the recurrence chains that fall
+// inside this period (§5.3: a same-signature incident re-firing within 7 days
+// after a resolve counts as a recurrence; a run of several consecutive
+// occurrences is counted once at the chain head). rows must also include the
+// 7-day window preceding this period.
 func recurrenceHeads(rows []incidentAggRow, start, end time.Time) []incidentAggRow {
 	bySig := map[string][]incidentAggRow{}
 	for _, r := range rows {
@@ -116,8 +122,10 @@ func countRecurrenceChains(rows []incidentAggRow, start, end time.Time) int64 {
 	return int64(len(recurrenceHeads(rows, start, end)))
 }
 
-// dataEpoch 数据起点（incidents.detected_at 与 bugs.created_at 的较早者）。
-// 对照期整体晚于数据起点（该期完全无数据）→ missing（§5.4，不置 0 不算假数）。
+// dataEpoch returns the data epoch (the earlier of incidents.detected_at and
+// bugs.created_at). A comparison period that lies entirely after the epoch
+// (no data at all for that period) yields missing (§5.4) — it is not coerced
+// to 0, which would fabricate numbers.
 func (s *Service) dataEpoch(ctx context.Context) (time.Time, bool) {
 	incMin := oldestTime(ctx, s.svcCtx.DB, &model.Incident{}, "detected_at")
 	bugMin := oldestTime(ctx, s.svcCtx.DB, &model.Bug{}, "created_at")
@@ -136,13 +144,15 @@ func (s *Service) dataEpoch(ctx context.Context) (time.Time, bool) {
 	}
 }
 
-// oldestTime 取表内最早时间戳。走 Order+Limit 模型化扫描而非 MIN() 聚合：
-// sqlite 驱动对聚合列返回 string，NullTime 扫描不支持（同 ops/logs.go 先例）。
+// oldestTime returns the earliest timestamp in a table. It uses a model-based
+// Order+Limit scan instead of a MIN() aggregate: the sqlite driver returns
+// aggregate columns as strings, which a NullTime scan does not support
+// (same precedent as ops/logs.go).
 func oldestTime(ctx context.Context, db *gorm.DB, m interface{}, column string) *time.Time {
 	var row struct {
 		T time.Time
 	}
-	// 列名经 AS 别名映射到匿名 struct 的 T 字段
+	// column name mapped via an AS alias to the T field of the anonymous struct
 	if err := db.WithContext(ctx).Model(m).Select(column + " AS t").
 		Order(column + " ASC").Limit(1).Scan(&row).Error; err != nil {
 		return nil

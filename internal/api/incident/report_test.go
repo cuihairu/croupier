@@ -12,7 +12,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// seedIncident 直接落库一条事故（绕过登记校验，时间戳精确可控）。
+// seedIncident lands an incident row directly in the database (bypassing
+// registration validation, so timestamps are precisely controllable).
 func seedIncident(t *testing.T, s *Service, catID uint, detected, resolved time.Time,
 	refType, refID, respType, respID string) {
 	t.Helper()
@@ -42,7 +43,7 @@ func seedBug(t *testing.T, s *Service, catID uint, created time.Time) {
 	}
 }
 
-// ---- 周期解析 ----
+// ---- Period parsing ----
 
 func TestResolvePeriod_WeekTriplet(t *testing.T) {
 	now := time.Now()
@@ -62,14 +63,14 @@ func TestResolvePeriod_WeekTriplet(t *testing.T) {
 	if !p.PrevStart.Equal(p.Start.AddDate(0, 0, -7)) || !p.PrevEnd.Equal(p.Start) {
 		t.Fatalf("prev = [%v,%v)", p.PrevStart, p.PrevEnd)
 	}
-	// 同比 = 去年同 ISO 周号
+	// YoY = the same ISO week number last year
 	if p.YoyStart.Weekday() != time.Monday {
 		t.Fatalf("yoy start weekday = %v, want Monday", p.YoyStart.Weekday())
 	}
 	if p.YoyStart.Year() != p.Start.Year()-1 {
 		t.Fatalf("yoy year = %d, want %d", p.YoyStart.Year(), p.Start.Year()-1)
 	}
-	// 键格式 YYYY-Www
+	// Key format YYYY-Www
 	if len(p.Key) != 8 || p.Key[4] != '-' || p.Key[5] != 'W' {
 		t.Fatalf("key = %q, want YYYY-Www", p.Key)
 	}
@@ -105,7 +106,7 @@ func TestResolvePeriod_BadInputs(t *testing.T) {
 	}
 }
 
-// ---- 汇总（统计卡） ----
+// ---- Summary (stat cards) ----
 
 func TestReportSummary_ThreePeriodComparison(t *testing.T) {
 	s := setupService(t)
@@ -118,15 +119,16 @@ func TestReportSummary_ThreePeriodComparison(t *testing.T) {
 	qa := mustCategory(t, s, model.IncidentCatQA)
 	ops := mustCategory(t, s, model.IncidentCatOps)
 
-	// 本期：2 incidents（2h/90min 已解决）+ 1 bug；各给独立 ref 避免跨期
-	// 命中人工签名（category 相同 7 天内再发会误成复发链）
+	// Current period: 2 incidents (2h/90min resolved) + 1 bug; each gets its
+	// own ref so they do not hit a manual signature across periods (same
+	// category re-firing within 7 days would wrongly form a recurrence chain)
 	seedIncident(t, s, qa.ID, p.Start.Add(2*time.Hour), p.Start.Add(4*time.Hour), model.IncidentRefBug, "s-1", model.IncidentRespOperator, "alice")
 	seedIncident(t, s, ops.ID, p.Start.Add(24*time.Hour), p.Start.Add(25*time.Hour+30*time.Minute), model.IncidentRefBug, "s-2", model.IncidentRespOperator, "bob")
 	seedBug(t, s, qa.ID, p.Start.Add(3*time.Hour))
-	// 上期：1 incident（4h）+ 1 bug
+	// Previous period: 1 incident (4h) + 1 bug
 	seedIncident(t, s, qa.ID, p.PrevStart.Add(1*time.Hour), p.PrevStart.Add(5*time.Hour), model.IncidentRefBug, "s-3", model.IncidentRespOperator, "alice")
 	seedBug(t, s, ops.ID, p.PrevStart.Add(2*time.Hour))
-	// 去年同期：1 incident（1h）
+	// Same week last year: 1 incident (1h)
 	seedIncident(t, s, qa.ID, p.YoyStart.Add(1*time.Hour), p.YoyStart.Add(2*time.Hour), model.IncidentRefBug, "s-4", model.IncidentRespOperator, "carol")
 
 	resp, err := s.ReportSummary(ctx, PeriodWeek, "")
@@ -140,7 +142,7 @@ func TestReportSummary_ThreePeriodComparison(t *testing.T) {
 		t.Fatalf("incidents/bugs = %d/%d, want 2/1", resp.Incidents, resp.Bugs)
 	}
 	m := resp.Metrics
-	// 总量：cur=3 prev=2 yoy=1
+	// Total: cur=3 prev=2 yoy=1
 	if m.Total.Value == nil || *m.Total.Value != 3 {
 		t.Fatalf("total cur = %v", m.Total.Value)
 	}
@@ -162,7 +164,7 @@ func TestReportSummary_ThreePeriodComparison(t *testing.T) {
 	if m.Total.Yoy.Pct == nil || *m.Total.Yoy.Pct != 200 {
 		t.Fatalf("total yoy pct = %+v", m.Total.Yoy.Pct)
 	}
-	// MTTR：cur=(2h+90min)/2=105min，prev=4h，yoy=1h
+	// MTTR: cur=(2h+90min)/2=105min, prev=4h, yoy=1h
 	wantMTTR := float64((2*time.Hour + 90*time.Minute).Milliseconds() / 2)
 	if m.MTTR.Value == nil || *m.MTTR.Value != wantMTTR {
 		t.Fatalf("mttr cur = %v want %v", m.MTTR.Value, wantMTTR)
@@ -173,14 +175,14 @@ func TestReportSummary_ThreePeriodComparison(t *testing.T) {
 	if m.MTTR.Yoy == nil || m.MTTR.Yoy.Value == nil || *m.MTTR.Yoy.Value != float64(time.Hour.Milliseconds()) {
 		t.Fatalf("mttr yoy = %+v", m.MTTR.Yoy)
 	}
-	// 复发率：0 链 / 2 已解决 = 0
+	// Recurrence rate: 0 chains / 2 resolved = 0
 	if m.Recurrence.Value == nil || *m.Recurrence.Value != 0 {
 		t.Fatalf("recurrence cur = %v", m.Recurrence.Value)
 	}
 	if resp.ResolvedSample != 2 || resp.RecurrenceChains != 0 {
 		t.Fatalf("samples = %d/%d, want 2/0", resp.ResolvedSample, resp.RecurrenceChains)
 	}
-	// 分类占比：qa=2（1 事故+1 bug），ops=1
+	// Category share: qa=2 (1 incident + 1 bug), ops=1
 	if len(resp.Breakdown) != 2 {
 		t.Fatalf("breakdown = %+v", resp.Breakdown)
 	}
@@ -201,7 +203,9 @@ func TestReportSummary_MissingWhenPeriodUncovered(t *testing.T) {
 		t.Fatalf("resolve: %v", err)
 	}
 	qa := mustCategory(t, s, model.IncidentCatQA)
-	// 只种本期：上期/去年同期完全无数据 → missing（不置 0 不算假数）
+	// Seed only the current period: the previous period and the same week last
+	// year have no data at all → missing (not coerced to 0, which would be a
+	// fabricated number)
 	seedIncident(t, s, qa.ID, p.Start.Add(1*time.Hour), p.Start.Add(2*time.Hour), "", "", model.IncidentRespOperator, "alice")
 
 	resp, err := s.ReportSummary(ctx, PeriodWeek, "")
@@ -218,7 +222,7 @@ func TestReportSummary_MissingWhenPeriodUncovered(t *testing.T) {
 	if m.MTTR.Prev == nil || !m.MTTR.Prev.Missing {
 		t.Fatalf("mttr prev should be missing (no samples): %+v", m.MTTR.Prev)
 	}
-	// 本期值照常
+	// Current period value behaves as usual
 	if m.Total.Value == nil || *m.Total.Value != 1 {
 		t.Fatalf("total cur = %v", m.Total.Value)
 	}
@@ -240,7 +244,7 @@ func TestReportSummary_YoyMissingYearPeriod(t *testing.T) {
 	if resp.Metrics.Total.Yoy == nil || !resp.Metrics.Total.Yoy.Missing {
 		t.Fatal("year period yoy should be missing")
 	}
-	// 环比正常（去年无数据 → 也 missing）
+	// Period-over-period is fine (no data last year → also missing)
 	if resp.Metrics.Total.Prev == nil || !resp.Metrics.Total.Prev.Missing {
 		t.Fatalf("prev should be missing: %+v", resp.Metrics.Total.Prev)
 	}
@@ -273,13 +277,13 @@ func TestReportSummary_OpenIncidentTail(t *testing.T) {
 	if resp.Metrics.Duration.Value == nil || *resp.Metrics.Duration.Value <= 0 {
 		t.Fatalf("open incident should contribute duration: %+v", resp.Metrics.Duration.Value)
 	}
-	// 空样本不进 MTTR（resolved=0 → missing）
+	// Empty samples stay out of MTTR (resolved=0 → missing)
 	if resp.Metrics.MTTR.Value != nil {
 		t.Fatal("mttr should be null with zero resolved samples")
 	}
 }
 
-// ---- 复发链（§5.3） ----
+// ---- Recurrence chains (§5.3) ----
 
 func TestRecurrenceChains_RefSignature(t *testing.T) {
 	base := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
@@ -288,11 +292,11 @@ func TestRecurrenceChains_RefSignature(t *testing.T) {
 	resolved := base.Add(2 * time.Hour)
 	rows := []incidentAggRow{
 		{DetectedAt: base, ResolvedAt: &resolved, Source: "alert", RefType: model.IncidentRefAlert, RefID: "a-1"},
-		// resolve 后 1 天再发 → 复发链首（本期内）
+		// re-fires 1 day after resolve → recurrence chain head (inside this period)
 		{DetectedAt: base.AddDate(0, 0, 2), Source: "alert", RefType: model.IncidentRefAlert, RefID: "a-1"},
-		// 再 3 天 → 同一链，不另计
+		// 3 days later again → same chain, not counted separately
 		{DetectedAt: base.AddDate(0, 0, 5), Source: "alert", RefType: model.IncidentRefAlert, RefID: "a-1"},
-		// 不同 refID → 不同签名，不算
+		// different refID → different signature, not counted
 		{DetectedAt: base.AddDate(0, 0, 2), Source: "alert", RefType: model.IncidentRefAlert, RefID: "a-2"},
 	}
 	if got := countRecurrenceChains(rows, periodStart, periodEnd); got != 1 {
@@ -304,12 +308,13 @@ func TestRecurrenceChains_WindowBoundary(t *testing.T) {
 	base := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
 	rt := base.Add(2 * time.Hour)
 	first := incidentAggRow{DetectedAt: base, ResolvedAt: &rt, Source: "manual"}
-	// 窗口从 resolve 起算：再发恰在 resolve+7天 → 不在窗口（严格小于）
+	// The window is measured from resolve: re-firing exactly at resolve+7d is
+	// outside the window (strictly less than)
 	exact7 := []incidentAggRow{first, {DetectedAt: rt.Add(7 * 24 * time.Hour), Source: "manual"}}
 	if got := countRecurrenceChains(exact7, base, base.AddDate(0, 0, 14)); got != 0 {
 		t.Fatalf("chains at exactly resolve+7d = %d, want 0", got)
 	}
-	// resolve+7天−1min → 窗口内
+	// resolve+7d−1min → inside the window
 	within := []incidentAggRow{first, {DetectedAt: rt.Add(7*24*time.Hour - time.Minute), Source: "manual"}}
 	if got := countRecurrenceChains(within, base, base.AddDate(0, 0, 14)); got != 1 {
 		t.Fatalf("chains within window = %d, want 1", got)
@@ -322,7 +327,7 @@ func TestRecurrenceChains_ManualSignatureByCategory(t *testing.T) {
 	rows := []incidentAggRow{
 		{DetectedAt: base, ResolvedAt: &rt, CategoryID: 6, Subcategory: "漏测"},
 		{DetectedAt: base.AddDate(0, 0, 1), CategoryID: 6, Subcategory: "漏测"},
-		// 同类别不同子类 → 不同签名
+		// same category, different subcategory → different signature
 		{DetectedAt: base.AddDate(0, 0, 1), CategoryID: 6, Subcategory: "用例"},
 	}
 	if got := countRecurrenceChains(rows, base, base.AddDate(0, 0, 14)); got != 1 {
@@ -339,13 +344,14 @@ func TestReportSummary_RecurrenceRate(t *testing.T) {
 		t.Fatalf("resolve: %v", err)
 	}
 	qa := mustCategory(t, s, model.IncidentCatQA)
-	// 自动源签名：alert|a-1 resolve 后 1 天再发 → 1 链 / 2 已解决
+	// Automated-source signature: alert|a-1 re-fires 1 day after resolve →
+	// 1 chain / 2 resolved
 	base := p.Start.Add(2 * time.Hour)
 	seedIncident(t, s, qa.ID, base, base.Add(time.Hour),
 		model.IncidentRefAlert, "a-1", model.IncidentRespOperator, "alice")
 	seedIncident(t, s, qa.ID, base.AddDate(0, 0, 1), base.AddDate(0, 0, 1).Add(time.Hour),
 		model.IncidentRefAlert, "a-1", model.IncidentRespOperator, "alice")
-	// 已 resolve 才有分母：再加一条未解决
+	// The denominator requires resolved: adding one unresolved incident
 	seedIncident(t, s, qa.ID, p.Start.Add(5*time.Hour), time.Time{},
 		"", "", model.IncidentRespOperator, "bob")
 
@@ -356,13 +362,13 @@ func TestReportSummary_RecurrenceRate(t *testing.T) {
 	if resp.RecurrenceChains != 1 {
 		t.Fatalf("chains = %d, want 1", resp.RecurrenceChains)
 	}
-	// 2 已解决样本，1 链 → 0.5
+	// 2 resolved samples, 1 chain → 0.5
 	if resp.Metrics.Recurrence.Value == nil || *resp.Metrics.Recurrence.Value != 0.5 {
 		t.Fatalf("recurrence rate = %v, want 0.5", resp.Metrics.Recurrence.Value)
 	}
 }
 
-// ---- 趋势 ----
+// ---- Trend ----
 
 func TestReportTrend_DayBucketsAndYoyMissing(t *testing.T) {
 	s := setupService(t)
@@ -387,10 +393,11 @@ func TestReportTrend_DayBucketsAndYoyMissing(t *testing.T) {
 			t.Fatalf("bucket key = %q", pt.Bucket)
 		}
 	}
-	if resp.Points[1].Total != 2 { // bug + incident 同日
+	if resp.Points[1].Total != 2 { // bug + incident on the same day
 		t.Fatalf("points[1].total = %d, want 2", resp.Points[1].Total)
 	}
-	// 数据起点在近 10 天 → 去年同期无数据
+	// The data epoch falls within the last 10 days → no data for the same
+	// window last year
 	if !resp.YoyMissing || len(resp.YoyPoints) != 0 {
 		t.Fatalf("yoyMissing = %v, yoyPoints = %+v", resp.YoyMissing, resp.YoyPoints)
 	}
@@ -420,7 +427,7 @@ func TestReportTrend_YoyCoveredWithOlderData(t *testing.T) {
 	}
 }
 
-// ---- 排行榜 ----
+// ---- Leaderboard ----
 
 func TestReportLeaderboard_BoardsAndSort(t *testing.T) {
 	s := setupService(t)
@@ -432,15 +439,17 @@ func TestReportLeaderboard_BoardsAndSort(t *testing.T) {
 	}
 	qa := mustCategory(t, s, model.IncidentCatQA)
 	ops := mustCategory(t, s, model.IncidentCatOps)
-	// 本期：alice 2 incidents（1 已解决 2h），bob 1 incident（4h），carol 仅 1 bug
+	// Current period: alice has 2 incidents (1 resolved in 2h), bob has 1
+	// incident (4h), carol only 1 bug
 	seedIncident(t, s, qa.ID, p.Start.Add(1*time.Hour), p.Start.Add(3*time.Hour), "", "", model.IncidentRespOperator, "alice")
 	seedIncident(t, s, ops.ID, p.Start.Add(4*time.Hour), time.Time{}, "", "", model.IncidentRespOperator, "alice")
 	seedIncident(t, s, qa.ID, p.Start.Add(5*time.Hour), p.Start.Add(9*time.Hour), "", "", model.IncidentRespOperator, "bob")
-	seedBug(t, s, qa.ID, p.Start.Add(6*time.Hour)) // 未归因 bug（assignee 空）
-	// 上期：alice 1 incident
+	seedBug(t, s, qa.ID, p.Start.Add(6*time.Hour)) // unattributed bug (empty assignee)
+	// Previous period: alice has 1 incident
 	seedIncident(t, s, qa.ID, p.PrevStart.Add(1*time.Hour), p.PrevStart.Add(2*time.Hour), "", "", model.IncidentRespOperator, "alice")
 
-	// incidents 榜：alice=2, bob=1, unknown=1（无 assignee 的 bug 落 unknown 桶）
+	// incidents board: alice=2, bob=1, unknown=1 (a bug with no assignee falls
+	// into the unknown bucket)
 	resp, err := s.ReportLeaderboard(ctx, PeriodWeek, "", ViewResponsible, BoardIncidents)
 	if err != nil {
 		t.Fatalf("leaderboard: %v", err)
@@ -458,7 +467,8 @@ func TestReportLeaderboard_BoardsAndSort(t *testing.T) {
 		t.Fatalf("alice prev delta = %+v", resp.Rows[0].Prev.Delta)
 	}
 
-	// mttr 榜：carol/unknown 无已解决样本不进榜；alice(2h) 在 bob(4h) 前
+	// mttr board: carol/unknown have no resolved samples and stay off the
+	// board; alice (2h) ranks before bob (4h)
 	mttr, err := s.ReportLeaderboard(ctx, PeriodWeek, "", ViewResponsible, BoardMTTR)
 	if err != nil {
 		t.Fatalf("mttr board: %v", err)
@@ -470,7 +480,7 @@ func TestReportLeaderboard_BoardsAndSort(t *testing.T) {
 		t.Fatalf("mttr row0 = %+v", mttr.Rows[0])
 	}
 
-	// duration 榜：unknown 桶时长 0 被过滤
+	// duration board: the unknown bucket with 0 duration is filtered out
 	dur, err := s.ReportLeaderboard(ctx, PeriodWeek, "", ViewResponsible, BoardDuration)
 	if err != nil {
 		t.Fatalf("duration board: %v", err)

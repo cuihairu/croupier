@@ -1,8 +1,10 @@
 package incident
 
-// external_handler.go HTTP 端点补测：Bearer 鉴权中止（缺失/未知/禁用）、
-// 限流 429、事故登记 created/幂等重放/坏请求体、查询参数解析、bug 登记、
-// 令牌管理 CRUD（明文仅创建时返回一次、空更新 400）与 RequireAdminRole 守卫。
+// Additional HTTP endpoint tests for external_handler.go: Bearer auth abort
+// (missing/unknown/disabled), rate-limit 429, incident registration
+// created/idempotent-replay/bad request body, query parameter parsing, bug
+// registration, token management CRUD (plaintext returned only once at creation,
+// empty update 400) and the RequireAdminRole guard.
 
 import (
 	"context"
@@ -47,7 +49,8 @@ func setupExternalRouter(t *testing.T, tokenRoles []string) (*gin.Engine, *Exter
 func setupExternalRouterWithLimit(t *testing.T, rpm int, tokenRoles []string) (*gin.Engine, *ExternalService, *gorm.DB, string) {
 	t.Helper()
 	svc, db := setupExternalWithLimit(t, rpm)
-	// 接真实留痕 writer 覆盖 audit 分支；未启动 Run，队列满静默丢弃，Stop 安全
+	// Wire up the real audit-trail writer to cover the audit branch; Run is not
+	// started, a full queue silently drops entries, and Stop is safe
 	w := executionlog.NewWriter(db, executionlog.Config{})
 	t.Cleanup(w.Stop)
 	plain := "ext-plain-token-1"
@@ -80,7 +83,7 @@ func TestBearerToken_Parse(t *testing.T) {
 	require.Empty(t, bearerToken(""))
 	require.Equal(t, "raw-key", bearerToken("raw-key"))
 	require.Equal(t, "abc", bearerToken("Bearer abc"))
-	// 非 Bearer scheme 只取首段
+	// Non-Bearer scheme: take only the first segment
 	require.Equal(t, "basic", bearerToken("basic xyz"))
 }
 
@@ -88,13 +91,13 @@ func TestExternalRoutes_AuthFailures(t *testing.T) {
 	router, _, db, _ := setupExternalRouter(t, []string{"admin"})
 	createTokenRow(t, db, "off", "ext-plain-token-2", false, model.JSON("null"))
 
-	// 缺失 Authorization
+	// Missing Authorization
 	w := extReq(t, router, http.MethodPost, "/ext/incidents", `{"title":"x"}`, "", "")
 	require.Equal(t, http.StatusUnauthorized, w.Code, w.Body.String())
-	// 未知 token
+	// Unknown token
 	w = extReq(t, router, http.MethodGet, "/ext/incidents", "", "no-such-token", "")
 	require.Equal(t, http.StatusUnauthorized, w.Code, w.Body.String())
-	// 已禁用 token
+	// Disabled token
 	w = extReq(t, router, http.MethodGet, "/ext/incidents", "", "ext-plain-token-2", "")
 	require.Equal(t, http.StatusForbidden, w.Code, w.Body.String())
 }
@@ -113,29 +116,30 @@ func TestExternalRoutes_RateLimited(t *testing.T) {
 }
 
 func TestExternalRoutes_RegisterIncident_Flow(t *testing.T) {
-	// rpm=10：本用例连发 4 个请求，默认桶容量 2 会被限流
+	// rpm=10: this test fires 4 requests back-to-back; with the default bucket
+	// capacity 2 they would be rate limited
 	router, svc, _, plain := setupExternalRouterWithLimit(t, 10, []string{"admin"})
 	qa := mustCategory(t, svc.incSvc, model.IncidentCatQA)
 	catID := strconv.FormatUint(uint64(qa.ID), 10)
 
-	// 坏请求体
+	// Bad request body
 	w := extReq(t, router, http.MethodPost, "/ext/incidents", "not-json", plain, "")
 	require.Equal(t, http.StatusBadRequest, w.Code, w.Body.String())
 	require.Contains(t, w.Body.String(), "请求体格式错误")
 
-	// 正常创建（带幂等键）→ 201
+	// Normal creation (with idempotency key) -> 201
 	body := `{"title":"登录崩溃","categoryId":` + catID + `,"severity":"critical"}`
 	w = extReq(t, router, http.MethodPost, "/ext/incidents", body, plain, "evt-9001")
 	require.Equal(t, http.StatusCreated, w.Code, w.Body.String())
 	require.Contains(t, w.Body.String(), "登录崩溃")
 	id := createdIncidentID(t, w.Body.String())
 
-	// 同幂等键重放 → 200 且同一事故
+	// Replay with the same idempotency key -> 200 and the same incident
 	w = extReq(t, router, http.MethodPost, "/ext/incidents", body, plain, "evt-9001")
 	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
 	require.Equal(t, id, createdIncidentID(t, w.Body.String()))
 
-	// 不存在的分类 → 业务错误
+	// Non-existent category -> business error
 	w = extReq(t, router, http.MethodPost, "/ext/incidents", `{"title":"x","categoryId":999999}`, plain, "")
 	require.GreaterOrEqual(t, w.Code, 400)
 }
@@ -155,7 +159,7 @@ func TestExternalRoutes_ListIncidents_QueryParams(t *testing.T) {
 	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
 	require.Contains(t, w.Body.String(), `"total":0`)
 
-	// 非法 from/to 与非正分页被忽略，不报错
+	// Invalid from/to and non-positive pagination are ignored, without error
 	w = extReq(t, router, http.MethodGet, "/ext/incidents?from=bad&to=bad&page=0&pageSize=-3", "", plain, "")
 	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
 	require.Contains(t, w.Body.String(), `"total":1`)
@@ -176,14 +180,14 @@ func TestExternalRoutes_CreateBug(t *testing.T) {
 func TestExternalTokenAdmin_Lifecycle(t *testing.T) {
 	router, svc, _, _ := setupExternalRouter(t, []string{"admin"})
 
-	// 空名 / 坏请求体
+	// Empty name / bad request body
 	w := extReq(t, router, http.MethodPost, "/ext/tokens", `{}`, "", "")
 	require.Equal(t, http.StatusBadRequest, w.Code, w.Body.String())
 	require.Contains(t, w.Body.String(), "name 不能为空")
 	w = extReq(t, router, http.MethodPost, "/ext/tokens", "not-json", "", "")
 	require.GreaterOrEqual(t, w.Code, 400)
 
-	// 创建成功：明文仅此一次返回
+	// Created successfully: the plaintext is returned only this once
 	w = extReq(t, router, http.MethodPost, "/ext/tokens", `{"name":"ci-bot","scope":{"categories":["qa"]}}`, "", "")
 	require.Equal(t, http.StatusCreated, w.Code, w.Body.String())
 	var created struct {
@@ -199,19 +203,19 @@ func TestExternalTokenAdmin_Lifecycle(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "ci-bot", tok.Name)
 
-	// 显式 enabled:true 分支
+	// Explicit enabled:true branch
 	w = extReq(t, router, http.MethodPost, "/ext/tokens", `{"name":"on-bot","enabled":true}`, "", "")
 	require.Equal(t, http.StatusCreated, w.Code, w.Body.String())
 	require.Contains(t, w.Body.String(), `"enabled":true`)
 
-	// 列表不泄露明文
+	// The list does not leak the plaintext
 	w = extReq(t, router, http.MethodGet, "/ext/tokens", "", "", "")
 	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
 	require.NotContains(t, w.Body.String(), `"plainText"`)
 
 	id := strconv.FormatUint(uint64(created.ID), 10)
 
-	// 坏 id / 坏请求体 / 空更新
+	// Bad id / bad request body / empty update
 	w = extReq(t, router, http.MethodPut, "/ext/tokens/abc", `{"name":"x"}`, "", "")
 	require.GreaterOrEqual(t, w.Code, 400)
 	w = extReq(t, router, http.MethodPut, "/ext/tokens/"+id, "not-json", "", "")
@@ -220,13 +224,13 @@ func TestExternalTokenAdmin_Lifecycle(t *testing.T) {
 	require.Equal(t, http.StatusBadRequest, w.Code, w.Body.String())
 	require.Contains(t, w.Body.String(), "无可更新字段")
 
-	// 停用 → 204 → 明文失效
+	// Disable -> 204 -> plaintext no longer resolves
 	w = extReq(t, router, http.MethodPut, "/ext/tokens/"+id, `{"enabled":false}`, "", "")
 	require.Equal(t, http.StatusNoContent, w.Code, w.Body.String())
 	_, err = svc.ResolveToken(context.Background(), created.PlainText)
 	require.Error(t, err, "disabled token must stop resolving")
 
-	// 吊销 → 204 → 明文无效
+	// Revoke -> 204 -> plaintext invalid
 	w = extReq(t, router, http.MethodDelete, "/ext/tokens/"+id, "", "", "")
 	require.Equal(t, http.StatusNoContent, w.Code, w.Body.String())
 	_, err = svc.ResolveToken(context.Background(), created.PlainText)
@@ -239,7 +243,7 @@ func TestExternalTokenAdmin_RequiresAdminRole(t *testing.T) {
 	require.Equal(t, http.StatusForbidden, w.Code, w.Body.String())
 	require.Contains(t, w.Body.String(), "需要 admin 角色")
 
-	// 角色匹配忽略大小写与空白
+	// Role matching ignores case and whitespace
 	router, _, _, _ = setupExternalRouter(t, []string{"ops", " ADMIN "})
 	w = extReq(t, router, http.MethodGet, "/ext/tokens", "", "", "")
 	require.Equal(t, http.StatusOK, w.Code, w.Body.String())

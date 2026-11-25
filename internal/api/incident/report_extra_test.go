@@ -1,8 +1,10 @@
 package incident
 
-// report.go 补测：bucketKey 全桶形态、趋势缺省窗口（week/month）、
-// dataEpoch 变体（仅 bug / bug 早于事故）、占比与榜单同值并列的次序兜底、
-// 开放事故拖尾时长、MTTR 基期空样本 missing、W53 同比缺失三档贯通。
+// Extra coverage for report.go: all bucketKey bucket shapes, trend default
+// windows (week/month), dataEpoch variants (bug only / bug predating
+// incidents), tie-break ordering for category share and leaderboards, open
+// incident tail duration, MTTR missing with an empty base sample, and W53 YoY
+// missing across all three report shapes.
 
 import (
 	"context"
@@ -15,10 +17,11 @@ import (
 )
 
 func TestBucketKey_WeekMonthDay(t *testing.T) {
-	wed := time.Date(2026, 11, 4, 15, 0, 0, 0, time.Local) // 周三
-	sun := time.Date(2026, 11, 8, 15, 0, 0, 0, time.Local) // 周日
+	wed := time.Date(2026, 11, 4, 15, 0, 0, 0, time.Local) // Wednesday
+	sun := time.Date(2026, 11, 8, 15, 0, 0, 0, time.Local) // Sunday
 
-	// week 桶键 = 该 ISO 周周一；周日归前一个周一
+	// week bucket key = the Monday of that ISO week; a Sunday maps to the
+	// preceding Monday
 	require.Equal(t, "2026-11-02", bucketKey(BucketWeek, wed))
 	require.Equal(t, "2026-11-02", bucketKey(BucketWeek, sun))
 	require.Equal(t, "2026-11", bucketKey(BucketMonth, wed))
@@ -32,14 +35,15 @@ func TestReportTrend_DefaultWindowsAndBuckets(t *testing.T) {
 	wed := time.Date(2026, 11, 4, 10, 0, 0, 0, time.Local)
 	seedIncident(t, s, qa.ID, wed, wed.Add(2*time.Hour), "", "", model.IncidentRespOperator, "op-1")
 
-	// 空 bucket 默认 day；今年数据对去年窗口 → 同比缺失
+	// Empty bucket defaults to day; this-year data against the last-year
+	// window -> YoY missing
 	resp, err := s.ReportTrend(ctx, "", nil, nil)
 	require.NoError(t, err)
 	require.Equal(t, BucketDay, resp.Bucket)
 	require.True(t, resp.YoyMissing, "this-year seed leaves last-year window empty")
 	require.Len(t, resp.Points, 1)
 
-	// week 缺省窗口 = 近 12 周；month = 近 12 个月
+	// week default window = the last 12 weeks; month = the last 12 months
 	resp, err = s.ReportTrend(ctx, BucketWeek, nil, nil)
 	require.NoError(t, err)
 	require.Equal(t, BucketWeek, resp.Bucket)
@@ -69,7 +73,7 @@ func TestReportTrend_TwoCategoriesSortedByID(t *testing.T) {
 }
 
 func TestReportSummary_DataEpochVariants(t *testing.T) {
-	// 仅 bug：epoch 取 bug created_at（无事故分支）
+	// Bug only: epoch takes the bug created_at (no-incident branch)
 	s := setupService(t)
 	ctx := context.Background()
 	qa := mustCategory(t, s, model.IncidentCatQA)
@@ -80,7 +84,8 @@ func TestReportSummary_DataEpochVariants(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, int64(1), resp.Bugs)
 
-	// bug 早于最早事故：epoch 取更早的 bug（bugMin 分支）
+	// Bug earlier than the earliest incident: epoch takes the earlier bug
+	// (bugMin branch)
 	s2 := setupService(t)
 	seedBug(t, s2, qa.ID, time.Date(2026, 1, 5, 0, 0, 0, 0, time.Local))
 	seedIncident(t, s2, qa.ID, time.Date(2026, 2, 5, 0, 0, 0, 0, time.Local),
@@ -103,7 +108,7 @@ func TestReportSummary_CategoryShareTieBreaksByID(t *testing.T) {
 	resp, err := s.ReportSummary(ctx, PeriodWeek, "")
 	require.NoError(t, err)
 	require.Len(t, resp.Breakdown, 2)
-	// 计数并列（各 1）→ 按 categoryID 升序兜底
+	// Counts tied (1 each) -> tie-breaks by categoryID ascending
 	require.Less(t, resp.Breakdown[0].CategoryID, resp.Breakdown[1].CategoryID)
 }
 
@@ -111,20 +116,23 @@ func TestReportLeaderboard_OpenTailAndMTTRMissingBase(t *testing.T) {
 	s := setupService(t)
 	ctx := context.Background()
 	qa := mustCategory(t, s, model.IncidentCatQA)
-	// 查询封闭的上一周（对 now 稳定）：开放事故的拖尾按整期计，无挂钟边缘
+	// Query a closed previous week (stable relative to now): an open incident's
+	// tail counts for the whole period, no wall-clock edge
 	p, err := resolvePeriod(PeriodWeek, "", time.Now())
 	require.NoError(t, err)
 	curStart := p.PrevStart
 	iy, iw := curStart.ISOWeek()
 	curKey := fmt.Sprintf("%d-W%02d", iy, iw)
-	baseStart := curStart.AddDate(0, 0, -7) // 基期 = 上上周
+	baseStart := curStart.AddDate(0, 0, -7) // base period = the week before last
 
-	// 查询周：op-1 已解决；op-2 未解决（封闭期拖尾 = 期末-发生）
+	// Queried week: op-1 resolved; op-2 unresolved (closed-period tail = end
+	// minus detection)
 	seedIncident(t, s, qa.ID, curStart.Add(time.Hour), curStart.Add(3*time.Hour),
 		"", "", model.IncidentRespOperator, "op-1")
 	seedIncident(t, s, qa.ID, curStart.Add(2*time.Hour), time.Time{},
 		"", "", model.IncidentRespOperator, "op-2")
-	// 基期：op-1 有一条未解决（基期无 resolved 样本 → MTTR 对照 missing）
+	// Base period: op-1 has one unresolved incident (no resolved sample in the
+	// base period -> MTTR comparison is missing)
 	seedIncident(t, s, qa.ID, baseStart.Add(time.Hour), time.Time{},
 		"", "", model.IncidentRespOperator, "op-1")
 
@@ -149,7 +157,8 @@ func TestReportYoyMissing_W53AcrossTiers(t *testing.T) {
 	ctx := context.Background()
 	client := mustCategory(t, s, model.IncidentCatClient)
 	qa := mustCategory(t, s, model.IncidentCatQA)
-	// 2026-W53 = 2026-12-28（周一）~2027-01-03；2025 无 W53 → 同比缺失
+	// 2026-W53 = 2026-12-28 (Monday) through 2027-01-03; 2025 has no W53 ->
+	// YoY missing
 	w53 := time.Date(2026, 12, 29, 10, 0, 0, 0, time.Local)
 	seedIncident(t, s, qa.ID, w53, w53.Add(time.Hour), "", "", model.IncidentRespOperator, "op-1")
 	seedIncident(t, s, client.ID, w53, w53.Add(time.Hour), "", "", model.IncidentRespOperator, "op-2")
@@ -161,7 +170,7 @@ func TestReportYoyMissing_W53AcrossTiers(t *testing.T) {
 		require.NotNil(t, r.Yoy)
 		require.True(t, r.Yoy.Missing, "W53 has no last-year counterpart")
 	}
-	// 同值并列 → 按 Key 兜底排序
+	// Equal values tie -> tie-breaks by Key
 	require.Less(t, lb.Rows[0].Key, lb.Rows[1].Key)
 
 	rp, err := s.ReportResponsibility(ctx, PeriodWeek, "2026-W53")
