@@ -25,20 +25,22 @@ var (
 	serviceTestDBMutex sync.Mutex
 )
 
-// analyticsTestDBSeq 给包内每处独立内存库调用发互不重名的库名。按 t.Name()
-// 命名不够：-count=3 让同一用例名跑三遍，而 file: 内存库只要还有一条连接
-// 开着就存活（上一遍的连接池没关尽），于是这一遍会读到上一遍残留的行。
+// analyticsTestDBSeq hands out a unique database name to each independent in-memory DB call in
+// this package. Naming by t.Name() is not enough: -count=3 runs the same test name three times,
+// and a file: in-memory DB survives as long as one connection stays open (the previous run's pool
+// was never fully closed), so this run would read rows left over from the previous one.
 var analyticsTestDBSeq atomic.Int64
 
 func analyticsTestDBName(prefix string) string {
 	return fmt.Sprintf("%s_%d", prefix, analyticsTestDBSeq.Add(1))
 }
 
-// wipeSharedTables 清空共享库内全部业务表。原实现只 DELETE behavior_events/
-// feature_adoptions 两张表，-count=3 下上一遍残留的 payments/invocations 等行
-// 会让本遍插入撞 UNIQUE 约束（payment_transactions.transaction_id 2067），
-// 或把上一遍的行算进本遍的计数断言。按 sqlite_master 动态枚举，避免表清单
-// 与模型演进脱节。
+// wipeSharedTables clears every business table in the shared database. The original
+// implementation only DELETEd the two tables behavior_events/feature_adoptions; under -count=3
+// the payments/invocations rows left over from the previous run made this run's inserts hit
+// UNIQUE constraints (payment_transactions.transaction_id 2067), or counted the previous run's
+// rows into this run's count assertions. Tables are now enumerated dynamically from
+// sqlite_master, so the list cannot drift from model evolution.
 func wipeSharedTables(db *gorm.DB) {
 	var tables []string
 	db.Raw("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").Scan(&tables)

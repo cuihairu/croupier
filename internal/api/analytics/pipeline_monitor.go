@@ -1,18 +1,20 @@
 // ---------------------------------------------------------------------------
-// PipelineMonitor: 数据管道健康监控（短期数据监控方案）
+// PipelineMonitor: data pipeline health monitoring (short-term data monitoring plan)
 //
-// 在 server 进程内周期检查 analytics 管道的数据侧健康，异常写入告警中心
-// （model.Alert），复用运维中心已有的告警列表/静默 UI：
+// Periodically checks the data-side health of the analytics pipeline inside the server
+// process and writes anomalies to the alert center (model.Alert), reusing the alert
+// list / silence UI that the ops center already has:
 //
-//	clickhouse_unreachable  ClickHouse 不可达（非未启用）      critical
-//	event_stream_stalled    某 (game,env) 事件断流（近 5 分钟为 0）  critical
-//	event_volume_drop       事件量骤降（低于前 60 分钟均值 20%）   warning
-//	dead_letter_backlog     死信流积压超阈值                  warning
-//	mq_backlog              主 stream 积压（worker 停摆/消费不及） critical
+//	clickhouse_unreachable  ClickHouse unreachable (not merely disabled)         critical
+//	event_stream_stalled    events stalled for some (game,env) (0 in the last 5 min) critical
+//	event_volume_drop       event volume dropped (below the average of the prior 60 min by 20%) warning
+//	dead_letter_backlog     dead letter stream backlog past the threshold     warning
+//	mq_backlog              main stream backlog (worker stalled / cannot keep up) critical
 //
-// 判定全部基于 ClickHouse/Redis 的简单窗口对比，不引入外部依赖；恢复时
-// 自动把 firing 告警置为 resolved。同 key 天然去抖（AlertID 唯一索引 +
-// 先查后写）。未配置 CLICKHOUSE_DSN 时监控器自动空转（disabled）。
+// All decisions are simple window comparisons against ClickHouse/Redis and pull in no
+// external dependency; on recovery the firing alert is automatically set to resolved.
+// The same key is naturally debounced (AlertID unique index + read-then-write). When
+// CLICKHOUSE_DSN is not configured the monitor idles on its own (disabled).
 // ---------------------------------------------------------------------------
 package analytics
 
@@ -31,7 +33,7 @@ import (
 	redis "github.com/redis/go-redis/v9"
 )
 
-// 告警类型与来源常量（与告警中心 Type/Source 过滤器对齐）。
+// Alert type and source constants (aligned with the alert center Type/Source filters).
 const (
 	PipelineAlertSource         = "analytics-monitor"
 	AlertTypeDataPipeline       = "data_pipeline"
@@ -40,15 +42,16 @@ const (
 	PipelineAlertStatusResolved = "resolved"
 )
 
-// PipelineMonitorConfig 控制 check 行为；零值字段取默认。全部可经 env 覆盖。
+// PipelineMonitorConfig controls check behavior; zero-value fields fall back to defaults.
+// Every field can be overridden through env.
 type PipelineMonitorConfig struct {
-	Interval        time.Duration // 检查周期，默认 60s
-	StallWindow     time.Duration // 断流窗口，默认 5m
-	BaselineWindow  time.Duration // 基线窗口，默认 60m
-	BaselineMinRows int64         // 基线最低事件量（低于不判定），默认 100
-	DropRatio       float64       // 骤降阈值比例，默认 0.2
-	DeadThreshold   int64         // 死信积压阈值，默认 100
-	MQBacklogLimit  int64         // 主 stream 积压阈值，默认 10000
+	Interval        time.Duration // check interval, default 60s
+	StallWindow     time.Duration // stall window, default 5m
+	BaselineWindow  time.Duration // baseline window, default 60m
+	BaselineMinRows int64         // minimum event volume for a baseline (no verdict below it), default 100
+	DropRatio       float64       // volume-drop threshold ratio, default 0.2
+	DeadThreshold   int64         // dead letter backlog threshold, default 100
+	MQBacklogLimit  int64         // main stream backlog threshold, default 10000
 }
 
 func pipelineConfigFromEnv() PipelineMonitorConfig {
@@ -79,14 +82,15 @@ func pipelineConfigFromEnv() PipelineMonitorConfig {
 	return cfg
 }
 
-// PipelineAlertSink 是监控器写告警的最小接口（model.AlertModel 满足）。
+// PipelineAlertSink is the minimal interface the monitor uses to write alerts
+// (satisfied by model.AlertModel).
 type PipelineAlertSink interface {
 	Create(ctx context.Context, alert *model.Alert) error
 	FindByAlertID(ctx context.Context, alertID string) (*model.Alert, error)
 	UpdateStatus(ctx context.Context, id uint, status string) error
 }
 
-// DeadLetterCounter 查询死信/主 stream 长度（*redis.Client 满足）。
+// DeadLetterCounter queries dead letter / main stream lengths (satisfied by *redis.Client).
 type DeadLetterCounter interface {
 	XLen(ctx context.Context, stream string) *redis.IntCmd
 }
@@ -102,7 +106,7 @@ type PipelineMonitor struct {
 		deadEvents   string
 		deadPayments string
 	}
-	// states 记录上一轮每类 key 是否触发，用于恢复判定。
+	// states records whether each key kind fired on the previous round, for recovery detection.
 	states map[string]bool
 	mu     sync.Mutex
 }
@@ -145,8 +149,8 @@ func (m *PipelineMonitor) Run(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-tk.C:
-			// Check 实现恒返回 nil（各子检查的失败均在内部以告警事件
-			// 记录），err 分支不可达，已删除。
+			// The Check implementation always returns nil (each sub-check records its own
+			// failures as alert events), so the err branch is unreachable and has been removed.
 			_ = m.Check(ctx)
 		}
 	}
@@ -174,7 +178,7 @@ func (m *PipelineMonitor) checkClickHouseReachable(ctx context.Context) {
 		return
 	}
 	if errors.Is(err, errWarehouseDisabled) {
-		// 部署未启用分析仓库：不是故障，静默跳过全部 CH 检查。
+		// The deployment has not enabled the analytics warehouse: not a fault, silently skip all CH checks.
 		return
 	}
 	m.fireAlert(ctx, key, AlertTypeDataPipeline, "critical",
@@ -194,7 +198,7 @@ type pipelineScopeRow struct {
 func (m *PipelineMonitor) checkEventStreams(ctx context.Context) {
 	conn, err := m.conn()
 	if err != nil {
-		return // 未启用或不可达：reachability check 已单独处理
+		return // disabled or unreachable: the reachability check handles that separately
 	}
 	rows, err := conn.Query(ctx, fmt.Sprintf(`
 SELECT game_id, env,
@@ -228,11 +232,11 @@ GROUP BY game_id, env`,
 		scoped[scopeKey(r.Game, r.Env)] = r
 	}
 
-	// 断流 / 骤降
+	// Stall / volume drop
 	fired := map[string]bool{}
 	for k, r := range scoped {
 		if r.Baseline < m.cfg.BaselineMinRows {
-			continue // 低流量 scope 无法区分断流与正常低谷
+			continue // a low-traffic scope cannot be distinguished between a stall and a normal trough
 		}
 		stallKey := "event_stream_stalled:" + k
 		dropKey := "event_volume_drop:" + k
@@ -251,7 +255,7 @@ GROUP BY game_id, env`,
 				map[string]any{"gameId": r.Game, "env": r.Env, "recent": r.Recent, "baseline": r.Baseline})
 		}
 	}
-	// 恢复判定：上一轮 firing 且本轮未再触发 → resolved
+	// Recovery detection: fired on the previous round and not re-triggered this round -> resolved
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	for _, kind := range []string{"event_stream_stalled", "event_volume_drop"} {
@@ -262,11 +266,11 @@ GROUP BY game_id, env`,
 			if fired[k] {
 				continue
 			}
-			// scope 可能已从结果集中消失（极低流量），同样视为恢复
+			// The scope may have vanished from the result set (very low traffic), treated as recovered too
 			m.resolveAsync(ctx, k)
 		}
 	}
-	// 记录本轮触发状态
+	// Record the firing state for this round
 	for k := range m.states {
 		if strings.HasPrefix(k, "event_") {
 			delete(m.states, k)
@@ -289,7 +293,7 @@ func (m *PipelineMonitor) checkDeadLetters(ctx context.Context) {
 	} {
 		n, err := m.dead.XLen(ctx, s.stream).Result()
 		if err != nil {
-			continue // Redis 不可达由 MQ backlog/运维中心兜底，不重复告警
+			continue // Redis being unreachable is covered by the MQ backlog / ops center, no duplicate alert
 		}
 		key := s.key
 		if n >= m.cfg.DeadThreshold {
@@ -351,7 +355,7 @@ func (m *PipelineMonitor) fireAlert(ctx context.Context, key, alertType, level, 
 		if existing.Status == PipelineAlertStatusFiring {
 			return
 		}
-		// resolved → 重新触发
+		// resolved -> re-fire
 		_ = m.sink.UpdateStatus(ctx, existing.ID, PipelineAlertStatusFiring)
 		slog.Warn("pipeline alert re-fired", "key", key, "level", level)
 		return

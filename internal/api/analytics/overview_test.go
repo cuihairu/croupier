@@ -310,7 +310,7 @@ func TestPickContextString(t *testing.T) {
 	t.Parallel()
 
 	// Test nil context
-	if got := pickContextString(nil, "key"); got != "" { //nolint:staticcheck // 刻意 nil context：验证取值函数对 nil ctx 的健壮性
+	if got := pickContextString(nil, "key"); got != "" { //nolint:staticcheck // deliberately nil context: verifies the getter's robustness against a nil ctx
 		t.Fatalf("expected empty string for nil context, got %q", got)
 	}
 
@@ -357,7 +357,7 @@ func TestPickContextString(t *testing.T) {
 func TestSaveAnalyticsFiltersToExtensionInstallation_NilContext(t *testing.T) {
 	t.Parallel()
 
-	err := saveAnalyticsFiltersToExtensionInstallation(nil, &svc.ServiceContext{}, []AnalyticsFilters{}) //nolint:staticcheck // 刻意 nil context：用例名即验证 nil ctx 不报错
+	err := saveAnalyticsFiltersToExtensionInstallation(nil, &svc.ServiceContext{}, []AnalyticsFilters{}) //nolint:staticcheck // deliberately nil context: the test name itself asserts nil ctx does not error
 	if err != nil {
 		t.Fatalf("expected no error for nil context, got %v", err)
 	}
@@ -1275,7 +1275,7 @@ func TestOverview_Integration(t *testing.T) {
 	}
 
 	// This will fail due to nil PaymentsModel and PlayerModel, but tests the path
-	_, _ = overview(ctx, svcCtx, req) // 预期因缺 PaymentsModel/PlayerModel 报错；无错误也可接受
+	_, _ = overview(ctx, svcCtx, req) // expected to error due to missing PaymentsModel/PlayerModel; no error is also acceptable
 }
 
 func TestRealtime_Integration(t *testing.T) {

@@ -93,8 +93,9 @@ func levels(ctx context.Context, svcCtx *svc.ServiceContext, req *LevelsRequest)
 			order = append(order, levelID)
 		}
 
-		// loadBehaviorEvents 按 EventType（level_attempt/level_complete）精确
-		// 过滤，查询结果的 EventType 恒非空，props 回退分支不可达，已删除。
+		// loadBehaviorEvents filters exactly by EventType (level_attempt/level_complete), so the
+		// EventType of every query result is non-empty; the props fallback branch is unreachable
+		// and has been removed.
 		eventName := strings.ToLower(ev.EventType)
 
 		if strings.Contains(eventName, "attempt") || strings.Contains(eventName, "start") || eventString(ev, "status") == "attempt" {
@@ -117,10 +118,10 @@ func levels(ctx context.Context, svcCtx *svc.ServiceContext, req *LevelsRequest)
 	levels := make([]LevelMetrics, 0, len(order))
 	for _, id := range order {
 		stat := stats[id]
-		// stat 仅在命中 levelId 的事件处创建，且该事件 EventType 必含
-		// attempt/start（level_attempt）或 complete/finish（level_complete），
-		// 创建即至少计入 Attempts 或 Completions 之一，双零 continue 分支
-		// 不可达，已删除。
+		// stat is only created for an event matching levelId, and that event's EventType must
+		// contain attempt/start (level_attempt) or complete/finish (level_complete), so creating
+		// it already counts at least one Attempts or Completions entry — the both-zero continue
+		// branch is unreachable and has been removed.
 		levels = append(levels, LevelMetrics{
 			LevelId:        id,
 			Attempts:       stat.Attempts,
@@ -194,9 +195,10 @@ func levelsEpisodes(ctx context.Context, svcCtx *svc.ServiceContext, req *Levels
 	episodes := make([]EpisodeMetrics, 0, len(order))
 	for _, id := range order {
 		stat := stats[id]
-		// completedUsers 仅在 userID 非空时添加成员，而同一事件在 complete
-		// 判定之前已无条件把该 userID 加入 players：completed > 0 必然
-		// players ≥ 1，players==0 的回填分支不可达，已删除。
+		// completedUsers only gains a member when userID is non-empty, and the same event has
+		// already added that userID to players unconditionally before the completion check:
+		// completed > 0 implies players >= 1, so the players==0 backfill branch is unreachable
+		// and has been removed.
 		players := len(stat.players)
 		completed := len(stat.completedUsers)
 		episodes = append(episodes, EpisodeMetrics{

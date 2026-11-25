@@ -127,7 +127,7 @@ func TestWarehouseHandlersReturnPoints(t *testing.T) {
 	handler := NewHandler(NewService(nil), config.SSEConfig{})
 
 	ctx, rec := newCoverageGinContext(http.MethodGet, "/api/v1/analytics/warehouse/dau?gameId=game-a&days=7", "")
-	withWarehouseScope(ctx, "game-a", "prod") // AUD-048：current scope 注入
+	withWarehouseScope(ctx, "game-a", "prod") // AUD-048: current scope injection
 	handler.WarehouseDAU(ctx)
 	require.Equal(t, http.StatusOK, rec.Code)
 	assert.Contains(t, rec.Body.String(), `"dau":11`)
@@ -1069,8 +1069,9 @@ func TestBreakdownByTimeFallbackAndSwapBranches(t *testing.T) {
 	assert.NotEmpty(t, outside)
 }
 
-// UpdateInterval 极值经 time.Duration(n)*time.Second 溢出为负 → 走 60s
-// fallback 分支（interval <= 0），覆盖 handler 的防御性钳位。
+// An extreme UpdateInterval overflows time.Duration(n)*time.Second into a
+// negative value, taking the 60s fallback branch (interval <= 0) and
+// covering the handler's defensive clamp.
 func TestRealtimeHandlerUpdateIntervalOverflowFallsBack(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
@@ -1090,13 +1091,14 @@ func TestRealtimeHandlerUpdateIntervalOverflowFallsBack(t *testing.T) {
 	finished := make(chan struct{})
 	go func() {
 		defer close(finished)
-		// math.MaxInt 秒 × 1e9 溢出为 -1s：GetUpdateInterval 返回原值，
-		// interval <= 0 成立，应回落到 60s 而非让 NewTicker panic。
+		// math.MaxInt seconds x 1e9 overflows to -1s: GetUpdateInterval
+		// returns the raw value, so interval <= 0 holds and it should fall
+		// back to 60s instead of letting NewTicker panic.
 		NewHandler(NewService(&svc.ServiceContext{}), config.SSEConfig{UpdateInterval: math.MaxInt}).Realtime(ginCtx)
 	}()
 
-	// 初始 connected 事件发出后取消：60s fallback ticker 不会触发，循环
-	// 走 ctx.Done 正常退出。
+	// Cancel after the initial connected event is emitted: the 60s fallback
+	// ticker never fires, and the loop exits normally via ctx.Done.
 	select {
 	case <-capture.writes:
 	case <-time.After(5 * time.Second):

@@ -1,6 +1,6 @@
-// 覆盖目标（组 E）：
-//   - filtersUpdate 的 SaveAnalyticsFiltersJSON 失败分支（overview.go:324-326）
-//   - defaultWarehouseConnect 的 CLICKHOUSE_DSN 为空分支（warehouse.go:66-69）
+// Coverage targets (group E):
+//   - the SaveAnalyticsFiltersJSON failure branch of filtersUpdate (overview.go:324-326)
+//   - the empty CLICKHOUSE_DSN branch of defaultWarehouseConnect (warehouse.go:66-69)
 package analytics
 
 import (
@@ -16,9 +16,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Filters 为 interface{}：注入 NaN 使 json.Marshal 必败（unsupported
-// value），覆盖 filtersUpdate 文件分支中的序列化错误。加载阶段使用默认
-// 空文档（文件不存在时返回 {"items":[]}），保证能走到保存阶段。
+// Filters is interface{}: injecting NaN makes json.Marshal always fail (unsupported
+// value), covering the serialization error in the filtersUpdate file branch. The load
+// stage uses the default empty document ({"items":[]} when the file does not exist),
+// ensuring execution reaches the save stage.
 func TestFiltersUpdate_SaveJSONMarshalFailureGroupE(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "filters.json")
 
@@ -31,7 +32,8 @@ func TestFiltersUpdate_SaveJSONMarshalFailureGroupE(t *testing.T) {
 	assert.Contains(t, err.Error(), "unsupported value")
 }
 
-// DSN 未配置 → errWarehouseDisabled（而非拨号错误），覆盖 once 内的空 DSN 分支。
+// DSN not configured -> errWarehouseDisabled (not a dial error), covering the empty-DSN
+// branch inside once.
 func TestDefaultWarehouseConnect_EmptyDSNGroupE(t *testing.T) {
 	resetWarehouseConnectState()
 	t.Cleanup(resetWarehouseConnectState)

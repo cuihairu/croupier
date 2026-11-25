@@ -517,8 +517,9 @@ func buildPaths(events []model.BehaviorEvent, depth int) []map[string]interface{
 	root := &pathNode{Children: map[string]*pathNode{}}
 
 	for _, list := range byUser {
-		// groupEventsByUserForPaths 只在 append 时建条目，每个用户的列表
-		// 必非空，空列表分支不可达，已删除。
+		// groupEventsByUserForPaths only creates entries on append, so each
+		// user's list is guaranteed non-empty; the empty-list branch is
+		// unreachable and has been removed.
 		sequence := make([]string, 0, len(list))
 		for _, ev := range list {
 			name := strings.TrimSpace(ev.EventType)

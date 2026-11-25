@@ -69,12 +69,13 @@ func withDisabledWarehouse(t *testing.T) {
 	t.Cleanup(func() { warehouseConnect = orig })
 }
 
-// warehouseScopeCtx 给仓库查询注入 current scope（GameDBMiddleware 的测试替身）。
+// warehouseScopeCtx injects the current scope for warehouse queries (a test
+// double for GameDBMiddleware).
 func warehouseScopeCtx(gameID, env string) context.Context {
 	return svc.WithGameScope(context.Background(), svc.GameScope{GameID: gameID, Env: env})
 }
 
-// withWarehouseScope 给 handler 级 gin.Context 注入 current scope。
+// withWarehouseScope injects the current scope into a handler-level gin.Context.
 func withWarehouseScope(c *gin.Context, gameID, env string) {
 	c.Request = c.Request.WithContext(svc.WithGameScope(c.Request.Context(), svc.GameScope{GameID: gameID, Env: env}))
 }
@@ -106,7 +107,8 @@ func TestWarehouseDAU_DefaultWindowUsesCurrentScope(t *testing.T) {
 	conn := &fakeConn{rows: [][]any{}}
 	withFakeConn(t, conn)
 
-	// AUD-048：请求不传 game/env 时作用域来自 current scope，不得展开为无过滤。
+	// AUD-048: when the request omits game/env, the scope comes from the
+	// current scope and must not expand into an unfiltered query.
 	_, err := NewService(nil).WarehouseDAU(warehouseScopeCtx("game-a", "prod"), &WarehouseDAURequest{})
 	require.NoError(t, err)
 	assert.Contains(t, conn.query, "AND game_id = ?")

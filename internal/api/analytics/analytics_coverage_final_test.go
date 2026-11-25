@@ -1,6 +1,8 @@
-// 补齐 analytics 包剩余未覆盖分支：overview/realtime/payments 查询失败链路、
-// levels 截断、buildPaths 截断、filtersUpdate 扩展保存失败、payload marshal
-// 失败、pipeline monitor 二轮触发状态迁移、warehouse 连接错误分支。
+// Covers the remaining uncovered branches of the analytics package: query failure
+// paths for overview/realtime/payments, levels truncation, buildPaths truncation,
+// filtersUpdate extension save failure, payload marshal failure, the pipeline
+// monitor's second-round trigger state transition, and warehouse connection error
+// branches.
 package analytics
 
 import (
@@ -62,8 +64,8 @@ func newFullModelsContext(db *gorm.DB) *svc.ServiceContext {
 	}
 }
 
-// overview 的 2/3/6/7/8 号查询失败分别命中 MAU/activeUsers/DailyActivity/
-// DailyRevenue/DailyNewPlayers 错误分支。
+// Overview's 2nd/3rd/6th/7th/8th queries failing each hit the MAU/activeUsers/
+// DailyActivity/DailyRevenue/DailyNewPlayers error branches.
 func TestOverview_AggregateQueryFailures(t *testing.T) {
 	cases := []struct {
 		name string
@@ -87,7 +89,7 @@ func TestOverview_AggregateQueryFailures(t *testing.T) {
 	}
 }
 
-// realtime 的 2/3 号查询失败分别命中 CountEvents/EventTypeCounts 错误分支。
+// Realtime's 2nd/3rd queries failing each hit the CountEvents/EventTypeCounts error branches.
 func TestRealtime_AggregateQueryFailures(t *testing.T) {
 	cases := []struct {
 		name string
@@ -107,7 +109,7 @@ func TestRealtime_AggregateQueryFailures(t *testing.T) {
 	}
 }
 
-// realtimeSeries 分桶循环内 CountDistinctUsers 失败（第 2 个查询）。
+// realtimeSeries: CountDistinctUsers fails inside the bucketing loop (2nd query).
 func TestRealtimeSeries_UsersQueryFails(t *testing.T) {
 	db := newFinalCoverageDB(t)
 	failNthQuery(t, db, 2)
@@ -118,7 +120,7 @@ func TestRealtimeSeries_UsersQueryFails(t *testing.T) {
 	require.Error(t, err)
 }
 
-// payments：AggregateRevenue 成功后 DailyRevenue 失败（无 BehaviorModel 时为第 2 个查询）。
+// payments: DailyRevenue fails after AggregateRevenue succeeds (2nd query without a BehaviorModel).
 func TestPayments_DailyRevenueQueryFails(t *testing.T) {
 	db := newFinalCoverageDB(t)
 	failNthQuery(t, db, 2)
@@ -127,7 +129,7 @@ func TestPayments_DailyRevenueQueryFails(t *testing.T) {
 	require.Error(t, err)
 }
 
-// paymentsSummary：首个 DailyRevenue 查询失败。
+// paymentsSummary: the first DailyRevenue query fails.
 func TestPaymentsSummary_DailyRevenueQueryFails(t *testing.T) {
 	db := newFinalCoverageDB(t)
 	failNthQuery(t, db, 1)
@@ -136,7 +138,7 @@ func TestPaymentsSummary_DailyRevenueQueryFails(t *testing.T) {
 	require.Error(t, err)
 }
 
-// invocationsSummary：audit 表缺失 → totals 聚合 Scan 失败。
+// invocationsSummary: the audit table is missing -> the totals aggregate Scan fails.
 func TestInvocationsSummary_TotalsScanFails(t *testing.T) {
 	db, err := gorm.Open(gsqlite.Open(fmt.Sprintf("file:%s?mode=memory&cache=shared", analyticsTestDBName("analytics_final"))), &gorm.Config{})
 	require.NoError(t, err)
@@ -160,7 +162,7 @@ func seedBehaviorEvent(t *testing.T, svcCtx *svc.ServiceContext, eventType, user
 	}))
 }
 
-// levels：level_attempt 事件缺少 levelId → 跳过该事件。
+// levels: a level_attempt event without levelId -> that event is skipped.
 func TestLevels_SkipsEventsWithoutLevelId(t *testing.T) {
 	db := newFinalCoverageDB(t)
 	svcCtx := newFullModelsContext(db)
@@ -171,9 +173,9 @@ func TestLevels_SkipsEventsWithoutLevelId(t *testing.T) {
 	assert.Empty(t, resp.Levels)
 }
 
-// levels：超过 maxLevelEntries(100) 个关卡 → 截断到 100。
-// 注：ListEvents 的分页把 pageSize 钳到 100，因此用两种事件类型合计
-// 103 个不同 levelId 才能越过截断阈值。
+// levels: more than maxLevelEntries(100) levels -> truncated to 100.
+// Note: ListEvents paging clamps pageSize to 100, so 103 distinct levelIds spread
+// across two event types are needed to cross the truncation threshold.
 func TestLevels_TruncatesToMaxEntries(t *testing.T) {
 	db := newFinalCoverageDB(t)
 	svcCtx := newFullModelsContext(db)
@@ -193,7 +195,7 @@ func TestLevels_TruncatesToMaxEntries(t *testing.T) {
 	require.Len(t, resp.Levels, maxLevelEntries)
 }
 
-// levelsEpisodes：超过 maxLevelEntries(100) 个剧集 → 截断到 100。
+// levelsEpisodes: more than maxLevelEntries(100) episodes -> truncated to 100.
 func TestLevelsEpisodes_TruncatesToMaxEntries(t *testing.T) {
 	db := newFinalCoverageDB(t)
 	svcCtx := newFullModelsContext(db)
@@ -213,7 +215,7 @@ func TestLevelsEpisodes_TruncatesToMaxEntries(t *testing.T) {
 	require.Len(t, resp.Episodes, maxLevelEntries)
 }
 
-// toFloat 的 float32 与 int 分支。
+// toFloat's float32 and int branches.
 func TestToFloat_Float32AndInt(t *testing.T) {
 	v, ok := toFloat(float32(2.5))
 	require.True(t, ok)
@@ -224,7 +226,7 @@ func TestToFloat_Float32AndInt(t *testing.T) {
 	assert.Equal(t, 7.0, v)
 }
 
-// buildPaths：超过 50 条路径 → 截断。
+// buildPaths: more than 50 paths -> truncated.
 func TestBuildPaths_TruncatesOver50Results(t *testing.T) {
 	events := make([]model.BehaviorEvent, 0, 60)
 	for i := 0; i < 60; i++ {
@@ -238,7 +240,7 @@ func TestBuildPaths_TruncatesOver50Results(t *testing.T) {
 	require.Len(t, paths, 50)
 }
 
-// addSequence：root.Children 为 nil 时懒初始化。
+// addSequence: lazily initializes root.Children when it is nil.
 func TestAddSequence_NilChildrenInitialized(t *testing.T) {
 	root := &pathNode{}
 	addSequence(root, []string{"step_a", "step_b"}, 3)
@@ -249,7 +251,7 @@ func TestAddSequence_NilChildrenInitialized(t *testing.T) {
 	assert.NotNil(t, child.Children["step_b"])
 }
 
-// extractAnalyticsFiltersFromConfig：filters 值不可序列化 → marshal 失败。
+// extractAnalyticsFiltersFromConfig: a non-serializable filters value -> marshal failure.
 func TestExtractAnalyticsFiltersFromConfig_MarshalError(t *testing.T) {
 	_, _, err := extractAnalyticsFiltersFromConfig(map[string]any{
 		"filters": make(chan int),
@@ -257,19 +259,19 @@ func TestExtractAnalyticsFiltersFromConfig_MarshalError(t *testing.T) {
 	require.Error(t, err)
 }
 
-// decodeEventsPayload：raw 不可序列化 → marshal 失败。
+// decodeEventsPayload: non-serializable raw -> marshal failure.
 func TestDecodeEventsPayload_MarshalError(t *testing.T) {
 	_, err := decodeEventsPayload(make(chan int))
 	require.Error(t, err)
 }
 
-// decodeTransactionsPayload：raw 不可序列化 → marshal 失败。
+// decodeTransactionsPayload: non-serializable raw -> marshal failure.
 func TestDecodeTransactionsPayload_MarshalError(t *testing.T) {
 	_, err := decodeTransactionsPayload(make(chan int))
 	require.Error(t, err)
 }
 
-// aggregateBy：keyFn 返回空串 → 回退日期字符串键。
+// aggregateBy: keyFn returning an empty string -> falls back to the date string key.
 func TestAggregateBy_EmptyKeyFallsBackToDate(t *testing.T) {
 	day := time.Date(2026, 3, 14, 0, 0, 0, 0, time.UTC)
 	items := aggregateBy([]model.DailyRevenueStat{{Day: day, Revenue: 12.5}}, func(time.Time) string {
@@ -280,8 +282,8 @@ func TestAggregateBy_EmptyKeyFallsBackToDate(t *testing.T) {
 	assert.Equal(t, 12.5, items[0].Revenue)
 }
 
-// filtersUpdate：扩展来源保存时 UpdateConfig 失败（事件表被删除导致 appendEvent
-// 失败）→ 透传错误。
+// filtersUpdate: UpdateConfig fails while saving the extension source (the dropped
+// event table makes appendEvent fail) -> the error is passed through.
 func TestFiltersUpdate_ExtensionSaveFails(t *testing.T) {
 	db, err := gorm.Open(gsqlite.Open(fmt.Sprintf("file:%s?mode=memory&cache=shared", analyticsTestDBName("analytics_final"))), &gorm.Config{})
 	require.NoError(t, err)
@@ -315,8 +317,8 @@ func TestFiltersUpdate_ExtensionSaveFails(t *testing.T) {
 	require.Error(t, err)
 }
 
-// pipeline monitor：同一断流 scope 连续两轮触发 → 命中 fired[key] continue 与
-// event_ 前缀状态清理分支。
+// pipeline monitor: the same stalled scope fires two rounds in a row -> hits the
+// fired[key] continue and the event_ prefix state cleanup branches.
 func TestMonitorEventStreams_SecondRoundStillFiring(t *testing.T) {
 	sink := newMonitorTestSink(t)
 	stallRows := func() *scopeRowsV9 {
@@ -328,20 +330,20 @@ func TestMonitorEventStreams_SecondRoundStillFiring(t *testing.T) {
 	require.NoError(t, m.Check(context.Background()))
 	assert.True(t, m.states["event_stream_stalled:stall-game/prod"])
 
-	// 第二轮使用全新 rows（同一 scope 仍然断流）。
+	// The second round uses fresh rows (the same scope is still stalled).
 	m.conn = func() (warehouseConn, error) { return &stubConn{rows: stallRows()}, nil }
 	require.NoError(t, m.Check(context.Background()))
 	assert.True(t, m.states["event_stream_stalled:stall-game/prod"])
 }
 
-// fireAlert 的 nil sink 守卫。
+// fireAlert's nil-sink guard.
 func TestMonitorFireAlert_NilSink(t *testing.T) {
 	m := NewPipelineMonitor(nil, nil)
 	m.fireAlert(context.Background(), "k", AlertTypeDataPipeline, "critical", "msg", nil)
 }
 
 // ---------------------------------------------------------------------------
-// warehouse 连接分支
+// warehouse connection branches
 // ---------------------------------------------------------------------------
 
 func resetWarehouseConnectState() {
@@ -350,7 +352,7 @@ func resetWarehouseConnectState() {
 	warehouseOpenErr = nil
 }
 
-// CLICKHOUSE_DSN 非法 → ParseDSN 失败分支。
+// Invalid CLICKHOUSE_DSN -> the ParseDSN failure branch.
 func TestDefaultWarehouseConnect_ParseDSNError(t *testing.T) {
 	resetWarehouseConnectState()
 	t.Cleanup(resetWarehouseConnectState)
@@ -362,8 +364,8 @@ func TestDefaultWarehouseConnect_ParseDSNError(t *testing.T) {
 	assert.Nil(t, conn)
 }
 
-// 合法 DSN（惰性 Open）→ 返回 driverConnAdapter；其 Query 对不可达端口报错，
-// 但适配器转发分支已被执行。
+// Valid DSN (lazily Opened) -> returns driverConnAdapter; its Query errors on the
+// unreachable port, but the adapter forwarding branch has been exercised.
 func TestDefaultWarehouseConnect_AdapterQueryDialsAndFails(t *testing.T) {
 	resetWarehouseConnectState()
 	t.Cleanup(resetWarehouseConnectState)

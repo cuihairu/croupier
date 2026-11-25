@@ -25,7 +25,7 @@ import (
 //
 // The server opens the connection lazily from CLICKHOUSE_DSN (the same
 // variable the worker uses). No DSN or unreachable ClickHouse maps to a
-// 503 "分析仓库未启用" so deployments without the analytics profile keep
+// 503 "analytics warehouse disabled" so deployments without the analytics profile keep
 // working; the frontend renders a guidance state on 503.
 // ---------------------------------------------------------------------------
 
@@ -65,8 +65,10 @@ func defaultWarehouseConnect() (warehouseConn, error) {
 			warehouseOpenErr = fmt.Errorf("parse clickhouse dsn: %w", err)
 			return
 		}
-		// clickhouse-go v2.43.0 的 Open 无条件构造连接对象返回 nil error
-		// （懒连接，不做任何可失败的校验），error 分支不可达，已删除。
+		// clickhouse-go v2.43.0's Open unconditionally constructs the
+		// connection object and returns a nil error (lazy connect, no
+		// fallible validation), so the error branch is unreachable and has
+		// been removed.
 		conn, _ := clickhouse.Open(opts)
 		warehouseOpened = driverConnAdapter{conn}
 	})
@@ -259,19 +261,24 @@ func warehouseQuery(ctx context.Context, query string, args ...any) (warehouseRo
 	return rows, nil
 }
 
-// warehouseScope 强制仓库查询作用域来自当前请求 scope（AUD-048）。
+// warehouseScope forces the warehouse query scope to come from the current
+// request scope (AUD-048).
 //
-// 仓库表按 (game_id, env) 存多游戏数据，此前作用域完全由请求参数驱动：
-// 显式传其他 game/env 即可跨域聚合，缺省时则展开为「无过滤」全量聚合。
-// 统一为——作用域只取 GameDBMiddleware 解析的 current scope；请求参数
-// 只可收窄（与当前 scope 一致）不可替换，不一致即 403；无 scope 时拒绝
-// 查询而非退化为无过滤。
+// Warehouse tables store multi-game data keyed by (game_id, env); previously
+// the scope was driven entirely by request parameters: explicitly passing
+// another game/env allowed cross-game aggregation, and omitting them expanded
+// to an unfiltered full aggregation. It is unified as follows: the scope is
+// only the current scope resolved by GameDBMiddleware; request parameters may
+// narrow it (match the current scope) but must not replace it — a mismatch is
+// a 403; without a scope the query is refused rather than degrading to
+// unfiltered.
 func warehouseScope(ctx context.Context, gameID, env string) (string, string, error) {
 	scope := svc.GameScopeFromContext(ctx)
 	if strings.TrimSpace(scope.GameID) == "" && strings.TrimSpace(scope.Env) == "" {
 		return "", "", errorx.NewBadRequest("仓库查询需要游戏作用域（X-Game-ID/X-Env）")
 	}
-	// 回显只陈述当前作用域要求，不回显请求方提交的目标值（避免越权枚举）。
+	// The message states only the current scope requirement, not the
+	// submitted target values (avoiding privilege-enumeration).
 	if g := strings.TrimSpace(gameID); g != "" && !strings.EqualFold(g, strings.TrimSpace(scope.GameID)) {
 		return "", "", errorx.NewForbidden("gameId 与当前游戏作用域不一致")
 	}

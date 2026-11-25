@@ -13,21 +13,25 @@ import (
 )
 
 // ============================================================================
-// Analytics 门面（MOB-ANA-001，docs/design/game-analytics-requirements.md §4）：
+// Analytics facade (MOB-ANA-001, docs/design/game-analytics-requirements.md §4):
 //
-// 统一查询入口 + 每域独立接口。现有分域 handler/路由保留不动（加法不改造）；
-// facade 只做两件事：
-//  1. Summary：一次拉全部域摘要卡片（移动端 dashboard 一次请求），逐域错误
-//     隔离——单域失败标 unavailable，其余域照常返回；未建数据源的域标
-//     pending_data_source（诚实声明，不伪造数字）。
-//  2. Query：AnalyticsQuery{domain, metrics, filter, timeRange} 按 domain
-//     路由到对应域接口（供移动端分域详情页复用一个入口）。
+// One unified query entry point plus a per-domain interface. The existing
+// per-domain handlers and routes are left untouched (additive, not a refactor);
+// the facade does exactly two things:
+//  1. Summary: pulls every domain's summary card in one request (the mobile
+//     dashboard), with per-domain error isolation -- a failing domain is marked
+//     unavailable while the others still return; domains whose data source is not
+//     built are marked pending_data_source (an honest declaration, no fabricated
+//     numbers).
+//  2. Query: AnalyticsQuery{domain, metrics, filter, timeRange} is routed to the
+//     matching domain interface by domain (a single entry point for the mobile
+//     per-domain detail pages).
 //
-// 新域接入 = 实现一个 Queryer 接口 + 在 Summary/Query 各加一行注册，门面
-// 结构不变。
+// Onboarding a new domain = implementing one Queryer interface plus one
+// registration line in each of Summary/Query; the facade structure is unchanged.
 // ============================================================================
 
-// Facade domain keys（移动端卡片/路由共用同一命名）。
+// Facade domain keys (the mobile cards and routes share this same naming).
 const (
 	DomainOverview    = "overview"
 	DomainBehavior    = "behavior"
@@ -46,11 +50,13 @@ const (
 	CardStatusPendingData = "pending_data_source"
 )
 
-// PendingDomains 是设计文档 §3 判定为 ❌ 缺、数据源待建的域：facade 声明
-// 路由但如实报 pending_data_source，绝不返回合成数据。
+// PendingDomains lists the domains judged ❌ (missing) in design doc §3, whose data
+// sources are not built yet: the facade declares the route but honestly reports
+// pending_data_source and never returns synthetic data.
 var PendingDomains = []string{"economy", "social", "stability", "anticheat", "campaign"}
 
-// 每域独立查询接口：*Service 隐式实现；facade 依赖接口不依赖实现。
+// Per-domain query interfaces: *Service implements them implicitly; the facade
+// depends on the interfaces, not on the implementations.
 type (
 	OverviewQueryer interface {
 		Overview(ctx context.Context, req *OverviewRequest) (*OverviewResponse, error)
@@ -78,7 +84,8 @@ type (
 	}
 )
 
-// Facade 聚合各域查询接口（nil 域 = 该域卡片 unavailable，装配缺欠不炸门面）。
+// Facade aggregates the per-domain query interfaces (a nil domain = that domain's
+// card is unavailable; a wiring gap does not blow up the facade).
 type Facade struct {
 	Overview    OverviewQueryer
 	Behavior    BehaviorQueryer
@@ -90,7 +97,7 @@ type Facade struct {
 	Warehouse   WarehouseQueryer
 }
 
-// NewFacade 以生产 *Service 装配门面（它隐式实现全部 Queryer）。
+// NewFacade wires the facade with the production *Service (it implements every Queryer implicitly).
 func NewFacade(service *Service) *Facade {
 	return &Facade{
 		Overview:    service,
@@ -104,7 +111,7 @@ func NewFacade(service *Service) *Facade {
 	}
 }
 
-// DomainCard 是一个域的摘要卡片单元。
+// DomainCard is the summary card unit of one domain.
 type DomainCard struct {
 	Domain string      `json:"domain"`
 	Status string      `json:"status"`
@@ -112,7 +119,7 @@ type DomainCard struct {
 	Error  string      `json:"error,omitempty"`
 }
 
-// FacadeSummaryResponse 是 GET /analytics/facade/summary 的聚合 payload。
+// FacadeSummaryResponse is the aggregated payload of GET /analytics/facade/summary.
 type FacadeSummaryResponse struct {
 	GameId      string        `json:"gameId"`
 	Env         string        `json:"env"`
@@ -120,9 +127,10 @@ type FacadeSummaryResponse struct {
 	Domains     []*DomainCard `json:"domains"`
 }
 
-// Summary 并发拉取全部已建域的摘要（逐域错误隔离），未建域声明
-// pending_data_source。任一域失败不影响其它域（部分可用语义，移动端
-// dashboard 不因单域后端故障整体白屏）。
+// Summary concurrently pulls summaries for every wired domain (per-domain error
+// isolation) and declares pending_data_source for unwired domains. A failure in any
+// one domain does not affect the others (partial-availability semantics, so the
+// mobile dashboard does not go blank because of a single domain's backend failure).
 func (f *Facade) Summary(ctx context.Context, gameId, env string) *FacadeSummaryResponse {
 	cards := make([]*DomainCard, 0, 8+1)
 	var mu sync.Mutex
@@ -136,7 +144,7 @@ func (f *Facade) Summary(ctx context.Context, gameId, env string) *FacadeSummary
 	query := func(domain string, fn func() (interface{}, error)) {
 		defer wg.Done()
 		if fn == nil {
-			// 装配缺欠显式标 unavailable，不让卡片静默消失。
+			// A wiring gap is explicitly marked unavailable so cards never silently disappear.
 			appendCard(&DomainCard{Domain: domain, Status: CardStatusUnavailable, Error: "facade: domain not wired"})
 			return
 		}
@@ -179,8 +187,8 @@ func (f *Facade) Summary(ctx context.Context, gameId, env string) *FacadeSummary
 	}
 }
 
-// summary* 闭包：queryer 未装配时返回 nil fn（query 据此标 unavailable，
-// 卡片不静默消失）。
+// summary* closures: return a nil fn when the queryer is not wired (query then marks it
+// unavailable, so the card never silently disappears).
 func (f *Facade) summaryOverview(ctx context.Context, gameId, env string) func() (interface{}, error) {
 	if f.Overview == nil {
 		return nil
@@ -253,15 +261,17 @@ func (f *Facade) summaryWarehouse(ctx context.Context, gameId, env string) func(
 	}
 }
 
-// FacadeTimeRange 是 AnalyticsQuery 的时间窗（域请求的 startDate/endDate 同源）。
+// FacadeTimeRange is the time window of AnalyticsQuery (same source as the domain
+// requests' startDate/endDate).
 type FacadeTimeRange struct {
 	StartDate string `json:"startDate"`
 	EndDate   string `json:"endDate"`
 }
 
-// AnalyticsQuery 是统一查询入口的 wire 形态（契约键 lowerCamelCase）：
-// domain 定位域接口，metrics 预留指标裁剪（当前各域返回规范形态，不裁剪），
-// filter 携带 gameId/env 与域内过滤，timeRange 映射 startDate/endDate。
+// AnalyticsQuery is the wire shape of the unified query entry point (contract keys are
+// lowerCamelCase): domain locates the domain interface, metrics reserves metric
+// narrowing (today every domain returns its canonical shape, no narrowing), filter
+// carries gameId/env plus in-domain filters, and timeRange maps to startDate/endDate.
 type AnalyticsQuery struct {
 	Domain    string            `json:"domain"`
 	Metrics   []string          `json:"metrics"`
@@ -290,7 +300,7 @@ func (q *AnalyticsQuery) filter(key string) string {
 	return strings.TrimSpace(q.Filter[key])
 }
 
-// isPendingDomain 报告该域是否为数据源待建（❌ 域）。
+// isPendingDomain reports whether the domain is one whose data source is not built yet (a ❌ domain).
 func isPendingDomain(domain string) bool {
 	for _, d := range PendingDomains {
 		if d == domain {
@@ -300,8 +310,8 @@ func isPendingDomain(domain string) bool {
 	return false
 }
 
-// Query 按 domain 路由到对应域接口。未知域/未建域 422（客户端输入语义，
-// 非服务端故障）。
+// Query routes to the matching domain interface by domain. Unknown or unwired domains
+// give 422 (client-input semantics, not a server-side failure).
 func (f *Facade) Query(ctx context.Context, q *AnalyticsQuery) (interface{}, error) {
 	if q == nil || strings.TrimSpace(q.Domain) == "" {
 		return nil, errorx.NewValidationErrorWithDetails("domain is required", nil)
@@ -341,7 +351,7 @@ func (f *Facade) Query(ctx context.Context, q *AnalyticsQuery) (interface{}, err
 	}
 }
 
-// nil 域守卫：装配缺欠返回 unavailable 错误而非 panic。
+// Nil-domain guard: a wiring gap returns an unavailable error instead of panicking.
 func (f *Facade) overviewQueryer() OverviewQueryer {
 	if f.Overview == nil {
 		return unavailableOverview{}
@@ -409,7 +419,7 @@ func atoiSafe(v string) int {
 	return n
 }
 
-// ---- nil 域的 fail-closed 占位实现（调用即报装配缺欠） ----
+// ---- fail-closed placeholder implementations for nil domains (calling them reports the wiring gap) ----
 
 type unavailableError struct{}
 
@@ -465,8 +475,8 @@ func (unavailableWarehouse) WarehouseDAU(context.Context, *WarehouseDAURequest) 
 
 // ---- Handler ----
 
-// FacadeSummary GET /analytics/facade/summary?gameId=&env=（移动端 dashboard
-// 一次拉全部域摘要卡片）。
+// FacadeSummary handles GET /analytics/facade/summary?gameId=&env= (the mobile
+// dashboard pulls every domain's summary card in one request).
 func (h *Handler) FacadeSummary(c *gin.Context) {
 	gameId := strings.TrimSpace(c.Query("gameId"))
 	if gameId == "" {
@@ -477,12 +487,12 @@ func (h *Handler) FacadeSummary(c *gin.Context) {
 	response.Success(c, resp)
 }
 
-// FacadeQueryRequest POST /analytics/facade/query 入参。
+// FacadeQueryRequest is the input of POST /analytics/facade/query.
 type FacadeQueryRequest struct {
 	AnalyticsQuery
 }
 
-// FacadeQuery POST /analytics/facade/query（统一查询路由，移动端分域详情页）。
+// FacadeQuery handles POST /analytics/facade/query (the unified query route for the mobile per-domain detail pages).
 func (h *Handler) FacadeQuery(c *gin.Context) {
 	var req FacadeQueryRequest
 	if err := bindAnalyticsRequest(c, &req); err != nil {

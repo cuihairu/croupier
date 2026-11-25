@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// ---- test doubles：每域独立 mock（facade 只依赖接口的验收面） ----
+// ---- test doubles: one mock per domain (the acceptance surface is that the facade only depends on the interfaces) ----
 
 type stubOverview struct{ err error }
 
@@ -102,7 +102,7 @@ func TestFacadeSummaryAggregatesAllDomains(t *testing.T) {
 	assert.Equal(t, "prod", resp.Env)
 	assert.NotEmpty(t, resp.GeneratedAt)
 
-	// 8 已建域全部 ok + 5 未建域 pending_data_source。
+	// All 8 built domains report ok, plus the 5 unbuilt domains report pending_data_source.
 	require.Len(t, resp.Domains, 13)
 	for _, domain := range []string{DomainOverview, DomainBehavior, DomainPayments, DomainRetention, DomainRealtime, DomainInvocations, DomainLevels, DomainWarehouse} {
 		card := cardOf(resp, domain)
@@ -118,7 +118,7 @@ func TestFacadeSummaryAggregatesAllDomains(t *testing.T) {
 		assert.Nil(t, card.Data, domain)
 	}
 
-	// 摘要数据是真实域响应（非合成占位）。
+	// The summary payload is the real domain response (not a synthetic placeholder).
 	overview, ok := cardOf(resp, DomainOverview).Data.(*OverviewResponse)
 	require.True(t, ok)
 	assert.Equal(t, 42, overview.Metrics.DAU)
@@ -142,7 +142,7 @@ func TestFacadeSummaryIsolatesPerDomainFailure(t *testing.T) {
 	assert.Equal(t, CardStatusUnavailable, wh.Status)
 	assert.Contains(t, wh.Error, "clickhouse unreachable")
 
-	// 其余域不受单域故障影响。
+	// The other domains are unaffected by a single domain's failure.
 	assert.Equal(t, CardStatusOK, cardOf(resp, DomainOverview).Status)
 	assert.Equal(t, CardStatusOK, cardOf(resp, DomainRealtime).Status)
 }
@@ -160,28 +160,28 @@ func TestFacadeQueryRoutesPerDomain(t *testing.T) {
 	f := allOK()
 	ctx := context.Background()
 
-	// overview：timeRange 透传。
+	// overview: timeRange passes through.
 	data, err := f.Query(ctx, &AnalyticsQuery{Domain: DomainOverview, Filter: map[string]string{"gameId": "demo", "env": "prod"}, TimeRange: FacadeTimeRange{StartDate: "2026-11-01", EndDate: "2026-11-11"}})
 	require.NoError(t, err)
 	overview, ok := data.(*OverviewResponse)
 	require.True(t, ok)
 	assert.Equal(t, 42, overview.Metrics.DAU)
 
-	// retention：filter.cohort 透传。
+	// retention: filter.cohort passes through.
 	data, err = f.Query(ctx, &AnalyticsQuery{Domain: DomainRetention, Filter: map[string]string{"gameId": "demo", "cohort": "2026-11-01"}})
 	require.NoError(t, err)
 	ret, ok := data.(*RetentionResponse)
 	require.True(t, ok)
 	assert.Equal(t, "2026-11-01", ret.Cohorts[0].Cohort)
 
-	// warehouse：filter.days 透传。
+	// warehouse: filter.days passes through.
 	data, err = f.Query(ctx, &AnalyticsQuery{Domain: DomainWarehouse, Filter: map[string]string{"gameId": "demo", "days": "7"}})
 	require.NoError(t, err)
 	wh, ok := data.(*WarehouseDAUResponse)
 	require.True(t, ok)
 	assert.Len(t, wh.Points, 1)
 
-	// 其余域逐个路由（类型断言即路由正确性）。
+	// The remaining domains route one by one (type assertions double as routing assertions).
 	data, err = f.Query(ctx, &AnalyticsQuery{Domain: DomainBehavior, Filter: map[string]string{"gameId": "demo"}})
 	require.NoError(t, err)
 	_, ok = data.(*BehaviorResponse)
@@ -212,22 +212,22 @@ func TestFacadeQueryValidation(t *testing.T) {
 	f := allOK()
 	ctx := context.Background()
 
-	// 缺 domain。
+	// Missing domain.
 	_, err := f.Query(ctx, &AnalyticsQuery{Filter: map[string]string{"gameId": "demo"}})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "domain is required")
 
-	// 缺 gameId。
+	// Missing gameId.
 	_, err = f.Query(ctx, &AnalyticsQuery{Domain: DomainOverview})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "filter.gameId is required")
 
-	// 未知域 422。
+	// Unknown domain -> 422.
 	_, err = f.Query(ctx, &AnalyticsQuery{Domain: "nope", Filter: map[string]string{"gameId": "demo"}})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unknown domain")
 
-	// 未建域判定。
+	// Unbuilt-domain determination.
 	assert.True(t, isPendingDomain("economy"))
 	assert.True(t, isPendingDomain("campaign"))
 	assert.False(t, isPendingDomain(DomainOverview))
@@ -236,15 +236,15 @@ func TestFacadeQueryValidation(t *testing.T) {
 func TestFacadeHandlers(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	h := NewHandler(NewService(nil), config.SSEConfig{})
-	h.facade = allOK() // 同包注入 stub 门面（不触真数据源）
+	h.facade = allOK() // injects the stub facade in-package (no real data source touched)
 
-	// summary：缺 gameId 422。
+	// summary: missing gameId -> 422.
 	c, rec := newFacadeContext(http.MethodGet, "/api/v1/analytics/facade/summary", "")
 	h.FacadeSummary(c)
 	assert.Equal(t, http.StatusUnprocessableEntity, rec.Code)
 	assert.Contains(t, rec.Body.String(), "validation_failed")
 
-	// summary：带 gameId 返回聚合卡组（含 pending_data_source 域）。
+	// summary: with gameId returns the aggregated card set (including pending_data_source domains).
 	c2, rec2 := newFacadeContext(http.MethodGet, "/api/v1/analytics/facade/summary?gameId=demo&env=prod", "")
 	h.FacadeSummary(c2)
 	require.Equal(t, http.StatusOK, rec2.Code)
@@ -253,7 +253,7 @@ func TestFacadeHandlers(t *testing.T) {
 	assert.Contains(t, payload, `"status":"ok"`)
 	assert.Contains(t, payload, `"status":"pending_data_source"`)
 
-	// query：JSON body 路由到 stub 域。
+	// query: the JSON body routes to the stub domain.
 	body := `{"domain":"overview","filter":{"gameId":"demo","env":"prod"},"timeRange":{"startDate":"2026-11-01","endDate":"2026-11-11"}}`
 	c3, rec3 := newFacadeContext(http.MethodPost, "/api/v1/analytics/facade/query", body)
 	h.FacadeQuery(c3)
@@ -261,24 +261,24 @@ func TestFacadeHandlers(t *testing.T) {
 	assert.Contains(t, rec3.Body.String(), `"domain":"overview"`)
 	assert.Contains(t, rec3.Body.String(), `"dau":42`)
 
-	// query：未建域 422 domain_pending。
+	// query: unbuilt domain -> 422 domain_pending.
 	c4, rec4 := newFacadeContext(http.MethodPost, "/api/v1/analytics/facade/query", `{"domain":"economy","filter":{"gameId":"demo"}}`)
 	h.FacadeQuery(c4)
 	assert.Equal(t, http.StatusUnprocessableEntity, rec4.Code)
 	assert.Contains(t, rec4.Body.String(), "domain_pending")
 
-	// query：未知域 422。
+	// query: unknown domain -> 422.
 	c5, rec5 := newFacadeContext(http.MethodPost, "/api/v1/analytics/facade/query", `{"domain":"nope","filter":{"gameId":"demo"}}`)
 	h.FacadeQuery(c5)
 	assert.Equal(t, http.StatusUnprocessableEntity, rec5.Code)
 	assert.Contains(t, rec5.Body.String(), "unknown domain")
 
-	// query：缺 gameId 422。
+	// query: missing gameId -> 422.
 	c6, rec6 := newFacadeContext(http.MethodPost, "/api/v1/analytics/facade/query", `{"domain":"overview"}`)
 	h.FacadeQuery(c6)
 	assert.Equal(t, http.StatusUnprocessableEntity, rec6.Code)
 
-	// query：坏 JSON 400。
+	// query: bad JSON -> 400.
 	c7, rec7 := newFacadeContext(http.MethodPost, "/api/v1/analytics/facade/query", `not-json`)
 	h.FacadeQuery(c7)
 	assert.Equal(t, http.StatusBadRequest, rec7.Code)

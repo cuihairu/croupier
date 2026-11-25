@@ -24,8 +24,8 @@ func bindAnalyticsRequest(c *gin.Context, req interface{}) error {
 type Handler struct {
 	service *Service
 	sse     config.SSEConfig
-	// facade 是聚合查询门面（MOB-ANA-001）：随 handler 一并装配，分域
-	// handler 路由不受影响。
+	// facade is the aggregate-query facade (MOB-ANA-001): wired up together with the
+	// handler; per-domain handler routing is unaffected.
 	facade *Facade
 }
 
@@ -150,17 +150,17 @@ func (h *Handler) Realtime(c *gin.Context) {
 		return
 	}
 
-	// 设置 SSE 响应头
+	// Set the SSE response headers
 	c.Writer.Header().Set("Content-Type", "text/event-stream")
 	c.Writer.Header().Set("Cache-Control", "no-cache")
 	c.Writer.Header().Set("Connection", "keep-alive")
 	c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
 
-	// 创建可取消的 context
+	// Create a cancellable context
 	ctx, cancel := context.WithCancel(c.Request.Context())
 	defer cancel()
 
-	// 监听客户端断开连接
+	// Watch for client disconnect
 	go func() {
 		<-ctx.Done()
 		slog.InfoContext(ctx, "SSE client disconnected", "path", "/analytics/realtime")
@@ -176,7 +176,7 @@ func (h *Handler) Realtime(c *gin.Context) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
-	// 发送初始连接成功消息
+	// Send the initial connected message
 	_, _ = fmt.Fprintf(c.Writer, "event: connected\n")
 	_, _ = fmt.Fprintf(c.Writer, "data: {\"status\":\"connected\"}\n\n")
 	c.Writer.Flush()
@@ -187,11 +187,11 @@ func (h *Handler) Realtime(c *gin.Context) {
 			slog.InfoContext(ctx, "SSE connection closed")
 			return
 		case <-ticker.C:
-			// 获取实时数据
+			// Fetch realtime data
 			resp, err := h.service.Realtime(ctx, &req)
 			if err != nil {
 				slog.ErrorContext(ctx, "Failed to get realtime data", "error", err)
-				// 发送错误事件，但不关闭连接
+				// Send an error event, but do not close the connection
 				_, _ = fmt.Fprintf(c.Writer, "event: error\n")
 				errorData, _ := json.Marshal(map[string]string{"error": err.Error()})
 				_, _ = fmt.Fprintf(c.Writer, "data: %s\n\n", errorData)
@@ -199,11 +199,11 @@ func (h *Handler) Realtime(c *gin.Context) {
 				continue
 			}
 
-			// 发送数据事件
-			// resp 为已类型化的 *RealtimeResponse：数值字段均经 safeDivide
-			// （分母 0 返回 0，无 NaN/Inf），TopEvents 为内部构造的
-			// []map[string]interface{}（string/int 值），Marshal 恒成功，
-			// error 分支不可达，已删除。
+			// Send the data event.
+			// resp is an already-typed *RealtimeResponse: numeric fields all go through
+			// safeDivide (a zero denominator returns 0, no NaN/Inf), and TopEvents is an
+			// internally built []map[string]interface{} (string/int values), so Marshal
+			// always succeeds — the error branch is unreachable and has been removed.
 			data, _ := json.Marshal(resp)
 
 			_, _ = fmt.Fprintf(c.Writer, "event: message\n")
