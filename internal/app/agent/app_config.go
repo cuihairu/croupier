@@ -7,8 +7,9 @@ import (
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
 )
 
-// SetProviderCallTimeout 配置 Agent → Provider 同步调用默认预算（透传
-// LocalHandler；非正值/超上限在 LocalHandler 内归一）。
+// SetProviderCallTimeout configures the default budget for synchronous
+// Agent → Provider calls (passed through to LocalHandler; non-positive values
+// or values above the cap are normalized inside LocalHandler).
 func (a *App) SetProviderCallTimeout(d time.Duration) {
 	if a == nil || a.localHandler == nil {
 		return
@@ -22,7 +23,7 @@ func (a *App) WithUpstreamMetadata(meta UpstreamMetadata) {
 		return
 	}
 	a.upstream.WithMetadata(meta)
-	// 同步 agent 期望的 game_id/env 给 LocalHandler，用于校验 SDK 注册
+	// Sync the agent's expected game_id/env to LocalHandler for validating SDK registrations
 	if a.localHandler != nil {
 		a.localHandler.SetExpectedGameEnv(meta.GameID, meta.Env)
 	}

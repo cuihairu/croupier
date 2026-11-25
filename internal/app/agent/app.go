@@ -33,16 +33,19 @@ type App struct {
 	extensionPuller  *ExtensionSyncPuller
 	outTLS           *tlsutil.ClientTLSConfig
 	localTLS         *tls.Config
-	// Provider 握手鉴权（CR-FIX-11）：cmd 配置经 SetProviderAuth 注入，
-	// startLocalServerSafely 建监听时透传 TCPLocalListenerConfig，与
-	// LocalHandler.SetProviderAuth 同源。
+	// Provider handshake auth (CR-FIX-11): cmd config is injected via
+	// SetProviderAuth, and startLocalServerSafely passes it through to
+	// TCPLocalListenerConfig when building the listener; same source as
+	// LocalHandler.SetProviderAuth.
 	providerAuthRequire bool
 	providerAuthToken   string
 	providerManager     *ProviderManager
 	providerSessions    *sidecar.ProviderSessionStore
 	telemetry           *telemetry.GameTelemetryService
-	// rec 是 agent 观测面（OBS-AGENT-001）：启停/连接状态/事件计数。缺省
-	// noop（零开销）；cmd 入口经 SetRecorder 注入真实 OTel 装配。
+	// rec is the agent observability surface (OBS-AGENT-001):
+	// start/stop, connection state, event counts. Defaults to noop
+	// (zero overhead); the cmd entrypoint injects the real OTel assembly
+	// via SetRecorder.
 	rec                otelrec.Recorder
 	userOnConnected    func()
 	userOnDisconnected func(error)
@@ -50,10 +53,11 @@ type App struct {
 
 	// TCP local server
 	localHandler *agent.LocalHandler
-	// localServerMu 守护 localServer 的发布与读取：StartLocalServer 在 Run
-	// 调用方派生的 goroutine 内赋值，而 Stop/GetLocalServerAddr 可能在启动
-	// 完成前被调用（SIGTERM 早到、测试快速收尾），无同步的读/写构成数据
-	// 竞争（2026-09-22 -race 实证）。
+	// localServerMu guards publication of and reads from localServer:
+	// StartLocalServer assigns it inside the goroutine spawned by the Run
+	// caller, while Stop/GetLocalServerAddr may run before startup finishes
+	// (early SIGTERM, fast test teardown); unsynchronized reads/writes are a
+	// data race (demonstrated by -race on 2026-09-22).
 	localServerMu sync.Mutex
 	localServer   transportcore.Server
 	localAddr     string
@@ -65,16 +69,19 @@ type App struct {
 	agentID   string
 	version   string
 
-	// probeManager 声明式探针装配（R2）。为 nil = 未配置探测（默认）。
+	// probeManager is the declarative probe assembly (R2). nil = no probing
+	// configured (default).
 	probeManager *ProbeManager
 
-	// funcHost 函数适配插件宿主（todo.md:35）。为 nil = 未配置（默认）。
+	// funcHost is the host for function adapter plugins (todo.md:35). nil =
+	// not configured (default).
 	funcHost *funcplugin.Host
 
-	// serveLocal 是本地 listener Serve 的注入点：生产为 nil（走真实
-	// tcpServer.Serve），测试注入返回非 Canceled 错误的实现以驱动
-	// StartLocalServer 的错误日志分支（listener 在函数内部构造，无法
-	// 从外部触发其 Accept 故障路径）。
+	// serveLocal is the injection point for the local listener's Serve:
+	// production leaves it nil (real tcpServer.Serve); tests inject an
+	// implementation returning a non-Canceled error to drive StartLocalServer's
+	// error-logging branch (the listener is built inside the function, so its
+	// Accept failure path cannot be triggered externally).
 	serveLocal func(server *agent.TCPLocalListener) error
 	serveErrMu sync.Mutex
 	serveErr   chan error
@@ -96,9 +103,11 @@ func (a *App) TelemetryService() *telemetry.GameTelemetryService {
 	return a.telemetry
 }
 
-// SetRecorder 装配 agent 观测面（OBS-AGENT-001）：nil=noop（默认关闭零开销
-// 路径）；真实 OTel 实现由 cmd 入口注入。必须在 Run 前调用（装配链在
-// armRecorderChaining 里把 recorder 与用户连接回调串成一条上游链）。
+// SetRecorder wires the agent observability surface (OBS-AGENT-001): nil =
+// noop (the default off, zero-overhead path); the real OTel implementation is
+// injected by the cmd entrypoint. It must be called before Run (the wiring
+// chains the recorder and the user connection callbacks into one upstream
+// chain inside armRecorderChaining).
 func (a *App) SetRecorder(rec otelrec.Recorder) {
 	if a == nil {
 		return
@@ -110,8 +119,10 @@ func (a *App) SetRecorder(rec otelrec.Recorder) {
 	a.armRecorderChaining()
 }
 
-// armRecorderChaining 把上游连接/断开事件接到 recorder（再透传用户回调）。
-// 幂等：重复调用只是重写同一个上游槽位（闭包读当前 a.rec/a.userOn*）。
+// armRecorderChaining wires upstream connect/disconnect events into the
+// recorder (then forwards to the user callbacks). Idempotent: repeated calls
+// just overwrite the same upstream slot (the closures read the current
+// a.rec/a.userOn*).
 func (a *App) armRecorderChaining() {
 	if a == nil || a.upstream == nil {
 		return
@@ -212,10 +223,11 @@ func (a *App) StartLocalServer() error {
 	a.opsMu.Unlock()
 	opsWrapper := &opsServerWrapper{ops: opsServer}
 	a.localHandler.SetOpsServer(opsWrapper)
-	// 托管进程快照随 metrics 上报捎带（supervisor S1）
+	// Managed-process snapshots piggyback on the metrics report (supervisor S1)
 	a.upstream.WithSupervisorSampler(opsServer)
 
-	// OPS-005 日志采集：配置了 logFiles 则装配 tailer，折入 metrics 上报。
+	// OPS-005 log collection: when logFiles are configured, assemble the tailer
+	// and fold it into the metrics report.
 	if a.opsConfig != nil && len(a.opsConfig.LogFiles) > 0 {
 		tailer := corelogs.NewTailer(
 			a.opsConfig.LogFiles,
@@ -247,20 +259,24 @@ func (a *App) StartLocalServer() error {
 		return fmt.Errorf("failed to create TCP local server: %w", err)
 	}
 	tcpServer.SetLocalHandler(a.localHandler)
-	// provider keepalive 探针（间隔可配：CROUPIER_AGENTLOCAL_PROBE_INTERVAL，
-	// 默认 5s）：pong 经 SDK 事件循环回出，卡死的 provider 在 1~2 个周期
-	// 内被摘除——调用路由不再选到半死会话（连接在但处理不动的僵尸）。
+	// Provider keepalive probe (interval configurable via
+	// CROUPIER_AGENTLOCAL_PROBE_INTERVAL, default 5s): the pong is returned
+	// through the SDK event loop, so a stuck provider is removed within 1-2
+	// cycles — invocation routing no longer picks half-dead sessions
+	// (zombies whose connection is alive but whose processing is stalled).
 	if probeInterval := parseDurationEnv("CROUPIER_AGENTLOCAL_PROBE_INTERVAL", 5*time.Second); probeInterval > 0 {
 		probe := agent.NewProviderKeepalive(providerSessions, probeInterval, slog.Default())
 		go probe.Run(context.Background())
 	}
 	tcpServer.SetOnConnect(func(session *sidecar.ProviderSession) {
-		// 事件/吞吐计数面（OBS-AGENT-001）：provider 注册是 SDK 侧可用性
-		// 的原子事件，按 service 维度计数。
+		// Event/throughput counting surface (OBS-AGENT-001): provider
+		// registration is the atomic event of SDK-side availability, counted
+		// per service.
 		a.rec.Count(context.Background(), "events", 1, map[string]string{"op": "provider_register", "service": session.ServiceID})
 		addr := session.Conn().RemoteAddr()
-		// 平台固定键 + 会话携带的用户实例元数据（保留键已在帧解析时剥离，
-		// 见 agent.MergeUserProviderMetadata）。
+		// Platform fixed keys plus the user instance metadata carried by the
+		// session (reserved keys are already stripped during frame parsing,
+		// see agent.MergeUserProviderMetadata).
 		a.store.Register(session.SessionID, session.ServiceID, addr, session.Version, session.Functions,
 			agent.MergeProviderInstanceMetadata(session, a.upstream.GameID(), a.upstream.Env()))
 	})
@@ -273,11 +289,14 @@ func (a *App) StartLocalServer() error {
 	a.localServerMu.Unlock()
 	serve := a.serveLocal
 	if serve == nil {
-		// 覆盖边界说明：Serve 仅在 Accept 返回非超时错误且未走 Close 路径
-		// 时返回错误（如进程 fd 耗尽 EMFILE），listener 由 StartLocalServer
-		// 内部构造、生产无法注入该故障；正规 Stop() 路径 Serve 恒返回 nil，
-		// ctx 为 Background 也排除 context.Canceled。此日志分支保留为生产
-		// 异常兜底，经 serveLocal 注入点测试驱动。
+		// Coverage boundary: Serve only returns an error when Accept yields a
+		// non-timeout error without taking the Close path (e.g. process fd
+		// exhaustion, EMFILE); the listener is built inside StartLocalServer,
+		// so that failure cannot be injected in production. The normal Stop()
+		// path always returns nil from Serve, and a Background ctx also rules
+		// out context.Canceled. This log branch is kept as a production
+		// exception fallback, driven in tests through the serveLocal injection
+		// point.
 		serve = func(server *agent.TCPLocalListener) error {
 			return server.Serve(context.Background())
 		}
@@ -325,9 +344,10 @@ func (a *App) SetLocalAddr(addr string) {
 	a.localAddr = addr
 }
 
-// SetProviderAuth 配置 Provider 握手鉴权（CR-FIX-11）：require=true 且
-// token 为空视为配置错误（fail-closed：所有握手被拒）；调用方应在配置
-// 校验阶段拦截此组合。
+// SetProviderAuth configures Provider handshake auth (CR-FIX-11): require=true
+// with an empty token is treated as a configuration error (fail-closed: all
+// handshakes are rejected); callers should block that combination at config
+// validation time.
 func (a *App) SetProviderAuth(require bool, token string) {
 	if a == nil {
 		return

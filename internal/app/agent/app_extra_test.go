@@ -18,7 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// --- App 基础方法 ---
+// --- App basic methods ---
 
 func TestApp_NilGuards(t *testing.T) {
 	var a *App
@@ -58,12 +58,12 @@ func TestApp_NilGuards(t *testing.T) {
 func TestApp_Accessors(t *testing.T) {
 	app := New("127.0.0.1:1", "agent-acc")
 
-	require.Error(t, app.SyncUpstream(context.Background())) // 未连接
+	require.Error(t, app.SyncUpstream(context.Background())) // not connected
 	require.Error(t, app.HeartbeatUpstream(context.Background()))
 
 	app.WithVersion("9.9.9")
 	app.WithOpsConfig(&OpsConfig{Enabled: true, MetricsEnabled: true, MetricsInterval: time.Second})
-	app.WithOpsConfig(nil) // 覆盖 nil 分支
+	app.WithOpsConfig(nil) // covers the nil branch
 	app.WithOutboundTLSConfig(&tlsutil.ClientTLSConfig{ServerName: "s"})
 	require.NotNil(t, app.Store())
 	require.NotNil(t, app.Tasks())
@@ -80,7 +80,7 @@ func TestApp_Accessors(t *testing.T) {
 	assert.Zero(t, app.ActiveTaskCount())
 
 	app.SetLocalAddr("127.0.0.1:0")
-	assert.Equal(t, "", app.GetLocalServerAddr()) // 尚未启动 server
+	assert.Equal(t, "", app.GetLocalServerAddr()) // server not started yet
 
 	app.WithTelemetry(nil)
 	require.NotNil(t, app)
@@ -121,18 +121,18 @@ func TestApp_ApplyExtensionSyncPayload(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, result)
 
-	// 函数被发现并注册路由
+	// The function was discovered and its route registered
 	assert.True(t, app.hasExtensionFunction("my.func"))
 	assert.False(t, app.hasExtensionFunction(""))
 	assert.False(t, app.hasExtensionFunction("missing.func"))
 
-	// JSON 入口
+	// JSON entry point
 	raw, err := json.Marshal(payload)
 	require.NoError(t, err)
 	_, err = app.ApplyExtensionSyncPayloadJSON(raw)
 	require.NoError(t, err)
 
-	// 无效 JSON
+	// Invalid JSON
 	_, err = app.ApplyExtensionSyncPayloadJSON([]byte("{bad"))
 	require.Error(t, err)
 
@@ -174,7 +174,8 @@ func TestApp_InvokeExtensionFunctionErrors(t *testing.T) {
 }
 
 func TestApp_RunSmoke(t *testing.T) {
-	// Run 连接一个假控制面：本地 server 启动、上游注册成功、Run 返回 nil。
+	// Run connects to a fake control plane: the local server starts, upstream
+	// registration succeeds, and Run returns nil.
 	f := newFakeMuxControlServer(t)
 	dir := t.TempDir()
 	app := NewWithConfigDir(f.addr(), "agent-run", dir)
@@ -185,8 +186,10 @@ func TestApp_RunSmoke(t *testing.T) {
 	require.NoError(t, app.Run(ctx))
 	defer func() {
 		cancel()
-		// 等注册完成后上游保持连接态（无并发写 c.client），可安全 Stop。
-		// 注意：UpstreamClient.client 字段无锁读写是产品级数据竞争，单独上报。
+		// After registration completes the upstream stays connected (no
+		// concurrent writes to c.client), so Stop is safe. Note: unlocked reads
+		// and writes of the UpstreamClient.client field are a product-level data
+		// race, filed separately.
 		time.Sleep(100 * time.Millisecond)
 		app.Stop()
 	}()
@@ -237,25 +240,25 @@ func TestApp_StartExtensionSync(t *testing.T) {
 	app.startExtensionSync(ctx)
 	require.NotNil(t, app.extensionPuller)
 
-	// Start 的后台循环会把 payload 应用到 runtime
+	// The Start background loop applies the payload to the runtime
 	require.Eventually(t, func() bool {
 		return len(app.extensionRuntime.Snapshot().Installations) > 0
 	}, 3*time.Second, 50*time.Millisecond)
 
-	// PullExtensionSyncOnce 拉取并把 runtime 状态同步为函数路由
+	// PullExtensionSyncOnce pulls and syncs the runtime state into function routes
 	require.NoError(t, app.PullExtensionSyncOnce(ctx))
 	assert.True(t, app.hasExtensionFunction("sync.fn"))
 
-	// 非法 interval 覆盖分支
+	// Covers the branch for an invalid interval
 	t.Setenv("CROUPIER_AGENTLOCAL_PRUNE_INTERVAL", "not-a-duration")
 	app2 := New("127.0.0.1:1", "agent-sync2")
-	app2.startMaintenance(ctx) // 使用默认值，不应 panic
+	app2.startMaintenance(ctx) // uses the default, must not panic
 }
 
 func TestApp_StartMaintenanceDisabled(t *testing.T) {
 	t.Setenv("CROUPIER_AGENTLOCAL_PRUNE_INTERVAL", "-1s")
 	app := New("127.0.0.1:1", "agent-m")
-	app.startMaintenance(context.Background()) // pruneInterval<=0 直接返回
+	app.startMaintenance(context.Background()) // pruneInterval<=0 returns immediately
 
 	var nilApp *App
 	nilApp.startMaintenance(context.Background())
@@ -330,17 +333,17 @@ func TestExtensionSyncPuller_ConstructAndStartGuards(t *testing.T) {
 	assert.Equal(t, "a1", p.agentID)
 
 	var nilPuller *ExtensionSyncPuller
-	nilPuller.Start(context.Background()) // 不应 panic
+	nilPuller.Start(context.Background()) // must not panic
 
 	p2 := NewExtensionSyncPuller("", "", "", time.Second, nil)
-	p2.Start(context.Background()) // baseURL/runtime 缺失直接返回
+	p2.Start(context.Background()) // missing baseURL/runtime returns immediately
 	require.Error(t, p2.PullOnce(context.Background()))
 }
 
 func TestExtensionDriverRuntime_Extra(t *testing.T) {
 	rt := NewExtensionDriverRuntime()
 
-	// nil 守卫
+	// nil guard
 	var nilRt *ExtensionDriverRuntime
 	_, err := nilRt.Invoke(context.Background(), "d", "f", nil)
 	require.Error(t, err)
@@ -348,13 +351,13 @@ func TestExtensionDriverRuntime_Extra(t *testing.T) {
 	nilRt.SetOpenAPICaller(nil)
 	nilRt.RegisterDriver(nil)
 
-	// 名称错误
+	// Bad driver name
 	_, err = rt.Invoke(context.Background(), " ", "f", nil)
 	require.Error(t, err)
 	_, err = rt.Invoke(context.Background(), "no-such", "f", nil)
 	require.Error(t, err)
 
-	// noop 驱动生命周期（注册为运行时驱动供后续 Sync/Invoke 使用）
+	// noop driver lifecycle (registered as a runtime driver for later Sync/Invoke)
 	noop := NewNoopExtensionDriver("custom")
 	rt.RegisterDriver(noop)
 	require.NoError(t, noop.Init(context.Background(), RuntimeInstallation{}))
@@ -365,7 +368,7 @@ func TestExtensionDriverRuntime_Extra(t *testing.T) {
 	assert.Equal(t, []byte("payload"), out)
 	require.NotNil(t, noop)
 
-	// openapi 驱动
+	// openapi driver
 	od := NewOpenAPIExtensionDriver()
 	require.NoError(t, od.Init(context.Background(), RuntimeInstallation{}))
 	require.NoError(t, od.Reload(context.Background(), RuntimeInstallation{}))
@@ -385,7 +388,7 @@ func TestExtensionDriverRuntime_Extra(t *testing.T) {
 	require.Error(t, err)
 	nilOpenapi.SetCaller(nil)
 
-	// LastResult 记录
+	// LastResult recording
 	snap := ExtensionRuntimeSnapshot{Installations: []RuntimeInstallation{
 		{InstallationID: 1, Bindings: []RuntimeBinding{
 			{BindingType: "driver", Spec: map[string]any{"driver": "custom"}},
@@ -401,7 +404,7 @@ func TestExtensionDriverRuntime_Extra(t *testing.T) {
 	assert.Equal(t, []byte("p"), out)
 }
 
-// --- UpstreamClient 辅助 ---
+// --- UpstreamClient helpers ---
 
 func TestUpstreamClient_SetTransportKindInvalid(t *testing.T) {
 	client := NewUpstreamClient("127.0.0.1:1", "a", agentlocal.NewLocalStore(), nil)
@@ -433,7 +436,7 @@ func TestUpstreamClient_WithMetricsReporting(t *testing.T) {
 	nilClient.WithMetricsReporting(time.Second)
 
 	client.metricsEnabled = true
-	require.Error(t, client.SendMetricEvent(context.Background(), nil)) // 未连接
+	require.Error(t, client.SendMetricEvent(context.Background(), nil)) // not connected
 }
 
 func TestApp_WithTelemetryService(t *testing.T) {

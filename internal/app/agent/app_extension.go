@@ -39,9 +39,10 @@ func (a *App) ApplyExtensionSyncPayloadJSON(raw []byte) (*ExtensionRuntimeApplyR
 		a.extensionRuntime.RecordError(err)
 		return nil, err
 	}
-	// ExtensionRuntime.ApplyPayload 仅有的两个错误路径是 nil receiver 与
-	// nil payload：前者已被上方判空排除，后者传入的 &payload 恒非 nil。
-	// err 分支为死代码，已删除。
+	// The only two error paths of ExtensionRuntime.ApplyPayload are a nil
+	// receiver and a nil payload: the former is already excluded by the nil
+	// check above, and the &payload passed here is never nil. The err branch
+	// was dead code and has been removed.
 	result, _ := a.extensionRuntime.ApplyPayload(&payload)
 	if err := a.syncExtensionsFromRuntime(context.Background()); err != nil {
 		a.extensionRuntime.RecordError(err)
@@ -87,9 +88,10 @@ func (a *App) syncExtensionsFromRuntime(ctx context.Context) error {
 	}
 	snap := a.extensionRuntime.Snapshot()
 	if a.providerManager != nil {
-		// ProviderManager.SyncExtensionProviders 的实现不返回任何非 nil
-		// 错误（initProvider 失败仅记日志并 continue，函数尾部固定
-		// return nil），err 分支为死代码，已删除。
+		// The implementation of ProviderManager.SyncExtensionProviders never
+		// returns a non-nil error (initProvider failures are only logged and
+		// continued past; the function ends with a fixed return nil), so the
+		// err branch was dead code and has been removed.
 		entries := buildExtensionProviderEntries(snap)
 		_ = a.providerManager.SyncExtensionProviders(ctx, entries)
 	}
@@ -112,15 +114,16 @@ func (a *App) syncExtensionFunctionsFromRuntime() {
 		providerID := "extension:" + strconv.FormatUint(uint64(item.InstallationID), 10)
 		funcs := discoverExtensionFunctions(item)
 		if len(funcs) > 0 {
-			// 扩展没有 serviceID，传空字符串
+			// Extensions have no serviceID; pass an empty string
 			a.store.Register(providerID, "", "", versionutil.ValidOrDefault(item.ReleaseVersion), funcs, nil)
 		} else {
 			a.store.RemoveProvider(providerID)
 		}
 		for _, fn := range funcs {
-			// discoverExtensionFunctions 的元素全部经 pushWithResource 构造：
-			// 恒非 nil，且 Id 为 TrimSpace 后非空的 fid，nil/空 ID 防御分支
-			// 为死代码，已删除。
+			// Every element of discoverExtensionFunctions is built via
+			// pushWithResource: never nil, and Id is the TrimSpace'd fid,
+			// which is non-empty, so the nil/empty-ID guard branch was dead
+			// code and has been removed.
 			routes[strings.TrimSpace(fn.GetId())] = extensionFunctionRoute{
 				InstallationID: item.InstallationID,
 				Driver:         resolveFunctionDriver(item, fn.GetId()),
@@ -264,10 +267,12 @@ func buildExtensionProviderEntries(snapshot ExtensionRuntimeSnapshot) map[string
 			if !ok {
 				continue
 			}
-			// ParseProviderBinding 成功即保证 Provider 为 SanitizeKey 的非空
-			// 产出，而 sanitizeNodeKey 与 externalfunc.SanitizeKey 的字符映射、
-			// 首尾 Trim 规则逐一等价（幂等），故 name 恒非空，空名分支为
-			// 死代码，已删除。
+			// A successful ParseProviderBinding guarantees Provider is a
+			// non-empty product of SanitizeKey, and sanitizeNodeKey is
+			// character-for-character equivalent to externalfunc.SanitizeKey
+			// in its char mapping and edge Trim rules (idempotent), so name is
+			// always non-empty; the empty-name branch was dead code and has
+			// been removed.
 			name := sanitizeNodeKey(parsed.Provider)
 			cfg := map[string]interface{}{}
 			for k, v := range parsed.Config {
