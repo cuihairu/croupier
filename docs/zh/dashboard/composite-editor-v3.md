@@ -549,7 +549,7 @@ FormPresentationEditor（操作/任务/报表/资源页的表单页签与组合�
 
 ## 命名展示变体（SUI-031，仅协议）
 
-命名展示变体协议已在 [PageSpec 协议](../architecture/pagespec-protocol.md#命名展示变体sui-031) 定义：一个表单可携带多个命名呈现形态（标准纵向与紧凑栅格为典型一对），共用 schema、Binding 与全部调用治理，只在 SUI-045 纯展示覆盖上不同。存储已落地（SUI-032：变体随表单写入既有草稿/快照表），发布校验也已落地（SUI-033：Web 端在 `web/src/utils/formValidation.ts` 镜像服务端规则——变体 key 唯一、`defaultVariant` 解析、调用相关键非法覆盖、schema 字段解析在保存前即被标记；服务端在发布与回滚预检时把变体 key 对照当前契约复解析），Page Studio 管理已随 SUI-034 落地（见下一小节），默认解析已随 SUI-035 落地：渲染表单现已应用发布的 `defaultVariant`——`SchemaFormRenderer` 的生效 spec 步骤经同一 `resolveVariantPresentation` 合并命名风格，缺失默认项回退 基础→派生纵向，旧页面与解析不到的 key 原样渲染。已发布切换（SUI-036）仍待实现：操作者暂无会话内风格切换，渲染表单始终跟随发布默认项。
+命名展示变体协议已在 [PageSpec 协议](../architecture/pagespec-protocol.md#命名展示变体sui-031) 定义：一个表单可携带多个命名呈现形态（标准纵向与紧凑栅格为典型一对），共用 schema、Binding 与全部调用治理，只在 SUI-045 纯展示覆盖上不同。存储已落地（SUI-032：变体随表单写入既有草稿/快照表），发布校验也已落地（SUI-033：Web 端在 `web/src/utils/formValidation.ts` 镜像服务端规则——变体 key 唯一、`defaultVariant` 解析、调用相关键非法覆盖、schema 字段解析在保存前即被标记；服务端在发布与回滚预检时把变体 key 对照当前契约复解析），Page Studio 管理已随 SUI-034 落地（见下一小节），默认解析已随 SUI-035 落地：渲染表单现已应用发布的 `defaultVariant`——`SchemaFormRenderer` 的生效 spec 步骤经同一 `resolveVariantPresentation` 合并命名风格，缺失默认项回退 基础→派生纵向，旧页面与解析不到的 key 原样渲染。已发布切换已随 SUI-036 落地：声明多于一个风格的渲染表单在表单上方显示会话内切换器（antd `Segmented`）；选择风格时，显式选择在解析链头部替换发布默认项进入同一解析。
 
 ### 在 Page Studio 管理命名风格（SUI-034）
 
@@ -566,7 +566,9 @@ FormPresentationEditor（操作/任务/报表/资源页的表单页签与组合�
 
 **风格与绑定操作。** 风格只改展示——布局、列宽、控件、文案；不改取数与提交：从选中行取 playerId 是**绑定 selector** 操作（在绑定上配置，不在表单呈现里），任何风格都不改变请求 payload——两点都写进了编辑器提示文案。两条验收探针：**调整表单列数**是风格操作（风格卡片里的逐字段列宽覆盖）；**从选中行取 playerId** 是绑定操作（绑定 selector），风格卡片刻意不涉及它。
 
-**已知边界。** 编辑器管理 key/标题/布局/列宽/控件覆盖子集与默认项；按钮覆盖（`submitButton`/`cancelButton`）、变体分组、label/placeholder/description 覆盖、变体独有字段在 wire 上合法（SUI-031）但尚无编辑器 UI——可通过 API 编写，在这里保持可见、可预览。组合页编辑器的区块表单配置仍是仅 schema，不提供风格卡片。默认解析已随 SUI-035 落地；运行时风格切换随 SUI-036 落地。
+**已发布表单切换（SUI-036）。** 运行时，携带多于一个风格的已发布表单——操作/任务/报表/资源表单与组合页区块表单一体适用（它们都经 `SchemaFormRenderer` 渲染）——在表单上方显示小型风格切换器。切换只改可见呈现：输入值与校验错误跨切换保留；由于任何风格都改不了 `jsonSchema`，两种风格提交相同 payload、产出相同确认条目。操作者的选择仅在会话内有效——重挂载即复位、不持久化；持久化的跨设备风格偏好是另一项待决策事项。
+
+**已知边界。** 编辑器管理 key/标题/布局/列宽/控件覆盖子集与默认项；按钮覆盖（`submitButton`/`cancelButton`）、变体分组、label/placeholder/description 覆盖、变体独有字段在 wire 上合法（SUI-031）但尚无编辑器 UI——可通过 API 编写，在这里保持可见、可预览。组合页编辑器的区块表单配置仍是仅 schema，不提供风格卡片，但经 API 编写了变体的区块表单在运行时同样获得切换器。默认解析（SUI-035）与运行时风格切换（SUI-036）均已落地。
 
 ## 9. 已知边界
 
