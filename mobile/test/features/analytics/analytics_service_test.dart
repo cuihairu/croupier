@@ -94,6 +94,22 @@ void main() {
     );
   });
 
+  test('summary 解析 timeout 状态卡（DATA-030）', () async {
+    adapter.handler = (options, _) => jsonResponse(200, {
+      'gameId': 'demo',
+      'domains': [
+        {'domain': 'realtime', 'status': 'timeout', 'error': 'budget exceeded'},
+      ],
+    });
+
+    final summary = await service.summary(gameId: 'demo');
+
+    expect(summary.domains, hasLength(1));
+    expect(summary.domains[0].isTimeout, isTrue);
+    expect(summary.domains[0].isOk, isFalse);
+    expect(summary.domains[0].error, 'budget exceeded');
+  });
+
   test('query 不同窗口产生不同请求体', () async {
     // 窗口语义（DATA-029）：不同 timeRange 必须在 wire 上可区分。
     adapter.handler = (options, _) => jsonResponse(200, {

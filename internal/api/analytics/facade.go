@@ -52,7 +52,19 @@ const (
 	CardStatusOK          = "ok"
 	CardStatusUnavailable = "unavailable"
 	CardStatusPendingData = "pending_data_source"
+	// CardStatusTimeout marks a domain whose summary exceeded its per-domain
+	// time budget (DATA-030); the other domains still returned in time.
+	CardStatusTimeout = "timeout"
 )
+
+// facadeDomainBudget bounds each domain's summary wait independently (DATA-030):
+// a domain blocking past the budget reports timeout while the rest return in
+// time. Var so tests can shorten it.
+var facadeDomainBudget = 5 * time.Second
+
+// facadeSummaryConcurrency caps how many domain summaries run at once, so a
+// slow set of domains cannot stack unbounded queries against the stores.
+var facadeSummaryConcurrency = 4
 
 // PendingDomains lists the domains judged ❌ (missing) in design doc §3, whose data
 // sources are not built yet: the facade declares the route but honestly reports
@@ -135,53 +147,97 @@ type FacadeSummaryResponse struct {
 // isolation) and declares pending_data_source for unwired domains. A failure in any
 // one domain does not affect the others (partial-availability semantics, so the
 // mobile dashboard does not go blank because of a single domain's backend failure).
+// DATA-030: every domain waits under the same per-domain time budget derived from
+// the caller's context -- a domain that blocks past the budget reports timeout
+// while the other domains still return, and a caller cancellation stops the wait
+// immediately. In-flight domain summaries are capped by a worker pool.
 func (f *Facade) Summary(ctx context.Context, gameId, env string) *FacadeSummaryResponse {
 	cards := make([]*DomainCard, 0, 8+1)
 	var mu sync.Mutex
-	var wg sync.WaitGroup
+
+	// Per-domain budget: derived once from the caller's context, so caller
+	// cancellation also releases every pending domain wait.
+	budgetCtx, cancel := context.WithTimeout(ctx, facadeDomainBudget)
+	defer cancel()
 
 	appendCard := func(card *DomainCard) {
 		mu.Lock()
 		cards = append(cards, card)
 		mu.Unlock()
 	}
-	query := func(domain string, fn func() (interface{}, error)) {
-		defer wg.Done()
+
+	type entry struct {
+		domain string
+		run    func(context.Context) (interface{}, error)
+	}
+	entries := make([]entry, 0, 8)
+	entries = append(entries, entry{DomainOverview, f.summaryOverview(gameId, env)})
+	entries = append(entries, entry{DomainBehavior, f.summaryBehavior(gameId, env)})
+	entries = append(entries, entry{DomainPayments, f.summaryPayments(gameId, env)})
+	entries = append(entries, entry{DomainRetention, f.summaryRetention(gameId, env)})
+	entries = append(entries, entry{DomainRealtime, f.summaryRealtime(gameId, env)})
+	entries = append(entries, entry{DomainInvocations, f.summaryInvocations(gameId, env)})
+	entries = append(entries, entry{DomainLevels, f.summaryLevels(gameId, env)})
+	entries = append(entries, entry{DomainWarehouse, f.summaryWarehouse(gameId, env)})
+
+	// The result channel is buffered so an abandoned query goroutine can still
+	// deliver and exit after the wait moved on.
+	type result struct {
+		data interface{}
+		err  error
+	}
+	query := func(domain string, fn func(context.Context) (interface{}, error)) {
 		if fn == nil {
 			// A wiring gap is explicitly marked unavailable so cards never silently disappear.
 			appendCard(&DomainCard{Domain: domain, Status: CardStatusUnavailable, Error: "facade: domain not wired"})
 			return
 		}
-		data, err := fn()
-		if err != nil {
-			appendCard(&DomainCard{Domain: domain, Status: CardStatusUnavailable, Error: err.Error()})
-			return
+		ch := make(chan result, 1)
+		go func() {
+			data, err := fn(budgetCtx)
+			ch <- result{data, err}
+		}()
+		select {
+		case r := <-ch:
+			if r.err != nil {
+				appendCard(&DomainCard{Domain: domain, Status: CardStatusUnavailable, Error: r.err.Error()})
+				return
+			}
+			appendCard(&DomainCard{Domain: domain, Status: CardStatusOK, Data: r.data})
+		case <-budgetCtx.Done():
+			if ctx.Err() != nil {
+				appendCard(&DomainCard{Domain: domain, Status: CardStatusUnavailable, Error: fmt.Sprintf("facade: caller context ended (%v)", ctx.Err())})
+				return
+			}
+			appendCard(&DomainCard{Domain: domain, Status: CardStatusTimeout, Error: fmt.Sprintf("facade: domain summary exceeded its %s budget", facadeDomainBudget)})
 		}
-		appendCard(&DomainCard{Domain: domain, Status: CardStatusOK, Data: data})
 	}
 
-	type entry struct {
-		domain string
-		run    func() (interface{}, error)
+	// Worker pool: at most facadeSummaryConcurrency domain summaries in flight.
+	jobs := make(chan entry)
+	var wg sync.WaitGroup
+	workers := facadeSummaryConcurrency
+	if workers > len(entries) {
+		workers = len(entries)
 	}
-	entries := make([]entry, 0, 8)
-	entries = append(entries, entry{DomainOverview, f.summaryOverview(ctx, gameId, env)})
-	entries = append(entries, entry{DomainBehavior, f.summaryBehavior(ctx, gameId, env)})
-	entries = append(entries, entry{DomainPayments, f.summaryPayments(ctx, gameId, env)})
-	entries = append(entries, entry{DomainRetention, f.summaryRetention(ctx, gameId, env)})
-	entries = append(entries, entry{DomainRealtime, f.summaryRealtime(ctx, gameId, env)})
-	entries = append(entries, entry{DomainInvocations, f.summaryInvocations(ctx, gameId, env)})
-	entries = append(entries, entry{DomainLevels, f.summaryLevels(ctx, gameId, env)})
-	entries = append(entries, entry{DomainWarehouse, f.summaryWarehouse(ctx, gameId, env)})
-
-	for _, e := range entries {
+	for i := 0; i < workers; i++ {
 		wg.Add(1)
-		go query(e.domain, e.run)
+		go func() {
+			defer wg.Done()
+			for e := range jobs {
+				query(e.domain, e.run)
+			}
+		}()
 	}
+	for _, e := range entries {
+		jobs <- e
+	}
+	close(jobs)
+	wg.Wait()
+
 	for _, domain := range PendingDomains {
 		appendCard(&DomainCard{Domain: domain, Status: CardStatusPendingData})
 	}
-	wg.Wait()
 
 	return &FacadeSummaryResponse{
 		GameId:      gameId,
@@ -192,75 +248,76 @@ func (f *Facade) Summary(ctx context.Context, gameId, env string) *FacadeSummary
 }
 
 // summary* closures: return a nil fn when the queryer is not wired (query then marks it
-// unavailable, so the card never silently disappears).
-func (f *Facade) summaryOverview(ctx context.Context, gameId, env string) func() (interface{}, error) {
+// unavailable, so the card never silently disappears). Each fn receives the
+// caller-scoped budget context at run time (DATA-030).
+func (f *Facade) summaryOverview(gameId, env string) func(context.Context) (interface{}, error) {
 	if f.Overview == nil {
 		return nil
 	}
-	return func() (interface{}, error) {
+	return func(ctx context.Context) (interface{}, error) {
 		return f.Overview.Overview(ctx, &OverviewRequest{GameId: gameId, Env: env})
 	}
 }
 
-func (f *Facade) summaryBehavior(ctx context.Context, gameId, env string) func() (interface{}, error) {
+func (f *Facade) summaryBehavior(gameId, env string) func(context.Context) (interface{}, error) {
 	if f.Behavior == nil {
 		return nil
 	}
-	return func() (interface{}, error) {
+	return func(ctx context.Context) (interface{}, error) {
 		return f.Behavior.Behavior(ctx, &BehaviorRequest{GameId: gameId, Env: env})
 	}
 }
 
-func (f *Facade) summaryPayments(ctx context.Context, gameId, env string) func() (interface{}, error) {
+func (f *Facade) summaryPayments(gameId, env string) func(context.Context) (interface{}, error) {
 	if f.Payments == nil {
 		return nil
 	}
-	return func() (interface{}, error) {
+	return func(ctx context.Context) (interface{}, error) {
 		return f.Payments.PaymentsSummary(ctx, &PaymentsSummaryRequest{GameId: gameId, Env: env})
 	}
 }
 
-func (f *Facade) summaryRetention(ctx context.Context, gameId, env string) func() (interface{}, error) {
+func (f *Facade) summaryRetention(gameId, env string) func(context.Context) (interface{}, error) {
 	if f.Retention == nil {
 		return nil
 	}
-	return func() (interface{}, error) {
+	return func(ctx context.Context) (interface{}, error) {
 		return f.Retention.Retention(ctx, &RetentionRequest{GameId: gameId, Env: env})
 	}
 }
 
-func (f *Facade) summaryRealtime(ctx context.Context, gameId, env string) func() (interface{}, error) {
+func (f *Facade) summaryRealtime(gameId, env string) func(context.Context) (interface{}, error) {
 	if f.Realtime == nil {
 		return nil
 	}
-	return func() (interface{}, error) {
+	return func(ctx context.Context) (interface{}, error) {
 		return f.Realtime.Realtime(ctx, &RealtimeRequest{GameId: gameId, Env: env})
 	}
 }
 
-func (f *Facade) summaryInvocations(ctx context.Context, gameId, env string) func() (interface{}, error) {
+func (f *Facade) summaryInvocations(gameId, env string) func(context.Context) (interface{}, error) {
 	if f.Invocations == nil {
 		return nil
 	}
-	return func() (interface{}, error) {
+	return func(ctx context.Context) (interface{}, error) {
 		return f.Invocations.InvocationsSummary(ctx, &InvocationsSummaryRequest{GameId: gameId, Env: env})
 	}
 }
 
-func (f *Facade) summaryLevels(ctx context.Context, gameId, env string) func() (interface{}, error) {
+func (f *Facade) summaryLevels(gameId, env string) func(context.Context) (interface{}, error) {
 	if f.Levels == nil {
 		return nil
 	}
-	return func() (interface{}, error) {
+	return func(ctx context.Context) (interface{}, error) {
 		return f.Levels.Levels(ctx, &LevelsRequest{GameId: gameId, Env: env})
 	}
 }
 
-func (f *Facade) summaryWarehouse(ctx context.Context, gameId, env string) func() (interface{}, error) {
+func (f *Facade) summaryWarehouse(gameId, env string) func(context.Context) (interface{}, error) {
 	if f.Warehouse == nil {
 		return nil
 	}
-	return func() (interface{}, error) {
+	return func(ctx context.Context) (interface{}, error) {
 		return f.Warehouse.WarehouseDAU(ctx, &WarehouseDAURequest{GameId: gameId, Env: env})
 	}
 }

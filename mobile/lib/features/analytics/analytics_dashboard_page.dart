@@ -161,6 +161,9 @@ class _DomainCardTile extends StatelessWidget {
       case DomainCardData.statusPending:
         color = Colors.orange;
         label = '待建';
+      case DomainCardData.statusTimeout:
+        color = Colors.amber;
+        label = '超时';
       default:
         color = Colors.red;
         label = '不可用';
@@ -184,6 +187,12 @@ class _DomainCardTile extends StatelessWidget {
       return Text(
         card.error.isEmpty ? '查询失败' : card.error,
         style: const TextStyle(color: Colors.red),
+      );
+    }
+    if (card.isTimeout) {
+      return Text(
+        card.error.isEmpty ? '查询超出预算时限' : card.error,
+        style: const TextStyle(color: Colors.deepOrange),
       );
     }
     final lines = summarizeDomainData(card.data);

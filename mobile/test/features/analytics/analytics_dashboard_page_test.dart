@@ -87,6 +87,33 @@ void main() {
     );
   });
 
+  testWidgets('超时卡：显示「超时」chip 与预算错误文本（DATA-030）', (WidgetTester tester) async {
+    adapter.handler = (options, _) => jsonResponse(200, {
+      'gameId': 'demo',
+      'env': 'prod',
+      'generatedAt': '2026-11-11T00:00:00Z',
+      'domains': [
+        {
+          'domain': 'realtime',
+          'status': 'timeout',
+          'error': 'facade: domain summary exceeded its 5s budget',
+        },
+        {
+          'domain': 'overview',
+          'status': 'ok',
+          'data': {
+            'metrics': {'dau': 9},
+          },
+        },
+      ],
+    });
+    await pumpPage(tester);
+
+    expect(find.text('超时'), findsOneWidget);
+    expect(find.textContaining('exceeded its 5s budget'), findsOneWidget);
+    expect(find.textContaining('dau 9'), findsOneWidget);
+  });
+
   testWidgets('空卡组：暂无数据占位', (WidgetTester tester) async {
     adapter.handler = (options, _) =>
         jsonResponse(200, {'gameId': 'demo', 'env': 'prod', 'domains': []});

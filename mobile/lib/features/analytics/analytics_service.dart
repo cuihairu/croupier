@@ -17,6 +17,7 @@ class DomainCardData {
   static const statusOk = 'ok';
   static const statusUnavailable = 'unavailable';
   static const statusPending = 'pending_data_source';
+  static const statusTimeout = 'timeout';
 
   final String domain;
   final String status;
@@ -26,6 +27,7 @@ class DomainCardData {
   bool get isOk => status == statusOk;
   bool get isPending => status == statusPending;
   bool get isUnavailable => status == statusUnavailable;
+  bool get isTimeout => status == statusTimeout;
 
   static DomainCardData? fromJson(Map<String, Object?> json) {
     final domain = json['domain'];
