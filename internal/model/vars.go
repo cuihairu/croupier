@@ -49,29 +49,54 @@ type PaginationOptions struct {
 
 // 标准化分页参数
 func (opts *PaginationOptions) Normalize() {
+	opts.normalizeWithLimit(maxPageSize)
+}
+
+// normalizeWithLimit applies the shared normalization with a caller-provided
+// upper bound on page size.
+func (opts *PaginationOptions) normalizeWithLimit(limit int) {
 	if opts.Page <= 0 {
 		opts.Page = 1
 	}
 	if opts.PageSize <= 0 {
 		opts.PageSize = 20
 	}
-	if opts.PageSize > 100 {
-		opts.PageSize = 100
+	if opts.PageSize > limit {
+		opts.PageSize = limit
 	}
 }
+
+// maxPageSize caps page size for interactive paginated endpoints. Aggregation
+// callers that must scan a whole window page through offset windows via
+// NewAggregationPagination instead, so their large windows are not truncated.
+const maxPageSize = 100
 
 // 计算偏移量
 func (opts *PaginationOptions) Offset() int {
 	return (opts.Page - 1) * opts.PageSize
 }
 
-// NewPagination returns normalized PaginationOptions. It clamps page >= 1,
-// 1 <= pageSize <= 100 (default 20), and is the recommended constructor.
+// NewPagination returns normalized PaginationOptions. It clamps page >= 1 and
+// 1 <= pageSize <= maxPageSize (default 20), and is the recommended
+// constructor for interactive paged endpoints.
 func NewPagination(page, pageSize int) PaginationOptions {
 	opts := PaginationOptions{Page: page, PageSize: pageSize}
 	opts.Normalize()
 	return opts
 }
+
+// NewAggregationPagination returns normalized PaginationOptions whose page size
+// is bounded by maxAggregationPageSize instead of the interactive cap, so
+// window-wide aggregation scans can request larger pages.
+func NewAggregationPagination(page, pageSize int) PaginationOptions {
+	opts := PaginationOptions{Page: page, PageSize: pageSize}
+	opts.normalizeWithLimit(maxAggregationPageSize)
+	return opts
+}
+
+// maxAggregationPageSize bounds aggregation scan pages. It is a page-size
+// guard only; window-wide aggregation still pages until the total is covered.
+const maxAggregationPageSize = 5000
 
 // 通用更新时间跟踪
 type TimestampMixin struct {

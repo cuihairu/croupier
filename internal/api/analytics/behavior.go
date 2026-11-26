@@ -27,15 +27,7 @@ func behaviorAnalytics(ctx context.Context, svcCtx *svc.ServiceContext, req *Beh
 		return nil, err
 	}
 
-	opts := model.BehaviorEventOptions{
-		PaginationOptions: model.NewPagination(1, 3000),
-		GameID:            svc.ResolveGameID(ctx, req.GameId),
-		Env:               svc.ResolveEnv(ctx, req.Env),
-		StartTime:         start,
-		EndTime:           end,
-	}
-
-	events, _, err := svcCtx.BehaviorModel.ListEvents(ctx, opts)
+	events, sample, err := scanBehaviorEvents(ctx, svcCtx, req.GameId, req.Env, start, end, nil, 1000)
 	if err != nil {
 		return nil, err
 	}
@@ -52,6 +44,7 @@ func behaviorAnalytics(ctx context.Context, svcCtx *svc.ServiceContext, req *Beh
 		HeatMap: map[string]interface{}{
 			"points": heatmap,
 		},
+		Sample: sample.disclosed(),
 	}, nil
 }
 
@@ -164,16 +157,7 @@ func behaviorAdoptionBreakdown(ctx context.Context, svcCtx *svc.ServiceContext, 
 		return nil, err
 	}
 
-	opts := model.BehaviorEventOptions{
-		PaginationOptions: model.NewPagination(1, 5000),
-		GameID:            gameID,
-		Env:               env,
-		EventType:         feature,
-		StartTime:         start,
-		EndTime:           end,
-	}
-
-	events, _, err := svcCtx.BehaviorModel.ListEvents(ctx, opts)
+	events, sample, err := scanBehaviorEvents(ctx, svcCtx, gameID, env, start, end, []string{feature}, 1000)
 	if err != nil {
 		return nil, err
 	}
@@ -195,6 +179,7 @@ func behaviorAdoptionBreakdown(ctx context.Context, svcCtx *svc.ServiceContext, 
 				"end":   helper.FormatTimestamp(end),
 			},
 		},
+		Sample: sample.disclosed(),
 	}, nil
 }
 
@@ -231,15 +216,7 @@ func behaviorFunnel(ctx context.Context, svcCtx *svc.ServiceContext, req *Behavi
 		return nil, err
 	}
 
-	opts := model.BehaviorEventOptions{
-		PaginationOptions: model.NewPagination(1, 5000),
-		GameID:            svc.ResolveGameID(ctx, req.GameId),
-		Env:               svc.ResolveEnv(ctx, req.Env),
-		StartTime:         start,
-		EndTime:           end,
-	}
-
-	events, _, err := svcCtx.BehaviorModel.ListEvents(ctx, opts)
+	events, sample, err := scanBehaviorEvents(ctx, svcCtx, req.GameId, req.Env, start, end, nil, 1000)
 	if err != nil {
 		return nil, err
 	}
@@ -294,7 +271,8 @@ func behaviorFunnel(ctx context.Context, svcCtx *svc.ServiceContext, req *Behavi
 	}
 
 	return &BehaviorFunnelResponse{
-		Steps: responseSteps,
+		Steps:  responseSteps,
+		Sample: sample.disclosed(),
 	}, nil
 }
 
@@ -319,15 +297,7 @@ func behaviorPaths(ctx context.Context, svcCtx *svc.ServiceContext, req *Behavio
 		return nil, err
 	}
 
-	opts := model.BehaviorEventOptions{
-		PaginationOptions: model.NewPagination(1, 5000),
-		GameID:            svc.ResolveGameID(ctx, req.GameId),
-		Env:               svc.ResolveEnv(ctx, req.Env),
-		StartTime:         start,
-		EndTime:           end,
-	}
-
-	events, _, err := svcCtx.BehaviorModel.ListEvents(ctx, opts)
+	events, sample, err := scanBehaviorEvents(ctx, svcCtx, req.GameId, req.Env, start, end, nil, 1000)
 	if err != nil {
 		return nil, err
 	}
@@ -336,9 +306,10 @@ func behaviorPaths(ctx context.Context, svcCtx *svc.ServiceContext, req *Behavio
 
 	return &BehaviorPathsResponse{
 		Paths: map[string]interface{}{
-			"depth": depth,
-			"items": paths,
-			"total": len(paths),
+			"depth":  depth,
+			"items":  paths,
+			"total":  len(paths),
+			"sample": sample.disclosed(),
 			"range": map[string]interface{}{
 				"start": helper.FormatTimestamp(start),
 				"end":   helper.FormatTimestamp(end),

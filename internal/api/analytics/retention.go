@@ -16,7 +16,6 @@ import (
 const (
 	defaultRetentionWindowDays = 30
 	defaultLevelWindowDays     = 14
-	maxBehaviorPageSize        = 3000
 	maxLevelEntries            = 100
 	maxMapPoints               = 200
 )
@@ -73,7 +72,7 @@ func levels(ctx context.Context, svcCtx *svc.ServiceContext, req *LevelsRequest)
 		return nil, err
 	}
 
-	events, err := loadBehaviorEvents(ctx, svcCtx, req.GameId, req.Env, start, end, []string{"level_attempt", "level_complete"}, maxBehaviorPageSize)
+	events, sample, err := scanBehaviorEvents(ctx, svcCtx, req.GameId, req.Env, start, end, []string{"level_attempt", "level_complete"}, 1000)
 	if err != nil {
 		return nil, err
 	}
@@ -139,6 +138,7 @@ func levels(ctx context.Context, svcCtx *svc.ServiceContext, req *LevelsRequest)
 
 	return &LevelsResponse{
 		Levels: levels,
+		Sample: sample.disclosed(),
 	}, nil
 }
 
@@ -152,7 +152,7 @@ func levelsEpisodes(ctx context.Context, svcCtx *svc.ServiceContext, req *Levels
 		return nil, err
 	}
 
-	events, err := loadBehaviorEvents(ctx, svcCtx, req.GameId, req.Env, start, end, []string{"episode_progress", "episode_complete"}, maxBehaviorPageSize)
+	events, sample, err := scanBehaviorEvents(ctx, svcCtx, req.GameId, req.Env, start, end, []string{"episode_progress", "episode_complete"}, 1000)
 	if err != nil {
 		return nil, err
 	}
@@ -216,6 +216,7 @@ func levelsEpisodes(ctx context.Context, svcCtx *svc.ServiceContext, req *Levels
 
 	return &LevelsEpisodesResponse{
 		Episodes: episodes,
+		Sample:   sample.disclosed(),
 	}, nil
 }
 
@@ -230,7 +231,7 @@ func levelsMaps(ctx context.Context, svcCtx *svc.ServiceContext, req *LevelsMaps
 	}
 
 	eventTypes := []string{"map_event", "map_heat", "map_position", "map_death"}
-	events, err := loadBehaviorEvents(ctx, svcCtx, req.GameId, req.Env, start, end, eventTypes, maxBehaviorPageSize)
+	events, sample, err := scanBehaviorEvents(ctx, svcCtx, req.GameId, req.Env, start, end, eventTypes, 1000)
 	if err != nil {
 		return nil, err
 	}
@@ -293,7 +294,8 @@ func levelsMaps(ctx context.Context, svcCtx *svc.ServiceContext, req *LevelsMaps
 	sortMapMetrics(maps)
 
 	return &LevelsMapsResponse{
-		Maps: maps,
+		Maps:   maps,
+		Sample: sample.disclosed(),
 	}, nil
 }
 

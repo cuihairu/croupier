@@ -203,45 +203,125 @@ func parseFloat(raw string) (float64, bool) {
 	return f, true
 }
 
-func loadBehaviorEvents(ctx context.Context, svcCtx *svc.ServiceContext, gameID, env string, start, end time.Time, eventTypes []string, pageSize int) ([]model.BehaviorEvent, error) {
+// maxWindowEvents caps the number of rows a window-wide aggregation may read.
+// Beyond this bound, aggregates report a partial sample in their response
+// instead of silently presenting an excerpt as a complete result.
+// maxWindowEvents is a var so tests can exercise the truncation path with a
+// small window instead of inserting tens of thousands of rows.
+var maxWindowEvents = 50000
+
+// maxWindowPageSize caps an individual page read during a window scan. The
+// model's aggregation page-size bound is intentionally mirrored here so a
+// scan can request larger pages than ordinary interactive endpoints.
+const maxWindowPageSize = 1000
+
+// windowSample describes how much of a query window an aggregation actually
+// read. Total is the authoritative matching row count from the first query,
+// Scanned is the number aggregated, and Truncated marks a bounded partial
+// sample (response surfaces must disclose it).
+type windowSample struct {
+	Total     int64 `json:"total"`
+	Scanned   int   `json:"scanned"`
+	Truncated bool  `json:"truncated"`
+}
+
+func (s windowSample) disclosed() map[string]interface{} {
+	return map[string]interface{}{
+		"totalEvents":   s.Total,
+		"scannedEvents": s.Scanned,
+		"sampled":       s.Truncated,
+		"coverage":      coverageLabel(s),
+	}
+}
+
+func coverageLabel(s windowSample) string {
+	if s.Truncated {
+		return "partial"
+	}
+	return "complete"
+}
+
+// scanBehaviorEvents reads the entire matching window page by page. ListEvents
+// counts the authoritative total on every call; we use the first page's total
+// as the fixed target so concurrent inserts cannot extend the scan forever.
+// The scan stops at maxWindowEvents and reports partial coverage rather than
+// silently truncating, as the old page-one-only implementation did.
+func scanBehaviorEvents(ctx context.Context, svcCtx *svc.ServiceContext, gameID, env string, start, end time.Time, eventTypes []string, requestedPageSize int) ([]model.BehaviorEvent, windowSample, error) {
 	if svcCtx == nil || svcCtx.BehaviorModel == nil {
-		return nil, errors.New("behavior analytics unavailable")
+		return nil, windowSample{}, errors.New("behavior analytics unavailable")
 	}
+	pageSize := requestedPageSize
 	if pageSize <= 0 {
-		pageSize = 3000
+		pageSize = 1000
 	}
-	appendEvents := func(eventType string) ([]model.BehaviorEvent, error) {
+	if pageSize > maxWindowPageSize {
+		pageSize = maxWindowPageSize
+	}
+
+	query := func(eventType string, page int) ([]model.BehaviorEvent, int64, error) {
 		opts := model.BehaviorEventOptions{
-			PaginationOptions: model.NewPagination(1, pageSize),
+			PaginationOptions: model.NewAggregationPagination(page, pageSize),
 			GameID:            trimString(gameID),
 			Env:               trimString(env),
 			EventType:         trimString(eventType),
 			StartTime:         start,
 			EndTime:           end,
 		}
-		events, _, err := svcCtx.BehaviorModel.ListEvents(ctx, opts)
-		if err != nil {
-			return nil, err
-		}
-		return events, nil
+		return svcCtx.BehaviorModel.ListEvents(ctx, opts)
 	}
 
-	var all []model.BehaviorEvent
-	if len(eventTypes) == 0 {
-		events, err := appendEvents("")
-		if err != nil {
-			return nil, err
-		}
-		all = append(all, events...)
-		return all, nil
+	types := eventTypes
+	if len(types) == 0 {
+		types = []string{""}
 	}
 
-	for _, evt := range eventTypes {
-		events, err := appendEvents(evt)
-		if err != nil {
-			return nil, err
+	all := make([]model.BehaviorEvent, 0, minInt(pageSize, maxWindowEvents))
+	var total int64
+	for _, eventType := range types {
+		page := 1
+		collectedBeforeType := len(all)
+		var typeTotal int64
+		for {
+			events, count, err := query(eventType, page)
+			if err != nil {
+				return nil, windowSample{}, err
+			}
+			if page == 1 {
+				typeTotal = count
+				total += count
+			}
+			if len(events) == 0 {
+				break
+			}
+			for _, ev := range events {
+				if len(all) >= maxWindowEvents {
+					return all, windowSample{Total: total, Scanned: len(all), Truncated: true}, nil
+				}
+				all = append(all, ev)
+			}
+			// ListEvents re-normalizes the page size, so a requested page may
+			// come back shorter than requested. Trust the authoritative count:
+			// this type is fully scanned once its collected rows reach it.
+			if int64(len(all)-collectedBeforeType) >= typeTotal {
+				break
+			}
+			page++
 		}
-		all = append(all, events...)
 	}
-	return all, nil
+	return all, windowSample{Total: total, Scanned: len(all), Truncated: false}, nil
+}
+
+// loadBehaviorEvents is the window-wide loader used by retention/level
+// aggregations. It returns only rows; callers that need coverage disclosure
+// use scanBehaviorEvents directly.
+func loadBehaviorEvents(ctx context.Context, svcCtx *svc.ServiceContext, gameID, env string, start, end time.Time, eventTypes []string, pageSize int) ([]model.BehaviorEvent, error) {
+	events, _, err := scanBehaviorEvents(ctx, svcCtx, gameID, env, start, end, eventTypes, pageSize)
+	return events, err
+}
+
+func minInt(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }

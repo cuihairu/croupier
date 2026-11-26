@@ -19,6 +19,11 @@ type BehaviorResponse struct {
 	TopActions []map[string]interface{} `json:"topActions"`
 	UserFlows  map[string]interface{}   `json:"userFlows"`
 	HeatMap    map[string]interface{}   `json:"heatMap"`
+	// Sample discloses how much of the query window was aggregated: the
+	// authoritative matching event count, the scanned count, and whether the
+	// result is a bounded partial sample (sampled=true means coverage is
+	// "partial" and the figures describe only scannedEvents rows).
+	Sample map[string]interface{} `json:"sample"`
 }
 
 type BehaviorEventsRequest struct {
@@ -70,6 +75,7 @@ type BehaviorAdoptionBreakdownRequest struct {
 type BehaviorAdoptionBreakdownResponse struct {
 	BySegment map[string]interface{} `json:"bySegment"`
 	ByTime    map[string]interface{} `json:"byTime"`
+	Sample    map[string]interface{} `json:"sample"`
 }
 
 type BehaviorFunnelRequest struct {
@@ -88,7 +94,8 @@ type FunnelStep struct {
 }
 
 type BehaviorFunnelResponse struct {
-	Steps []FunnelStep `json:"steps"`
+	Steps  []FunnelStep           `json:"steps"`
+	Sample map[string]interface{} `json:"sample"`
 }
 
 type BehaviorPathsRequest struct {
@@ -327,7 +334,8 @@ type LevelMetrics struct {
 }
 
 type LevelsResponse struct {
-	Levels []LevelMetrics `json:"levels"`
+	Levels []LevelMetrics         `json:"levels"`
+	Sample map[string]interface{} `json:"sample"`
 }
 
 type LevelsEpisodesRequest struct {
@@ -345,7 +353,8 @@ type EpisodeMetrics struct {
 }
 
 type LevelsEpisodesResponse struct {
-	Episodes []EpisodeMetrics `json:"episodes"`
+	Episodes []EpisodeMetrics       `json:"episodes"`
+	Sample   map[string]interface{} `json:"sample"`
 }
 
 type LevelsMapsRequest struct {
@@ -362,7 +371,8 @@ type MapMetrics struct {
 }
 
 type LevelsMapsResponse struct {
-	Maps []MapMetrics `json:"maps"`
+	Maps   []MapMetrics           `json:"maps"`
+	Sample map[string]interface{} `json:"sample"`
 }
 
 // Additional analytics types from types.go
