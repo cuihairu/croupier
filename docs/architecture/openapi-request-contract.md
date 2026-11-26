@@ -370,8 +370,27 @@ no opposite-side keyword is returned structurally unchanged.
 
 ## Execution-time mapping
 
+> **Regression note (2026-11-26, SUI-047 review).** The per-position style
+> handling and the cookie mapping described below are **not implemented in the
+> current source**: the SUI-006 serializer (`param_serialize.go`, its
+> diagnostics, and `internal/dashboard/spec/param_serialization.go`) was
+> silently dropped when merge 1deb91baf landed the sui-p0 lane onto the
+> refactored OpenAPI driver. What the executor actually does today: path
+> values are substituted raw (no `style`, no percent-encoding), query values
+> are concatenated as `name=value` with `&` (no encoding — reserved characters
+> break the request), headers are set raw, and `cookie` parameters are **never
+> sent**. The grouped input envelope (collision/constraint projection) is also
+> not unwrapped at execution — parameters inside `$.path` / `$.query`
+> sub-objects do not reach the executor's flat top-level lookup
+> (`/players/{id}` fed the grouped envelope yields `/players/`). Re-landing is
+> tracked in todo.md; the SUI-047 matrix in
+> [OpenAPI / SDK 接入设计](./openapi-sdk-descriptor-v2.md) records the current
+> behavior.
+
 The executor (`internal/drivers/openapi` `Provider.Call`) consumes the request
-contract to build the upstream HTTP request:
+contract to build the upstream HTTP request. The list below is the design
+contract the executor is held to once the serializer is re-landed — it is not
+the current behavior (see the regression note above):
 
 - `path` parameters substitute their placeholders in the URL template, encoded
   per their `style` (`simple` / `label` / `matrix`);
@@ -389,6 +408,10 @@ contract to build the upstream HTTP request:
   never sent under a mislabeled `Content-Type`.
 
 ### Parameter serialization (SUI-006)
+
+**Status: delivered at 0109f42bf, dropped at merge 1deb91baf, re-land pending
+(todo.md).** The matrix below is the delivered-and-restored design contract,
+not current behavior.
 
 The executor serializes each parameter per the OpenAPI style/explode rules
 (parameter values are percent-encoded; separators stay literal per the OpenAPI
