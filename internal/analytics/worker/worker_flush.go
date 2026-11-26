@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 )
@@ -118,12 +119,12 @@ func (w *Worker) commitRevenue(acks []ackRef) {
 	}
 }
 
+// flushBatches flushes both streams independently (DATA-050): an event Send
+// failure must not strand payments — each stream's rows land and its refs
+// ACK on its own, and both failures are reported in the joined error. This
+// is the single flush path for the periodic and final flushes.
 func (w *Worker) flushBatches(ctx context.Context) error {
-	if err := w.flushEventBatch(ctx); err != nil {
-		return err
-	}
-	if err := w.flushPaymentBatch(ctx); err != nil {
-		return err
-	}
-	return nil
+	errEvents := w.flushEventBatch(ctx)
+	errPayments := w.flushPaymentBatch(ctx)
+	return errors.Join(errEvents, errPayments)
 }
