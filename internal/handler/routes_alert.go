@@ -84,6 +84,7 @@ func registerAnalyticsRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.GET("/warehouse/dau", analyticsHandler.WarehouseDAU)
 	g.GET("/warehouse/online", analyticsHandler.WarehouseOnline)
 	g.GET("/warehouse/revenue", analyticsHandler.WarehouseRevenue)
+	g.GET("/warehouse/sessions", analyticsHandler.WarehouseSessions)
 	g.GET("/realtime", analyticsHandler.Realtime)
 	g.GET("/realtime/series", analyticsHandler.RealtimeSeries)
 	g.POST("/ingest", analyticsHandler.Ingest)

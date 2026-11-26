@@ -23,6 +23,7 @@ import {
   fetchWarehouseDAU,
   fetchWarehouseOnline,
   fetchWarehouseRevenue,
+  fetchWarehouseSessions,
   openAnalyticsRealtimeEventSource,
   saveAnalyticsFilters,
 } from './analytics';
@@ -758,7 +759,8 @@ describe('analytics API adapters (param/scope normalization matrix)', () => {
     mockedRequest
       .mockResolvedValueOnce({ points: [] })
       .mockResolvedValueOnce({ points: [] })
-      .mockResolvedValueOnce({ points: [] });
+      .mockResolvedValueOnce({ points: [] })
+      .mockResolvedValueOnce({ buckets: [] });
 
     await expect(fetchWarehouseDAU({ gameId: 'g1', env: 'e1' })).resolves.toEqual({ points: [] });
     expect(mockedRequest).toHaveBeenCalledWith('/api/v1/analytics/warehouse/dau', {
@@ -773,6 +775,11 @@ describe('analytics API adapters (param/scope normalization matrix)', () => {
     await expect(fetchWarehouseRevenue()).resolves.toEqual({ points: [] });
     expect(mockedRequest).toHaveBeenNthCalledWith(3, '/api/v1/analytics/warehouse/revenue', {
       params: { gameId: 'game-a', env: 'prod' },
+    });
+
+    await expect(fetchWarehouseSessions({ days: 30 })).resolves.toEqual({ buckets: [] });
+    expect(mockedRequest).toHaveBeenNthCalledWith(4, '/api/v1/analytics/warehouse/sessions', {
+      params: { gameId: 'game-a', env: 'prod', days: 30 },
     });
   });
 });

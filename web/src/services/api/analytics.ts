@@ -575,3 +575,41 @@ export async function fetchWarehouseRevenue(params?: AnalyticsParams) {
     params: analyticsRequestParams(params),
   });
 }
+
+// Session-length distribution (DATA-037).
+// Source: croupier/internal/api/analytics/warehouse_sessions.go
+export type WarehouseSessionBucket = {
+  label: string;
+  count: number;
+  share: number;
+};
+
+export type WarehouseSessionCause = {
+  cause: string;
+  count: number;
+};
+
+export type WarehouseSessionsResponse = {
+  buckets?: WarehouseSessionBucket[];
+  causes?: WarehouseSessionCause[];
+  sessions?: number;
+  endEvents?: number;
+  duplicateEnds?: number;
+  unresolved?: number;
+  avgMs?: number;
+  p50Ms?: number;
+  p95Ms?: number;
+  meta?: {
+    windowDays?: number;
+    scannedEnds?: number;
+    scannedStarts?: number;
+    sampled?: boolean;
+    invalidDurations?: number;
+  };
+};
+
+export async function fetchWarehouseSessions(params?: AnalyticsParams) {
+  return request<WarehouseSessionsResponse>('/api/v1/analytics/warehouse/sessions', {
+    params: analyticsRequestParams(params),
+  });
+}

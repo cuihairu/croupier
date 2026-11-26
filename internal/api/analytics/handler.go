@@ -510,3 +510,18 @@ func (h *Handler) WarehouseRevenue(c *gin.Context) {
 	}
 	response.Success(c, resp)
 }
+
+// WarehouseSessions handles GET /analytics/warehouse/sessions (DATA-037).
+func (h *Handler) WarehouseSessions(c *gin.Context) {
+	var req WarehouseSessionsRequest
+	if err := bindAnalyticsRequest(c, &req); err != nil {
+		response.Error(c, err)
+		return
+	}
+	resp, err := h.service.WarehouseSessions(c.Request.Context(), &req)
+	if err != nil {
+		warehouseError(c, err)
+		return
+	}
+	response.Success(c, resp)
+}

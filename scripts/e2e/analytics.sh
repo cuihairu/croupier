@@ -408,6 +408,26 @@ xadd('analytics:events', {
     'event_id': str(uuid.uuid4()),
     'props': {'item': 'sword', 'amount': 100}
 })
+# DATA-037 session-length samples: one underscore-spelling session_end with a
+# duration prop ending now, one dotted-spelling session.end that started
+# yesterday (cross-day raw shape). Both exercise the JSONHas(props_json,
+# 'duration_ms') predicate family the warehouse/sessions endpoint queries.
+xadd('analytics:events', {
+    'game_id': 'e2e-game', 'env': 'dev', 'event': 'session_end',
+    'user_id': 'sess-user', 'session_id': 's-sess-e2e-1',
+    'channel': 'direct', 'platform': 'linux', 'country': 'US',
+    'event_id': str(uuid.uuid4()),
+    'ts': _now,
+    'props': {'duration_ms': 90000, 'cause_end': 'normal'}
+})
+xadd('analytics:events', {
+    'game_id': 'e2e-game', 'env': 'dev', 'event': 'session.end',
+    'user_id': 'sess-user', 'session_id': 's-sess-e2e-2',
+    'channel': 'direct', 'platform': 'linux', 'country': 'US',
+    'event_id': str(uuid.uuid4()),
+    'ts': _time.strftime('%Y-%m-%dT%H:%M:%SZ', _time.gmtime(_time.time() - 86400)),
+    'props': {'duration_ms': 7200000, 'cause_end': 'disconnect'}
+})
 xadd('analytics:payments', {
     'game_id': 'e2e-game', 'env': 'dev', 'user_id': 'test-user',
     'order_id': 'ORD-001', 'amount_cents': 999, 'currency': 'USD',
@@ -560,6 +580,18 @@ if [ "$ING_REV" -eq 999 ]; then
   ok "ingest daily_revenue aggregate (revenue_cents=$ING_REV)"
 else
   fail "ingest daily_revenue wrong (revenue_cents=$ING_REV; expected 999)"
+fi
+
+# --- 7c. Session-length samples in ClickHouse (DATA-037, game e2e-game) ---
+# The two session-end samples from section 6 must be queryable with exactly
+# the predicate family the /warehouse/sessions endpoint uses: both event
+# spellings and a JSONHas duration filter against the real engine.
+SESS_ENDS=$(docker exec "$CH_CONTAINER" clickhouse-client --query \
+  "SELECT count() FROM analytics.events WHERE game_id = 'e2e-game' AND env = 'dev' AND event IN ('session_end', 'session.end') AND session_id != '' AND JSONHas(props_json, 'duration_ms')" 2>/dev/null || echo "0")
+if [ "$SESS_ENDS" -eq 2 ]; then
+  ok "session-length samples queryable via endpoint predicates (rows=$SESS_ENDS, both spellings)"
+else
+  fail "session-length samples wrong (rows=$SESS_ENDS; expected 2: session_end + session.end with duration_ms)"
 fi
 
 # --- 8. Cleanup ---
