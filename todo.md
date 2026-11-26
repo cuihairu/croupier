@@ -1890,9 +1890,10 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 完成证据：commit 3409c8399（`internal/security/jwtutil/secret.go` `isDevelopmentMode` 重写 + `isProductionSignal` 新增；`internal/svc/service_context_config.go` `isDevelopmentConfig` 同构重写；`internal/handler/routes.go` `DevSecret` 兜底改 panic；`jwtutil_test.go` +45/-3、`service_context_test.go` +8、`coverage_final_test.go` 13 行改写）。
   - 已知边界：行为变更（**升级需知**）——`server.mode` 已设为 prod/production/release 但 `CROUPIER_MODE` 未设的存量部署，此前静默以 `DevSecret` 签名/验签，升级后启动直接 panic 拒绝启动；这是本项的修复目的（fail-closed），但属有意的破坏性变更，部署方须先配置 `auth.jwtSecret` 或 `CROUPIER_AUTH_JWT_SECRET`。`DevSecret()` 导出符号仍在（仅开发态回落使用），生产路径不再引用，`TestRegisterAuthRoutesSecretPanic` 会挡下任何重新引入的兜底；`coverage_group_g_test.go` 中两个判定「逐条等价」是注释论证而非运行时断言，等价性靠两侧同构重写维持，未新增跨包等价测试。
 
-- [ ] **AUD-009 · P1 · 修复 · SQLite 备份使用一致性快照并核对恢复内容**
+- [x] **AUD-009 · P1 · 修复 · SQLite 备份使用一致性快照并核对恢复内容**
   - 依赖：—。交付与验收：在 WAL 和并发写入下恢复备份，确认包含已提交事务；checksum 不能替代恢复核对。
-  - 状态／条件：executor.go:227-242 直接复制主文件；真实 SQLite WAL 测试源库 1 行、成功备份 0 行。
+  - 状态／条件：LOCAL VERIFIED（2026-11-27 复核，产品 commit 4f4bfe4a3）：dumpSQLite 改用 SQLite 自带 `VACUUM INTO`（3.27+）一致性快照——源库只读事务重放全部已提交 WAL 帧后写出自包含单文件副本，不阻塞并发写者；源库缺失/目录/不可建目标一律失败，不「备份空库冒充成功」；产物可当库打开做恢复核对（checksum 仅作完整性附加）。证据：`internal/platform/backupexec/executor.go`（dumpSQLite VACUUM INTO + sqliteFilePath/sqliteStringLiteral）、`internal/platform/backupexec/executor_test.go`（TestDumpSQLite_WalCommittedRowsIncluded：前提取证 -wal 非空且行未回主文件，快照读回 5 行=WAL 已提交全部行；TestDumpSQLite_ConcurrentWriterDuringDump：dump 期间并发写 20 条，快照至少含 dump 前已提交 5 行且可读回；TestDumpSQLite_Snapshot：size/checksum/恢复读回 3 行）。变异自证：M1 把 dumpSQLite 退回旧「直接复制主文件」行为 → WAL 与并发写两例如实红（主文件缺未 checkpoint 行），还原后全包绿、0 MUTATION 残留。本席 2026-11-27 本地复跑 `go test ./internal/platform/backupexec/ -count=1` 全绿。产品与测试由并行会话 commit 4f4bfe4a3 交付并已在 origin/main。
+  - 完成证据：`internal/platform/backupexec/executor_test.go`（WAL 已提交行 / 并发写一致性 / 快照恢复读回三例全绿）；本席复验 + 变异自证记录如上。
 
 - [ ] **AUD-010 · P1 · 修复 · 账号不存在时拒绝旧 JWT 认证**
   - 依赖：—。交付与验收：区分账号删除、禁用、令牌版本不匹配与数据库故障；覆盖无缓存的新中间件。
