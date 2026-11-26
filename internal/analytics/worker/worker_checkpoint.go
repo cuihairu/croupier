@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"strings"
 	"sync"
 	"time"
 
@@ -66,7 +67,12 @@ func (w *Worker) processMessage(ctx context.Context, stream string, msg redis.XM
 	}
 
 	var m map[string]any
-	if err := json.Unmarshal([]byte(data), &m); err != nil {
+	// UseNumber keeps JSON numbers as json.Number instead of float64: the
+	// payment amount path (DATA-018) parses amount_cents exactly and refuses
+	// values that a float64 round-trip would silently corrupt.
+	dec := json.NewDecoder(strings.NewReader(data))
+	dec.UseNumber()
+	if err := dec.Decode(&m); err != nil {
 		// Invalid JSON, move to dead letter
 		if derr := w.sendToDeadLetter(ctx, stream, msg, "invalid_json", err.Error()); derr != nil {
 			return derr // do not ack: reclaim retries the dead-letter

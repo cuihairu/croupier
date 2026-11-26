@@ -507,7 +507,11 @@ func (s *server) ingestEvents(w http.ResponseWriter, r *http.Request) {
 	// Read body with size limit
 	limitedReader := http.MaxBytesReader(w, r.Body, int64(s.maxBodySize))
 	var arr []map[string]any
-	if err := json.NewDecoder(limitedReader).Decode(&arr); err != nil {
+	// UseNumber：JSON 数字保持 json.Number 原始字面量，不落 float64
+	// （DATA-018：金额等数值逐位往返无损）。
+	dec := json.NewDecoder(limitedReader)
+	dec.UseNumber()
+	if err := dec.Decode(&arr); err != nil {
 		// Check if it's a size error
 		if err.Error() == "http: request body too large" {
 			respondJSON(w, http.StatusRequestEntityTooLarge, map[string]string{
@@ -558,7 +562,10 @@ func (s *server) ingestPayments(w http.ResponseWriter, r *http.Request) {
 	// Read body with size limit
 	limitedReader := http.MaxBytesReader(w, r.Body, int64(s.maxBodySize))
 	var arr []map[string]any
-	if err := json.NewDecoder(limitedReader).Decode(&arr); err != nil {
+	// UseNumber 同 ingestEvents：金额精度要求原始数字字面量（DATA-018）。
+	dec := json.NewDecoder(limitedReader)
+	dec.UseNumber()
+	if err := dec.Decode(&arr); err != nil {
 		// Check if it's a size error
 		if err.Error() == "http: request body too large" {
 			respondJSON(w, http.StatusRequestEntityTooLarge, map[string]string{
@@ -649,10 +656,35 @@ func validatePaymentPayload(pay map[string]any, headerGame string) error {
 	if headerGame != "" && mapString(pay, "game_id") != headerGame {
 		return fmt.Errorf("game_id mismatch")
 	}
-	if mapFloat(pay, "amount_cents") <= 0 {
+	// DATA-018：金额只接受正整数且不超过 uint64 值域（UseNumber 解码下
+	// json.Number 逐位解析），分值小数、负数与超范围值直接拒绝。
+	amount, err := paymentAmountCents(pay)
+	if err != nil {
+		return err
+	}
+	if amount == 0 {
 		return fmt.Errorf("amount_cents required")
 	}
 	return nil
+}
+
+// paymentAmountCents 精确解析 amount_cents：json.Number 走 ParseUint
+// （无 float64 往返），其余形态一律拒绝。
+func paymentAmountCents(pay map[string]any) (uint64, error) {
+	v, ok := pay["amount_cents"]
+	if !ok {
+		return 0, nil
+	}
+	switch t := v.(type) {
+	case json.Number:
+		n, err := strconv.ParseUint(t.String(), 10, 64)
+		if err != nil {
+			return 0, fmt.Errorf("amount_cents must be a positive integer")
+		}
+		return n, nil
+	default:
+		return 0, fmt.Errorf("amount_cents must be a positive integer")
+	}
 }
 
 func loadPerGameSecrets() map[string]string {
@@ -703,20 +735,6 @@ func mapString(m map[string]any, key string) string {
 		}
 	}
 	return ""
-}
-
-func mapFloat(m map[string]any, key string) float64 {
-	if v, ok := m[key]; ok {
-		switch t := v.(type) {
-		case float64:
-			return t
-		case int:
-			return float64(t)
-		case int64:
-			return float64(t)
-		}
-	}
-	return 0
 }
 
 func shortVersion() string {

@@ -3,6 +3,7 @@ package worker
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 	"sync"
@@ -59,6 +60,43 @@ func asFloat(m map[string]any, k string) float64 {
 		}
 	}
 	return 0
+}
+
+// amountCentsUint64 parses payment amount_cents exactly (DATA-018): json.Number
+// values go through ParseUint digit-for-digit with no float64 round-trip;
+// legacy float64 payloads must be a positive integral within uint64 range.
+// Fractional, negative, zero and out-of-range values are refused so they land
+// in the dead letter with a reason instead of silently truncating or wrapping.
+func amountCentsUint64(m map[string]any) (uint64, error) {
+	v, ok := m["amount_cents"]
+	if !ok {
+		return 0, fmt.Errorf("amount_cents must be a positive integer")
+	}
+	switch t := v.(type) {
+	case json.Number:
+		n, err := strconv.ParseUint(t.String(), 10, 64)
+		if err != nil || n == 0 {
+			return 0, fmt.Errorf("amount_cents must be a positive integer")
+		}
+		return n, nil
+	case float64:
+		if t <= 0 || t != math.Trunc(t) || t > math.MaxUint64 {
+			return 0, fmt.Errorf("amount_cents must be a positive integer")
+		}
+		return uint64(t), nil
+	case int:
+		if t <= 0 {
+			return 0, fmt.Errorf("amount_cents must be a positive integer")
+		}
+		return uint64(t), nil
+	case int64:
+		if t <= 0 {
+			return 0, fmt.Errorf("amount_cents must be a positive integer")
+		}
+		return uint64(t), nil
+	default:
+		return 0, fmt.Errorf("amount_cents must be a positive integer")
+	}
 }
 
 // asRetryCount reads the message's retry_count field as an int. retry_count on external

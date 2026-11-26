@@ -211,11 +211,11 @@ func TestValidateEventPayload(t *testing.T) {
 }
 
 func TestValidatePaymentPayload(t *testing.T) {
-	valid := map[string]any{"game_id": "g", "env": "prod", "ts": "1", "order_id": "o1", "status": "paid", "amount_cents": 100}
+	valid := map[string]any{"game_id": "g", "env": "prod", "ts": "1", "order_id": "o1", "status": "paid", "amount_cents": json.Number("100")}
 	require.NoError(t, validatePaymentPayload(valid, "g"))
 
 	for _, key := range []string{"game_id", "env", "ts", "order_id", "status"} {
-		broken := map[string]any{"game_id": "g", "env": "prod", "ts": "1", "order_id": "o1", "status": "paid", "amount_cents": 100}
+		broken := map[string]any{"game_id": "g", "env": "prod", "ts": "1", "order_id": "o1", "status": "paid", "amount_cents": json.Number("100")}
 		delete(broken, key)
 		err := validatePaymentPayload(broken, "")
 		require.Error(t, err, "key %s", key)
@@ -224,34 +224,34 @@ func TestValidatePaymentPayload(t *testing.T) {
 
 	require.ErrorContains(t, validatePaymentPayload(valid, "other"), "mismatch")
 
-	// amount_cents 缺失 / 非正数 / 非数值类型
+	// amount_cents 缺失 / 非正数 / 非数值类型（DATA-018：只收正整数
+	// json.Number，逐位解析）
 	noAmount := map[string]any{"game_id": "g", "env": "prod", "ts": "1", "order_id": "o1", "status": "paid"}
 	require.ErrorContains(t, validatePaymentPayload(noAmount, ""), "amount_cents")
-	zero := map[string]any{"game_id": "g", "env": "prod", "ts": "1", "order_id": "o1", "status": "paid", "amount_cents": 0}
+	zero := map[string]any{"game_id": "g", "env": "prod", "ts": "1", "order_id": "o1", "status": "paid", "amount_cents": json.Number("0")}
 	require.ErrorContains(t, validatePaymentPayload(zero, ""), "amount_cents")
-	negative := map[string]any{"game_id": "g", "env": "prod", "ts": "1", "order_id": "o1", "status": "paid", "amount_cents": -1}
+	negative := map[string]any{"game_id": "g", "env": "prod", "ts": "1", "order_id": "o1", "status": "paid", "amount_cents": json.Number("-1")}
 	require.ErrorContains(t, validatePaymentPayload(negative, ""), "amount_cents")
-	// mapFloat 支持 int / int64 / float64
-	for _, v := range []any{1, int64(1), 1.5} {
+	// 分值小数与超范围值拒绝
+	fraction := map[string]any{"game_id": "g", "env": "prod", "ts": "1", "order_id": "o1", "status": "paid", "amount_cents": json.Number("10.5")}
+	require.ErrorContains(t, validatePaymentPayload(fraction, ""), "positive integer")
+	overflow := map[string]any{"game_id": "g", "env": "prod", "ts": "1", "order_id": "o1", "status": "paid", "amount_cents": json.Number("99999999999999999999")}
+	require.ErrorContains(t, validatePaymentPayload(overflow, ""), "positive integer")
+	// 合法整数（含 >2^53 的精确大整数）通过
+	for _, v := range []json.Number{json.Number("1"), json.Number("999"), json.Number("9007199254740993")} {
 		ok := map[string]any{"game_id": "g", "env": "prod", "ts": "1", "order_id": "o1", "status": "paid", "amount_cents": v}
-		require.NoError(t, validatePaymentPayload(ok, ""))
+		require.NoError(t, validatePaymentPayload(ok, ""), "amount %s", v)
 	}
-	// 字符串金额被 mapFloat 视为 0
+	// 字符串金额拒绝
 	strAmount := map[string]any{"game_id": "g", "env": "prod", "ts": "1", "order_id": "o1", "status": "paid", "amount_cents": "1"}
 	require.ErrorContains(t, validatePaymentPayload(strAmount, ""), "amount_cents")
 }
 
-func TestMapStringAndFloat(t *testing.T) {
+func TestMapString(t *testing.T) {
 	assert.Equal(t, "s", mapString(map[string]any{"k": "s"}, "k"))
 	assert.Equal(t, "b", mapString(map[string]any{"k": []byte("b")}, "k"))
 	assert.Equal(t, "", mapString(map[string]any{"k": 1}, "k"))
 	assert.Equal(t, "", mapString(map[string]any{}, "k"))
-
-	assert.Equal(t, 1.5, mapFloat(map[string]any{"k": 1.5}, "k"))
-	assert.Equal(t, float64(2), mapFloat(map[string]any{"k": 2}, "k"))
-	assert.Equal(t, float64(3), mapFloat(map[string]any{"k": int64(3)}, "k"))
-	assert.Equal(t, float64(0), mapFloat(map[string]any{"k": "x"}, "k"))
-	assert.Equal(t, float64(0), mapFloat(map[string]any{}, "k"))
 }
 
 func TestLoadPerGameSecrets(t *testing.T) {
@@ -847,6 +847,49 @@ func TestIngestPayments(t *testing.T) {
 		assert.Contains(t, w.Body.String(), `"enqueued":0`)
 		assert.Contains(t, w.Body.String(), `"failed_index":0`)
 		assert.Contains(t, w.Body.String(), `"total":2`)
+	})
+
+	// DATA-018：分值小数与超范围金额拒绝，全批零入队并返回条目位置。
+	t.Run("fractional_amount_rejected_with_index", func(t *testing.T) {
+		fq := &fakeQueue{}
+		s := newTestServer(fq)
+		w := httptest.NewRecorder()
+		s.ingestPayments(w, httptest.NewRequest(http.MethodPost, "/x",
+			strings.NewReader(`[
+				{"game_id":"g","env":"p","ts":"1","order_id":"o1","status":"paid","amount_cents":100},
+				{"game_id":"g","env":"p","ts":"2","order_id":"o2","status":"paid","amount_cents":10.5}
+			]`)))
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+		assert.Empty(t, fq.payments, "invalid batch must enqueue 0 payments")
+		assert.Contains(t, w.Body.String(), `"index":1`)
+		assert.Contains(t, w.Body.String(), "positive integer")
+	})
+
+	t.Run("overflow_amount_rejected", func(t *testing.T) {
+		fq := &fakeQueue{}
+		s := newTestServer(fq)
+		w := httptest.NewRecorder()
+		s.ingestPayments(w, httptest.NewRequest(http.MethodPost, "/x",
+			strings.NewReader(`[{"game_id":"g","env":"p","ts":"1","order_id":"o1","status":"paid","amount_cents":99999999999999999999}]`)))
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+		assert.Empty(t, fq.payments)
+		assert.Contains(t, w.Body.String(), "positive integer")
+	})
+
+	// DATA-018：合法大整数逐位往返——入队载荷保留原始数字字面量，
+	// 不经 float64 有损转换（9007199254740993 = 2^53+1 不可被 float64 表示）。
+	t.Run("big_integer_amount_round_trips_exactly", func(t *testing.T) {
+		fq := &fakeQueue{}
+		s := newTestServer(fq)
+		w := httptest.NewRecorder()
+		s.ingestPayments(w, httptest.NewRequest(http.MethodPost, "/x",
+			strings.NewReader(`[{"game_id":"g","env":"p","ts":"1","order_id":"o1","status":"paid","amount_cents":9007199254740993}]`)))
+		assert.Equal(t, http.StatusAccepted, w.Code)
+		require.Len(t, fq.payments, 1)
+		assert.Equal(t, json.Number("9007199254740993"), fq.payments[0]["amount_cents"])
+		published, err := json.Marshal(fq.payments[0])
+		require.NoError(t, err)
+		assert.Contains(t, string(published), `9007199254740993`)
 	})
 }
 

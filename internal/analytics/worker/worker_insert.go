@@ -66,7 +66,12 @@ func (w *Worker) insertPayment(ctx context.Context, m map[string]any, msgID stri
 	env := asString(m, "env")
 	uid := asString(m, "user_id")
 	oid := asString(m, "order_id")
-	amount := asFloat(m, "amount_cents")
+	// Exact integer parse (DATA-018): no float64 conversion on the way in;
+	// fractional/oversized/absent amounts error into the dead-letter path.
+	amount, err := amountCentsUint64(m)
+	if err != nil {
+		return err
+	}
 	curr := asString(m, "currency")
 	status := asString(m, "status")
 	channel := asString(m, "channel")
@@ -76,7 +81,7 @@ func (w *Worker) insertPayment(ctx context.Context, m map[string]any, msgID stri
 	city := asString(m, "city")
 	product := asString(m, "product_id")
 	reason := asString(m, "reason")
-	return w.appendPaymentRow(ctx, msgID, ts, game, env, uid, oid, uint64(amount), curr, status, channel, platform, country, region, city, product, reason)
+	return w.appendPaymentRow(ctx, msgID, ts, game, env, uid, oid, amount, curr, status, channel, platform, country, region, city, product, reason)
 }
 
 func (w *Worker) ensureEventBatch(ctx context.Context) (chdriver.Batch, error) {

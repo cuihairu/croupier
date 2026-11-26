@@ -42,6 +42,7 @@ This diagram shows the default Redis path. `internal/analytics/mq/factory.go` al
 - Ingest validates the whole batch before publishing anything (DATA-016): an invalid item returns `400` with `details.index` and enqueues nothing.
 - A publish failure mid-batch returns `500 queue_write_failed` with `details.enqueued` / `details.failed_index` / `details.total` (DATA-017): items before the failure are already in the stream and are disclosed, not hidden behind a bare batch-level error.
 - Retry contract: re-submit the same batch unchanged. Events without a producer `event_id` get a deterministic UUIDv5 derived from the payload fingerprint in the worker (`internal/analytics/worker/worker_insert.go`, `deriveEventID`), so re-submission and worker redelivery collapse onto the same ClickHouse natural key instead of inserting random new ids. A producer-supplied valid UUID `event_id` is honored as-is.
+- Amount precision (DATA-018): `amount_cents` must be a positive integer within the uint64 range. Ingest decodes JSON numbers with `UseNumber` and parses digit-for-digit — fractional, negative and oversized values are rejected `400` with the item index; the worker parses the amount the same way and dead-letters a bad row with a reason instead of truncating through float64.
 - Boundary: the payments table has no dedup column; identical payment re-submission still appends a second raw row and relies on `order_id`-keyed read semantics for reconciliation (tracked by DATA-004/051/056).
 
 ## Metric groups

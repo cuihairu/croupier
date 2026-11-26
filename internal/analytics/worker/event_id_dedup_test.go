@@ -1,6 +1,7 @@
 package worker
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/google/uuid"
@@ -102,4 +103,59 @@ func TestInsertEvent_MissingIDDeterministicAcrossRedelivery(t *testing.T) {
 func isUUID(s string) bool {
 	_, err := uuid.Parse(s)
 	return err == nil
+}
+
+// DATA-018：金额精确解析——json.Number 逐位 ParseUint（无 float64 往返），
+// 小数/负数/零/超范围拒绝进死信，遗留 float64 必须是正整数且在值域内。
+func TestAmountCentsUint64_Exact(t *testing.T) {
+	cases := []struct {
+		name    string
+		in      map[string]any
+		want    uint64
+		wantErr bool
+	}{
+		{name: "json number exact", in: map[string]any{"amount_cents": json.Number("123")}, want: 123},
+		{name: "big integer beyond float64", in: map[string]any{"amount_cents": json.Number("9007199254740993")}, want: 9007199254740993},
+		{name: "fractional json number", in: map[string]any{"amount_cents": json.Number("10.5")}, wantErr: true},
+		{name: "negative json number", in: map[string]any{"amount_cents": json.Number("-5")}, wantErr: true},
+		{name: "zero json number", in: map[string]any{"amount_cents": json.Number("0")}, wantErr: true},
+		{name: "overflow json number", in: map[string]any{"amount_cents": json.Number("99999999999999999999")}, wantErr: true},
+		{name: "legacy integral float", in: map[string]any{"amount_cents": float64(7)}, want: 7},
+		{name: "legacy fractional float", in: map[string]any{"amount_cents": float64(10.5)}, wantErr: true},
+		{name: "legacy negative float", in: map[string]any{"amount_cents": float64(-5)}, wantErr: true},
+		{name: "float beyond uint64", in: map[string]any{"amount_cents": float64(2e63)}, wantErr: true},
+		{name: "int", in: map[string]any{"amount_cents": 3}, want: 3},
+		{name: "string rejected", in: map[string]any{"amount_cents": "100"}, wantErr: true},
+		{name: "missing rejected", in: map[string]any{}, wantErr: true},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got, err := amountCentsUint64(c.in)
+			if c.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, c.want, got)
+		})
+	}
+}
+
+// TestInsertPayment_ExactAmountRoundTrip：2^53+1 金额经 UseNumber 解码与
+// 精确解析后逐位落列（旧实现经 float64 已失真为 9007199254740992）。
+func TestInsertPayment_ExactAmountRoundTrip(t *testing.T) {
+	w, _ := testWorker(t)
+	payload := map[string]any{
+		"ts": "2026-11-26T03:02:55Z", "game_id": "g", "env": "prod",
+		"user_id": "u1", "order_id": "o1", "currency": "USD", "status": "success",
+		"amount_cents": json.Number("9007199254740993"),
+	}
+	require.NoError(t, w.insertPayment(t.Context(), payload, "1-1"))
+	batch, ok := w.paymentBatch.(*mockBatch)
+	require.True(t, ok, "paymentBatch type %T", w.paymentBatch)
+	require.Len(t, batch.rows, 1)
+	row, ok := batch.rows[0].([]any)
+	require.True(t, ok, "row type %T", batch.rows[0])
+	// insertPaymentsSQL 第 6 列（下标 5）为 amount_cents。
+	assert.Equal(t, uint64(9007199254740993), row[5], "amount must round-trip digit-for-digit")
 }
