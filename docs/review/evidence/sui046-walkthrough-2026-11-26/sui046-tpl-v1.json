@@ -1,0 +1,1 @@
+{"key":"sui046-freshness-tpl","name":{"zh-CN":"走查用模板V1","en-US":"Walkthrough template v1"},"category":"函数组件","requiredFunctions":["player.list"],"tree":[{"id":"tbl","type":"fnTable","props":{"functionId":"player.list","span":24,"autoRun":true,"title":"v1"}}]}

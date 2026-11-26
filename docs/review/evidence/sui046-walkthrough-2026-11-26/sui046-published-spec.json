@@ -1,0 +1,511 @@
+{
+ "pageKey": "sui046-crud-walkthrough",
+ "type": "composite",
+ "title": {
+  "en-US": "Sui 046 Crud Walkthrough",
+  "zh-CN": "Sui 046 Crud Walkthrough"
+ },
+ "category": {
+  "key": "composite"
+ },
+ "navigation": {
+  "title": {
+   "en-US": "Sui 046 Crud Walkthrough",
+   "zh-CN": "Sui 046 Crud Walkthrough"
+  }
+ },
+ "composite": {
+  "sections": [
+   {
+    "key": "player.list",
+    "bindingId": "player.list",
+    "title": {
+     "zh-CN": "player"
+    },
+    "view": "table",
+    "span": 24,
+    "autoRun": true,
+    "table": {
+     "columns": [],
+     "rowSchema": {
+      "type": "object",
+      "properties": {
+       "id": {
+        "type": "string"
+       },
+       "vip": {
+        "type": "integer"
+       },
+       "level": {
+        "type": "integer"
+       },
+       "status": {
+        "type": "string"
+       },
+       "nickname": {
+        "type": "string"
+       },
+       "serverId": {
+        "type": "string"
+       },
+       "character": {
+        "type": "string"
+       },
+       "createdAt": {
+        "type": "string",
+        "format": "date-time"
+       },
+       "balanceGold": {
+        "type": "integer"
+       },
+       "lastLoginAt": {
+        "type": "string",
+        "format": "date-time"
+       }
+      }
+     },
+     "rowActions": [
+      {
+       "label": {
+        "zh-CN": "查看详情"
+       },
+       "targetSection": "modal-1tr792",
+       "params": {
+        "id": "row.id"
+       }
+      },
+      {
+       "label": {
+        "zh-CN": "编辑"
+       },
+       "targetSection": "modal-1tr797",
+       "params": {
+        "id": "row.id"
+       }
+      },
+      {
+       "label": {
+        "zh-CN": "删除"
+       },
+       "targetSection": "modal-1tr799",
+       "params": {
+        "id": "row.id"
+       },
+       "danger": true
+      }
+     ]
+    },
+    "display": "inline",
+    "toolbar": {
+     "actions": [
+      {
+       "label": {
+        "zh-CN": "新建"
+       },
+       "targetSection": "modal-1tr795"
+      }
+     ]
+    }
+   },
+   {
+    "key": "player.get",
+    "bindingId": "player.get",
+    "title": {
+     "zh-CN": "player.get"
+    },
+    "view": "fields",
+    "span": 24,
+    "autoRun": true,
+    "display": "dialog",
+    "group": "modal-1tr792"
+   },
+   {
+    "key": "player.create",
+    "bindingId": "player.create",
+    "title": {
+     "zh-CN": "player.create"
+    },
+    "view": "form",
+    "span": 24,
+    "form": {
+     "jsonSchema": {
+      "type": "object",
+      "properties": {
+       "vip": {
+        "type": "integer"
+       },
+       "level": {
+        "type": "integer"
+       },
+       "nickname": {
+        "type": "string"
+       },
+       "serverId": {
+        "type": "string"
+       },
+       "character": {
+        "type": "string"
+       }
+      }
+     },
+     "layout": "vertical",
+     "fields": [
+      {
+       "key": "character",
+       "label": {
+        "zh-CN": "Character"
+       },
+       "placeholder": {
+        "zh-CN": "请输入Character"
+       }
+      },
+      {
+       "key": "level",
+       "widget": "InputNumber",
+       "label": {
+        "zh-CN": "Level"
+       }
+      },
+      {
+       "key": "nickname",
+       "label": {
+        "zh-CN": "Nickname"
+       },
+       "placeholder": {
+        "zh-CN": "请输入Nickname"
+       }
+      },
+      {
+       "key": "serverId",
+       "label": {
+        "zh-CN": "Server Id"
+       },
+       "placeholder": {
+        "zh-CN": "请输入Server Id"
+       }
+      },
+      {
+       "key": "vip",
+       "widget": "InputNumber",
+       "label": {
+        "zh-CN": "Vip"
+       }
+      }
+     ],
+     "submitButton": {
+      "text": {
+       "en-US": "Submit",
+       "zh-CN": "提交"
+      },
+      "type": "primary"
+     },
+     "cancelButton": {
+      "text": {
+       "en-US": "Cancel",
+       "zh-CN": "取消"
+      }
+     }
+    },
+    "display": "dialog",
+    "group": "modal-1tr795",
+    "events": [
+     {
+      "event": "success",
+      "action": {
+       "kind": "refreshNode",
+       "target": "player.list"
+      }
+     }
+    ]
+   },
+   {
+    "key": "player.update",
+    "bindingId": "player.update",
+    "title": {
+     "zh-CN": "player.update"
+    },
+    "view": "form",
+    "span": 24,
+    "form": {
+     "jsonSchema": {
+      "type": "object",
+      "required": [
+       "id"
+      ],
+      "properties": {
+       "id": {
+        "type": "string"
+       },
+       "vip": {
+        "type": "integer"
+       },
+       "level": {
+        "type": "integer"
+       },
+       "nickname": {
+        "type": "string"
+       }
+      }
+     },
+     "layout": "vertical",
+     "fields": [
+      {
+       "key": "id",
+       "label": {
+        "zh-CN": "Id"
+       },
+       "placeholder": {
+        "zh-CN": "请输入Id"
+       }
+      },
+      {
+       "key": "level",
+       "widget": "InputNumber",
+       "label": {
+        "zh-CN": "Level"
+       }
+      },
+      {
+       "key": "nickname",
+       "label": {
+        "zh-CN": "Nickname"
+       },
+       "placeholder": {
+        "zh-CN": "请输入Nickname"
+       }
+      },
+      {
+       "key": "vip",
+       "widget": "InputNumber",
+       "label": {
+        "zh-CN": "Vip"
+       }
+      }
+     ],
+     "submitButton": {
+      "text": {
+       "en-US": "Submit",
+       "zh-CN": "提交"
+      },
+      "type": "primary"
+     },
+     "cancelButton": {
+      "text": {
+       "en-US": "Cancel",
+       "zh-CN": "取消"
+      }
+     }
+    },
+    "display": "dialog",
+    "group": "modal-1tr797",
+    "events": [
+     {
+      "event": "success",
+      "action": {
+       "kind": "refreshNode",
+       "target": "player.list"
+      }
+     }
+    ]
+   },
+   {
+    "key": "player.delete",
+    "bindingId": "player.delete",
+    "title": {
+     "zh-CN": "player.delete"
+    },
+    "view": "form",
+    "span": 24,
+    "form": {
+     "jsonSchema": {
+      "type": "object",
+      "required": [
+       "id"
+      ],
+      "properties": {
+       "id": {
+        "type": "string"
+       }
+      }
+     },
+     "layout": "vertical",
+     "fields": [
+      {
+       "key": "id",
+       "label": {
+        "zh-CN": "Id"
+       },
+       "placeholder": {
+        "zh-CN": "请输入Id"
+       }
+      }
+     ],
+     "submitButton": {
+      "text": {
+       "en-US": "Submit",
+       "zh-CN": "提交"
+      },
+      "type": "primary"
+     },
+     "cancelButton": {
+      "text": {
+       "en-US": "Cancel",
+       "zh-CN": "取消"
+      }
+     }
+    },
+    "display": "dialog",
+    "group": "modal-1tr799",
+    "events": [
+     {
+      "event": "success",
+      "action": {
+       "kind": "refreshNode",
+       "target": "player.list"
+      }
+     }
+    ]
+   }
+  ]
+ },
+ "bindings": [
+  {
+   "id": "player.list",
+   "functionId": "player.list",
+   "usage": "query",
+   "selectors": {
+    "input": {
+     "assignments": null
+    },
+    "output": [
+     {
+      "stateKey": "player.list",
+      "source": "",
+      "shape": "object"
+     }
+    ]
+   },
+   "execution": {
+    "mode": "sync"
+   }
+  },
+  {
+   "id": "player.get",
+   "functionId": "player.get",
+   "usage": "query",
+   "selectors": {
+    "input": {
+     "assignments": [
+      {
+       "target": "/id",
+       "source": {
+        "kind": "form",
+        "path": "/id"
+       }
+      }
+     ]
+    },
+    "output": [
+     {
+      "stateKey": "player.get",
+      "source": "",
+      "shape": "object"
+     }
+    ]
+   },
+   "execution": {
+    "mode": "sync"
+   }
+  },
+  {
+   "id": "player.create",
+   "functionId": "player.create",
+   "usage": "action",
+   "selectors": {
+    "input": {
+     "assignments": null
+    },
+    "output": [
+     {
+      "stateKey": "player.create",
+      "source": "",
+      "shape": "object"
+     }
+    ]
+   },
+   "execution": {
+    "mode": "sync"
+   }
+  },
+  {
+   "id": "player.update",
+   "functionId": "player.update",
+   "usage": "action",
+   "selectors": {
+    "input": {
+     "assignments": [
+      {
+       "target": "/id",
+       "source": {
+        "kind": "form",
+        "path": "/id"
+       }
+      }
+     ]
+    },
+    "output": [
+     {
+      "stateKey": "player.update",
+      "source": "",
+      "shape": "object"
+     }
+    ]
+   },
+   "execution": {
+    "mode": "sync"
+   }
+  },
+  {
+   "id": "player.delete",
+   "functionId": "player.delete",
+   "usage": "action",
+   "selectors": {
+    "input": {
+     "assignments": [
+      {
+       "target": "/id",
+       "source": {
+        "kind": "form",
+        "path": "/id"
+       }
+      }
+     ]
+    },
+    "output": [
+     {
+      "stateKey": "player.delete",
+      "source": "",
+      "shape": "object"
+     }
+    ]
+   },
+   "execution": {
+    "mode": "sync",
+    "requireConfirm": true
+   }
+  }
+ ],
+ "componentTemplates": [
+  {
+   "key": "crud--player",
+   "digest": "f375e4686c9302b06caafdf96e3f58570b0f1a75e59841ac820d01b58fcc8244"
+  }
+ ],
+ "gameId": "demo-game",
+ "env": "demo",
+ "status": "published",
+ "draftRevision": 1,
+ "publishedVersion": 1,
+ "updatedAt": "2026-11-26T04:26:04Z",
+ "updatedBy": "admin"
+}
