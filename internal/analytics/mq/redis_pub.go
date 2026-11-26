@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	redis "github.com/redis/go-redis/v9"
@@ -16,7 +17,11 @@ type redisQueue struct {
 	streamEvents   string
 	streamPayments string
 	maxLenApprox   bool
-	maxLen         int64
+	// maxLen is the cleanup ceiling, not a head-eviction quota (DATA-048):
+	// above it, the stream is trimmed up to the consumer-progress boundary
+	// (see trimToSafeBoundary); undelivered/un-ACKed entries are never
+	// evicted and retained may stay above the cap while work is stalled.
+	maxLen int64
 	// group is the consumer group whose progress defines the backlog
 	// (DATA-047); it mirrors the worker's WORKER_GROUP default.
 	group string
@@ -80,12 +85,107 @@ func (q *redisQueue) Close() error { return q.cli.Close() }
 func (q *redisQueue) xadd(ctx context.Context, stream string, m map[string]any) error {
 	// Store as single field 'data' with JSON body for schema flexibility
 	b, _ := json.Marshal(m)
-	args := &redis.XAddArgs{Stream: stream, Values: map[string]any{"data": string(b)}}
-	if q.maxLen > 0 {
-		args.MaxLen = q.maxLen
-		args.Approx = q.maxLenApprox
+	// DATA-048: the cap never evicts blind from the head. Add first without
+	// MaxLen, then trim only up to the boundary every consumer group has
+	// fully consumed, so entries that are undelivered or pending ACK survive
+	// a worker outage even when the backlog exceeds ANALYTICS_REDIS_MAXLEN.
+	if err := q.cli.XAdd(ctx, &redis.XAddArgs{Stream: stream, Values: map[string]any{"data": string(b)}}).Err(); err != nil {
+		return err
 	}
-	return q.cli.XAdd(ctx, args).Err()
+	if q.maxLen > 0 {
+		q.trimToSafeBoundary(ctx, stream)
+	}
+	return nil
+}
+
+// trimToSafeBoundary applies the safe-cleanup boundary once the stream is
+// above the configured cap. The read is best-effort and fail-safe: any
+// progress-read failure retains everything and the next publish re-checks.
+func (q *redisQueue) trimToSafeBoundary(ctx context.Context, stream string) {
+	retained, err := q.cli.XLen(ctx, stream).Result()
+	if err != nil || retained <= q.maxLen {
+		return
+	}
+	boundary, ok := q.safeTrimID(ctx, stream)
+	if !ok {
+		return
+	}
+	if q.maxLenApprox {
+		_, _ = q.cli.XTrimMinIDApprox(ctx, stream, boundary, 0).Result()
+		return
+	}
+	_, _ = q.cli.XTrimMinID(ctx, stream, boundary).Result()
+}
+
+// safeTrimID returns the exclusive trim boundary: XTRIM MINID at this id
+// removes exactly the entries every consumer group on the stream has both
+// delivered and acknowledged. It reports false when nothing is safely
+// removable — no group exists yet (DATA-023 creates the group from the
+// stream head on first worker start, so every retained entry is undelivered)
+// — or when any group's progress cannot be read.
+func (q *redisQueue) safeTrimID(ctx context.Context, stream string) (string, bool) {
+	gs, err := q.groupsFn(ctx, stream)
+	if err != nil || len(gs) == 0 {
+		return "", false
+	}
+	boundary := ""
+	for i := range gs {
+		g := &gs[i]
+		// Oldest entry this group still needs; XTRIM MINID keeps it and
+		// everything after.
+		need := g.LastDeliveredID
+		if g.Pending > 0 {
+			pe, err := q.cli.XPendingExt(ctx, &redis.XPendingExtArgs{
+				Stream: stream, Group: g.Name, Start: "-", End: "+", Count: 1,
+			}).Result()
+			if err != nil || len(pe) == 0 {
+				return "", false
+			}
+			need = pe[0].ID
+		} else {
+			// Fully acknowledged through last-delivered: keep only entries
+			// strictly after it.
+			ms, seq, err := splitStreamID(g.LastDeliveredID)
+			if err != nil {
+				return "", false
+			}
+			need = fmt.Sprintf("%d-%d", ms, seq+1)
+		}
+		// Pin on the slowest group: another consumer may still need entries
+		// this group has finished with.
+		if boundary == "" || streamIDBefore(need, boundary) {
+			boundary = need
+		}
+	}
+	return boundary, true
+}
+
+func splitStreamID(id string) (int64, int64, error) {
+	msStr, seqStr, _ := strings.Cut(id, "-")
+	ms, err := strconv.ParseInt(msStr, 10, 64)
+	if err != nil {
+		return 0, 0, err
+	}
+	seq := int64(0)
+	if seqStr != "" {
+		if seq, err = strconv.ParseInt(seqStr, 10, 64); err != nil {
+			return 0, 0, err
+		}
+	}
+	return ms, seq, nil
+}
+
+// streamIDBefore reports whether Redis stream id a sorts strictly before b.
+func streamIDBefore(a, b string) bool {
+	aMs, aSeq, errA := splitStreamID(a)
+	bMs, bSeq, errB := splitStreamID(b)
+	if errA != nil || errB != nil {
+		return false
+	}
+	if aMs != bMs {
+		return aMs < bMs
+	}
+	return aSeq < bSeq
 }
 
 func (q *redisQueue) PublishEvent(evt map[string]any) error {
