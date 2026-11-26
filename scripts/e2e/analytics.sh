@@ -34,9 +34,22 @@ compose() {
 }
 # Container names the script talks to via docker exec. CI gets the compose
 # defaults; hosts running the self-hosted deploy stack side by side can point
-# these at a separate compose project's containers.
+# these at a separate compose project's containers. Exported so the inline
+# python segments use the same configured containers (AUD-065) instead of
+# hardcoded defaults.
 REDIS_CONTAINER="${REDIS_CONTAINER:-croupier-redis}"
 CH_CONTAINER="${CH_CONTAINER:-croupier-clickhouse}"
+export REDIS_CONTAINER CH_CONTAINER
+
+# Compose teardown only when this run started the stack (AUD-065): in
+# SKIP_COMPOSE_UP=1 reuse mode every failure path must leave the shared /
+# self-hosted stack running — only processes this script started (worker /
+# ingest) are cleaned up.
+cleanup_down() {
+  if [ "${SKIP_COMPOSE_UP:-0}" != "1" ]; then
+    compose down >/dev/null 2>&1
+  fi
+}
 
 echo "==> Analytics E2E (Redis XADD + signed HTTP ingest → worker → ClickHouse)"
 echo ""
@@ -63,7 +76,7 @@ if ! docker exec "$CH_CONTAINER" wget -qO- "http://localhost:8123/?query=SELECT%
   fail "ClickHouse not ready"
   echo "--- ClickHouse container logs (last 20 lines) ---"
   docker logs "$CH_CONTAINER" 2>&1 | tail -20
-  compose down; exit 1
+  cleanup_down; exit 1
 fi
 ok "ClickHouse ready"
 
@@ -85,13 +98,13 @@ if [ "${SKIP_COMPOSE_UP:-0}" != "1" ]; then
   # stack whose analytics data must not be erased.
   if ! docker exec "$CH_CONTAINER" clickhouse-client --query "DROP DATABASE IF EXISTS analytics"; then
     fail "drop analytics database"
-    compose down; exit 1
+    cleanup_down; exit 1
   fi
 fi
 for ddl in configs/clickhouse/initdb/001_init.sql configs/clickhouse/initdb/010_analytics.sql; do
   if ! docker exec -i "$CH_CONTAINER" clickhouse-client --multiquery < "$ddl"; then
     fail "apply $ddl"
-    compose down; exit 1
+    cleanup_down; exit 1
   fi
 done
 TABLE_HITS=$(docker exec "$CH_CONTAINER" clickhouse-client --query \
@@ -100,7 +113,7 @@ if [ "$TABLE_HITS" -eq 5 ]; then
   ok "schema fresh-create + idempotent re-apply (5/5 core tables)"
 else
   fail "schema incomplete after apply ($TABLE_HITS/5 core tables)"
-  compose down >/dev/null 2>&1; exit 1
+  cleanup_down; exit 1
 fi
 if [ "${SKIP_COMPOSE_UP:-0}" != "1" ]; then
   # The single-use upgrade migration (scripts/clickhouse/011) must keep
@@ -111,7 +124,7 @@ if [ "${SKIP_COMPOSE_UP:-0}" != "1" ]; then
   if ! docker exec -i "$CH_CONTAINER" clickhouse-client --multiquery \
     < scripts/clickhouse/011_fix_aggregate_tables.sql; then
     fail "upgrade migration 011"
-    compose down >/dev/null 2>&1; exit 1
+    cleanup_down; exit 1
   fi
   ok "upgrade migration 011 executes over existing tables"
 fi
@@ -124,7 +137,7 @@ else
   echo "Building analytics-worker..."
   if ! go build -o bin/analytics-worker ./cmd/analytics-worker 2>&1; then
     fail "build analytics-worker"
-    compose down; exit 1
+    cleanup_down; exit 1
   fi
 fi
 ok "analytics-worker ready"
@@ -142,7 +155,7 @@ WORKER_PID=$!
 sleep 1
 if ! kill -0 $WORKER_PID 2>/dev/null; then
   fail "worker start"; cat /tmp/e2e-analytics-worker.log
-  compose down; exit 1
+  cleanup_down; exit 1
 fi
 ok "worker started (pid=$WORKER_PID)"
 
@@ -161,7 +174,7 @@ done
 if [ "$GROUP_READY" -ne 1 ]; then
   fail "worker consumer group not created"
   kill $WORKER_PID 2>/dev/null
-  compose down >/dev/null 2>&1; exit 1
+  cleanup_down; exit 1
 fi
 ok "worker consumer group ready"
 
@@ -179,7 +192,7 @@ else
   echo "Building ingest..."
   if ! go build -o bin/ingest ./cmd/ingest 2>&1; then
     fail "build ingest"
-    compose down; exit 1
+    cleanup_down; exit 1
   fi
 fi
 ok "ingest binary ready"
@@ -214,7 +227,7 @@ done
 if [ "$INGEST_READY" -ne 1 ]; then
   fail "ingest start"; cat /tmp/e2e-ingest.log
   kill $WORKER_PID 2>/dev/null
-  compose down >/dev/null 2>&1; exit 1
+  cleanup_down; exit 1
 fi
 ok "ingest started (pid=$INGEST_PID)"
 
@@ -228,8 +241,10 @@ GAME = os.environ["INGEST_E2E_GAME"]
 BASE = f"http://127.0.0.1:{PORT}"
 
 def xlen(stream):
+    # Same configured container as the shell-side exec calls (AUD-065).
     r = subprocess.run(
-        ["docker", "exec", "croupier-redis", "redis-cli", "XLEN", stream],
+        ["docker", "exec", os.environ.get("REDIS_CONTAINER", "croupier-redis"),
+         "redis-cli", "XLEN", stream],
         capture_output=True, text=True,
     )
     try:
@@ -363,7 +378,7 @@ PYEOF
 if [ $? -ne 0 ]; then
   fail "ingest chain publish"
   kill $WORKER_PID $INGEST_PID 2>/dev/null
-  compose down >/dev/null 2>&1; exit 1
+  cleanup_down; exit 1
 fi
 ok "ingest chain: signed/duplicate/invalid/mismatch/amount/replay cases verified"
 
@@ -372,11 +387,13 @@ ok "ingest chain: signed/duplicate/invalid/mismatch/amount/replay cases verified
 # Use python to safely serialize JSON and pass to redis-cli via docker exec.
 echo "Writing test events..."
 python3 -c "
-import json, subprocess, sys, uuid
+import json, os, subprocess, sys, uuid
 
 def xadd(stream, obj):
     payload = json.dumps(obj)
-    cmd = ['docker', 'exec', 'croupier-redis', 'redis-cli', 'XADD', stream, '*', 'data', payload]
+    # Same configured container as the shell-side exec calls (AUD-065).
+    cmd = ['docker', 'exec', os.environ.get('REDIS_CONTAINER', 'croupier-redis'),
+           'redis-cli', 'XADD', stream, '*', 'data', payload]
     r = subprocess.run(cmd, capture_output=True, text=True)
     if r.returncode != 0:
         print(f'XADD failed for {stream}: {r.stderr.strip()}', file=sys.stderr)
@@ -438,7 +455,7 @@ xadd('analytics:payments', {
 "
 if [ $? -ne 0 ]; then
   fail "XADD failed"
-  kill $WORKER_PID 2>/dev/null; compose down >/dev/null 2>&1; exit 1
+  kill $WORKER_PID $INGEST_PID 2>/dev/null; cleanup_down; exit 1
 fi
 
 # Verify events are in Redis stream
@@ -448,7 +465,7 @@ if [ "$EVENTS_LEN" -ge 2 ]; then
 else
   fail "events NOT in Redis stream (count=$EVENTS_LEN, expected >= 2)"
   kill $WORKER_PID 2>/dev/null
-  compose down >/dev/null 2>&1; exit 1
+  cleanup_down; exit 1
 fi
 
 # --- 6. Wait for worker to consume events and flush to ClickHouse ---
@@ -596,9 +613,7 @@ fi
 
 # --- 8. Cleanup ---
 kill $WORKER_PID $INGEST_PID 2>/dev/null
-if [ "${SKIP_COMPOSE_UP:-0}" != "1" ]; then
-  compose down >/dev/null 2>&1
-fi
+cleanup_down
 
 echo ""
 echo "==> Analytics E2E result: $PASS passed, $FAIL failed"
