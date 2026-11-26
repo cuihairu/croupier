@@ -2182,9 +2182,9 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 完成证据：`internal/api/ticket/service.go`（withTicketTransaction + Transition 事务化）、`internal/api/cicd/service.go`（withCicdTransaction + Delete 事务化）、两份 `aud050_tx_test.go`。
   - 已知边界：无字段/wire 变更，三层文档无需同步；行为面仅在 code comment 与本条记录。
 
-- [ ] **AUD-051 · P3 · 修复 · Approval 挂账文档更新为 SQLStore 现状**
+- [x] **AUD-051 · P3 · 修复 · Approval 挂账文档更新为 SQLStore 现状**（commit 64277b679）
   - 依赖：—。交付与验收：`docs/operations/access-control.md:66` 与 CLAUDE.md「Approvals currently use MemStore」表述更新为 production SQLStore + CAS 事实；zh 镜像（docs/zh）同步。
-  - 状态／条件：2026-11-16 复核属实——`internal/svc/service_context.go:379` 实际装配 SQLStore，重启丢失风险已不存在。
+  - 状态／条件：LOCAL VERIFIED（2026-11-23 交付，commit 64277b679；2026-11-27 本席复验恢复勾行——原始台账即存 DONE 证据未勾框，c187d1015 台账重构后仍留未勾，产品事实始终在 main）：`internal/svc/service_context.go:385` 装配 `approvals.NewSQLStore(db)`（9066d7c10，2026-10-30 接线），approve/reject 为单条条件 UPDATE + RowsAffected 的 CAS 语义，dispatch 领取持久。更新面全仓落位并逐面复验在 main：CLAUDE.md（MemStore 表述已无，为 SQLStore + CAS）、`docs/operations/access-control.md:66` + zh:66、`docs/architecture/runtime-topology.md:66/:123` + zh:66/:132、`docs/architecture/function-pipeline-blockers.md:156/:158` + zh:156（持久化已解决 + 残余 TTL/bypass 边界）、`docs/architecture/index.md:49/:99` + zh:55/:108。`cd docs && CI=true pnpm build` 通过。
 
 - [x] **AUD-052 · P3 · 修复 · 缩短 access JWT TTL 并引入 refresh 轮换** — f5e6d4e07
   - 依赖：AUD-008（密钥判定先行）。交付与验收：`internal/security/jwtutil/token.go:23` 拆 access/refresh + 重用检测轮换；存量登录灰度兼容。
