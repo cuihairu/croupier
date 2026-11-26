@@ -112,10 +112,15 @@ func (w *Worker) processMessage(ctx context.Context, stream string, msg redis.XM
 		// self-consistent makes the retry count genuinely advance).
 		m["retry_count"] = float64(retries + 1)
 		retryData, _ := json.Marshal(m)
+		// Re-queue WITHOUT a MaxLen cap (DATA-019): this is the producer's
+		// source stream and its retention is the publisher's config (e.g.
+		// ANALYTICS_REDIS_MAXLEN). Trimming here at an arbitrary 1000 evicts
+		// unread and pending entries once the backlog exceeds the cap —
+		// silent data loss. The retry path cannot grow the stream without
+		// bound: retry_count rides in the payload and dead-letters after
+		// maxPendingRetries requeues.
 		if rerr := w.rdb.XAdd(ctx, &redis.XAddArgs{
 			Stream: stream,
-			MaxLen: 1000, // Keep retry queue bounded
-			Approx: true,
 			ID:     "*",
 			Values: map[string]interface{}{"data": string(retryData)},
 		}).Err(); rerr != nil {

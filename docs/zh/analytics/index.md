@@ -61,6 +61,7 @@ tag:
 - 发布中途失败返回 `500 queue_write_failed`，`details.enqueued` / `details.failed_index` / `details.total` 显式披露已入队前缀（DATA-017），不再是裸的批次级错误。
 - 重试契约：以相同内容整批重发。生产方未携带 `event_id` 的事件由 worker 按载荷指纹派生确定性 UUIDv5（`internal/analytics/worker/worker_insert.go` 的 `deriveEventID`），重复提交与 worker 重投收敛到同一 ClickHouse 自然键，不再产生随机新 id；生产方提供的合法 UUID `event_id` 原样沿用。
 - 金额精度（DATA-018）：`amount_cents` 只接受 uint64 值域内的正整数。ingest 以 `UseNumber` 解码并逐位解析——分值小数、负数与超范围值拒绝 `400` 并携带条目位置；worker 同样逐位解析，坏行带原因进死信，不再经 float64 截断。
+- 重试保留（DATA-019）：失败消息重投回**源流时不带任何自有保留上限**——源流裁剪（如 `ANALYTICS_REDIS_MAXLEN`）由发布方配置掌控。重试副本不再会在积压超过旧 1000 条上限时驱逐未读条目；重试总量由 `retry_count` 收敛（超过 `maxPendingRetries` 进死信）。
 - 边界：payments 表无去重列，相同支付行重发仍会追加第二条原始行，依赖按 `order_id` 的读取口径对账（DATA-004/051/056 跟踪）。
 
 ## 启动顺序
