@@ -2201,9 +2201,10 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 状态／条件：DONE · LOCAL VERIFIED（2026-11-27）。挂载核实：`PermissionMiddleware` 唯一引用方 `internal/middleware/authority_middleware.go` 的 `NewAuthorityMiddleware` 全仓零构造点（仅自身测试），`internal/middleware` 的 `AuthMiddleware`/`NewAuthMiddleware`/`Handle`/`Authenticate` 零生产调用（生产认证是 `svc.NewAuthMiddleware`，`service_context.go:736` 挂载），`PermissionConfig`+9 个预置构造器、`extractAdminID`/`extractGameID`/`extractEnv`/`writePermissionError`/`writeJSONError`/`lookupAdminByUsername` 均随链死。删除：`internal/service/permission/middleware.go` 整文件（旧式 net/http 链 + 字符串 context key :117-119）、`internal/middleware/authority_middleware.go` + 其测试、`internal/middleware/auth.go` 的 `AuthMiddleware` 簇 :93-138（gin.H 直写 `Handle` + `Authenticate`，`InitJWTSecret`/`Auth`/`OptionalAuth` 保留）；顺删仅覆盖死链的 70 个测试用例（permission_test 62、coverage_v9 7、middleware_test 1，孤儿节横幅一并清理），活测试（CheckPermission/GameScope/角色/LoadAdminAuthorizationState 等）全部保留。
   - 验证：全仓 grep 零残留引用（PermissionMiddleware/AuthorityMiddleware/lookupAdminByUsername/extractAdminID/writePermissionError/预置构造器）；`go build ./...` 通过；`go vet` 两包清洁；`gofmt -l` 清洁；`go test ./internal/middleware/ ./internal/service/permission/ -count=1` 全绿。
 
-- [ ] **AUD-055 · P3 · 修复 · Registry 公开语义对齐**
+- [x] **AUD-055 · P3 · 修复 · Registry 公开语义对齐**（2026-11-27）
   - 依赖：—。交付与验收：`internal/handler/routes_storage.go:45` 注释与服务层权限二选一对齐（protected 或真公开 + threat model 记录）。
-  - 状态／条件：2026-11-16 复核属实——路由注释称公开，服务层 RequireAnyPermission 致匿名 403。
+  - 状态／条件：DONE · LOCAL VERIFIED（2026-11-27）。复核修正：原「匿名 403」实为权限倒挂——`utils.CurrentUsername` 从 `c.Request.Context()` 取值，gin `c.Set` 的用户名到不了服务层 ctx，匿名恒 200、而已登录无 registry 角色的操作员反被 403（比任一干净形态都糟）。对齐选「真公开 + threat model 记录」：`access-control.md:40` 本就文档化 registry read-only 为公开白名单面，web 消费方（PageStudio 函数目录）虽登录但放行无碍。删除 `internal/api/registry/service.go` GetRegistry 的 username 条件 RequireAnyPermission 分支（注释留 AUD-055 指针）；`routes_storage.go` 节注释补只读目录 + 威胁模型指针；`docs/operations/access-control.md:40` + zh:40 补威胁模型（暴露 agent 存在性/game-env 绑定/内部地址/启用函数 id，无玩家数据无凭据无写；部署边界为私有网络，加固路径=边缘拒绝不可信网络）。
+  - 验证：`go build ./...`、`go vet ./internal/api/registry/ ./internal/handler/` 清洁；`go test ./internal/api/registry/ ./internal/handler/ -count=1` 全绿（3 个钉旧条件 403/500 行为的用例改写为钉新「已登录同放行」语义并注明 AUD-055）；`cd docs && CI=true pnpm build` 通过。
 
 - [ ] **AUD-056 · P3 · 修复 · Monitoring 健康错误改稳定码**
   - 依赖：—。交付与验收：`internal/api/monitoring/service.go:160-163` 状态响应改布尔/稳定码，详细错误仅日志。

@@ -29,7 +29,9 @@ func registerStorageRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 }
 
 // ============================================================================
-// Registry 路由注册（公开访问，无需认证）
+// Registry 路由注册（公开只读目录，无需认证；威胁模型见
+// docs/operations/access-control.md「公开端点白名单」——AUD-055 对齐：
+// 服务层不再做条件权限检查，匿名与已登录调用者看到同一目录）
 // ============================================================================
 func registerRegistryRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	registrySvc := apiregistry.NewService(ctx)

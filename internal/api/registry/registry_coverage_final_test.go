@@ -35,13 +35,13 @@ func TestHandler_GetRegistry_ServiceError_UnauthenticatedAdminModel(t *testing.T
 
 	req := httptest.NewRequest(http.MethodPost, "/registry", strings.NewReader("{}"))
 	req.Header.Set("Content-Type", "application/json")
-	// The handler reads c.Request.Context(), so the username must be injected
-	// into the request context.
+	// AUD-055：服务层不再做权限检查，AdminModel 缺位的极简上下文不再触发
+	// 500——匿名与已登录调用者同样拿到公开只读目录。
 	req = req.WithContext(context.WithValue(req.Context(), "username", "ghost"))
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	assert.Equal(t, http.StatusOK, w.Code)
 }
 
 func TestService_GetRegistry_SkipsBlankAndNilSessions(t *testing.T) {

@@ -815,14 +815,15 @@ func TestService_GetRegistry_AuthorizedUser(t *testing.T) {
 	}
 	service := NewService(svcCtx)
 
-	// Test with authorized user context
+	// AUD-055：registry 读面是有意设计的公开只读目录，服务层不再做权限
+	// 检查——已登录调用者与匿名调用者看到同一目录（旧「带用户名才查权限」
+	// 的条件分支属权限倒挂，已移除）。
 	ctx := context.WithValue(context.Background(), "username", "testuser")
 	ctx = context.WithValue(ctx, "adminID", uint(1))
 
-	// This will fail at permission check since no permission service is set up
-	_, err := service.GetRegistry(ctx, &RegistryRequest{})
-	// We expect an error because permission service is nil
-	assert.Error(t, err)
+	resp, err := service.GetRegistry(ctx, &RegistryRequest{})
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
 }
 
 func TestService_GetRegistry_UnauthorizedUser(t *testing.T) {
@@ -831,13 +832,13 @@ func TestService_GetRegistry_UnauthorizedUser(t *testing.T) {
 	}
 	service := NewService(svcCtx)
 
-	// Test with user that doesn't have permission
+	// AUD-055：无权限的已登录调用者同样放行（公开只读目录，无权限倒挂）。
 	ctx := context.WithValue(context.Background(), "username", "noperm")
 	ctx = context.WithValue(ctx, "adminID", uint(999))
 
-	// This will fail at permission check
-	_, err := service.GetRegistry(ctx, &RegistryRequest{})
-	assert.Error(t, err)
+	resp, err := service.GetRegistry(ctx, &RegistryRequest{})
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
 }
 
 func TestService_GetRegistry_WithAssignmentsFile(t *testing.T) {

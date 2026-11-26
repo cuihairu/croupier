@@ -22,15 +22,14 @@ func NewService(svcCtx *svc.ServiceContext) *Service {
 
 // GetRegistry retrieves registry information including agents, functions, and coverage
 func (s *Service) GetRegistry(ctx context.Context, req *RegistryRequest) (*RegistryResponse, error) {
-	// Allow public read access to agents and functions (for function catalog browsing)
-	// Only require permission for sensitive operations
-	username, _ := utils.CurrentUsername(ctx)
-	if username != "" {
-		if _, _, err := utils.RequireAnyPermission(ctx, s.svcCtx, "无权查看注册表", "admin:all", "registry:read", "registry:manage"); err != nil {
-			return nil, err
-		}
-	}
-	// Unauthenticated request: allow read-only access to agents and functions
+	// Registry read is a documented public read-only surface (AUD-055): the
+	// route bypasses Authority and this handler performs no permission check,
+	// so anonymous and authenticated callers see the same catalog. The former
+	// "permission check only when a username is present" branch was removed —
+	// it inverted privilege (anonymous callers got 200 while a logged-in
+	// operator without registry roles got 403) and contradicted the route's
+	// public whitelist claim. Threat model: docs/operations/access-control.md
+	// 「公开端点白名单」。
 
 	agents := make([]RegistryAgent, 0)
 	functionMap := make(map[string]*RegistryFunction)
