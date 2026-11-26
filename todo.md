@@ -950,9 +950,10 @@
   - 状态／条件：完成（2026-11-27）。LOCAL VERIFIED。`flushBatches` 成为周期与最终刷新的唯一路径：两条流各自尝试（`flushEventBatch` + `flushPaymentBatch`），失败经 `errors.Join` 分别可见——事件 Send 失败不再牵连支付。验收测试实测：事件 Send 持续失败时支付批次落仓、ref ACK、营收入账、checkpoint 前进，事件消息保留 pending 走回收；双流同败联合错误两因可见。变异 M1（提前 return 只刷事件）令验收测试红且机制正确，还原后 0 MUTATION 标记全绿。边界：事件永久失败时事件行仍不落库、消息循环回收重投（DATA-047 pending-ack 读数呈现）；联合错误单行日志调用方两条原因均可见。
   - 完成证据：`internal/analytics/worker/worker_flush.go`（独立刷新 + errors.Join）；`internal/analytics/worker/data050_flush_independence_test.go`（独立推进 + 双败报告两测）；`docs/analytics/index.md`、`docs/zh/analytics/index.md`（DATA-050 条目）。门禁：worker 包 ok、internal 全量 0 FAIL、docs 构建（en/zh）通过、dashboard_vnext_guard PASSED。
 
-- [ ] **DATA-051 · P1 · 修复 · 为补发事件保留稳定去重键**
+- [x] **DATA-051 · P1 · 修复 · 为补发事件保留稳定去重键**（632f8eff2，2026-11-27）
   - 依赖：ARCH-011、DATA-017。交付与验收：为缺失上游 ID 的逻辑事件生成一次标识并贯穿持久重试，或在入口明确拒绝不符合契约的 ID。验收同一消息在 Send 后 ACK 失败、重启回收及重新入队时仍可按同一事件 ID 去重。证据：`internal/analytics/worker/worker_insert.go:23,27` 每次处理重新生成 UUID；相同 Redis 消息重复处理的探针得到两个不同 ID。
-  - 状态／条件：未开始。
+  - 状态／条件：完成（2026-11-27）。LOCAL VERIFIED。原证据已过时——随机 UUID 兜底已由 DATA-017（2ef11cd45）替换为 `deriveEventID` 确定性 UUIDv5（身份字段白名单指纹，retry 记账被有意排除）。本项交付为验收证明：新测试驱动**真实 requeue 分支**（Append 失败批迫使 `processMessage` 回写源流，从流中取回改写后的字节重处理）——retry_count 两轮重投（字节串已不同且含 `"retry_count":1/2`）、原始字节裸重投（Send 后 ACK 失败 / 重启回收形态）、异事件负控（不同 user_id 派生不同 ID）全部按同一/不同事件 ID 收敛区分。变异自证：M1（指纹误收 retry_count）恰在两条 requeue 稳定性断言转红；M2（退回 `uuid.NewString()` 每次随机）令验收测试与 DATA-017 既有确定性测试同红；还原后 0 MUTATION 标记全绿。边界：生产方合法 UUID 原样沿用；支付去重仍为 `order_id` 读取口径（DATA-004/056）。
+  - 完成证据：`internal/analytics/worker/data051_stable_dedup_across_requeue_test.go`（真实 requeue 链验收 + 负控）；`docs/analytics/index.md`、`docs/zh/analytics/index.md`（DATA-051 条目）。门禁：worker 包 ok（26.4s）、go build/vet PASS、internal 全量 0 FAIL（`TestOpsServerMonitorProcess_RestartDelayOutsideLock` 首轮红为负载 flake，隔离+整包复跑均绿）、docs 构建（en/zh）通过、dashboard_vnext_guard PASSED。
 
 - [ ] **DATA-052 · P1 · 修复 · 将重投和死信转移做成幂等状态变更**
   - 依赖：DATA-019。交付与验收：目标流写入成功而源 ACK 失败时，再次处理不会复制重试记录或死信，目标未写入时源消息可继续回收。覆盖故障发生在两条 Redis 命令之间、超时结果未知及多个 worker 的情形。证据：`internal/analytics/worker/worker_checkpoint.go:71,107,120,148` 将两步分开执行。Redis 替身在 XADD 成功、XACK 连续失败时记录同一源消息两条死信。
