@@ -580,6 +580,31 @@ FormPresentationEditor（操作/任务/报表/资源页的表单页签与组合�
 
 **作用域、权限与回退。** 读取走既有 console 读门（`admin:all`/`console:read`/`pages:read`/`function:invoke`）与当前 game/env 作用域——调试页不读草稿、不跨作用域，也不复用已发布页的执行治理（调试执行仍走自身 invoke 路径）。若没有页面绑定该函数，选择器说明无风格来源，工作台保持既有 `derivePresentationSpec` 派生表单；来源页面无法解析或已下架时跳过并给出诊断，不静默改表单。复用呈现中的运行时风格切换器（SUI-036）保持可用，其选择同样是会话态、与来源选择互不耦合。本决策只落文档：选择器本身未在 SUI-043 实现，属后续 UI 任务。
 
+### 主题外观范围决策（SUI-044，2026-11-26）
+
+**决策：颜色与字体不纳入风格（变体）配置；密度已经纳入——以既有纯展示配置的结构化形式纳入。** 风格（`FormPresentationSpec.variants[i]`，SUI-031）描述表单*如何排布*，不描述*用什么颜色*。变体字段白名单（`internal/dashboard/spec/form_presentation.go` 的 `variantFieldKnownKeys`，web 侧 `web/src/utils/formValidation.ts` 的 `unknownVariantOverrideKeys` 镜像）恰是 SUI-045 纯展示集：逐字段 `widget`/`label`/`placeholder`/`description`/`role`/`unit`/`perTarget`/`width`/`order`/`enumOptions`/`remoteOptions`/`widgetProps`，以及页面级 `layout`/`groups`/`submitButton`/`cancelButton`。没有任何颜色、字体或密度 token 键在其中；出现未声明的键会被发布校验拒绝（`form_variant_illegal_override`）。
+
+**密度在范围内——以结构化配置表达。**「紧凑」与「标准」是布局声明，不是主题 token：紧凑风格即 `layout: grid` + 缩小逐字段 `width`（SUI-028 的 12 栏协议值，渲染时乘二映射 antd 24 栏）、用 `order`/`groups`（`collapsible`/`collapsed`）分组、按需 `widget` 换选（`TextArea` 替 `Input`）。SUI-031 的标准/紧凑典型一对就是这样一组 `layout`/`width` 覆盖——密度已搭既有纯展示配置，不需要新 wire 字段或新 token。回退沿用既有规则：`layout` 缺省 → SUI-025 派生的标准纵向表单；`width` 缺省/越界 → SUI-028 类型派生跨度（`0` 与越界视为未设置）；`groups` 缺省 → 字段保持基础顺序。
+
+**颜色与字体刻意不纳入。**
+
+- 主题是**个人运行时偏好**，不是页面数据：主题套（blue/inkpink）× 明暗档（light/dark/system）存在浏览器 `localStorage`（`croupier-theme`/`croupier-theme-preset`，设置页「外观」切换），antd token 由 `<ThemeSync>` 推送（`web/src/utils/antdThemeConfig.ts`），CSS 变量由 `<html data-preset>`/`<html data-theme>` 切换（`web/src/global.less`）。把某位管理员选的颜色冻结进发布风格、施加到所有查看者的浏览器，会与该偏好及 CI a11y 扫描（`web/e2e/a11y-dashboard.spec.ts`，四套主题组合）强制的 AA 对比度红线冲突。
+- antd 6 暗色算法会把十六进制种子再过一遍调色板派生（`#4096ff` → `#3983dc`、`#b8556b` → `#9f4b5e`），所以存下的 hex 在暗色下渲染值不同。只有 token *引用*跨亮暗稳定——未来若支持按表单强调色，也只能是运行时解析的语义角色，不能是字面颜色。
+- 新增外观字段还意味着新 wire 面（Go 校验器 + web 镜像 + 编辑器 UI + 文档），而当前没有操作者需求记录——与 SUI-038 服务端偏好暂缓采用同一触发纪律。
+
+**若日后出现按表单外观的明确需求（预设计划，未排期、未实现）：** 变体可声明*语义角色*——`accent`（→ antd `colorPrimary` / CSS 变量 `--brand-2`）、`surface`（→ `colorBgContainer` / `--app-panel-bg`）、`text`（→ `colorText` / `--app-text-strong`）、`secondary`（→ `colorTextSecondary` / `--app-text-secondary`）——渲染期按当前主题解析；角色解析不到时回退基础呈现（与变体 key 解析不到的回退链一致）。字体仍保持应用级（`fontFamily` 是全局 antd token）；不设按表单字体机制，CJK/拉丁混排字形栈与用户缩放的可访问性诉求都不支持它。任何此类扩展上线前必须重跑下方四组合对比度矩阵并通过 CI a11y 扫描。
+
+**亮暗可读性（已验证）。** 同一风格与主题无关——它不携带颜色，继承当前主题 token。`web/src/utils/__tests__/themeContrast.test.ts` 把 `getAntdThemeConfig` 经 antd 6 `theme.getDesignToken` 解析为四套组合的**渲染值**（而非声明种子），对表单实际渲染的文字/控件色对断言 WCAG AA（≥4.5:1）。实测对比度（antd 6.6.0 `getDesignToken` 对生产配置，2026-11-26）：
+
+| 组合 | 链接/容器 | 次要文字/容器 | 占位符/容器 | 主按钮白字 |
+| --- | --- | --- | --- | --- |
+| blue · 亮色 | 6.16:1（`#0958d9` / `#ffffff`） | 7.00:1 | 7.00:1 | 6.16:1（`#0958d9`） |
+| blue · 暗色 | 6.18:1（`#5c99dc` / `#141414`） | 9.81:1 | 7.57:1 | 5.19:1（`#1668dc`） |
+| inkpink · 亮色 | 7.16:1（`#93394d` / `#ffffff`） | 7.00:1 | 7.00:1 | 7.16:1（`#93394d`） |
+| inkpink · 暗色 | 5.47:1（`#5c99dc` / `#1e1e32`） | 9.01:1 | 7.07:1 | 5.77:1（`#9f4b5e`） |
+
+四套组合在亮暗下全部越过 4.5:1，因此同一紧凑/标准风格在亮暗主题下均可读。边界：最紧的一组暗色蓝主按钮（`#1668dc`，5.19:1，仍达 AA）；a11y e2e 扫描在真实页面上覆盖壳层（ProLayout/菜单），单测覆盖 antd 表单控件 token；两者都不覆盖应用主题上下文之外的游戏内嵌 webview。本决策只落文档与该回归用例：生产代码、wire 字段与编辑器 UI 均未改动。
+
 ## 9. 已知边界
 
 - SUI-020 未新增任何 widget 实现：`DateRange` 与 `RichText` 仍仅声明、未实现，静默回退到类型默认控件；`Code`/`JSON` 仍是普通 textarea 字符串，不解析也不校验内容。能力提示仅为提示信息，不改变提交值。

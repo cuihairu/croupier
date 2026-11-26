@@ -316,6 +316,8 @@ interface FormVariantFieldSpec {
 
 **调试页风格复用（SUI-043）。** 函数调用工作台没有 pageKey/Binding，不做自动风格查找；由操作者显式选择当前作用域内绑定该函数的已发布页面，仅复用其呈现（实时描述符 schema 仍为校验真值），无候选时保持描述符派生呈现。决策见 [composite-editor-v3](../dashboard/composite-editor-v3.md#调试页风格复用决策sui-0432026-11-26)；选择器本身属后续 UI 任务。
 
+**主题外观范围（SUI-044）。** 颜色与字体不是变体键：纯展示白名单维持原样，变体 wire 面不新增颜色/字体字段。密度*在范围内*——以 `layout`/`width`/`groups`/`order`（既有 SUI-028/SUI-029 键）结构化表达；紧凑风格是布局覆盖，不是主题 token。主题（主题套 × 亮暗/跟随系统）保持浏览器级个人偏好、不进发布 spec；风格继承当前主题 token，四套主题组合的表单文字/控件渲染色对均过 WCAG AA（由 `web/src/utils/__tests__/themeContrast.test.ts` 验证）。决策与实测值：见 [composite-editor-v3](../dashboard/composite-editor-v3.md#主题外观范围决策sui-0442026-11-26)。
+
 ### 多态输入分支（SUI-042）
 
 OpenAPI 多态请求 schema（`oneOf`/`anyOf` + `discriminator`）在渲染结构化表单前必须选定分支：只有知道 discriminator 值，分支字段与 required 集合才有意义。SUI-042 在 `SchemaFormRenderer` 渲染期解决该问题——PageSpec 无新字段、wire 无变更：表单 `jsonSchema` 仍携带原始多态声明，已发布呈现、Binding 与调用治理不动。
