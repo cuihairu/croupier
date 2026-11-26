@@ -1,8 +1,6 @@
 package middleware
 
 import (
-	"errors"
-	"net/http"
 	"strings"
 
 	"github.com/cuihairu/croupier/internal/common/response"
@@ -88,51 +86,4 @@ func OptionalAuth() gin.HandlerFunc {
 
 		c.Next()
 	}
-}
-
-// AuthMiddleware is a configurable authentication middleware.
-type AuthMiddleware struct {
-	secret string
-}
-
-// NewAuthMiddleware creates a new AuthMiddleware with the given secret.
-func NewAuthMiddleware(secret string) *AuthMiddleware {
-	return &AuthMiddleware{secret: secret}
-}
-
-// Handle implements the gin.HandlerFunc interface.
-func (m *AuthMiddleware) Handle(c *gin.Context) {
-	authHeader := c.GetHeader("Authorization")
-	if authHeader == "" {
-		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "missing authorization header", "message": "未授权"})
-		return
-	}
-
-	parts := strings.SplitN(authHeader, " ", 2)
-	if len(parts) != 2 || parts[0] != "Bearer" {
-		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid authorization header format", "message": "授权头格式错误"})
-		return
-	}
-
-	token := parts[1]
-
-	claims, err := jwtutil.Parse(token, m.secret)
-	if err != nil {
-		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "authentication_failed", "message": "认证失败"})
-		return
-	}
-
-	c.Set("username", claims.Username)
-	c.Set("roles", claims.Roles)
-	c.Set("adminID", claims.AdminID)
-	c.Next()
-}
-
-// Authenticate validates a JWT token and returns the claims.
-func (m *AuthMiddleware) Authenticate(token string) (string, []string, uint, error) {
-	claims, err := jwtutil.Parse(token, m.secret)
-	if err != nil {
-		return "", nil, 0, errors.New("invalid token")
-	}
-	return claims.Username, claims.Roles, claims.AdminID, nil
 }

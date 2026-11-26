@@ -2196,9 +2196,10 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 状态／条件：LOCAL VERIFIED（交付 commit 4933fc5d2；2026-11-27 本席复验恢复勾行——c187d1015 台账重构时本项勾行被回退，产品代码与测试始终在 main）：2026-11-16 复核属实——双击/重试并发创建多份重备份。
   - 完成证据：`backups.idempotency_key` 指针列 + 唯一索引（迁移 0068 三处同步；NULL 多行三方言不冲突）；Create 预检同键 pending/succeeded 复用、failed 行让位键后重试建新行（ReleaseIdempotencyKey），并发双写由唯一索引兜底、冲突方回落已存在行（isIdempotencyConflict 三方言文案）；无键时 name+type 10 分钟窗兜底（自动生成名含秒戳，同秒双击同被收住）；handler 兼容 Idempotency-Key 头。LOCAL VERIFIED：backup 包 6 用例含 8 并发同键全员同 ID/库内单行、migrations 0068 存量形态复刻（Drop 列+索引再补齐）+注册断言；`go test ./internal/...` exit 0、guard PASSED、tsc 0 错、jest 467 套/5514 用例全绿（首跑 6 套红为 go test+docs build 同机并发负载 flake，空载全量重跑全绿）、docs build 通过。
 
-- [ ] **AUD-054 · P3 · 修复 · 删除旧式 PermissionMiddleware 死代码**
+- [x] **AUD-054 · P3 · 修复 · 删除旧式 PermissionMiddleware 死代码**（2026-11-27）
   - 依赖：—。交付与验收：确认无挂载引用后删除 `internal/service/permission/middleware.go:117-127`、`internal/common/middleware/auth.go:104` 的旧式实现（字符串 context key + gin.H 直写）。
-  - 状态／条件：2026-11-16 复核属实（未挂载死代码，防未来误挂载）。
+  - 状态／条件：DONE · LOCAL VERIFIED（2026-11-27）。挂载核实：`PermissionMiddleware` 唯一引用方 `internal/middleware/authority_middleware.go` 的 `NewAuthorityMiddleware` 全仓零构造点（仅自身测试），`internal/middleware` 的 `AuthMiddleware`/`NewAuthMiddleware`/`Handle`/`Authenticate` 零生产调用（生产认证是 `svc.NewAuthMiddleware`，`service_context.go:736` 挂载），`PermissionConfig`+9 个预置构造器、`extractAdminID`/`extractGameID`/`extractEnv`/`writePermissionError`/`writeJSONError`/`lookupAdminByUsername` 均随链死。删除：`internal/service/permission/middleware.go` 整文件（旧式 net/http 链 + 字符串 context key :117-119）、`internal/middleware/authority_middleware.go` + 其测试、`internal/middleware/auth.go` 的 `AuthMiddleware` 簇 :93-138（gin.H 直写 `Handle` + `Authenticate`，`InitJWTSecret`/`Auth`/`OptionalAuth` 保留）；顺删仅覆盖死链的 70 个测试用例（permission_test 62、coverage_v9 7、middleware_test 1，孤儿节横幅一并清理），活测试（CheckPermission/GameScope/角色/LoadAdminAuthorizationState 等）全部保留。
+  - 验证：全仓 grep 零残留引用（PermissionMiddleware/AuthorityMiddleware/lookupAdminByUsername/extractAdminID/writePermissionError/预置构造器）；`go build ./...` 通过；`go vet` 两包清洁；`gofmt -l` 清洁；`go test ./internal/middleware/ ./internal/service/permission/ -count=1` 全绿。
 
 - [ ] **AUD-055 · P3 · 修复 · Registry 公开语义对齐**
   - 依赖：—。交付与验收：`internal/handler/routes_storage.go:45` 注释与服务层权限二选一对齐（protected 或真公开 + threat model 记录）。
