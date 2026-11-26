@@ -68,12 +68,24 @@ final approvalsControllerProvider =
 class ApprovalsController extends Notifier<ApprovalsState> {
   static const pageSize = 20;
 
+  /// 列表请求代次（AUD-064）：随作用域与状态筛选追踪。reset（首查/切
+  /// 筛选/切作用域/下拉刷新）开新代并使在途旧请求（含旧页 append）立即
+  /// 失效；loadMore 属当前代追加，不换代。被取代请求的响应/错误按代次
+  /// 丢弃，不写 state——旧分组的列表不并入新筛选。
+  int _listGen = 0;
+
+  /// 描述符请求代次（AUD-064）：作用域切换使在途旧 scope 描述符失效，
+  /// 迟到响应不回灌标签索引。
+  int _descGen = 0;
+
   @override
   ApprovalsState build() {
-    // scope 切换联动：approvals 是 scoped 端点，切后列表重查（§2.1）。
+    // scope 切换联动：approvals 是 scoped 端点，切后列表重查（§2.1），
+    // 描述符（同为 scoped）清旧重建。
     ref.listen(scopeControllerProvider, (prev, next) {
       if (prev?.selected != next.selected && next.selected != null) {
         refresh();
+        reloadDescriptors();
       }
     });
     return const ApprovalsState();
@@ -105,18 +117,30 @@ class ApprovalsController extends Notifier<ApprovalsState> {
   }
 
   /// 描述符索引（高危 / 两人复核标签数据源）。缺 scope 或请求失败都不阻塞
-  /// 列表——只是没有标签。
+  /// 列表——只是没有标签。响应落地前核对代次（AUD-064）：被新查询/作用域
+  /// 切换取代的旧响应不写标签。
   Future<void> loadDescriptors() async {
+    final gen = ++_descGen;
     final service = await _specServiceAsync();
+    if (gen != _descGen) return;
     if (service == null) return;
     try {
       final list = await service.list();
+      if (gen != _descGen) return;
       state = state.copyWith(descs: {for (final d in list) d.id: d});
     } on ApiError {
       // 标签数据缺失不阻塞列表。
     } on StateError {
       // 同上。
     }
+  }
+
+  /// 作用域切换联动：清旧 scope 标签并按新 scope 重建（在途旧请求按代次
+  /// 丢弃，AUD-064）。
+  Future<void> reloadDescriptors() async {
+    ++_descGen;
+    state = state.copyWith(descs: const {});
+    await loadDescriptors();
   }
 
   Future<FunctionSpecService?> _specServiceAsync() async {
@@ -129,12 +153,17 @@ class ApprovalsController extends Notifier<ApprovalsState> {
   }
 
   Future<void> _fetch({required bool reset}) async {
+    // reset 开新代：在途旧请求（含旧页 append）立即失效（AUD-064）；
+    // 请求参数入口快照，不因后续筛选切换漂移。
+    final gen = reset ? ++_listGen : _listGen;
+    final status = state.status;
+    final page = reset ? 1 : state.page + 1;
     final service = await _serviceAsync();
+    if (gen != _listGen) return;
     if (service == null) {
       state = state.copyWith(loading: false, error: '未登录或缺少服务器地址');
       return;
     }
-    final page = reset ? 1 : state.page + 1;
     state = state.copyWith(
       loading: reset,
       loadingMore: !reset,
@@ -144,8 +173,9 @@ class ApprovalsController extends Notifier<ApprovalsState> {
       final result = await service.list(
         page: page,
         pageSize: pageSize,
-        status: state.status,
+        status: status,
       );
+      if (gen != _listGen) return;
       state = state.copyWith(
         items: reset ? result.items : [...state.items, ...result.items],
         total: result.total,
@@ -154,12 +184,14 @@ class ApprovalsController extends Notifier<ApprovalsState> {
         loadingMore: false,
       );
     } on ApiError catch (e) {
+      if (gen != _listGen) return;
       state = state.copyWith(
         loading: false,
         loadingMore: false,
         error: e.message,
       );
     } on StateError catch (e) {
+      if (gen != _listGen) return;
       state = state.copyWith(
         loading: false,
         loadingMore: false,
