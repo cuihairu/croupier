@@ -908,9 +908,10 @@
 
 #### 分析采集、发布器与仓库续审（2026-11-21）
 
-- [ ] **DATA-043 · P1 · 修复 · Redis 发布器配置无效时拒绝启动**
+- [x] **DATA-043 · P1 · 修复 · Redis 发布器配置无效时拒绝启动**（551ca430f）
   - 依赖：ARCH-013。交付与验收：Redis 地址解析失败时从发布器工厂返回初始化错误，只有显式配置 noop 才可选择空写入模式。验证无效 Redis 地址阻止启动且不会确认采集成功。证据：`internal/analytics/mq/redis_pub.go:22,55` 将解析错误降级为空发布器。Go 探针通过真实工厂验证无效 URL 返回 Noop，发布调用仍返回成功。
-  - 状态／条件：未开始。
+  - 状态／条件：LOCAL VERIFIED — 2026-11-27。`NewRedis` 签名改 `(Queue, error)`：解析失败返回 `parse redis url` 初始化错误（不再降级 Noop），`newRedisFromEnv` 直传，工厂 `NewFromEnv` 原有 fail-fast 包装即真实可达；ingest 入口 `runIngest` → cobra `Execute` → `os.Exit(1)` 出口链原样生效。空写入模式仅显式 `ANALYTICS_MQ_TYPE=noop` 可选（`TestNewFromEnv_ExplicitNoop` 保持）。验收复证：真实二进制 `REDIS_URL='://not-a-redis-url'` 启动 exit 1、错误 `init analytics MQ: analytics redis mq: parse redis url: missing protocol scheme`、日志零 `listening on` 行（未开监听=不可能确认采集成功）；显式 noop 同坏地址照常常驻到 listening。测试：`TestNewRedis_InvalidURL` 反转钉新契约、`TestNewRedisFromEnv_InvalidURLFails`、`TestNewFromEnv_InvalidRedisURLRejected`（工厂级含 noop 逃逸舱共存断言）；旧钉降级行为的 `TestNewRedisFromEnv_NeverReturnsErrorOrNil` 改写并更新 deadbranch 注释（redis 分支生产可达，kafka 分支仍死）。变异证明：重引旧 noop 降级 → 3 个新用例语义级全红，还原 0 标记全绿。门禁：go build/vet 过、`go test ./internal/...` 全绿（172 ok，GO-EXIT=0）、web 零改动（DATA-037 交付的 tsc/jest 绿态沿用）、dashboard_vnext_guard PASSED、docs build 过（en/zh analytics index 同步 DATA-043 条目）。边界：仅堵配置解析期失败；Redis 地址合法但不可达的运行期失败不在本项（连接懒建立，发布期报错），属 DATA-045 监听失败域相邻关注点。
+  - 完成证据：`internal/analytics/mq/redis_pub.go`、`internal/analytics/mq/factory_test.go`、`/tmp/ing043.log`（exit 1 + parse 错误 + 无 listening）、`/tmp/go-full-data043.log`（GO-EXIT=0）、文档 `docs/analytics/index.md` DATA-043 条目（23a880ceb）。
 
 - [ ] **DATA-044 · P1 · 修复 · ClickHouse 结果迭代失败时拒绝返回截断指标**
   - 依赖：—。交付与验收：DAU、在线、营收及复用结果迭代的管道监控层能识别迭代错误。验收第一行失败、已读取部分行后失败、正常读完和空结果，读失败应映射到对应不可用状态。证据：`internal/api/analytics/warehouse.go:36,156,186,212` 的 rows 接口缺少 Err，循环结束直接返回结果。用仓库查询生产源码和替身行流复现第二行失败时在线接口只返回第一行并报成功。
