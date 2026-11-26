@@ -945,9 +945,10 @@
 
 #### Worker 失败恢复与付费查询续审（2026-11-21）
 
-- [ ] **DATA-050 · P1 · 修复 · 事件与支付批次独立推进刷新**
+- [x] **DATA-050 · P1 · 修复 · 事件与支付批次独立推进刷新**（8b6f892b4，2026-11-27）
   - 依赖：ARCH-011。交付与验收：周期和最终刷新都尝试处理两条流，分别报告失败。验收事件 Send 持续失败且支付可正常写入时，支付继续落仓并 ACK，事件保留 pending。证据：`internal/analytics/worker/worker_flush.go:121` 事件刷新失败后直接返回；ClickHouse 替身观测事件 Send 调用一次、支付一次也未调用。
-  - 状态／条件：未开始。
+  - 状态／条件：完成（2026-11-27）。LOCAL VERIFIED。`flushBatches` 成为周期与最终刷新的唯一路径：两条流各自尝试（`flushEventBatch` + `flushPaymentBatch`），失败经 `errors.Join` 分别可见——事件 Send 失败不再牵连支付。验收测试实测：事件 Send 持续失败时支付批次落仓、ref ACK、营收入账、checkpoint 前进，事件消息保留 pending 走回收；双流同败联合错误两因可见。变异 M1（提前 return 只刷事件）令验收测试红且机制正确，还原后 0 MUTATION 标记全绿。边界：事件永久失败时事件行仍不落库、消息循环回收重投（DATA-047 pending-ack 读数呈现）；联合错误单行日志调用方两条原因均可见。
+  - 完成证据：`internal/analytics/worker/worker_flush.go`（独立刷新 + errors.Join）；`internal/analytics/worker/data050_flush_independence_test.go`（独立推进 + 双败报告两测）；`docs/analytics/index.md`、`docs/zh/analytics/index.md`（DATA-050 条目）。门禁：worker 包 ok、internal 全量 0 FAIL、docs 构建（en/zh）通过、dashboard_vnext_guard PASSED。
 
 - [ ] **DATA-051 · P1 · 修复 · 为补发事件保留稳定去重键**
   - 依赖：ARCH-011、DATA-017。交付与验收：为缺失上游 ID 的逻辑事件生成一次标识并贯穿持久重试，或在入口明确拒绝不符合契约的 ID。验收同一消息在 Send 后 ACK 失败、重启回收及重新入队时仍可按同一事件 ID 去重。证据：`internal/analytics/worker/worker_insert.go:23,27` 每次处理重新生成 UUID；相同 Redis 消息重复处理的探针得到两个不同 ID。
