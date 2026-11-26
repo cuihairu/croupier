@@ -12,9 +12,11 @@ import (
 	redis "github.com/redis/go-redis/v9"
 )
 
-func (w *Worker) restoreCheckpoints(ctx context.Context, stream string) {
+// checkpointFor returns the persisted checkpoint id for a stream, or "" when
+// none is stored (or the store read fails).
+func (w *Worker) checkpointFor(ctx context.Context, stream string) string {
 	if w.checkpointPrefix == "" {
-		return
+		return ""
 	}
 	key := fmt.Sprintf("%s:%s", w.checkpointPrefix, stream)
 	id, err := w.rdb.Get(ctx, key).Result()
@@ -22,13 +24,19 @@ func (w *Worker) restoreCheckpoints(ctx context.Context, stream string) {
 		if err != redis.Nil {
 			slog.Warn("checkpoint get", "stream", stream, "err", err)
 		}
-		return
+		return ""
 	}
+	return id
+}
+
+// adoptCheckpoint loads the persisted checkpoint into lastIDs as the
+// monotonic floor for advanceCheckpoint without touching the group cursor.
+// On an existing group the Redis-native cursor is the source of truth
+// (DATA-023): a stale application checkpoint must never rewind it, so this
+// only influences in-memory regression guarding.
+func (w *Worker) adoptCheckpoint(ctx context.Context, stream string) {
+	id := w.checkpointFor(ctx, stream)
 	if id == "" {
-		return
-	}
-	if err := w.rdb.XGroupSetID(ctx, stream, w.group, id).Err(); err != nil {
-		slog.Warn("checkpoint setid", "stream", stream, "err", err)
 		return
 	}
 	w.lastMu.Lock()

@@ -549,12 +549,12 @@ func TestPersistCheckpoint_Normal(t *testing.T) {
 
 func TestRestoreCheckpoints_EmptyPrefix(t *testing.T) {
 	w := &Worker{checkpointPrefix: ""}
-	w.restoreCheckpoints(context.Background(), "analytics:events")
+	w.adoptCheckpoint(context.Background(), "analytics:events")
 }
 
 func TestRestoreCheckpoints_NoCheckpoint(t *testing.T) {
 	w, _ := testWorker(t)
-	w.restoreCheckpoints(context.Background(), "analytics:events")
+	w.adoptCheckpoint(context.Background(), "analytics:events")
 	if _, ok := w.lastIDs["analytics:events"]; ok {
 		t.Error("lastIDs should not be set when no checkpoint exists")
 	}
@@ -563,7 +563,7 @@ func TestRestoreCheckpoints_NoCheckpoint(t *testing.T) {
 func TestRestoreCheckpoints_EmptyID(t *testing.T) {
 	w, _ := testWorker(t)
 	w.rdb.Set(context.Background(), "analytics:checkpoint:analytics:events", "", 0)
-	w.restoreCheckpoints(context.Background(), "analytics:events")
+	w.adoptCheckpoint(context.Background(), "analytics:events")
 	if _, ok := w.lastIDs["analytics:events"]; ok {
 		t.Error("lastIDs should not be set for empty checkpoint ID")
 	}

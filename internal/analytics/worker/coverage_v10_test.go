@@ -134,17 +134,16 @@ func TestRunProcessMessageErrorWarnV10(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// restoreCheckpoints: XGroupSetID succeeds -> lastIDs[stream] = id
+// adoptCheckpoint: persisted checkpoint -> lastIDs[stream] (no group cursor
+// mutation; DATA-023 split the two concerns apart)
 // ---------------------------------------------------------------------------
 
 func TestRestoreCheckpointSetIDSuccessV10(t *testing.T) {
 	w, _ := testWorker(t)
-	w.rdb.AddHook(hookV10{okSetID: true})
 	ctx := context.Background()
-	w.rdb.XGroupCreateMkStream(ctx, w.streamEvents, w.group, "$")
 	w.rdb.Set(ctx, w.checkpointPrefix+":"+w.streamEvents, "5-1", 0)
 
-	w.restoreCheckpoints(ctx, w.streamEvents)
+	w.adoptCheckpoint(ctx, w.streamEvents)
 	if got := w.lastIDs[w.streamEvents]; got != "5-1" {
 		t.Errorf("lastIDs[%s] = %q, want 5-1", w.streamEvents, got)
 	}

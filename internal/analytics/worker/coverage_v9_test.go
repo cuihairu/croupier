@@ -369,24 +369,26 @@ func TestRestoreCheckpointsV9(t *testing.T) {
 	// Get error (dead Redis, non-Nil).
 	w, _ := testWorker(t)
 	w.rdb = deadRedisClientV9()
-	w.restoreCheckpoints(ctx, w.streamEvents) // must not panic
-
-	// XGroupSetID failure: miniredis does not implement XGROUP SETID, so the
-	// setid error branch (warn + return) is exercised with a group present.
-	w2, _ := testWorker(t)
-	w2.rdb.XGroupCreateMkStream(ctx, w2.streamEvents, w2.group, "$")
-	w2.rdb.Set(ctx, w2.checkpointPrefix+":"+w2.streamEvents, "5-1", 0)
-	w2.restoreCheckpoints(ctx, w2.streamEvents)
-	if got := w2.lastIDs[w2.streamEvents]; got != "" {
-		t.Errorf("lastIDs should stay empty on setid failure, got %q", got)
+	w.adoptCheckpoint(ctx, w.streamEvents) // must not panic
+	if got := w.lastIDs[w.streamEvents]; got != "" {
+		t.Errorf("lastIDs should stay empty on get failure, got %q", got)
 	}
 
-	// Same on a stream without any group.
+	// A stored checkpoint is adopted into lastIDs (DATA-023: adoption no
+	// longer depends on XGroupSetID succeeding — the group cursor is never
+	// touched by adoption).
+	w2, _ := testWorker(t)
+	w2.rdb.Set(ctx, w2.checkpointPrefix+":"+w2.streamEvents, "5-1", 0)
+	w2.adoptCheckpoint(ctx, w2.streamEvents)
+	if got := w2.lastIDs[w2.streamEvents]; got != "5-1" {
+		t.Errorf("lastIDs should adopt the checkpoint, got %q", got)
+	}
+
+	// checkpointFor with a dead Redis returns "" (non-Nil error swallowed).
 	w3, _ := testWorker(t)
-	w3.rdb.Set(ctx, w3.checkpointPrefix+":"+w3.streamEvents, "5-1", 0)
-	w3.restoreCheckpoints(ctx, w3.streamEvents)
-	if got := w3.lastIDs[w3.streamEvents]; got != "" {
-		t.Errorf("lastIDs should stay empty on setid failure, got %q", got)
+	w3.rdb = deadRedisClientV9()
+	if id := w3.checkpointFor(ctx, w3.streamEvents); id != "" {
+		t.Errorf("checkpointFor on dead redis = %q, want empty", id)
 	}
 }
 

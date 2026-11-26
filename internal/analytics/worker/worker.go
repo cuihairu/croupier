@@ -76,6 +76,14 @@ type Worker struct {
 	streamPayments string
 	group          string
 	consumer       string
+	// groupStart is the position a freshly created consumer group starts at:
+	// "0" (consume the retained backlog; the default, so a worker started
+	// after the first inbound events does not silently drop them) or "$"
+	// (latest only), selected by WORKER_GROUP_START. groupReset marks the
+	// explicit WORKER_GROUP_RESET=true operator request, the only sanctioned
+	// way to reposition an existing group (DATA-023).
+	groupStart string
+	groupReset bool
 	// aggregation state
 	aggMu          sync.Mutex
 	touchedMinutes map[string]struct{}
@@ -139,6 +147,8 @@ func NewWorker() (*Worker, error) {
 	if cons == "" {
 		cons = fmt.Sprintf("c-%d", time.Now().UnixNano())
 	}
+	groupStart := parseGroupStart(os.Getenv("WORKER_GROUP_START"))
+	groupReset := strings.EqualFold(strings.TrimSpace(os.Getenv("WORKER_GROUP_RESET")), "true")
 	// ClickHouse
 	dsn := os.Getenv("CLICKHOUSE_DSN")
 	if dsn == "" {
@@ -172,6 +182,8 @@ func NewWorker() (*Worker, error) {
 		streamPayments:     sp,
 		group:              grp,
 		consumer:           cons,
+		groupStart:         groupStart,
+		groupReset:         groupReset,
 		touchedMinutes:     map[string]struct{}{},
 		touchedDays:        map[string]struct{}{},
 		revAgg:             map[string]*revRow{},
@@ -186,12 +198,113 @@ func NewWorker() (*Worker, error) {
 	}, nil
 }
 
+// parseGroupStart maps WORKER_GROUP_START onto a stream position: "0"
+// consumes the retained backlog (the default), "$" is latest-only. An
+// invalid value falls back to the backlog-consuming default with a warning —
+// silently skipping a backlog is the one behavior this pipeline must never
+// default to (DATA-023).
+func parseGroupStart(v string) string {
+	switch strings.TrimSpace(v) {
+	case "":
+		return "0"
+	case "0":
+		return "0"
+	case "$":
+		return "$"
+	default:
+		slog.Warn("invalid WORKER_GROUP_START; using 0", "value", v)
+		return "0"
+	}
+}
+
+// ensureGroups implements the DATA-023 group-initialization policy:
+//
+//   - A group that does not exist yet is created at w.groupStart ("0" by
+//     default so a worker started after the first inbound events consumes the
+//     retained backlog; WORKER_GROUP_START=$ opts into latest-only). When a
+//     persisted checkpoint exists the group is created AT it instead — the
+//     resume-after-Redis-loss path; the checkpoint is only written after a
+//     message was ACKed, so this never skips undelivered data.
+//   - An existing group is never repositioned at startup: the Redis-native
+//     cursor is the source of truth, so restarts keep the consumption
+//     position and a stale application checkpoint cannot replay ACKed data.
+//     Repositioning an existing group happens only through the explicit
+//     WORKER_GROUP_RESET=true operator action.
+//   - Initialization failures are logged, never silently discarded; a
+//     BUSYGROUP race against another worker is expected and only traced.
 func (w *Worker) ensureGroups(ctx context.Context) {
-	_ = w.rdb.XGroupCreateMkStream(ctx, w.streamEvents, w.group, "$").Err()
-	_ = w.rdb.XGroupCreateMkStream(ctx, w.streamPayments, w.group, "$").Err()
-	w.restoreCheckpoints(ctx, w.streamEvents)
-	w.restoreCheckpoints(ctx, w.streamPayments)
+	for _, stream := range []string{w.streamEvents, w.streamPayments} {
+		// Adopt the persisted checkpoint as the in-memory monotonic floor on
+		// every path, so advanceCheckpoint cannot regress the stored key when
+		// a late reclaim ACKs an old pending id after restart.
+		w.adoptCheckpoint(ctx, stream)
+		if w.groupExists(ctx, stream) {
+			if w.groupReset {
+				w.resetGroup(ctx, stream)
+			}
+			continue
+		}
+		pos := w.startPos()
+		if id := w.checkpointFor(ctx, stream); id != "" {
+			pos = id
+		}
+		if err := w.rdb.XGroupCreateMkStream(ctx, stream, w.group, pos).Err(); err != nil {
+			if isBusyGroupErr(err) {
+				// Another worker created the group first; its cursor is
+				// authoritative, skip checkpoint adoption.
+				slog.Info("stream group already exists", "stream", stream, "group", w.group)
+				continue
+			}
+			slog.Warn("stream group create failed", "stream", stream, "group", w.group, "start", pos, "err", err)
+			continue
+		}
+		slog.Info("stream group created", "stream", stream, "group", w.group, "start", pos)
+	}
 	w.restoreAggDirty(ctx)
+}
+
+// groupExists reports whether the consumer group already exists on the
+// stream (a missing stream means it does not).
+func (w *Worker) groupExists(ctx context.Context, stream string) bool {
+	groups, err := w.rdb.XInfoGroups(ctx, stream).Result()
+	if err != nil {
+		return false
+	}
+	for _, g := range groups {
+		if g.Name == w.group {
+			return true
+		}
+	}
+	return false
+}
+
+// resetGroup repositions an existing group to the persisted checkpoint
+// (falling back to the declared start position when none exists). It runs
+// only under WORKER_GROUP_RESET=true — the single sanctioned path for moving
+// an existing group's cursor, because it deliberately replays data.
+func (w *Worker) resetGroup(ctx context.Context, stream string) {
+	id := w.checkpointFor(ctx, stream)
+	if id == "" {
+		id = w.startPos()
+	}
+	if err := w.rdb.XGroupSetID(ctx, stream, w.group, id).Err(); err != nil {
+		slog.Warn("stream group reset failed", "stream", stream, "group", w.group, "id", id, "err", err)
+		return
+	}
+	slog.Warn("stream group cursor reset by operator request", "stream", stream, "group", w.group, "id", id)
+}
+
+// startPos returns the declared group start position, normalizing an unset
+// value (hand-constructed Worker in tests) to the backlog-consuming default.
+func (w *Worker) startPos() string {
+	if w.groupStart == "" {
+		return "0"
+	}
+	return w.groupStart
+}
+
+func isBusyGroupErr(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "BUSYGROUP")
 }
 
 func (w *Worker) Run(ctx context.Context) error {
