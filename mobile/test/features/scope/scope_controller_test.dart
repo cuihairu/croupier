@@ -89,6 +89,70 @@ void main() {
     expect(state.selected?.env, 'dev');
   });
 
+  test('load：旧作用域失效 → 预选同步持久化会话（AUD-062）', () async {
+    adapter.handler = (options, _) => jsonResponse(200, gamesPayload);
+    final container = makeContainer(
+      session: const SessionData(
+        token: 'jwt',
+        gameId: 'gone',
+        env: 'prod',
+        serverUrl: 'http://gm.test',
+      ),
+    );
+
+    await container.read(scopeControllerProvider.notifier).load();
+
+    // 持久化会话与界面预选一致：后续请求头不再使用已失效的旧 scope
+    final session = await store.load();
+    expect(session?.gameId, 'demo');
+    expect(session?.env, 'dev');
+  });
+
+  test('load：旧作用域失效后的真实请求头使用预选 scope（AUD-062）', () async {
+    var gamesCalled = false;
+    adapter.handler = (options, _) {
+      if (!gamesCalled) {
+        gamesCalled = true;
+        return jsonResponse(200, gamesPayload);
+      }
+      return jsonResponse(200, {'ok': true});
+    };
+    final container = makeContainer(
+      session: const SessionData(
+        token: 'jwt',
+        gameId: 'gone',
+        env: 'prod',
+        serverUrl: 'http://gm.test',
+      ),
+    );
+    await container.read(scopeControllerProvider.notifier).load();
+
+    // 用请求替身核对：load 落默认后，scoped 请求头 = 界面预选 (demo/dev)
+    await container
+        .read(apiClientFactoryProvider)('http://gm.test')
+        .get<Map<String, Object?>>('/api/v1/approvals/');
+    expect(adapter.lastRequest?.headers['X-Game-ID'], 'demo');
+    expect(adapter.lastRequest?.headers['X-Env'], 'dev');
+  });
+
+  test('load：lastGameId 仍可选 → 会话保持不动（AUD-062 不误写）', () async {
+    adapter.handler = (options, _) => jsonResponse(200, gamesPayload);
+    final container = makeContainer(
+      session: const SessionData(
+        token: 'jwt',
+        gameId: 'beta',
+        env: 'prod',
+        serverUrl: 'http://gm.test',
+      ),
+    );
+
+    await container.read(scopeControllerProvider.notifier).load();
+
+    final session = await store.load();
+    expect(session?.gameId, 'beta');
+    expect(session?.env, 'prod');
+  });
+
   test('load：无 serverUrl（未登录）→ error 态', () async {
     final container = makeContainer();
 

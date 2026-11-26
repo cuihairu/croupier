@@ -82,11 +82,21 @@ class ScopeController extends Notifier<ScopeState> {
         return;
       }
       final games = await _service(serverUrl).fetchGames();
-      state = state.copyWith(
-        games: games,
-        selected: _resolveInitial(session, games),
-        loading: false,
-      );
+      final selected = _resolveInitial(session, games);
+      // 预选与持久化会话不一致（旧作用域已失效 / 首次落默认）时同步本地
+      // 会话：界面预选、后续请求头（X-Game-ID/X-Env 取自会话）与持久化
+      // 选择保持一致（AUD-062）。
+      if (selected != null &&
+          session != null &&
+          (selected.gameId != session.gameId ||
+              selected.env != session.env)) {
+        await ref
+            .read(sessionStoreProvider)
+            .save(session.copyWith(gameId: selected.gameId, env: selected.env));
+        // 会话里的 scope 变了：让 App 根重查（读会话的 UI 同步刷新）。
+        ref.invalidate(sessionFutureProvider);
+      }
+      state = state.copyWith(games: games, selected: selected, loading: false);
     } on ApiError catch (e) {
       state = state.copyWith(loading: false, error: e.message);
     } on StateError catch (e) {
