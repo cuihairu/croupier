@@ -1905,9 +1905,10 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 状态／条件：LOCAL VERIFIED（2026-11-27 复核，产品 commit d179e1a2b）：Coverage gate 的阈值改在 Python 侧 `os.environ.get("COVERAGE_THRESHOLD", "80")` 读取（单引号 heredoc 内 shell 不展开 `${...}`，字面量进 float() 恒 ValueError 是原缺陷）；env 未设默认 80。五场景本地实证（对当前 workflow 逐字提取执行）：100% 通过（exit 0）、50% 低于 80 拒绝、空 lcov（total=0）按无有效覆盖数据拒绝、COVERAGE_THRESHOLD=40 放行 50%、=30 拒绝 20%（env 覆盖真实生效）。变异自证：M1 在临时副本上重引入字面量 `${COVERAGE_THRESHOLD:-80}` → 100% 覆盖率也 ValueError 崩溃（复现审计原缺陷，判别力成立）；仓库工作流零改动、0 MUTATION 残留。审计期缺陷复现脚本存档 docs/review/evidence/2026-11-12/ci-probe.py。产品修复由并行会话 commit d179e1a2b 交付并已在 origin/main。
   - 完成证据：`.github/workflows/ci-mobile.yml` Coverage gate 步骤（Python 侧 env 读阈值）；本席五场景复验 + 变异自证记录如上。
 
-- [ ] **AUD-012 · P2 · 修复 · SSE 解析保留跨分块 CRLF 状态**
+- [x] **AUD-012 · P2 · 修复 · SSE 解析保留跨分块 CRLF 状态**
   - 依赖：—。交付与验收：同一事件字节无论网络如何分块，事件名和多行 data 必须一致。
-  - 状态／条件：web/src/services/core/http.ts:180 提前归一化 chunk 尾 CR；实际源码解析 update/hello 事件在 CRLF 分块后变成 message/hello。
+  - 状态／条件：LOCAL VERIFIED（2026-11-27 复核，产品 commit 0e30edd49）：readStream 引入 pendingCR 跨 chunk 状态——归一化前记录 buffer 尾裸 \r，下一 chunk 以 \n 开头时吞掉该 \n（它是跨 chunk CRLF 的后半），消除「悬垂 \r 先归一成 \n、下一 chunk 的 \n 拼成假空行错切事件」的原缺陷（update/hello 被拆成 message/hello）。验收测试齐备：CRLF 中腰拆开（update 事件保住、无假 message）、纯 CR 行尾跨 chunk、LF 无回归、事件间 CRLF 边界，另本席补「同一事件字节整块 / CRLF 三处中腰拆 / 逐字节送达三种分块结果一致（事件名 e1、多行 data 连为 "l1\nl2"）」验收用例。证据：`web/src/services/core/http.ts`（readStream pendingCR）、`web/src/services/core/__tests__/http.node.test.ts`（AUD-012 两例 + 验收一例，8/8 绿）。变异自证：M1 禁用 pendingCR 吞合并（退回旧归一化行为）→ CRLF 跨 chunk 与多行 data 验收两例如实红；还原后 8/8 绿、0 MUTATION 残留。`pnpm --dir web run tsc` 0 错误。产品修复由并行会话 commit 0e30edd49 交付并已在 origin/main。
+  - 完成证据：`web/src/services/core/__tests__/http.node.test.ts`（跨分块等价 8 例全绿）；本席复验 + 变异自证记录如上。
 
 - [ ] **AUD-013 · P1 · 修复 · C++ transport 完整写帧并串行化连接写入**
   - 依赖：—。交付与验收：统一 Call/响应 writer 的连接级锁、write-all 和失败收口；覆盖合法短写。
