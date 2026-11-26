@@ -752,18 +752,20 @@ func TestBuildBody_NonJSONType_V4(t *testing.T) {
 	assert.Equal(t, "", ct)
 }
 
-func TestGetParamValue_NilValue_V4(t *testing.T) {
+func TestResolveLegacyParamValue_NilValue_V4(t *testing.T) {
 	t.Parallel()
 	p := NewProvider()
 	p.openapiConfig = &Config{BaseURL: "http://example.com"}
 
-	// Request data has key but value is nil
+	// Request data has key but value is nil — counts as absent
 	reqData := map[string]interface{}{"key": nil}
-	val := p.getParamValue(reqData, ParameterMapping{Name: "key"})
-	assert.Equal(t, "", val)
+	val, present := p.resolveLegacyParamValue(reqData, ParameterMapping{Name: "key"})
+	assert.False(t, present)
+	assert.Nil(t, val)
 
 	// Request data missing key, has default
-	val = p.getParamValue(map[string]interface{}{}, ParameterMapping{Name: "key", Default: "fallback"})
+	val, present = p.resolveLegacyParamValue(map[string]interface{}{}, ParameterMapping{Name: "key", Default: "fallback"})
+	assert.True(t, present)
 	assert.Equal(t, "fallback", val)
 }
 

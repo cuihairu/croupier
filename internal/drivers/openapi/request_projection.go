@@ -31,6 +31,13 @@ type InputProjection struct {
 func ProjectInput(operationID string, request *RequestContract, root map[string]any) InputProjection {
 	var projection InputProjection
 	canonical, canonicalDiagnostics := canonicalizeRequest(operationID, request, root)
+	// Serialization combos the executor cannot build (SUI-006): wrong-position
+	// styles, deepObject without explode/object, cookies declared array/object.
+	// Severity error — the proposal quality gate forces needs_review and the
+	// executor refuses the request with the same reason.
+	for _, param := range canonical.Parameters {
+		canonicalDiagnostics = append(canonicalDiagnostics, validateSerialization(param)...)
+	}
 	diagnose := func(code, field, message string) {
 		projection.Diagnostics = append(projection.Diagnostics, spec.Diagnostic{
 			Code: code, Severity: spec.SeverityWarning, FunctionID: operationID, Field: field, Message: message,

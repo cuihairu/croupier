@@ -136,10 +136,133 @@ func (p *Provider) Call(ctx context.Context, method string, request []byte) ([]b
 	return data, nil
 }
 
+// serializeParams serializes the caller input into wire form per position
+// and style/explode (SUI-006). Contract parameters (apiMethod.Request) take
+// precedence; config-declared methods fall back to ParameterMapping with the
+// OpenAPI default styles. Unexecutable combos return an error — buildRequest
+// propagates it, the request is never sent mis-serialized.
+func (p *Provider) serializeParams(apiMethod *APIMethod, reqData map[string]interface{}) (paramWireSet, error) {
+	set := paramWireSet{pathSegments: map[string]string{}}
+	if apiMethod == nil {
+		return set, nil
+	}
+	if apiMethod.Request != nil && len(apiMethod.Request.Parameters) > 0 {
+		for _, cparam := range apiMethod.Request.Parameters {
+			value, present := p.resolveContractParamValue(cparam, reqData)
+			placeholder := "{" + cparam.Name + "}"
+			if !present {
+				// 与 legacy 路径一致：缺失的 path 参数替换为空串，不泄漏占位符。
+				if cparam.In == "path" {
+					set.pathSegments[placeholder] = ""
+				}
+				continue
+			}
+			style := cparam.Style
+			if style == "" {
+				style = defaultStyleForPosition(cparam.In)
+			}
+			explode := cparam.Explode != nil && *cparam.Explode
+			wire, err := serializeParamValue(cparam.In, cparam.Name, style, explode, value)
+			if err != nil {
+				return set, err
+			}
+			set.merge(cparam.In, cparam.Name, wire)
+		}
+		return set, nil
+	}
+	for _, param := range apiMethod.Parameters {
+		if param.In == "" {
+			continue
+		}
+		in := strings.TrimSpace(param.In)
+		value, present := p.resolveLegacyParamValue(reqData, param)
+		if !present {
+			if in == "path" {
+				set.pathSegments["{"+param.Name+"}"] = ""
+			}
+			continue
+		}
+		style := defaultStyleForPosition(in)
+		wire, err := serializeParamValue(in, param.Name, style, defaultExplodeForStyle(style), value)
+		if err != nil {
+			return set, err
+		}
+		set.merge(in, param.Name, wire)
+	}
+	return set, nil
+}
+
+// resolveContractParamValue resolves a contract parameter's value: the caller
+// key is the OpenAPI parameter name, falling back to the schema default. An
+// empty-string value counts as absent (legacy behavior).
+func (p *Provider) resolveContractParamValue(cparam RequestParameter, reqData map[string]interface{}) (any, bool) {
+	if reqData != nil {
+		if v, ok := reqData[cparam.Name]; ok && v != nil {
+			if s, isStr := v.(string); isStr && s == "" {
+				return nil, false
+			}
+			return v, true
+		}
+	}
+	return schemaDefault(cparam.Schema)
+}
+
+// resolveLegacyParamValue resolves a config-declared parameter's value
+// (From remapping + Default). An empty-string value counts as absent.
+func (p *Provider) resolveLegacyParamValue(reqData map[string]interface{}, param ParameterMapping) (any, bool) {
+	from := param.From
+	if from == "" {
+		from = param.Name
+	}
+	if v, ok := reqData[from]; ok && v != nil {
+		if s, isStr := v.(string); isStr && s == "" {
+			return nil, false
+		}
+		return v, true
+	}
+	if param.Default != nil {
+		return param.Default, true
+	}
+	return nil, false
+}
+
+// consumedKeysFromMethod returns the caller key names occupied by addressing
+// parameters (contract and legacy sources) so the body filter can exclude
+// them.
+func consumedKeysFromMethod(apiMethod *APIMethod) []string {
+	if apiMethod == nil {
+		return nil
+	}
+	if apiMethod.Request != nil && len(apiMethod.Request.Parameters) > 0 {
+		keys := make([]string, 0, len(apiMethod.Request.Parameters))
+		for _, p := range apiMethod.Request.Parameters {
+			if p.Name != "" {
+				keys = append(keys, p.Name)
+			}
+		}
+		return keys
+	}
+	keys := make([]string, 0, len(apiMethod.Parameters))
+	for _, p := range apiMethod.Parameters {
+		from := p.From
+		if from == "" {
+			from = p.Name
+		}
+		if from != "" {
+			keys = append(keys, from)
+		}
+	}
+	return keys
+}
+
 // buildRequest builds an HTTP request from the API method and request data.
 func (p *Provider) buildRequest(ctx context.Context, apiMethod *APIMethod, reqData map[string]interface{}) (*http.Request, error) {
-	// Build URL with path and query parameters
-	url := p.buildURL(apiMethod, reqData)
+	// 参数序列化（SUI-006）：path/query/header/cookie 统一经 style/explode 规则。
+	wire, err := p.serializeParams(apiMethod, reqData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to serialize parameters: %w", err)
+	}
+	callURL := p.urlFromWire(apiMethod, wire)
 
 	var body io.Reader
 	var contentType string
@@ -164,13 +287,13 @@ func (p *Provider) buildRequest(ctx context.Context, apiMethod *APIMethod, reqDa
 		} else if len(reqData) > 0 {
 			// OpenAPI semantics: parameters consumed by path/query/header
 			// addressing must not leak into the request body.
-			data, _ := json.Marshal(filterConsumedParams(apiMethod.Parameters, reqData))
+			data, _ := json.Marshal(filterConsumedParamsByKeys(consumedKeysFromMethod(apiMethod), reqData))
 			body = bytes.NewReader(data)
 			contentType = "application/json"
 		}
 	}
 
-	req, err := http.NewRequestWithContext(ctx, apiMethod.Method, url, body)
+	req, err := http.NewRequestWithContext(ctx, apiMethod.Method, callURL, body)
 	if err != nil {
 		return nil, err
 	}
@@ -179,14 +302,18 @@ func (p *Provider) buildRequest(ctx context.Context, apiMethod *APIMethod, reqDa
 		req.Header.Set("Content-Type", contentType)
 	}
 
-	// Add parameters as headers if configured
-	for _, param := range apiMethod.Parameters {
-		if param.In == "header" {
-			val := p.getParamValue(reqData, param)
-			if val != "" {
-				req.Header.Set(param.Name, val)
-			}
+	// 序列化后的 header 参数（simple 样式）。
+	for _, h := range wire.headers {
+		req.Header.Set(h.name, h.value)
+	}
+
+	// cookie 位置参数（form 样式，仅原始值）。
+	if len(wire.cookies) > 0 {
+		parts := make([]string, 0, len(wire.cookies))
+		for _, c := range wire.cookies {
+			parts = append(parts, c.name+"="+c.value)
 		}
+		req.Header.Set("Cookie", strings.Join(parts, "; "))
 	}
 
 	return req, nil
@@ -194,36 +321,33 @@ func (p *Provider) buildRequest(ctx context.Context, apiMethod *APIMethod, reqDa
 
 // buildURL builds the full URL with path parameters and query string.
 func (p *Provider) buildURL(apiMethod *APIMethod, reqData map[string]interface{}) string {
+	wire, err := p.serializeParams(apiMethod, reqData)
+	if err != nil {
+		// 序列化失败由 buildRequest 传播；此处保持可调用（直调测试面）。
+		wire = paramWireSet{pathSegments: map[string]string{}}
+	}
+	return p.urlFromWire(apiMethod, wire)
+}
+
+// urlFromWire assembles the full URL: path segment replacements
+// (percent-encoded) plus query pairs (URL-encoded, declaration order).
+func (p *Provider) urlFromWire(apiMethod *APIMethod, wire paramWireSet) string {
 	baseURL := strings.TrimSuffix(p.openapiConfig.BaseURL, "/")
 	apiPath := apiMethod.Path
+	for placeholder, seg := range wire.pathSegments {
+		apiPath = strings.ReplaceAll(apiPath, placeholder, seg)
+	}
 
-	// Replace path parameters
-	for _, param := range apiMethod.Parameters {
-		if param.In == "path" {
-			val := p.getParamValue(reqData, param)
-			placeholder := "{" + param.Name + "}"
-			apiPath = strings.ReplaceAll(apiPath, placeholder, val)
+	u := baseURL + apiPath
+	if len(wire.query) > 0 {
+		parts := make([]string, 0, len(wire.query))
+		for _, q := range wire.query {
+			parts = append(parts, q.name+"="+q.value)
 		}
+		u += "?" + strings.Join(parts, "&")
 	}
 
-	url := baseURL + apiPath
-
-	// Add query parameters
-	queryParts := []string{}
-	for _, param := range apiMethod.Parameters {
-		if param.In == "query" {
-			val := p.getParamValue(reqData, param)
-			if val != "" {
-				queryParts = append(queryParts, fmt.Sprintf("%s=%s", param.Name, val))
-			}
-		}
-	}
-
-	if len(queryParts) > 0 {
-		url += "?" + strings.Join(queryParts, "&")
-	}
-
-	return url
+	return u
 }
 
 // buildBody builds the request body.
@@ -555,39 +679,35 @@ func (p *Provider) applyTemplate(template string, data map[string]interface{}) s
 }
 
 // getParamValue gets a parameter value from request data.
-func (p *Provider) getParamValue(reqData map[string]interface{}, param ParameterMapping) string {
-	from := param.From
-	if from == "" {
-		from = param.Name
-	}
-
-	if val, ok := reqData[from]; ok && val != nil {
-		return fmt.Sprintf("%v", val)
-	}
-
-	if param.Default != nil {
-		return fmt.Sprintf("%v", param.Default)
-	}
-
-	return ""
-}
-
 // filterConsumedParams returns a copy of reqData without fields already
 // consumed by path/query/header parameter mappings, so auto-discovered
 // methods without an explicit request body mapping do not leak addressing
 // parameters into the JSON body.
 func filterConsumedParams(parameters []ParameterMapping, reqData map[string]interface{}) map[string]interface{} {
-	if len(reqData) == 0 {
-		return reqData
-	}
-	consumed := make(map[string]struct{}, len(parameters))
+	keys := make([]string, 0, len(parameters))
 	for _, param := range parameters {
 		from := param.From
 		if from == "" {
 			from = param.Name
 		}
 		if from != "" {
-			consumed[from] = struct{}{}
+			keys = append(keys, from)
+		}
+	}
+	return filterConsumedParamsByKeys(keys, reqData)
+}
+
+// filterConsumedParamsByKeys is the key-set core of filterConsumedParams,
+// shared by the contract-parameter path (SUI-006) whose addressing keys come
+// from the request contract.
+func filterConsumedParamsByKeys(keys []string, reqData map[string]interface{}) map[string]interface{} {
+	if len(reqData) == 0 {
+		return reqData
+	}
+	consumed := make(map[string]struct{}, len(keys))
+	for _, key := range keys {
+		if key != "" {
+			consumed[key] = struct{}{}
 		}
 	}
 	if len(consumed) == 0 {

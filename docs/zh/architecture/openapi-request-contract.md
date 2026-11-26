@@ -16,6 +16,6 @@ Source 按 operation 存储 `request`，Provider 对同一份文档派生同一�
 
 显式 Provider 配置和 Swagger 2.0 继续使用既有映射。新派生的兼容诊断需在上传、重读及重新导入时可查。参数序列化组合、媒体类型协商、复杂引用及默认 UI 生成状态由后续任务覆盖。
 
-**回归标注（2026-11-26，SUI-047 走查）：**按位置 style/explode 序列化与 cookie 映射在现源未实现——SUI-006 序列化器（`param_serialize.go` 及其诊断）在 1deb91baf 合并中被丢弃。现执行器按朴素形态发送（path 原样替换、query `%s=%s` 直拼无编码、header 直写、cookie 不发送），分组投影信封（`$.path` / `$.query` 子对象）亦无执行链解包。重落地跟踪见 todo.md；现源行为详见[支持矩阵](./openapi-sdk-descriptor-v2.md)与英文[回归标注](../../architecture/openapi-request-contract.md#execution-time-mapping)。
+**历史备注（2026-11-26）：**SUI-006 序列化器曾在 1deb91baf 合并中被静默丢弃（朴素序列化、无百分号编码、cookie 不发送），SUI-048 已按驱动自有 `RequestParameter` 类型重落地，下列行为恢复为现源真值。仍保留的设计边界：分组投影信封（`$.path` / `$.query` 子对象）不做执行链解包，执行器在 Call 入口 fail-closed 显式拒绝（`requires location-grouped input`），不静默丢参。详见[支持矩阵](./openapi-sdk-descriptor-v2.md)与英文[执行时映射](../../architecture/openapi-request-contract.md#execution-time-mapping)。
 
 [共享 fixture](https://github.com/cuihairu/croupier/blob/main/testdata/openapi/sui-request.yaml) 包含 path-item 继承、operation 覆盖、必填 header、cookie、query/body 同名，以及带 query 的根数组和标量。
