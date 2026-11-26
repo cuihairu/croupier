@@ -1,18 +1,23 @@
 /**
  * SUI-035 验收：渲染端解析命名展示风格的生效默认项。
+ * SUI-036 验收：已发布表单的会话内风格切换。
  *
- * 解析链：defaultVariant → 基础呈现 → deriveDefaultPresentationSpec 派生
- * 纵向（SUI-025）。真实 RJSF + 真实 SchemaFormRenderer 断言：
+ * 解析链：显式选择（SUI-036 切换器）→ defaultVariant → 基础呈现 →
+ * deriveDefaultPresentationSpec 派生纵向（SUI-025）。真实 RJSF + 真实
+ * SchemaFormRenderer 断言：
  * - 声明 defaultVariant 的表单按变体覆盖渲染（grid 布局注入 formContext、
  *   逐字段列宽/控件合并生效）且提交 payload 不变（调用恒等）；
  * - defaultVariant 缺失/解析不到（陈旧 key）回落基础呈现原样渲染；
  * - 无变体配置的旧页面（零 variants/defaultVariant）合并恒等，与 SUI-025
  *   兜底链无缝衔接（fields-less 仍派生标准纵向）；
- * - 变体合并不触碰 jsonSchema：required 校验行为在基础/变体下一致。
+ * - 变体合并不触碰 jsonSchema：required 校验行为在基础/变体下一致；
+ * - 切换器只在多风格时出现，切换改可见布局、保留输入与错误态、两种风格
+ *   生成相同请求，确认条目不随风格变化。
  */
 import React, { createRef } from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import SchemaFormRenderer, { type SchemaFormRendererHandle } from '@/components/SchemaFormRenderer';
+import { describeConfirmEntries } from '@/components/PageRenderer/confirmContent';
 import type { FormPresentationSpec } from '@/types/dashboard';
 
 const schema = {
@@ -33,9 +38,10 @@ const withVariants = (defaultVariant?: string): FormPresentationSpec => ({
     { key: 'reason', widget: 'TextArea' },
   ],
   variants: [
-    { key: 'standard', fields: [] },
+    { key: 'standard', title: { 'zh-CN': '标准', 'en-US': 'Standard' }, fields: [] },
     {
       key: 'compact',
+      title: { 'zh-CN': '紧凑', 'en-US': 'Compact' },
       layout: 'grid',
       fields: [
         { key: 'playerId', width: 6 },
@@ -48,6 +54,14 @@ const withVariants = (defaultVariant?: string): FormPresentationSpec => ({
 
 const fieldLabel = (text: string): HTMLElement | null =>
   screen.queryByText(text)?.closest('.ant-form-item') ?? null;
+
+/** 点击切换器上 key 对应的风格项（Segmented 的 title 属性恒为变体 key，
+ * 与界面语言无关） */
+const clickStyle = (key: string): void => {
+  const labelDiv = document.querySelector(`.ant-segmented-item-label[title="${key}"]`);
+  expect(labelDiv).not.toBeNull();
+  fireEvent.click((labelDiv as HTMLElement).closest('label') as HTMLElement);
+};
 
 describe('SchemaFormRenderer variant default resolution (SUI-035)', () => {
   test('defaultVariant=compact：grid 布局注入、逐字段覆盖合并渲染，提交 payload 与基础恒等', async () => {
@@ -120,5 +134,83 @@ describe('SchemaFormRenderer variant default resolution (SUI-035)', () => {
     };
     render(<SchemaFormRenderer spec={orphan} onFinish={jest.fn()} />);
     expect(document.querySelector('input#root_playerId')).not.toBeNull();
+  });
+});
+
+describe('SchemaFormRenderer published-form style switch (SUI-036)', () => {
+  const value = withVariants('standard');
+
+  test('切换器只在多风格表单出现；标准与紧凑可见布局不同', () => {
+    // 单风格不显示切换器
+    const single: FormPresentationSpec = { ...value, variants: [(value.variants || [])[0]] };
+    const { unmount } = render(<SchemaFormRenderer spec={single} onFinish={jest.fn()} />);
+    expect(screen.queryByTestId('variant-switch')).not.toBeInTheDocument();
+    unmount();
+    // 两风格显示切换器，默认选中发布默认项 standard（textarea 可见）
+    render(<SchemaFormRenderer spec={value} onFinish={jest.fn()} />);
+    expect(screen.getByTestId('variant-switch')).toBeInTheDocument();
+    expect(document.querySelector('textarea')).not.toBeNull();
+    // 切到 compact：布局可见差异——栅格 Row/Col、reason 变 Input（无 textarea）
+    clickStyle('compact');
+    expect(document.querySelector('.ant-row')).not.toBeNull();
+    expect(document.querySelector('textarea')).toBeNull();
+  }, 15000);
+
+  test('切换保留输入值', () => {
+    render(<SchemaFormRenderer spec={value} onFinish={jest.fn()} />);
+    const input = document.querySelector('input#root_playerId') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'p-42' } });
+    clickStyle('compact');
+    const after = document.querySelector('input#root_playerId') as HTMLInputElement;
+    expect(after.value).toBe('p-42');
+  }, 15000);
+
+  test('切换保留错误状态（required 校验提示跨风格不丢）', async () => {
+    const ref = createRef<SchemaFormRendererHandle>();
+    render(<SchemaFormRenderer spec={value} onFinish={jest.fn()} ref={ref} />);
+    // 空提交触发 required 错误（liveValidate=false，提交才校验）
+    ref.current?.submit();
+    await screen.findByText(/请输入|required|必填/i, {
+      selector: '.ant-form-item-explain-error *',
+    });
+    expect(document.querySelector('.ant-form-item-explain-error')).not.toBeNull();
+    // 切风格后错误提示仍在
+    clickStyle('compact');
+    expect(document.querySelector('.ant-form-item-explain-error')).not.toBeNull();
+  }, 15000);
+
+  test('两种风格生成相同请求', async () => {
+    const onFinish = jest.fn().mockResolvedValue(undefined);
+    const ref = createRef<SchemaFormRendererHandle>();
+    render(<SchemaFormRenderer spec={value} onFinish={onFinish} ref={ref} />);
+    const fill = (): void => {
+      fireEvent.change(document.querySelector('input#root_playerId') as HTMLInputElement, {
+        target: { value: 'p-1' },
+      });
+      const reason = document.querySelector('textarea')
+        ? (document.querySelector('textarea') as HTMLTextAreaElement)
+        : (document.querySelector('input#root_reason') as HTMLInputElement);
+      fireEvent.change(reason, { target: { value: 'spam' } });
+    };
+    fill();
+    ref.current?.submit();
+    await waitFor(() => expect(onFinish).toHaveBeenCalledTimes(1));
+    clickStyle('compact');
+    fill();
+    ref.current?.submit();
+    await waitFor(() => expect(onFinish).toHaveBeenCalledTimes(2));
+    expect(onFinish.mock.calls[0][0]).toEqual({ playerId: 'p-1', reason: 'spam' });
+    expect(onFinish.mock.calls[1][0]).toEqual(onFinish.mock.calls[0][0]);
+  }, 15000);
+
+  test('确认条目不随风格变化（确认与审批行为一致的结构面）', () => {
+    const merged = withVariants('compact');
+    const base: FormPresentationSpec = {
+      ...value,
+      variants: undefined,
+      defaultVariant: undefined,
+    };
+    const params = { playerId: 'p-1', reason: 'spam' };
+    expect(describeConfirmEntries(merged, params)).toEqual(describeConfirmEntries(base, params));
   });
 });

@@ -14,5 +14,6 @@ export default {
   'component.schemaFormRenderer.renderCrash.retry': 'Retry',
   'component.schemaFormRenderer.renderCrash.title': 'Form rendering failed',
   'component.schemaFormRenderer.submitFallback': 'Submit',
+  'component.schemaFormRenderer.variantSwitchLabel': 'Style',
   'component.schemaFormRenderer.uploadButtonFallback': 'Upload',
 };

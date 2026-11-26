@@ -14,5 +14,6 @@ export default {
   'component.schemaFormRenderer.renderCrash.retry': '重试渲染',
   'component.schemaFormRenderer.renderCrash.title': '表单渲染失败',
   'component.schemaFormRenderer.submitFallback': '提交',
+  'component.schemaFormRenderer.variantSwitchLabel': '风格',
   'component.schemaFormRenderer.uploadButtonFallback': '上传',
 };

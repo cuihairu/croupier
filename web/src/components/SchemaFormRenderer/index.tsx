@@ -5,6 +5,7 @@
  * memory only and must not be persisted into SDK/OpenAPI/PageSpec snapshots.
  */
 
+import { Segmented } from 'antd';
 import React, {
   useCallback,
   forwardRef,
@@ -746,12 +747,18 @@ export function deriveRuntimeSchema(
  *
  * SUI-035：渲染端解析链落地——defaultVariant → 基础呈现 → 派生纵向。发布的
  * `defaultVariant` 经 resolveVariantPresentation 合并（SUI-031 overlay 语义，
- * 与编辑器预览/SUI-036 运行时切换同一合并规则）；key 解析不到已声明变体
- * （陈旧缓存）原样回落基础；无变体配置的旧页面合并为恒等。显式选择（链首）
- * 由 SUI-036 在调用侧替换 `spec.defaultVariant` 后进入同一解析。
+ * 与编辑器预览/运行时切换同一合并规则）；key 解析不到已声明变体（陈旧缓存）
+ * 原样回落基础；无变体配置的旧页面合并为恒等。
+ *
+ * SUI-036：链首的显式选择在本组件内落地——切换器维护会话内 `explicitKey`，
+ * 非空时压过 `defaultVariant` 进入同一解析；schema 恒不变，表单态按 schema
+ * 路径寻址，切换保留输入与错误状态、提交 payload 恒等。
  */
-function effectivePresentationSpec(spec: FormPresentationSpec): FormPresentationSpec {
-  const resolved = resolveVariantPresentation(spec, spec.defaultVariant);
+function effectivePresentationSpec(
+  spec: FormPresentationSpec,
+  explicitKey?: string,
+): FormPresentationSpec {
+  const resolved = resolveVariantPresentation(spec, explicitKey || spec.defaultVariant);
   if (resolved.fields?.length) return resolved;
   const derived = deriveDefaultPresentationSpec(resolved.jsonSchema);
   if (!derived.fields?.length) return resolved;
@@ -817,22 +824,6 @@ const SchemaFormRenderer = forwardRef<SchemaFormRendererHandle, SchemaFormRender
       () => JSON.stringify(normalizeFormValues(initialValues || {})),
       [initialValues],
     );
-    const effectiveSpec = useMemo(() => effectivePresentationSpec(spec), [spec]);
-    const seededInitial = useMemo(
-      () => applySpecDefaults(effectiveSpec, normalizeFormValues(initialValues || {})),
-      [effectiveSpec, initialValues],
-    );
-    const currentValuesRef = useRef<FormValues>(seededInitial);
-    const [formValues, setFormValues] = useState<FormValues>(seededInitial);
-    const lastInitJsonRef = useRef<string | null>(null);
-
-    useEffect(() => {
-      // 外部重置初值（JSON 变化）才同步；自身 onChange 回声由 JSON 相等跳过
-      if (lastInitJsonRef.current === initialValuesJson) return;
-      lastInitJsonRef.current = initialValuesJson;
-      currentValuesRef.current = seededInitial;
-      setFormValues(currentValuesRef.current);
-    }, [initialValuesJson, seededInitial]);
 
     // SUI-024：reload=false 的语言切换经 languagechange 事件广播（umi
     // plugin-locale setLocale 非刷新路径发系统事件）；订阅后派生 schema/uiSchema
@@ -845,8 +836,56 @@ const SchemaFormRenderer = forwardRef<SchemaFormRendererHandle, SchemaFormRender
       return () => window.removeEventListener('languagechange', bump);
     }, []);
 
+    // SUI-036：命名风格的会话内显式选择。初值空 = 跟随发布 defaultVariant；
+    // schema 恒取基础，切风格只换 uiSchema 派生，输入与错误态不重置。
+    const variantOptions = useMemo(
+      () =>
+        (spec.variants || [])
+          .filter((variant) => variant && typeof variant.key === 'string' && variant.key !== '')
+          .map((variant) => ({
+            value: variant.key,
+            label: localizedText(variant.title, currentLocale(), variant.key),
+            // title 固定为 key（antd6 默认用 label 文本做 title）——切换项
+            // 的稳定标识，测试与无障碍提示与界面语言无关
+            title: variant.key,
+          })),
+      // localeTick 入参：语言切换后重算风格名
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- 刻意的失效触发器
+      [spec.variants, localeTick],
+    );
+    const [explicitVariant, setExplicitVariant] = useState<string | undefined>(undefined);
+    const variantKeySet = useMemo(
+      () => (spec.variants || []).map((variant) => variant.key).join('\n'),
+      [spec.variants],
+    );
+    useEffect(() => {
+      // 换页面/换函数：显式选择复位回发布默认（陈旧 key 虽能安全回落，但
+      // 切换器上会显示不存在的选项）
+      setExplicitVariant(undefined);
+    }, [variantKeySet]);
+    // 解析链首的显式选择压过发布默认；SUI-035 的同源解析继续处理回退。
+    const resolvedSpec = useMemo(
+      () => effectivePresentationSpec(spec, explicitVariant),
+      // localeTick 不参与解析（风格名才随语言变），spec/显式 key 变才重解析
+      [spec, explicitVariant],
+    );
+    const seededInitial = useMemo(
+      () => applySpecDefaults(resolvedSpec, normalizeFormValues(initialValues || {})),
+      [resolvedSpec, initialValues],
+    );
+    const currentValuesRef = useRef<FormValues>(seededInitial);
+    const [formValues, setFormValues] = useState<FormValues>(seededInitial);
+    const lastInitJsonRef = useRef<string | null>(null);
+
+    useEffect(() => {
+      // 外部重置初值（JSON 变化）才同步；自身 onChange 回声由 JSON 相等跳过
+      if (lastInitJsonRef.current === initialValuesJson) return;
+      lastInitJsonRef.current = initialValuesJson;
+      currentValuesRef.current = seededInitial;
+      setFormValues(currentValuesRef.current);
+    }, [initialValuesJson, seededInitial]);
     const { schema, uiSchema, formContext } = useMemo(() => {
-      const derived = deriveRuntimeSchema(effectiveSpec, formValues);
+      const derived = deriveRuntimeSchema(resolvedSpec, formValues);
       if (hideSubmit || readonly) {
         derived.uiSchema['ui:submitButtonOptions'] = {
           ...(derived.uiSchema['ui:submitButtonOptions'] || {}),
@@ -856,10 +895,10 @@ const SchemaFormRenderer = forwardRef<SchemaFormRendererHandle, SchemaFormRender
       return derived;
       // localeTick 入参：语言切换 tick 触发派生重算（currentLocale() 在纯函数内读取）
       // eslint-disable-next-line react-hooks/exhaustive-deps -- localeTick 是刻意的失效触发器
-    }, [formValues, hideSubmit, readonly, effectiveSpec, localeTick]);
+    }, [formValues, hideSubmit, readonly, resolvedSpec, localeTick]);
     // handler 引用稳定（见下方 rjsf 注释），spec 经 ref 读取当前值
-    const specRef = useRef(effectiveSpec);
-    specRef.current = effectiveSpec;
+    const specRef = useRef(resolvedSpec);
+    specRef.current = resolvedSpec;
 
     useImperativeHandle(
       ref,
@@ -921,11 +960,14 @@ const SchemaFormRenderer = forwardRef<SchemaFormRendererHandle, SchemaFormRender
     // 2.2：spec 内容变化时复位错误边界（换函数/换页面不残留上一次的崩溃态）
     const boundaryKey = useMemo(() => {
       try {
-        return JSON.stringify(effectiveSpec);
+        // 崩溃边界以基础 spec 为键（SUI-036）：风格切换只变解析产物，键不
+        // 变 → 不重挂载，rjsf 内部错误态保留；换页面/换函数（基础 spec 变）
+        // 仍复位。
+        return JSON.stringify(spec);
       } catch {
         return `spec-${Date.now()}`;
       }
-    }, [effectiveSpec]);
+    }, [spec]);
 
     // D4：外部字段错误按 RJSF ErrorSchema 注入——字段自身的错误键是 __errors，
     // 但 @rjsf/utils 的 ErrorSchema 类型只声明了嵌套结构，运行时约定需断言收敛
@@ -945,7 +987,7 @@ const SchemaFormRenderer = forwardRef<SchemaFormRendererHandle, SchemaFormRender
       return (
         <JsonRootEditor
           ref={jsonRootRef}
-          spec={effectiveSpec}
+          spec={resolvedSpec}
           initialValues={initialValues}
           onFinish={onFinish}
           onValuesChange={onValuesChange}
@@ -958,6 +1000,21 @@ const SchemaFormRenderer = forwardRef<SchemaFormRendererHandle, SchemaFormRender
 
     return (
       <SchemaFormErrorBoundary key={boundaryKey}>
+        {variantOptions.length > 1 && (
+          // SUI-036：风格切换器（发布默认 + 会话内显式选择，同一解析链）。
+          // 切换只重派 uiSchema，表单实例不重挂载——输入与错误态保留。
+          <Segmented
+            size="small"
+            data-testid="variant-switch"
+            value={explicitVariant || spec.defaultVariant || undefined}
+            options={variantOptions}
+            onChange={(key) => setExplicitVariant(String(key))}
+            aria-label={getIntl().formatMessage({
+              id: 'component.schemaFormRenderer.variantSwitchLabel',
+              defaultMessage: 'Style',
+            })}
+          />
+        )}
         <Form
           ref={formRef as React.Ref<RJSFFormRef>}
           schema={schema}
