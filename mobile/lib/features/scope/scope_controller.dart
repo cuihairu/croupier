@@ -58,6 +58,10 @@ final scopeControllerProvider = NotifierProvider<ScopeController, ScopeState>(
 );
 
 class ScopeController extends Notifier<ScopeState> {
+  /// 切换代次（AUD-066）：select 入口换代；PUT 返回后先核对代次再写回
+  /// ——乱序的旧切换不覆盖新切换的最终写入顺序。
+  int _selectGen = 0;
+
   @override
   ScopeState build() => const ScopeState();
 
@@ -120,8 +124,14 @@ class ScopeController extends Notifier<ScopeState> {
   }
 
   /// 切换 scope：先 PUT 服务端持久化（失败不改本地），成功后更新会话与状态。
+  /// 写回前重新校验（AUD-066）：只覆盖发起切换时的同一会话（同
+  /// serverUrl+token）且未被更新的切换取代——登出清空/换服新会话/乱序
+  /// 旧切换的迟到完成都不得用请求前快照覆盖当前会话；写回以 freshly
+  /// loaded 会话为基底，保留切换期间的并发变更。
   Future<void> select(String gameId, String env) async {
+    final gen = ++_selectGen;
     final session = await ref.read(sessionStoreProvider).load();
+    if (gen != _selectGen) return;
     final serverUrl = session?.serverUrl ?? '';
     if (serverUrl.isEmpty) {
       state = state.copyWith(error: '未登录或缺少服务器地址');
@@ -130,12 +140,18 @@ class ScopeController extends Notifier<ScopeState> {
     try {
       await _service(serverUrl).saveScope(gameId, env);
     } on ApiError catch (e) {
+      if (gen != _selectGen) return;
       state = state.copyWith(error: e.message);
       return;
     }
+    final current = await ref.read(sessionStoreProvider).load();
+    final sameSession = current != null &&
+        current.serverUrl == session!.serverUrl &&
+        current.token == session.token;
+    if (gen != _selectGen || !sameSession) return;
     await ref
         .read(sessionStoreProvider)
-        .save(session!.copyWith(gameId: gameId, env: env));
+        .save(current.copyWith(gameId: gameId, env: env));
     // 会话里的 scope 变了：让 App 根重查（占位壳正文等读会话的 UI 同步刷新）。
     ref.invalidate(sessionFutureProvider);
     state = state.copyWith(

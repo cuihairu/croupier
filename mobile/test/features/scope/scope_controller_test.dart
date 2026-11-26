@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:croupier_mobile/app/providers.dart';
 import 'package:croupier_mobile/core/api/api_client.dart';
 import 'package:croupier_mobile/core/storage/session_store.dart';
@@ -205,5 +208,105 @@ void main() {
     expect(state.error, '无权访问该环境');
     expect(state.selected, isNull);
     expect((await store.load())?.env, 'dev');
+  });
+
+  test('select：切换响应乱序，旧切换迟到不覆盖新切换（AUD-066）', () async {
+    final oldAck = Completer<void>();
+    adapter.handler = (options, raw) {
+      final gameId =
+          jsonDecode(utf8.decode(raw ?? const <int>[]))['gameId'] as String?;
+      if (gameId == 'demo') {
+        return oldAck.future.then((_) => jsonResponse(200, {'ok': true}));
+      }
+      return jsonResponse(200, {'ok': true});
+    };
+    final container = makeContainer(
+      session: const SessionData(
+        token: 'jwt',
+        gameId: 'demo',
+        env: 'dev',
+        serverUrl: 'http://gm.test',
+      ),
+    );
+    final notifier = container.read(scopeControllerProvider.notifier);
+
+    final oldSwitch = notifier.select('demo', 'prod'); // 旧切换在途（门控）
+    await notifier.select('beta', 'prod'); // 新切换立即完成并写回
+
+    oldAck.complete(); // 旧切换此刻才迟到完成
+    await oldSwitch;
+
+    final state = container.read(scopeControllerProvider);
+    expect(state.selected, const ScopeSelection(gameId: 'beta', env: 'prod'),
+        reason: '最终 selected 为最新切换');
+    final session = await store.load();
+    expect(session?.gameId, 'beta', reason: '最终会话 scope 为最新切换');
+    expect(session?.env, 'prod');
+  });
+
+  test('select：登出清会话后迟到完成不复活会话（AUD-066）', () async {
+    final oldAck = Completer<void>();
+    adapter.handler = (options, _) =>
+        oldAck.future.then((_) => jsonResponse(200, {'ok': true}));
+    final container = makeContainer(
+      session: const SessionData(
+        token: 'jwt',
+        gameId: 'demo',
+        env: 'dev',
+        serverUrl: 'http://gm.test',
+      ),
+    );
+    final notifier = container.read(scopeControllerProvider.notifier);
+
+    final oldSwitch = notifier.select('demo', 'prod'); // 在途（门控）
+    await store.clear(); // 登出：会话清空（仅保留 serverUrl）
+    oldAck.complete();
+    await oldSwitch;
+
+    final session = await store.load();
+    expect(session?.token, '', reason: '迟到写回不得复活 token');
+    expect(session?.gameId, '', reason: '迟到写回不得写入旧 scope');
+    expect(
+      container.read(scopeControllerProvider).selected,
+      isNull,
+      reason: '会话已失效不更新界面预选',
+    );
+  });
+
+  test('select：换服新会话期间迟到完成不覆盖新会话（AUD-066）', () async {
+    final oldAck = Completer<void>();
+    adapter.handler = (options, _) =>
+        oldAck.future.then((_) => jsonResponse(200, {'ok': true}));
+    final container = makeContainer(
+      session: const SessionData(
+        token: 'jwt',
+        gameId: 'demo',
+        env: 'dev',
+        serverUrl: 'http://gm.test',
+      ),
+    );
+    final notifier = container.read(scopeControllerProvider.notifier);
+
+    final oldSwitch = notifier.select('demo', 'prod'); // 在途（门控）
+    // 切换服务器：新会话（新地址 + 新 token + 各自 scope）落存储
+    await store.save(const SessionData(
+      token: 'jwt2',
+      gameId: 'other-game',
+      env: 'prod',
+      serverUrl: 'http://other.test',
+    ));
+    oldAck.complete();
+    await oldSwitch;
+
+    final session = await store.load();
+    expect(session?.serverUrl, 'http://other.test', reason: '新会话地址不动');
+    expect(session?.token, 'jwt2', reason: '新会话 token 不被旧快照覆盖');
+    expect(session?.gameId, 'other-game', reason: '新会话 scope 不被旧切换覆盖');
+    expect(session?.env, 'prod');
+    expect(
+      container.read(scopeControllerProvider).selected,
+      isNull,
+      reason: '跨会话迟到完成不更新界面预选',
+    );
   });
 }
