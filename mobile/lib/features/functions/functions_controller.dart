@@ -100,12 +100,17 @@ final functionsControllerProvider =
 class FunctionsController extends Notifier<FunctionsState> {
   Timer? _poll;
 
+  /// 目录请求代际（AUD-063）：新 refresh / 作用域切换使在途旧请求失效。
+  /// 迟到的旧响应（含错误）按代际丢弃，不写 state——目录、错误、loading
+  /// 均不被旧作用域请求污染；旧请求在途也不阻塞新请求。
+  int _loadGen = 0;
+
   @override
   FunctionsState build() {
-    // scope 切换联动：descriptors 是 scoped 端点，切后目录重查。
+    // scope 切换联动：descriptors 是 scoped 端点，切后清空旧目录并重查。
     ref.listen(scopeControllerProvider, (prev, next) {
       if (prev?.selected != next.selected && next.selected != null) {
-        refresh();
+        refresh(clearCatalog: true);
       }
     });
     ref.onDispose(() => _poll?.cancel());
@@ -130,20 +135,32 @@ class FunctionsController extends Notifier<FunctionsState> {
     );
   }
 
-  Future<void> refresh() async {
-    if (state.loading) return;
+  /// 拉取函数目录。并发语义（AUD-063）：每次调用开启新一代请求，取代
+  /// 在途旧请求（不等待、不阻塞）；被取代请求的响应/错误迟到时按代际
+  /// 丢弃。[clearCatalog] 在新查询发出前清空旧目录（作用域切换用，
+  /// 避免旧作用域数据滞留）；手动刷新保留旧列表直到新数据到达。
+  Future<void> refresh({bool clearCatalog = false}) async {
+    final gen = ++_loadGen;
+    state = state.copyWith(
+      specs: clearCatalog ? const [] : null,
+      loading: true,
+      clearError: true,
+    );
     final service = await _specServiceAsync();
+    if (gen != _loadGen) return;
     if (service == null) {
       state = state.copyWith(loading: false, error: '未登录或缺少服务器地址');
       return;
     }
-    state = state.copyWith(loading: true, clearError: true);
     try {
       final specs = await service.list();
+      if (gen != _loadGen) return;
       state = state.copyWith(specs: specs, loading: false);
     } on ApiError catch (e) {
+      if (gen != _loadGen) return;
       state = state.copyWith(loading: false, error: e.message);
     } on StateError catch (e) {
+      if (gen != _loadGen) return;
       state = state.copyWith(loading: false, error: e.message);
     }
   }
