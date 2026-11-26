@@ -213,6 +213,32 @@ func (m *BehaviorModel) CountEventsAnyType(ctx context.Context, gameID, env stri
 	return m.CountEventsByType(ctx, gameID, env, start, end, eventTypes...)
 }
 
+// RealtimeBucketRow is the minimal projection used by the realtime series
+// bucketer. Keeping the row narrow lets the whole window be fetched in one
+// bounded query instead of two queries per bucket.
+type RealtimeBucketRow struct {
+	OccurredAt time.Time
+	UserID     string
+	EventType  string
+}
+
+// RealtimeBucketEvents returns events in [start, end] ordered by occurrence.
+// limit is a hard row cap; a non-positive limit means no cap (callers always
+// pass the realtime bound). The window itself is encoded in the WHERE clause.
+func (m *BehaviorModel) RealtimeBucketEvents(ctx context.Context, gameID, env string, start, end time.Time, limit int) ([]RealtimeBucketRow, error) {
+	query := m.scopedEvents(ctx, gameID, env, start, end).
+		Select("occurred_at", "user_id", "event_type").
+		Order("occurred_at ASC")
+	if limit > 0 {
+		query = query.Limit(limit)
+	}
+	var rows []RealtimeBucketRow
+	if err := query.Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+	return rows, nil
+}
+
 // DailyActivity returns per-day active users and event counts between the provided range.
 func (m *BehaviorModel) DailyActivity(ctx context.Context, gameID, env string, start, end time.Time) ([]BehaviorDailyStat, error) {
 	type row struct {

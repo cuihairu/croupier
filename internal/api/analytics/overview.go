@@ -26,6 +26,10 @@ const (
 	legacyAnalyticsFiltersKey = "analytics_filters"
 )
 
+// maxRealtimeBucketRows bounds the single window query that feeds the
+// realtime series. It is a var so tests can lower it.
+var maxRealtimeBucketRows = 100000
+
 func overview(ctx context.Context, svcCtx *svc.ServiceContext, req *OverviewRequest) (*OverviewResponse, error) {
 	if svcCtx.BehaviorModel == nil || svcCtx.PaymentsModel == nil || svcCtx.PlayerModel == nil {
 		return nil, errors.New("analytics models unavailable")
@@ -197,35 +201,22 @@ func realtimeSeries(ctx context.Context, svcCtx *svc.ServiceContext, req *Realti
 	end := time.Now().UTC()
 	start := end.Add(-window)
 
-	var eventsSeries, usersSeries []bucketPoint
-
-	for cursor := start; cursor.Before(end); cursor = cursor.Add(interval) {
-		bucketEnd := cursor.Add(interval)
-		if bucketEnd.After(end) {
-			bucketEnd = end
-		}
-
-		eventsCount, err := svcCtx.BehaviorModel.CountEvents(ctx, gameID, env, cursor, bucketEnd)
-		if err != nil {
-			return nil, err
-		}
-		// DATA-025: the "online" series counts only liveness events, not
-		// arbitrary user activity. Multiple heartbeats by one user in a bucket
-		// count once; ordinary business events do not mark a user online.
-		usersCount, err := svcCtx.BehaviorModel.CountDistinctUsersByEventTypes(ctx, gameID, env, cursor, bucketEnd, []string{"heartbeat", "session_start", "session.start"})
-		if err != nil {
-			return nil, err
-		}
-
-		eventsSeries = append(eventsSeries, bucketPoint{
-			Timestamp: bucketEnd,
-			Value:     eventsCount,
-		})
-		usersSeries = append(usersSeries, bucketPoint{
-			Timestamp: bucketEnd,
-			Value:     usersCount,
-		})
+	// DATA-026: one bounded query for the whole window, bucketed in Go.
+	// The old implementation issued two queries per bucket (1440 buckets at
+	// the longest supported window = 2880 round trips). The row cap bounds
+	// memory and round trips independently of the bucket count; the extra row
+	// makes truncation observable rather than silently presenting a partial
+	// window as complete.
+	rows, err := svcCtx.BehaviorModel.RealtimeBucketEvents(ctx, gameID, env, start, end, maxRealtimeBucketRows+1)
+	if err != nil {
+		return nil, err
 	}
+	sampled := len(rows) > maxRealtimeBucketRows
+	if sampled {
+		rows = rows[:maxRealtimeBucketRows]
+	}
+
+	eventsSeries, usersSeries := bucketRealtimeRows(rows, start, end, interval)
 
 	series := map[string]interface{}{
 		"events": buildRealtimeSeriesPoints(eventsSeries),
@@ -234,7 +225,83 @@ func realtimeSeries(ctx context.Context, svcCtx *svc.ServiceContext, req *Realti
 
 	return &RealtimeSeriesResponse{
 		Series: series,
+		Sample: map[string]interface{}{
+			"scannedEvents": len(rows),
+			"sampled":       sampled,
+			"coverage":      seriesCoverageLabel(sampled),
+		},
 	}, nil
+}
+
+// bucketRealtimeRows assigns each event to exactly one bucket and materialises
+// every bucket, including empty ones. Buckets are half-open [cursor,
+// cursor+interval) except the last, which absorbs the window end; the
+// computed index guarantees a boundary event (exactly on a bucket edge)
+// contributes to one bucket only instead of being counted twice by two
+// overlapping range queries.
+//
+// DATA-025: the "online" series counts only liveness events (heartbeat /
+// session_start / session.start), and repeated events by one user in a bucket
+// count once.
+func bucketRealtimeRows(rows []model.RealtimeBucketRow, start, end time.Time, interval time.Duration) ([]bucketPoint, []bucketPoint) {
+	if interval <= 0 {
+		interval = time.Minute
+	}
+	if !end.After(start) {
+		return []bucketPoint{}, []bucketPoint{}
+	}
+	bucketCount := int((end.Sub(start) + interval - 1) / interval)
+	if bucketCount <= 0 {
+		bucketCount = 1
+	}
+
+	eventCounts := make([]int64, bucketCount)
+	users := make([]map[string]struct{}, bucketCount)
+
+	for _, row := range rows {
+		idx := int(row.OccurredAt.Sub(start) / interval)
+		if idx < 0 {
+			idx = 0
+		}
+		if idx >= bucketCount {
+			idx = bucketCount - 1
+		}
+		eventCounts[idx]++
+		if isRealtimeLivenessEvent(row.EventType) {
+			if users[idx] == nil {
+				users[idx] = map[string]struct{}{}
+			}
+			users[idx][row.UserID] = struct{}{}
+		}
+	}
+
+	eventsSeries := make([]bucketPoint, 0, bucketCount)
+	usersSeries := make([]bucketPoint, 0, bucketCount)
+	for idx := 0; idx < bucketCount; idx++ {
+		cursor := start.Add(time.Duration(idx) * interval)
+		bucketEnd := cursor.Add(interval)
+		if bucketEnd.After(end) {
+			bucketEnd = end
+		}
+		eventsSeries = append(eventsSeries, bucketPoint{Timestamp: bucketEnd, Value: eventCounts[idx]})
+		usersSeries = append(usersSeries, bucketPoint{Timestamp: bucketEnd, Value: int64(len(users[idx]))})
+	}
+	return eventsSeries, usersSeries
+}
+
+func isRealtimeLivenessEvent(eventType string) bool {
+	switch strings.ToLower(strings.TrimSpace(eventType)) {
+	case "heartbeat", "session_start", "session.start":
+		return true
+	}
+	return false
+}
+
+func seriesCoverageLabel(sampled bool) string {
+	if sampled {
+		return "partial"
+	}
+	return "complete"
 }
 
 func ingest(ctx context.Context, svcCtx *svc.ServiceContext, req *IngestRequest) (*IngestResponse, error) {

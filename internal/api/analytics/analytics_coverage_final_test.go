@@ -109,10 +109,10 @@ func TestRealtime_AggregateQueryFailures(t *testing.T) {
 	}
 }
 
-// realtimeSeries: CountDistinctUsers fails inside the bucketing loop (2nd query).
+// realtimeSeries: the single window scan now fails on its first query.
 func TestRealtimeSeries_UsersQueryFails(t *testing.T) {
 	db := newFinalCoverageDB(t)
-	failNthQuery(t, db, 2)
+	failNthQuery(t, db, 1)
 	svcCtx := &svc.ServiceContext{BehaviorModel: model.NewBehaviorModel(db)}
 	_, err := realtimeSeries(context.Background(), svcCtx, &RealtimeSeriesRequest{
 		GameId: "g", Interval: "1m", Duration: 5,

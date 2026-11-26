@@ -174,6 +174,7 @@ type RealtimeSeriesRequest struct {
 
 type RealtimeSeriesResponse struct {
 	Series map[string]interface{} `json:"series"`
+	Sample map[string]interface{} `json:"sample,omitempty"`
 }
 
 type IngestRequest struct {
