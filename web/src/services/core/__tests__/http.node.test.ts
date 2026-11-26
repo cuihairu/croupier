@@ -111,6 +111,20 @@ describe('services/core/http（SSR：无 window 守卫分支）', () => {
     expect(between.message).toEqual([]);
   });
 
+  it('readStream：多行 data 的同一事件字节任意分块结果一致（AUD-012 验收）', async () => {
+    // 同一逻辑字节流 `event: e1\r\ndata: l1\r\ndata: l2\r\n\r\n`：
+    // 整块送达、CRLF 中腰拆开、逐字节送达必须产出完全一致的事件——
+    // 事件名 e1、多行 data 以 \n 连接为 "l1\nl2"，不丢不串。
+    const wire = 'event: e1\r\ndata: l1\r\ndata: l2\r\n\r\n';
+    const whole = await driveSSE([wire]);
+    const torn = await driveSSE(['event: e1\r', '\ndata: l1\r\n', 'data: l2\r', '\n\r\n']);
+    const byteAtATime = await driveSSE(wire.split(''));
+    for (const got of [whole, torn, byteAtATime]) {
+      expect(got.e1).toEqual(['l1\nl2']);
+      expect(got.message).toEqual([]);
+    }
+  });
+
   it('createEventSource：fetch 可用时返回 SSEStream，origin 回退且 URL 不含 token', () => {
     globalThis.fetch = jest.fn(
       (_url: RequestInfo | URL, init?: RequestInit) =>
