@@ -8,7 +8,7 @@ import (
 
 // TestRedisQueue_PublishPayment tests PublishPayment method
 func TestRedisQueue_PublishPayment(t *testing.T) {
-	q := NewRedis("redis://localhost:6379/0", "events", "payments", 1000, true)
+	q, _ := NewRedis("redis://localhost:6379/0", "events", "payments", 1000, true)
 	payment := map[string]any{
 		"order_id":     "order-123",
 		"user_id":      "user-456",
@@ -22,34 +22,35 @@ func TestRedisQueue_PublishPayment(t *testing.T) {
 
 // TestRedisQueue_Close tests Close method
 func TestRedisQueue_Close(t *testing.T) {
-	q := NewRedis("redis://localhost:6379/0", "events", "payments", 1000, true)
+	q, _ := NewRedis("redis://localhost:6379/0", "events", "payments", 1000, true)
 	err := q.Close()
 	// Should not error even if connection fails
 	assert.NoError(t, err)
 }
 
-// TestNewRedis_InvalidURL tests NewRedis with invalid URL
+// TestNewRedis_InvalidURL pins the DATA-043 fail-fast contract: an
+// unparseable address is an initialization error, not a silent noop.
 func TestNewRedis_InvalidURL(t *testing.T) {
-	q := NewRedis("://invalid-url", "events", "payments", 1000, true)
-	// Invalid URL should return noop queue
-	assert.NotNil(t, q)
+	q, err := NewRedis("://invalid-url", "events", "payments", 1000, true)
+	assert.Error(t, err)
+	assert.Nil(t, q)
 }
 
 // TestNewRedis_ZeroMaxLen tests NewRedis with zero max length
 func TestNewRedis_ZeroMaxLen(t *testing.T) {
-	q := NewRedis("redis://localhost:6379/0", "events", "payments", 0, false)
+	q, _ := NewRedis("redis://localhost:6379/0", "events", "payments", 0, false)
 	assert.NotNil(t, q)
 }
 
 // TestNewRedis_DefaultParameters tests NewRedis with default parameters
 func TestNewRedis_DefaultParameters(t *testing.T) {
-	q := NewRedis("redis://localhost:6379/0", "", "", 0, false)
+	q, _ := NewRedis("redis://localhost:6379/0", "", "", 0, false)
 	assert.NotNil(t, q)
 }
 
 // TestRedisQueue_PublishEvent tests PublishEvent method
 func TestRedisQueue_PublishEvent(t *testing.T) {
-	q := NewRedis("redis://localhost:6379/0", "events", "payments", 1000, true)
+	q, _ := NewRedis("redis://localhost:6379/0", "events", "payments", 1000, true)
 	event := map[string]any{
 		"event_id":   "evt-123",
 		"user_id":    "user-456",
@@ -62,7 +63,7 @@ func TestRedisQueue_PublishEvent(t *testing.T) {
 
 // TestRedisQueue_PendingEvents tests PendingEvents via type assertion
 func TestRedisQueue_PendingEvents(t *testing.T) {
-	q := NewRedis("redis://localhost:6379/0", "events", "payments", 1000, true)
+	q, _ := NewRedis("redis://localhost:6379/0", "events", "payments", 1000, true)
 	// Type assert to access PendingEvents method
 	if rq, ok := q.(interface{ PendingEvents() (int64, error) }); ok {
 		count, err := rq.PendingEvents()
@@ -74,7 +75,7 @@ func TestRedisQueue_PendingEvents(t *testing.T) {
 
 // TestRedisQueue_PendingPayments tests PendingPayments via type assertion
 func TestRedisQueue_PendingPayments(t *testing.T) {
-	q := NewRedis("redis://localhost:6379/0", "events", "payments", 1000, true)
+	q, _ := NewRedis("redis://localhost:6379/0", "events", "payments", 1000, true)
 	// Type assert to access PendingPayments method
 	if rq, ok := q.(interface{ PendingPayments() (int64, error) }); ok {
 		count, err := rq.PendingPayments()

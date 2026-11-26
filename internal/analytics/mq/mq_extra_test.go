@@ -85,7 +85,7 @@ func TestNewRedisFromEnv_InvalidMaxLenAndApproxTrue(t *testing.T) {
 
 func TestRedisQueue_PendingAgainstMiniredis(t *testing.T) {
 	mr := miniredis.RunT(t)
-	q := NewRedis("redis://"+mr.Addr()+"/0", "events", "payments", 1000, true)
+	q, _ := NewRedis("redis://"+mr.Addr()+"/0", "events", "payments", 1000, true)
 	rq, ok := q.(*redisQueue)
 	require.True(t, ok)
 
@@ -113,7 +113,7 @@ func TestRedisQueue_PendingAgainstMiniredis(t *testing.T) {
 
 	t.Run("server down returns error", func(t *testing.T) {
 		down := miniredis.RunT(t)
-		dq := NewRedis("redis://"+down.Addr()+"/0", "events", "payments", 0, false)
+		dq, _ := NewRedis("redis://"+down.Addr()+"/0", "events", "payments", 0, false)
 		drq, ok := dq.(*redisQueue)
 		require.True(t, ok)
 		down.Close()

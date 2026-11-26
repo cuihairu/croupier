@@ -7,9 +7,11 @@ import (
 )
 
 // Injectable seam: the production path is equivalent to calling
-// newRedisFromEnv / newKafkaFromEnv directly. Both constructors' only return
-// shape is (non-nil Queue, nil), so the (err != nil) and (q == nil) defensive
-// branches below are reachable only when a fault is injected.
+// newRedisFromEnv / newKafkaFromEnv directly. The redis constructor returns a
+// real error for an unparseable REDIS_URL (DATA-043), so the (err != nil)
+// branch below is reachable in production; the (q == nil) guards stay
+// defensive. The kafka constructor's only return shape is (non-nil Queue,
+// nil), so its branches trigger only on injected faults.
 var (
 	newRedisFromEnvFn = newRedisFromEnv
 	newKafkaFromEnvFn = newKafkaFromEnv

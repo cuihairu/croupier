@@ -4,30 +4,30 @@ import (
 	"testing"
 )
 
-// The tests below document the unreachable defensive branches in
-// factory.go / kafka_pub.go:
+// The tests below document the reachability of the factory branches.
 //
-//  1. factory.go:26/29: newRedisFromEnv's only return statement is
-//     `return NewRedis(...), nil`, so the error is always nil; NewRedis degrades to
-//     NewNoop() (non-nil) when parsing fails, and returns &redisQueue{} on
-//     success. Therefore neither the (err != nil) nor the
-//     (q == nil) branch can ever be triggered.
+//  1. newRedisFromEnv returns a real error for an unparseable REDIS_URL
+//     (DATA-043 fail-fast), so factory.go's (err != nil) branch is reachable
+//     in production; the (q == nil) guard stays defensive.
 //  2. factory.go:35/38: newKafkaFromEnv's only return statement is `return q, nil`;
 //     NewKafka returns NewNoop() (non-nil) when brokers is empty and
 //     otherwise returns &kafkaQueue{} (non-nil), so both branches are equally unreachable.
 //  3. kafka_pub.go:50/55: kafka-go v0.4.50's Writer.Close unconditionally
 //     `return nil`s, so the Close error branch cannot be triggered.
-func TestNewRedisFromEnv_NeverReturnsErrorOrNil(t *testing.T) {
+//
+// TestNewRedisFromEnv_InvalidURLFails pins the DATA-043 contract: an
+// unparseable address surfaces as an initialization error from the publisher
+// factory instead of a silent noop that would acknowledge publishes while
+// dropping every event. Empty-write mode is only reachable through the
+// explicit ANALYTICS_MQ_TYPE=noop factory branch (factory_test.go).
+func TestNewRedisFromEnv_InvalidURLFails(t *testing.T) {
 	t.Setenv("REDIS_URL", "://not-a-redis-url")
 	q, err := newRedisFromEnv()
-	if err != nil {
-		t.Fatalf("newRedisFromEnv must never return an error, got %v", err)
+	if err == nil {
+		t.Fatalf("invalid REDIS_URL must fail construction, got queue %T", q)
 	}
-	if q == nil {
-		t.Fatal("newRedisFromEnv must never return a nil queue with nil error")
-	}
-	if _, ok := q.(*Noop); !ok {
-		t.Fatalf("invalid REDIS_URL should degrade to Noop inside NewRedis, got %T", q)
+	if q != nil {
+		t.Fatalf("error path must return nil queue, got %T", q)
 	}
 }
 

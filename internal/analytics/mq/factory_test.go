@@ -143,3 +143,34 @@ func TestNewFromEnv_KafkaUnreachableFails(t *testing.T) {
 		t.Fatal("kafka must not silently degrade to noop")
 	}
 }
+
+// TestNewFromEnv_InvalidRedisURLRejected pins the DATA-043 factory contract:
+// an unparseable REDIS_URL must fail construction (and therefore prevent the
+// ingest service from starting) instead of silently selecting the noop
+// publisher. Explicit ANALYTICS_MQ_TYPE=noop stays the only empty-write mode.
+func TestNewFromEnv_InvalidRedisURLRejected(t *testing.T) {
+	withMQType(t, "redis")
+	t.Setenv("REDIS_URL", "://not-a-redis-url")
+
+	q, err := NewFromEnv()
+	if err == nil {
+		t.Fatalf("invalid REDIS_URL must fail construction, got queue %T", q)
+	}
+	if q != nil {
+		t.Fatalf("error path must return nil queue, got %T", q)
+	}
+	if !strings.Contains(err.Error(), "redis") {
+		t.Errorf("error should mention redis, got %v", err)
+	}
+
+	// The explicit noop escape hatch must remain usable regardless of the
+	// (invalid) REDIS_URL.
+	withMQType(t, "noop")
+	nq, nerr := NewFromEnv()
+	if nerr != nil {
+		t.Fatalf("explicit noop must not fail: %v", nerr)
+	}
+	if _, ok := nq.(*Noop); !ok {
+		t.Fatalf("explicit noop should return Noop queue, got %T", nq)
+	}
+}

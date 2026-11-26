@@ -3,7 +3,7 @@ package mq
 import (
 	"context"
 	"encoding/json"
-	"log"
+	"fmt"
 	"os"
 	"strconv"
 	"time"
@@ -19,14 +19,18 @@ type redisQueue struct {
 	maxLen         int64
 }
 
-func NewRedis(url, streamEvents, streamPayments string, maxLen int64, approx bool) Queue {
+// NewRedis builds the Redis streams publisher. An unparseable address is an
+// initialization error (DATA-043), not a silent fallback to noop: the ingest
+// service exists to forward events, so starting with an empty publisher would
+// acknowledge publishes while dropping everything. Empty-write mode is only
+// reachable through the explicit ANALYTICS_MQ_TYPE=noop factory branch.
+func NewRedis(url, streamEvents, streamPayments string, maxLen int64, approx bool) (Queue, error) {
 	opt, err := redis.ParseURL(url)
 	if err != nil {
-		log.Printf("[analytics-mq] redis parse url: %v", err)
-		return NewNoop()
+		return nil, fmt.Errorf("parse redis url: %w", err)
 	}
 	cli := redis.NewClient(opt)
-	return &redisQueue{cli: cli, streamEvents: streamEvents, streamPayments: streamPayments, maxLen: maxLen, maxLenApprox: approx}
+	return &redisQueue{cli: cli, streamEvents: streamEvents, streamPayments: streamPayments, maxLen: maxLen, maxLenApprox: approx}, nil
 }
 
 func newRedisFromEnv() (Queue, error) {
@@ -52,7 +56,7 @@ func newRedisFromEnv() (Queue, error) {
 	if v := os.Getenv("ANALYTICS_REDIS_MAXLEN_APPROX"); v != "" {
 		approx = (v == "1" || v == "true" || v == "yes")
 	}
-	return NewRedis(url, se, sp, ml, approx), nil
+	return NewRedis(url, se, sp, ml, approx)
 }
 
 func (q *redisQueue) Close() error { return q.cli.Close() }
