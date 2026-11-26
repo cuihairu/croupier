@@ -161,17 +161,17 @@
   - 依赖：SUI-033, SUI-034, SUI-036。交付与验收：在测试栈走草稿→发布→重启读取→回滚，核对数据库中的默认 key 和变体内容，并验证同 pageKey 在不同游戏及环境互相隔离。
   - 状态／条件：完成（LOCAL VERIFIED，2026-11-26，纯集成验收零代码变更——对已落地的 b7dc67a5d 存储 / f94721ece 编辑器 / bcc24c210 解析 / 108acdc17 切换链在真实 postgres 栈上端到端复核）。测试栈：`docker/docker-compose.quickstart.yml` postgres（override 暴露 127.0.0.1:15433）+ `make build` 新鲜二进制（GitCommit=703c51a26，18799 端口，`allowDefaultCredentials: true`），HTTP 作用域经 `X-Game-ID`/`X-Env` 头。①草稿→发布：PUT `operation.form` 带 `variants=[standard,compact]`+`defaultVariant=compact`（compact=grid、playerId/reason 各 6 列、reason TextArea、submitButton 封禁/primary）→publish 成功；发布校验真实生效（未种子 function_contracts 时拒 `bound function does not exist`；绑定必须覆盖全部 required schema 字段；wire 控件值必须 PascalCase `Input`/`TextArea`）。②重启读取：kill 服务进程后重启（`ss -tlnp` 证实新 PID 持有端口），GET 草稿回读变体集与默认 key 逐字段一致（含 compact 布局/列宽/控件/提交按钮文案），`GET /versions/5` 快照 `page.operation.form.variants=[standard,compact]`+`defaultVariant=compact`。③回滚：rollback 到 v2（无变体旧版）草稿整体回落无变体形态（draftRevision 5→6），再 rollback 回 v5 变体完整恢复（→7）；陈旧 `expectedDraftRevision` 被 409 conflict 拒绝（details 带 current/expected）；回滚后重发布成功（publishedVersion=7，快照 variants=true+compact）。④DB 核对：`published_page_specs.SpecJSON` 逐版本核对——default/dev 下 v5/v7 `variants=true defaultVariant=compact`、陈旧二进制时代的 v2/v3 无变体（旧快照逐字稳定，未被新版改写）、草稿 `page_specs.SpecJSON` 带变体。⑤跨游戏/环境隔离：`tower_defense/dev` 发布同 pageKey 单 dense 变体（defaultVariant=dense）、`default/prod` 发布无变体版本——终态矩阵 `default/dev v5/v7=compact`、`default/prod v1=无变体`、`tower_defense/dev v1=dense` 三作用域互不污染；仅带 X-Game-ID 缺 X-Env 的请求被 400 `incomplete_scope` 拒绝。验证：全链 curl+psql 双侧核对（API 回读与 DB 快照逐项一致）；无仓库文件变更，tsc/jest/go test 输入未变不适用。边界如实：发布校验依赖 `function_contracts` 行存在，测试栈种子直接 INSERT（真实部署由契约注册链产生）；陈旧二进制（11-17 构建，早于 SUI-032）静默丢变体属于部署陈旧问题而非代码缺陷——重启前发布的 v2/v3 即其证据，新鲜二进制发布快照全部正确。
 
-- [ ] **SUI-038 · P2 · 方案决策 · 评估跨设备记忆风格偏好**
+- [x] **SUI-038 · P2 · 方案决策 · 评估跨设备记忆风格偏好**
   - 依赖：SUI-037。交付与验收：依据使用反馈决定是否实现服务端偏好。若纳入，定义用户与作用域键、变体删除后的失效规则，以及用户选择和管理员默认值的优先级。
-  - 状态／条件：未开始。
+  - 状态／条件：完成（LOCAL VERIFIED——纯方案决策落档，零代码/零文档树变更，tsc/jest/go test 输入未变；决策依据为既有实现与测试，无新验证可跑）。决策：**暂缓实现服务端偏好**。理由：风格链 SUI-031~037 于 2026-11-26 刚全部落地，无任何真实使用反馈支撑新增偏好表+读写链路+作用域治理的复杂度；会话内切换（SUI-036）已满足当下交互。纳入触发条件（满足其一再评估）：审计/遥测显示已发布多风格页面被频繁会话内切换，或操作者明确提出跨会话/跨设备一致性诉求。预设计划（纳入时按此实施，届时再按反馈修订）：①用户与作用域键=`(user_id, game_id, env, pageKey, formKey)`，formKey 用 SUI-031 稳定段路径（`resource.createForm`/`resource.actions.<key>.form` 等），作用域与页面作用域严格对齐；②变体删除/改名后的失效规则=偏好 key 解析不到时**天然回落基础呈现**——SUI-035 解析链已对陈旧 key 原样回落（`variant-default-resolution.test.tsx` 陈旧 key 用例已钉住），无需迁移脚本，可选读取时惰性清理；③优先级=会话内显式选择（SUI-036 组件态，最高）> 用户服务端偏好 > 发布 `defaultVariant`（管理员权威默认）> 基础呈现/SUI-025 派生——用户偏好只覆盖展示起点，不改变管理员发布语义；④写入口径倾向显式「记住我的选择」控件而非每次切换防抖上报，避免高频写库。边界：本条只落决策与预设计划，未改任何代码。
 
-- [ ] **SUI-039 · P2 · 方案决策 · 评估跨页面共享风格模板**
+- [x] **SUI-039 · P2 · 方案决策 · 评估跨页面共享风格模板**
   - 依赖：SUI-037。交付与验收：区分现有 ComponentTemplate 的整块界面与联动复用，以及仅共享表单展示配置的需求。若纳入跨页面风格复用，明确模板版本固定方式、发布后稳定性、升级及回滚行为。
-  - 状态／条件：未开始。
+  - 状态／条件：完成（LOCAL VERIFIED——纯方案决策落档，零代码/零文档树变更，tsc/jest/go test 输入未变）。边界区分：ComponentTemplate=**整块界面+联动复用**（组件+绑定+数据联动，应用时物化进页面草稿，Page Studio 已交付）；风格变体=**纯展示 overlay 子集**（SUI-031：列宽/控件换选/布局，调用相关键结构上不可表达）。跨页仅共享表单展示配置的需求当前无反馈支撑，且 ComponentTemplate 已能携带展示配置整块复制——独立建「风格模板」实体暂不值当。若纳入：模板版本固定方式选**发布时内联展开**——模板内容物化进页面 spec 再发布，发布快照自包含（与 SUI-033 快照/回滚语义同构，SUI-037 已端到端验证快照原子性）；发布后稳定性=模板后续升级**不回溯**已发布页（已发布快照不受影响）；升级=把新模板重新应用到草稿→走正常发布；回滚=页面版本回滚原子恢复模板内容。否决「引用+版本钉住」外键模型：跨页引用升级一致性与发布快照自包含语义冲突，除非反馈显示需要全局风格统一切换。纳入触发条件：操作者反馈多页面维护同一展示形态的成本不可接受。边界：本条只落决策，未改任何代码。
 
-- [ ] **SUI-040 · P2 · 方案决策 · 评估新增展示方式**
+- [x] **SUI-040 · P2 · 方案决策 · 评估新增展示方式**
   - 依赖：SUI-037。交付与验收：用实际操作者流程决定分组预设、弹窗或逐步操作的优先级。每种入选方式具备独立交付范围和相同绑定、确认及提交的验收案例。
-  - 状态／条件：未开始。
+  - 状态／条件：完成（LOCAL VERIFIED——纯方案决策落档，零代码/零文档树变更，tsc/jest/go test 输入未变）。决策：**维持现状单页内联表单为唯一入选方式，三种新增展示方式全部暂缓**。理由：三种方式（分组预设/弹窗/逐步向导）都只改变「表单如何被呈现」，绑定、确认及提交链路完全复用现有 `SchemaFormRenderer` 契约（SUI-017 往返/SUI-036 解析链已验证 payload 恒等语义），无反馈时无法排定优先级，且任何一种都可作为独立增量叠加——暂缓不产生架构锁定。各自预设计划（纳入时独立交付）：①分组预设=FormPresentationSpec 展示子集扩展（SUI-031 overlay 语义内自然表达），范围最小；②弹窗=页面级呈现属性（Modal 容器包裹提交区），需补确认流在弹窗内的可达性用例；③逐步操作=多步 form 拆分+每步独立确认，范围最大，需引入步间状态契约，最后评估。共同验收口径（三种一致）：相同绑定 selector 取值、相同确认条目、相同提交 payload（沿用 SUI-036 测试组的四条断言形态）。纳入触发条件：真实操作者流程走查（操作者实际使用后）显示单页长表单构成主要摩擦。边界：本条只落决策，未改任何代码。
 
 ### 跨链路验收
 
