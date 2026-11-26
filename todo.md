@@ -2243,9 +2243,9 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 依赖：AUD-062。交付与验收：切换作用域清空旧目录并新查，旧请求在途时不阻塞新请求。用 A→B 后旧请求迟到的样例核对目录、错误和 loading。证据：`mobile/lib/features/functions/functions_controller.dart:104,133` 切换调用 refresh，正加载时直接退出。
   - 状态／条件：DONE · LOCAL VERIFIED（2026-11-27，commit e22a724ac）。`refresh()` 改请求代际语义：去掉 `state.loading` 早退（旧请求在途不再阻塞新查询），每次调用 `++_loadGen` 开新代，`service.list()` 响应/ApiError/StateError 落地前核对代次，被取代的旧响应（含错误）一律丢弃不写 state；scope 切换监听器改调 `refresh(clearCatalog: true)`，新查询发出前同步清空旧目录+置 loading（手动刷新仍保留旧列表防闪烁）。验证：`functions_controller_test.dart` 新增三用例（demo→beta 切换即清目录+重查请求头 X-Game-ID: demo/prod→beta/prod / A→B 旧请求迟到成功不回灌旧目录、loading/error 不被污染 / 旧请求迟到 500 不污染新作用域错误面），既有 7 用例不回归；mutation 自测（还原旧 refresh+监听器→恰好三条新用例红，复原全绿 10/10）；全量 `TZ=UTC flutter test` 249/249 绿，pubspec.lock 未动。
 
-- [ ] **AUD-064 · P1 · 修复 · 移动端审批列表丢弃失效的分页响应**
+- [x] **AUD-064 · P1 · 修复 · 移动端审批列表丢弃失效的分页响应**
   - 依赖：AUD-062。交付与验收：按会话、作用域和状态筛选追踪请求代次，切换后不附加旧分组的列表或描述符。验证旧页追加请求晚于新筛选的首页返回。证据：`mobile/lib/features/approvals/approvals_controller.dart:109,131` 异步完成后直接写入当前状态。
-  - 状态／条件：未开始。
+  - 状态／条件：DONE · LOCAL VERIFIED（2026-11-27，commit 6711db26a）。`_fetch` 引入列表请求代次 `_listGen`：reset（首查/switchStatus/作用域切换/下拉刷新）入口同步换代并使在途旧请求（含旧页 append）立即失效，loadMore 属当前代追加不换代；请求参数（status/page）入口快照不因后续切换漂移；响应/ApiError/StateError 落地前核对代次，被取代请求一律丢弃不写 state。描述符独立代次 `_descGen`：`loadDescriptors` 落地前核对；新增 `reloadDescriptors`（作用域切换联动：清旧 scope 标签+按新 scope 重建），在途旧 scope 描述符迟到不回灌。验证：`approvals_controller_test.dart` 新增四用例（switchStatus 后旧页 append 迟到不并入新筛选【验收样例】/ switchStatus 后旧筛选首页迟到不覆盖新列表 / scope 切换后旧作用域 append 迟到不并入 / scope 切换后旧作用域描述符迟到不回灌），既有 8 用例不回归；mutation 自测（摘除全部代次核对→恰好四条新用例红，复原全绿 12/12）；全量 `TZ=UTC flutter test` 253/253 绿，pubspec.lock 未动。
 
 - [ ] **AUD-065 · P2 · 修复 · 分析测试脚本只停止自己启动的服务**
   - 依赖：—。交付与验收：复用已有容器的模式下，所有失败分支均不执行 compose down，DDL、查询和初始化使用相同配置的容器。自建模式清理自有进程和容器。用替身 Docker 命令验证两种模式。证据：`scripts/e2e/analytics.sh:34,53,67,268` 复用模式只保护常规退出，DDL 容器名仍为硬编码。
