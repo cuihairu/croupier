@@ -157,6 +157,13 @@ export class TCPTransport {
   private requestId = 0;
   private writeLock = Promise.resolve();
 
+  // 连接代次（AUD-060）：nextEpoch 是分配器（connect 取号、close 前移），
+  // epoch 是当前生效连接的代次。在途拨号、读循环、pending、入站队列都绑定
+  // 自己的代次——close 或重连后旧代次的尾巴（迟到会话/读循环/队列残留）
+  // 只影响所属连接，不再污染新连接。
+  private epoch = 0;
+  private nextEpoch = 0;
+
   // pending request_id -> PendingCall
   private pending: Map<number, PendingCall> = new Map();
 
@@ -210,6 +217,10 @@ export class TCPTransport {
     const [host, portStr] = addr.split(":");
     const port = parseInt(portStr, 10);
 
+    // 本次拨号自成一代：并发/先后拨号各自取号，close 或更新拨号会使
+    // 旧代次过期（AUD-060）。
+    const gen = ++this.nextEpoch;
+
     // Create a promise that resolves when connection is established
     let socket: Socket | null = null;
     let timeout: NodeJS.Timeout | null = null;
@@ -227,6 +238,15 @@ export class TCPTransport {
       if (!socket) {
         return;
       }
+      if (gen !== this.nextEpoch) {
+        // 代次过期：拨号在途期间发生过 close() 或更新拨号——迟到的会话
+        // 直接废弃，不建立、不接管当前连接（AUD-060）。挂起的 connect()
+        // 立即报错，不等拨号超时。
+        socket.destroy();
+        rejectConnect?.(new Error("connection closed"));
+        return;
+      }
+      this.epoch = gen;
       this.socket = socket;
       this.connected = true;
       this.running = true;
@@ -272,10 +292,11 @@ export class TCPTransport {
 
   /** Close the connection and release resources */
   close(): void {
-    if (!this.connected && !this.running) {
-      return;
-    }
-
+    // 前移代次必须无条件执行：即使"未连接"，也可能有在途拨号——旧代码
+    // 在 !connected 时提前返回，close 后迟到会话照样建立（AUD-060）。
+    // 幂等：重复 close 只是无害空转。
+    this.nextEpoch += 1;
+    this.epoch = 0;
     this.running = false;
     this.connected = false;
 
@@ -290,6 +311,10 @@ export class TCPTransport {
       }
       this.socket = null;
     }
+
+    // 入站/控制队列只属于已死连接：清空，旧连接的消息不跨代处理（AUD-060）。
+    this.inboundQueue.length = 0;
+    this.controlQueue.length = 0;
 
     // fail all pending calls
     for (const p of this.pending.values()) {
@@ -309,7 +334,8 @@ export class TCPTransport {
    * Returns (response_msg_type, response_body)
    */
   async call(msgType: number, data: Buffer): Promise<[number, Buffer]> {
-    if (!this.connected || !this.socket) {
+    const sock = this.socket;
+    if (!this.connected || !sock) {
       throw new Error("Not connected");
     }
 
@@ -332,8 +358,12 @@ export class TCPTransport {
     try {
       const message = newMessage(msgType, reqId, data);
       await this.writeLock;
+      // 写前核验：close/重连后旧代次调用不再向新连接写帧（AUD-060）。
+      if (!this.connected || this.socket !== sock || sock.destroyed) {
+        throw new Error("connection closed");
+      }
       this.writeLock = (async () => {
-        writeFrame(this.socket!, message);
+        writeFrame(sock, message);
       })();
 
       // wait for response
@@ -374,16 +404,23 @@ export class TCPTransport {
 
   /** Start background reader loop */
   private startReader(): void {
-    // 读循环直接阻塞在 readFrame 上（单读者），空闲连接不产生任何并发
-    // 读——此前 readFrameWithTimeout 用 1s 空转超时退出等待，但挂起的
-    // readFrame→readExact 不可取消，空闲每秒多挂一个并发读；数据帧到达
-    // 时多个 readMore 竞争 socket.read(n)，一个读走 4 字节长度前缀、其余
-    // 把 payload 前 4 字节当长度前缀，帧解析彻底错乱（探针/心跳响应丢失、
-    // agent keepalive 判死会话的根因）。
+    // 读循环绑定自己的连接代次与插座（AUD-060）：只读捕获的 sock，退出
+    // 条件含代次核验——close 后重连时旧读循环即使还挂在本代读上，也不会
+    // 接管新连接的 socket 或误清新连接的 pending（多读者竞争 socket.read
+    // 会把帧解析彻底打乱）。读循环直接阻塞在 readFrame 上（单读者），空闲
+    // 连接不产生任何并发读——此前 readFrameWithTimeout 用 1s 空转超时退出
+    // 等待，但挂起的 readFrame→readExact 不可取消，空闲每秒多挂一个并发
+    // 读；数据帧到达时多个 readMore 竞争 socket.read(n)，一个读走 4 字节
+    // 长度前缀、其余把 payload 前 4 字节当长度前缀，帧解析彻底错乱（探针/
+    // 心跳响应丢失、agent keepalive 判死会话的根因）。
+    const gen = this.epoch;
+    // startReader 仅由 onConnect 在 this.socket 赋值后调用（既有测试经
+    // 内部句柄直呼亦同代次在位），此处非空断言成立。
+    const sock = this.socket as Socket;
     const readLoop = async () => {
       try {
-        while (this.running && this.socket) {
-          const frame = await readFrame(this.socket);
+        while (this.running && this.socket === sock && this.epoch === gen) {
+          const frame = await readFrame(sock);
           if (frame.length < 8) {
             continue;
           }
@@ -404,10 +441,11 @@ export class TCPTransport {
       } catch {
         // 读失败（对端关闭/网络错误/超限帧）：退出读循环，交给 finally 善后。
       } finally {
-        // 非主动 close 的退出（对端断开/读异常）：连接已不可用。置断开
+        // 非主动 close 的退出（对端断开/读异常）：本代连接已不可用。置断开
         // 并唤醒所有挂起调用，让上层心跳失败触发重连——否则 pending
-        // 只能等各自的请求超时才发现连接已死。
-        if (this.running) {
+        // 只能等各自的请求超时才发现连接已死。代次已前移（close/重连接管）
+        // 时不善后：pending 与状态归当前代次所有（AUD-060）。
+        if (this.epoch === gen && this.running) {
           this.connected = false;
           this.running = false;
           for (const p of this.pending.values()) {
