@@ -777,9 +777,10 @@
 
 #### 接入与数据可靠性
 
-- [ ] **DATA-016 · P1 · 修复 · 接入批次先校验后写入**
+- [x] **DATA-016 · P1 · 修复 · 接入批次先校验后写入**
   - 依赖：—。交付与验收：事件和支付批次先完整验证，再开始发布。第 N 条非法时返回条目位置且全批入队数为 0。证据：`cmd/ingest/cmd/root.go:522,559` 在同一循环校验和发布，定向探针复现后项非法却已写入前项。
-  - 状态／条件：未开始。
+  - 状态／条件：LOCAL VERIFIED（2026-11-26）：`ingestEvents`/`ingestPayments` 改为先整批校验再发布的两阶段循环——任一条目非法即 400 返回 `{"error":"invalid_payload","message":"batch item N invalid: <原因>","details":{"index":N,"reason":…}}`，且全批入队数为 0；错误响应由裸 reason 归一为稳定码+message+details（与全站 API 响应契约一致，仓内无消费方解析旧 error 体）。变异自证（照 AUD-007 先例）：先写探针用例对旧代码运行，复现「后项非法却已入队前项」（events/payments 各 1 条已入队、响应无 index、无稳定码）转红，再上修复全绿。
+  - 完成证据：`cmd/ingest/cmd/root.go`（两 handler 校验/发布拆段）、`cmd/ingest/cmd/root_test.go`（`TestIngestEvents/late_invalid_item_enqueues_nothing_and_reports_index`、`TestIngestPayments/late_invalid_item_enqueues_nothing_and_reports_index`）；`go test ./cmd/ingest/cmd/ -count=1` PASS、`go build ./... && go vet ./cmd/ingest/...` PASS、`bash scripts/dashboard_vnext_guard.sh` PASSED、`go test ./internal/... -count=1` SUITE-EXIT=0、gofmt clean。
 
 - [ ] **DATA-017 · P1 · 实现 · 接入批次的安全重试**
   - 依赖：DATA-016。交付与验收：约定稳定事件标识与重复提交语义，明确队列部分成功的响应。模拟第 N 条入队失败、网络结果未知、进程重启和异步重复消费，逐条对账。证据：`cmd/ingest/cmd/root.go:528,565` 中途发布失败仅返回批次级 500。

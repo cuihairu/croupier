@@ -520,11 +520,19 @@ func (s *server) ingestEvents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	gameID := strings.TrimSpace(r.Header.Get("X-Game-Id"))
-	for _, e := range arr {
+	// 先整批校验再发布：第 N 条非法时返回条目位置且全批入队数为 0，
+	// 不留下"前项已入队、响应却是 400"的部分成功批次。
+	for i, e := range arr {
 		if err := validateEventPayload(e, gameID); err != nil {
-			respondJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+			respondJSON(w, http.StatusBadRequest, map[string]any{
+				"error":   "invalid_payload",
+				"message": fmt.Sprintf("batch item %d invalid: %v", i, err),
+				"details": map[string]any{"index": i, "reason": err.Error()},
+			})
 			return
 		}
+	}
+	for _, e := range arr {
 		if err := s.q.PublishEvent(e); err != nil {
 			respondJSON(w, http.StatusInternalServerError, map[string]string{"error": "queue_write_failed"})
 			return
@@ -557,11 +565,18 @@ func (s *server) ingestPayments(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	gameID := strings.TrimSpace(r.Header.Get("X-Game-Id"))
-	for _, e := range arr {
+	// 同 ingestEvents：先整批校验再发布，非法批次零入队并返回条目位置。
+	for i, e := range arr {
 		if err := validatePaymentPayload(e, gameID); err != nil {
-			respondJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+			respondJSON(w, http.StatusBadRequest, map[string]any{
+				"error":   "invalid_payload",
+				"message": fmt.Sprintf("batch item %d invalid: %v", i, err),
+				"details": map[string]any{"index": i, "reason": err.Error()},
+			})
 			return
 		}
+	}
+	for _, e := range arr {
 		if err := s.q.PublishPayment(e); err != nil {
 			respondJSON(w, http.StatusInternalServerError, map[string]string{"error": "queue_write_failed"})
 			return

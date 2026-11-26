@@ -698,6 +698,25 @@ func TestIngestEvents(t *testing.T) {
 		assert.Len(t, fq.events, 2)
 		assert.Equal(t, int64(2), atomic.LoadInt64(&s.eventsProcessed))
 	})
+
+	// DATA-016：后项非法时返回条目位置且全批入队数为 0（先整批校验再发布）。
+	t.Run("late_invalid_item_enqueues_nothing_and_reports_index", func(t *testing.T) {
+		fq := &fakeQueue{}
+		s := newTestServer(fq)
+		w := httptest.NewRecorder()
+		s.ingestEvents(w, httptest.NewRequest(http.MethodPost, "/x",
+			strings.NewReader(`[
+				{"game_id":"g","env":"p","ts":"1","event":"e"},
+				{"game_id":"g","env":"p","ts":"2","event":"e"},
+				{"game_id":"g","env":"p","ts":"3"}
+			]`)))
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+		assert.Empty(t, fq.events, "invalid batch must enqueue 0 events")
+		assert.Equal(t, int64(0), atomic.LoadInt64(&s.eventsProcessed))
+		assert.Contains(t, w.Body.String(), `"index":2`)
+		assert.Contains(t, w.Body.String(), "missing event")
+		assert.Contains(t, w.Body.String(), `"error":"invalid_payload"`)
+	})
 }
 
 func TestIngestPayments(t *testing.T) {
@@ -761,6 +780,24 @@ func TestIngestPayments(t *testing.T) {
 		assert.Equal(t, http.StatusAccepted, w.Code)
 		assert.Len(t, fq.payments, 1)
 		assert.Equal(t, int64(1), atomic.LoadInt64(&s.paymentsProcessed))
+	})
+
+	// DATA-016：支付批次同样先整批校验再发布，非法批次零入队并返回条目位置。
+	t.Run("late_invalid_item_enqueues_nothing_and_reports_index", func(t *testing.T) {
+		fq := &fakeQueue{}
+		s := newTestServer(fq)
+		w := httptest.NewRecorder()
+		s.ingestPayments(w, httptest.NewRequest(http.MethodPost, "/x",
+			strings.NewReader(`[
+				{"game_id":"g","env":"p","ts":"1","order_id":"o1","status":"paid","amount_cents":5},
+				{"game_id":"g","env":"p","ts":"2","order_id":"o2","status":"paid","amount_cents":0}
+			]`)))
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+		assert.Empty(t, fq.payments, "invalid batch must enqueue 0 payments")
+		assert.Equal(t, int64(0), atomic.LoadInt64(&s.paymentsProcessed))
+		assert.Contains(t, w.Body.String(), `"index":1`)
+		assert.Contains(t, w.Body.String(), "amount_cents required")
+		assert.Contains(t, w.Body.String(), `"error":"invalid_payload"`)
 	})
 }
 
