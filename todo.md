@@ -300,6 +300,10 @@
 
 ## 架构与可靠性
 
+- [x] **TESTSPLIT-001 · P2 · 重构 · 超大测试文件按被测子域拆分（铁律⑨：>2000 行拆分）**
+  - 交付与验收：`internal/model/model_test.go`（6288 行/251 测试）、`internal/api/platform/service_test.go`（6364 行/232 测试）、`internal/api/extension/service_test.go`（3904 行/148 测试）按被测子域拆为同包多文件，测试行为零变化（只搬位置，不改断言/表驱动/t.Run 结构），拆分前后包内用例数相等。
+  - 状态／条件：完成（LOCAL VERIFIED）。model：746e47678（test: split model_test.go by model domain，25 文件——24 个按模型域文件 + `model_testutil_test.go` 共享 helper，最大 777 行，251 测试原样搬移，包用例数 668→668）；platform+extension：4ab606752（test: split platform and extension service tests——platform 13 文件 call/listmethods 溢出 part2，最大 1299 行，232 测试，274→274；extension 10 文件 + testutil，最大 626 行，148 测试，310→310）。拆分中修正一处自伤：溢出文件误名 `*_p2.go` 不满足 Go `_test.go` 后缀约定被当普通源文件编译，-list 掉 29 例，改名 `*_part2_test.go` 后恢复。门禁：`go build ./...` 0 错、`go vet ./...` 干净、`go test ./internal/... -count=1` 全绿（172 包 ok EXIT=0）、`gofmt -l .` 仅剩并行会话外部 worktree 文件（非本仓源码）。AUD-038 派单前补充要求已按本单任务二写入其 todo 条目。
+
 - [x] **OPS-LOG-001 · P1 · 部署面 · 192.168.5.5 docker 宿主机日志轮转与磁盘守护（dashboard 登录 P0 复发预防）**
   - 背景：2026-11-15 dashboard 登录报错挂数周的根因=该宿主机磁盘 100% 满（118G 用尽）→ postgres `could not write init file` → server 连库失败；当次已救（清旧镜像+截断 17G 容器日志，磁盘 100%→82%），但容器日志无轮转会复发。
   - 交付与验收：192.168.5.5（ssh root@）daemon.json 配 `log-driver: json-file, max-size=50m, max-file=3` 并重启 docker 生效；存量 46 容器需 recreate 才吃到新配置（给出 recreate 顺序与依赖：postgres→server/server2→dashboard→agent→其余）；加 cron 或脚本每周报磁盘水位（>85% 告警）；验收=新起容器 inspect LogConfig 生效+磁盘水位可查。
@@ -1984,7 +1988,7 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
 
 - [ ] **AUD-038 · P1 · 修复 · Approve/Reject 增加审批权限与两人规则执行**
   - 依赖：—。交付与验收：`internal/api/approval/service.go:216-231` 加显式审批权限检查；`two_person` policy 从描述性数据变为运行时强制两个不同授权主体；带低权限拒绝与同主体二次批准拒绝用例。
-  - 状态／条件：2026-11-16 复核属实——只校验登录/scope/自批/可选 OTP。
+  - 状态／条件：2026-11-16 复核属实——只校验登录/scope/自批/可选 OTP。派单前补充要求（CROUPIER-TESTSPLIT-001 任务二，2026-11-26）：①先实现再复核，交付席完成实现+自测（LOCAL VERIFIED 口径照旧）；②必须加变异自证（照 AUD-007 先例）——移除新加的权限守卫→对应测试必须转红→还原复绿，变异前后结果写进完成证据；③两人规则语义自查并在测试里钉死边界：「同一操作者不能自批」与「两个不同操作者都批准」二选一或并存要写清，同操作者第二次批准必须被拒的用例必须有；④安全单交付后由独立复核人逐行核对+重跑测试，复核记录（复核人 id+复核日期+复核结论）写进 todo 完成证据，不接受交付席自证。
 
 - [ ] **AUD-039 · P1 · 修复 · Storage 管理面挂服务层 RBAC**
   - 依赖：—。交付与验收：`internal/handler/routes_storage.go` signed-url/list/upload/delete/batch-delete/目录操作挂 `RequireAnyPermission`（先粗粒度，前缀 ABAC 后续拆）；带 403 用例。
