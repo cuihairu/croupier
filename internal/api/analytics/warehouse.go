@@ -35,11 +35,14 @@ var (
 )
 
 // warehouseRows is the subset of clickhouse driver rows used here; kept as
-// a local interface so tests can stub query results.
+// a local interface so tests can stub query results. Err reports the
+// iteration failure (DATA-044): a stream that dies mid-read must surface as
+// a warehouse query error instead of a truncated-but-successful response.
 type warehouseRows interface {
 	Next() bool
 	Scan(dest ...any) error
 	Close() error
+	Err() error
 }
 
 type warehouseConn interface {
@@ -172,6 +175,9 @@ func (s *Service) WarehouseDAU(ctx context.Context, req *WarehouseDAURequest) (*
 			Date: d.Format("2006-01-02"), GameId: gameID, Env: env, DAU: dau, NewUsers: newUsers,
 		})
 	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("%w: iterate daily_users: %v", errWarehouseQuery, err)
+	}
 	return &WarehouseDAUResponse{Points: points}, nil
 }
 
@@ -203,6 +209,9 @@ func (s *Service) WarehouseOnline(ctx context.Context, req *WarehouseOnlineReque
 			return nil, fmt.Errorf("%w: scan minute_online: %v", errWarehouseQuery, err)
 		}
 		points = append(points, WarehouseOnlinePoint{Minute: m.UTC().Format(time.RFC3339), Online: online})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("%w: iterate minute_online: %v", errWarehouseQuery, err)
 	}
 	return &WarehouseOnlineResponse{Points: points}, nil
 }
@@ -236,6 +245,9 @@ func (s *Service) WarehouseRevenue(ctx context.Context, req *WarehouseRevenueReq
 			Date: d.Format("2006-01-02"), GameId: gameID, Env: env,
 			RevenueCents: revenue, RefundsCents: refunds, Failed: failed,
 		})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("%w: iterate daily_revenue: %v", errWarehouseQuery, err)
 	}
 	return &WarehouseRevenueResponse{Points: points}, nil
 }

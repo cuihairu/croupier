@@ -19,6 +19,8 @@ type scopeRowsV9 struct {
 	rows    [][]any
 	index   int
 	scanErr error
+	// iterErr models a result stream that dies mid-read (DATA-044).
+	iterErr error
 }
 
 func (r *scopeRowsV9) Next() bool { r.index++; return r.index <= len(r.rows) }
@@ -42,6 +44,7 @@ func (r *scopeRowsV9) Scan(dest ...any) error {
 }
 
 func (r *scopeRowsV9) Close() error { return nil }
+func (r *scopeRowsV9) Err() error   { return r.iterErr }
 
 // errDeadCounterV9 simulates an unreachable Redis for XLen-based checks.
 type errDeadCounterV9 struct{}
@@ -233,6 +236,36 @@ func TestMonitorEventStreamScanErrorSkipsRowV9(t *testing.T) {
 	require.NoError(t, m.Check(context.Background()))
 	// DATA-022: partial reads are unknown, not recovery. The row is skipped
 	// and the incomplete round is marked with its own query alert.
+	alert, err := sink.FindByAlertID(context.Background(), "pipe:events_query_failed")
+	require.NoError(t, err)
+	assert.Equal(t, PipelineAlertStatusFiring, alert.Status)
+	assert.Equal(t, true, alert.Details["partial"])
+}
+
+// TestMonitorTruncatedRoundDoesNotFakeRecoveryV9 pins DATA-044 for the
+// pipeline monitor: a result stream that dies before producing any row is a
+// failed round, not a quiet one — a pre-existing events_query_failed alert
+// must stay firing instead of being resolved as false recovery.
+func TestMonitorTruncatedRoundDoesNotFakeRecoveryV9(t *testing.T) {
+	sink := newMonitorTestSink(t)
+	data022FiringAlert(t, sink, "events_query_failed")
+	rows := &scopeRowsV9{rows: [][]any{}, iterErr: errors.New("connection reset mid-read")}
+	m := newScopeMonitorV9(sink, rows, nil)
+	require.NoError(t, m.Check(context.Background()))
+	assert.Equal(t, PipelineAlertStatusFiring, data022Status(t, sink, "events_query_failed"))
+}
+
+// TestMonitorMidStreamTruncationIsMarkedPartialV9: when the stream dies after
+// some rows, the round is incomplete and reported with partial=true on top of
+// whatever the successfully read scopes evidenced.
+func TestMonitorMidStreamTruncationIsMarkedPartialV9(t *testing.T) {
+	sink := newMonitorTestSink(t)
+	rows := &scopeRowsV9{
+		rows:    [][]any{{"g", "prod", int64(0), int64(1000)}},
+		iterErr: errors.New("stream reset mid-read"),
+	}
+	m := newScopeMonitorV9(sink, rows, nil)
+	require.NoError(t, m.Check(context.Background()))
 	alert, err := sink.FindByAlertID(context.Background(), "pipe:events_query_failed")
 	require.NoError(t, err)
 	assert.Equal(t, PipelineAlertStatusFiring, alert.Status)

@@ -133,6 +133,10 @@ func (s *Service) WarehouseSessions(ctx context.Context, req *WarehouseSessionsR
 		_ = endRows.Close()
 		return nil, err
 	}
+	if err := endRows.Err(); err != nil {
+		_ = endRows.Close()
+		return nil, fmt.Errorf("%w: iterate session end: %v", errWarehouseQuery, err)
+	}
 	if err := endRows.Close(); err != nil {
 		return nil, fmt.Errorf("%w: close session end scan: %v", errWarehouseQuery, err)
 	}
@@ -166,6 +170,10 @@ func (s *Service) WarehouseSessions(ctx context.Context, req *WarehouseSessionsR
 	if err := scanStart(); err != nil {
 		_ = startRows.Close()
 		return nil, err
+	}
+	if err := startRows.Err(); err != nil {
+		_ = startRows.Close()
+		return nil, fmt.Errorf("%w: iterate session start: %v", errWarehouseQuery, err)
 	}
 	if err := startRows.Close(); err != nil {
 		return nil, fmt.Errorf("%w: close session start scan: %v", errWarehouseQuery, err)

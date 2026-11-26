@@ -19,6 +19,7 @@ type stubRows struct{ next bool }
 func (r stubRows) Next() bool        { return r.next }
 func (r stubRows) Scan(...any) error { return nil }
 func (r stubRows) Close() error      { return nil }
+func (r stubRows) Err() error        { return nil }
 
 type stubConn struct {
 	// connErr is what the connect step reports; queryErr what Query returns.

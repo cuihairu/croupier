@@ -876,6 +876,7 @@ func (r *scanFailureRows) Next() bool {
 }
 func (r *scanFailureRows) Scan(_ ...any) error { return r.err }
 func (r *scanFailureRows) Close() error        { return nil }
+func (r *scanFailureRows) Err() error          { return nil }
 
 type scanFailureConn struct {
 	rowsErr error

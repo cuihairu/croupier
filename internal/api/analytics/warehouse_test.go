@@ -13,10 +13,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// fakeRows replays a fixed set of scan targets per row.
+// fakeRows replays a fixed set of scan targets per row. iterErr, when set,
+// models a result stream that dies mid-read (DATA-044): Next() keeps
+// yielding the scripted rows but Err() reports the failure the loops must
+// check instead of returning a truncated response as success.
 type fakeRows struct {
-	rows  [][]any
-	index int
+	rows    [][]any
+	index   int
+	iterErr error
 }
 
 func (f *fakeRows) Next() bool { f.index++; return f.index <= len(f.rows) }
@@ -37,13 +41,16 @@ func (f *fakeRows) Scan(dest ...any) error {
 	return nil
 }
 func (f *fakeRows) Close() error { return nil }
+func (f *fakeRows) Err() error   { return f.iterErr }
 
-// fakeConn captures the executed query and returns scripted rows.
+// fakeConn captures the executed query and returns scripted rows. iterErr
+// attaches a stream-level failure to the returned rows (DATA-044).
 type fakeConn struct {
 	query    string
 	args     []any
 	rows     [][]any
 	queryErr error
+	iterErr  error
 }
 
 func (f *fakeConn) Query(_ context.Context, query string, args ...any) (warehouseRows, error) {
@@ -52,7 +59,7 @@ func (f *fakeConn) Query(_ context.Context, query string, args ...any) (warehous
 	if f.queryErr != nil {
 		return nil, f.queryErr
 	}
-	return &fakeRows{rows: f.rows}, nil
+	return &fakeRows{rows: f.rows, iterErr: f.iterErr}, nil
 }
 
 func withFakeConn(t *testing.T, conn *fakeConn) {

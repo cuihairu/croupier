@@ -242,6 +242,14 @@ GROUP BY game_id, env`,
 		}
 		scoped[scopeKey(r.Game, r.Env)] = r
 	}
+	if err := rows.Err(); err != nil {
+		// DATA-044: a result stream that dies mid-read is unknown evidence,
+		// not a complete quiet round — the unread scopes must not resolve
+		// alerts on truncated data.
+		slog.Warn("pipeline monitor iterate", "err", err)
+		partial = true
+		scanErr = err
+	}
 	if partial {
 		// Partial data: the scopes behind the unread rows are unknown, not
 		// healthy. Mark the round incomplete; only positively evaluated rows
