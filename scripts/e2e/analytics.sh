@@ -72,17 +72,49 @@ sleep 3
 
 ok "Redis ready"
 
-# --- 2. Create analytics tables (single source of truth: initdb files) ---
-# Reuse configs/clickhouse/initdb/*.sql so the E2E schema can never drift
-# from what a fresh deployment bootstraps (worker INSERT column order).
-echo "Creating analytics tables from initdb files..."
+# --- 2. Schema lifecycle: fresh-create AND existing-table re-apply (DATA-032) ---
+# DDL changes must be verifiable in both shapes: an empty database (first
+# boot) and tables that already exist (idempotent re-apply / upgrade path).
+# The initdb files are the single source of truth so the E2E schema can
+# never drift from what a fresh deployment bootstraps (worker INSERT column
+# order).
+echo "Applying analytics schema lifecycle..."
+if [ "${SKIP_COMPOSE_UP:-0}" != "1" ]; then
+  # Script-managed project: prove the fresh-create path by dropping first.
+  # Never done in SKIP_COMPOSE_UP=1 mode — that reuses a shared/self-hosted
+  # stack whose analytics data must not be erased.
+  if ! docker exec "$CH_CONTAINER" clickhouse-client --query "DROP DATABASE IF EXISTS analytics"; then
+    fail "drop analytics database"
+    compose down; exit 1
+  fi
+fi
 for ddl in configs/clickhouse/initdb/001_init.sql configs/clickhouse/initdb/010_analytics.sql; do
-  if ! docker exec -i croupier-clickhouse clickhouse-client --multiquery < "$ddl"; then
+  if ! docker exec -i "$CH_CONTAINER" clickhouse-client --multiquery < "$ddl"; then
     fail "apply $ddl"
     compose down; exit 1
   fi
 done
-ok "analytics tables created (initdb 001 + 010)"
+TABLE_HITS=$(docker exec "$CH_CONTAINER" clickhouse-client --query \
+  "SELECT count() FROM system.tables WHERE database = 'analytics' AND name IN ('events','payments','minute_online','daily_users','daily_revenue')" 2>/dev/null || echo "0")
+if [ "$TABLE_HITS" -eq 5 ]; then
+  ok "schema fresh-create + idempotent re-apply (5/5 core tables)"
+else
+  fail "schema incomplete after apply ($TABLE_HITS/5 core tables)"
+  compose down >/dev/null 2>&1; exit 1
+fi
+if [ "${SKIP_COMPOSE_UP:-0}" != "1" ]; then
+  # The single-use upgrade migration (scripts/clickhouse/011) must keep
+  # executing against the current schema shape. The aggregate tables are
+  # empty here (fresh-created above), so its row copy is a no-op and the
+  # RENAME swap is lossless. Not applied against shared stacks: it requires
+  # a stopped worker and re-running duplicates data.
+  if ! docker exec -i "$CH_CONTAINER" clickhouse-client --multiquery \
+    < scripts/clickhouse/011_fix_aggregate_tables.sql; then
+    fail "upgrade migration 011"
+    compose down >/dev/null 2>&1; exit 1
+  fi
+  ok "upgrade migration 011 executes over existing tables"
+fi
 
 # --- 3. Build worker (or reuse a prebuilt binary via WORKER_BIN) ---
 if [ -n "${WORKER_BIN:-}" ] && [ -x "$WORKER_BIN" ]; then
@@ -136,6 +168,10 @@ ok "worker consumer group ready"
 # --- 5b. Build ingest (or reuse a prebuilt binary via INGEST_BIN) ---
 INGEST_E2E_PORT="${INGEST_E2E_PORT:-18088}"
 INGEST_E2E_SECRET="${INGEST_E2E_SECRET:-e2e-ingest-secret}"
+# Per-run game id: the exact-count assertions in 7b must never collide with
+# rows left by a previous run (named compose volumes persist across runs,
+# and SKIP_COMPOSE_UP=1 reuses a shared stack entirely).
+INGEST_E2E_GAME="e2e-ingest-$(date +%s)"
 if [ -n "${INGEST_BIN:-}" ] && [ -x "$INGEST_BIN" ]; then
   echo "Using prebuilt ingest: $INGEST_BIN"
   mkdir -p bin && cp "$INGEST_BIN" bin/ingest
@@ -183,13 +219,13 @@ fi
 ok "ingest started (pid=$INGEST_PID)"
 
 echo "Publishing fixed samples via signed HTTP..."
-INGEST_E2E_PORT="$INGEST_E2E_PORT" INGEST_E2E_SECRET="$INGEST_E2E_SECRET" python3 - <<'PYEOF'
+INGEST_E2E_PORT="$INGEST_E2E_PORT" INGEST_E2E_SECRET="$INGEST_E2E_SECRET" INGEST_E2E_GAME="$INGEST_E2E_GAME" python3 - <<'PYEOF'
 import base64, hashlib, hmac, json, os, subprocess, sys, time, urllib.error, urllib.request
 
 PORT = os.environ["INGEST_E2E_PORT"]
 SECRET = os.environ["INGEST_E2E_SECRET"].encode()
+GAME = os.environ["INGEST_E2E_GAME"]
 BASE = f"http://127.0.0.1:{PORT}"
-GAME = "e2e-ingest"
 
 def xlen(stream):
     r = subprocess.run(
@@ -479,7 +515,7 @@ else
   docker exec "$REDIS_CONTAINER" redis-cli --scan --pattern 'hll:*' | head -10
 fi
 
-# --- 7b. Ingest chain results in ClickHouse (game e2e-ingest) ---
+# --- 7b. Ingest chain results in ClickHouse (game $INGEST_E2E_GAME) ---
 # All rows published via signed HTTP in section 5c. Expected shapes:
 #   events:       3 (batch) + 3 (duplicate re-submit) + 1 (replay first use)
 #                 = 7 raw rows collapsing onto 4 derived event_id natural keys
@@ -489,9 +525,9 @@ fi
 #                 -300s/-200s/-100s, pairwise >60s apart);
 #   daily_revenue: revenue_cents = 999 (FINAL collapses rewrites).
 ING_ROWS=$(docker exec "$CH_CONTAINER" clickhouse-client --query \
-  "SELECT count() FROM analytics.events WHERE game_id = 'e2e-ingest'" 2>/dev/null || echo "0")
+  "SELECT count() FROM analytics.events WHERE game_id = '$INGEST_E2E_GAME'" 2>/dev/null || echo "0")
 ING_KEYS=$(docker exec "$CH_CONTAINER" clickhouse-client --query \
-  "SELECT uniqExact(event_id) FROM analytics.events WHERE game_id = 'e2e-ingest'" 2>/dev/null || echo "0")
+  "SELECT uniqExact(event_id) FROM analytics.events WHERE game_id = '$INGEST_E2E_GAME'" 2>/dev/null || echo "0")
 if [ "$ING_ROWS" -eq 7 ] && [ "$ING_KEYS" -eq 4 ]; then
   ok "ingest events: 7 rows collapse onto 4 natural keys (rows=$ING_ROWS, keys=$ING_KEYS)"
 else
@@ -501,9 +537,9 @@ else
 fi
 
 ING_PAY_ROWS=$(docker exec "$CH_CONTAINER" clickhouse-client --query \
-  "SELECT count() FROM analytics.payments WHERE game_id = 'e2e-ingest'" 2>/dev/null || echo "0")
+  "SELECT count() FROM analytics.payments WHERE game_id = '$INGEST_E2E_GAME'" 2>/dev/null || echo "0")
 ING_PAY_SUM=$(docker exec "$CH_CONTAINER" clickhouse-client --query \
-  "SELECT sum(amount_cents) FROM analytics.payments WHERE game_id = 'e2e-ingest'" 2>/dev/null || echo "0")
+  "SELECT sum(amount_cents) FROM analytics.payments WHERE game_id = '$INGEST_E2E_GAME'" 2>/dev/null || echo "0")
 if [ "$ING_PAY_ROWS" -eq 1 ] && [ "$ING_PAY_SUM" -eq 999 ]; then
   ok "ingest payment amount intact through chain (rows=1, amount_cents=$ING_PAY_SUM)"
 else
@@ -511,7 +547,7 @@ else
 fi
 
 ING_MINUTES=$(docker exec "$CH_CONTAINER" clickhouse-client --query \
-  "SELECT uniqExact(m) FROM analytics.minute_online WHERE game_id = 'e2e-ingest'" 2>/dev/null || echo "0")
+  "SELECT uniqExact(m) FROM analytics.minute_online WHERE game_id = '$INGEST_E2E_GAME'" 2>/dev/null || echo "0")
 if [ "$ING_MINUTES" -eq 3 ]; then
   ok "ingest cross-window online minutes (distinct=$ING_MINUTES)"
 else
@@ -519,7 +555,7 @@ else
 fi
 
 ING_REV=$(docker exec "$CH_CONTAINER" clickhouse-client --query \
-  "SELECT sum(revenue_cents) FROM analytics.daily_revenue FINAL WHERE game_id = 'e2e-ingest'" 2>/dev/null || echo "0")
+  "SELECT sum(revenue_cents) FROM analytics.daily_revenue FINAL WHERE game_id = '$INGEST_E2E_GAME'" 2>/dev/null || echo "0")
 if [ "$ING_REV" -eq 999 ]; then
   ok "ingest daily_revenue aggregate (revenue_cents=$ING_REV)"
 else

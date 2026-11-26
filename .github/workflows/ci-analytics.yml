@@ -7,6 +7,8 @@ on:
       - "cmd/analytics-worker/**"
       - "cmd/ingest/**"
       - "docker/**"
+      - "configs/clickhouse/**"
+      - "scripts/clickhouse/**"
       - "scripts/e2e/analytics.sh"
       - ".github/workflows/ci-analytics.yml"
   pull_request:
@@ -16,6 +18,8 @@ on:
       - "cmd/analytics-worker/**"
       - "cmd/ingest/**"
       - "docker/**"
+      - "configs/clickhouse/**"
+      - "scripts/clickhouse/**"
       - "scripts/e2e/analytics.sh"
       - ".github/workflows/ci-analytics.yml"
 jobs:
