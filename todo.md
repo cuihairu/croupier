@@ -2247,9 +2247,9 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 依赖：AUD-062。交付与验收：按会话、作用域和状态筛选追踪请求代次，切换后不附加旧分组的列表或描述符。验证旧页追加请求晚于新筛选的首页返回。证据：`mobile/lib/features/approvals/approvals_controller.dart:109,131` 异步完成后直接写入当前状态。
   - 状态／条件：DONE · LOCAL VERIFIED（2026-11-27，commit 6711db26a）。`_fetch` 引入列表请求代次 `_listGen`：reset（首查/switchStatus/作用域切换/下拉刷新）入口同步换代并使在途旧请求（含旧页 append）立即失效，loadMore 属当前代追加不换代；请求参数（status/page）入口快照不因后续切换漂移；响应/ApiError/StateError 落地前核对代次，被取代请求一律丢弃不写 state。描述符独立代次 `_descGen`：`loadDescriptors` 落地前核对；新增 `reloadDescriptors`（作用域切换联动：清旧 scope 标签+按新 scope 重建），在途旧 scope 描述符迟到不回灌。验证：`approvals_controller_test.dart` 新增四用例（switchStatus 后旧页 append 迟到不并入新筛选【验收样例】/ switchStatus 后旧筛选首页迟到不覆盖新列表 / scope 切换后旧作用域 append 迟到不并入 / scope 切换后旧作用域描述符迟到不回灌），既有 8 用例不回归；mutation 自测（摘除全部代次核对→恰好四条新用例红，复原全绿 12/12）；全量 `TZ=UTC flutter test` 253/253 绿，pubspec.lock 未动。
 
-- [ ] **AUD-065 · P2 · 修复 · 分析测试脚本只停止自己启动的服务**
+- [x] **AUD-065 · P2 · 修复 · 分析测试脚本只停止自己启动的服务**
   - 依赖：—。交付与验收：复用已有容器的模式下，所有失败分支均不执行 compose down，DDL、查询和初始化使用相同配置的容器。自建模式清理自有进程和容器。用替身 Docker 命令验证两种模式。证据：`scripts/e2e/analytics.sh:34,53,67,268` 复用模式只保护常规退出，DDL 容器名仍为硬编码。
-  - 状态／条件：未开始。
+  - 状态／条件：DONE · LOCAL VERIFIED（2026-11-27，commit 891326267）。新增 `cleanup_down`（SKIP_COMPOSE_UP=1 复用模式跳过 compose down），12 处失败分支全部改走它（复用模式失败只 kill 自有 worker/ingest 进程，不动共享栈；自建模式照常 down 自有容器）；末尾 cleanup 同口径。`export REDIS_CONTAINER CH_CONTAINER`，两处内嵌 python（5c XLEN 探测、§6 XADD 初始化）改读 `os.environ.get("REDIS_CONTAINER", …)`，DDL/查询/初始化与 shell 侧 docker exec 用同一配置容器；顺带修复 XADD 失败与 events-not-in-stream 两分支漏 kill ingest 的进程泄漏。验证（替身 docker：日志型 stub，可注入 readiness/DDL 失败，fake worker=sleep、fake ingest=202/200 HTTP 服务）：A 复用+readiness 失败→exit1 且日志零 compose down；B 自建+readiness 失败→compose up+down 均执行；C 复用+DDL 失败→零 compose down、exec 全走 custom-ch、全日志零默认容器名；D 自建+DDL 失败→up+down 均执行；E 复用+全通至 ingest 链 python（fake 二进制）→XLEN exec 行走 custom-redis、零 compose down、锚定 pgrep 零残留进程。stub 副产物 bin/analytics-worker、bin/ingest 已清除；shellcheck 无新增告警。
 
 - [ ] **AUD-066 · P1 · 修复 · 移动端作用域保存不能覆盖新会话**
   - 依赖：AUD-062。交付与验收：同一会话的切换有最终写入顺序，旧请求结束时再次校验会话与切换代次。验证切换响应乱序、退出后迟到、切换服务器期间保存，界面、服务端选择与本地存储最终一致。证据：`mobile/lib/features/scope/scope_controller.dart:113` 用请求开始前的完整会话快照写回。
