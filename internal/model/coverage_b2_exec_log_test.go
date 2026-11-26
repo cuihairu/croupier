@@ -161,11 +161,21 @@ func TestB2TaskModels_DeleteBefore(t *testing.T) {
 		// sqlite 文本比较下与 UTC cutoff 错位（TZ≠UTC 机器上 DeleteBefore 判 0 行）
 		row := &TaskRun{TaskID: fmt.Sprintf("b2task-%d", i), GameID: "b2game", Status: "done"}
 		row.CreatedAt = now
+		// AUD-058：清理以终态时间 finished_at 划界，终态行须带终态时间
+		fin := now
+		row.FinishedAt = &fin
 		require.NoError(t, tm.Create(ctx, row))
 	}
+	// AUD-058：未结束任务（finished_at NULL）超龄保留
+	keep := &TaskRun{TaskID: "b2task-running", GameID: "b2game", Status: "running"}
+	keep.CreatedAt = now
+	require.NoError(t, tm.Create(ctx, keep))
 	n, err := tm.DeleteBefore(ctx, now.Add(time.Hour), 2)
 	require.NoError(t, err)
 	assert.Equal(t, int64(3), n)
+	var left int64
+	require.NoError(t, runDB.Model(&TaskRun{}).Where("task_id = ?", "b2task-running").Count(&left).Error)
+	assert.Equal(t, int64(1), left)
 
 	eventDB := setupAllModelsDB(t)
 	em := NewTaskEventModel(eventDB)

@@ -68,8 +68,9 @@ func seedLogsFixtures(t *testing.T, db *gorm.DB) {
 	}
 	require.NoError(t, db.Create(&logs).Error)
 	runs := []model.TaskRun{
-		{Model: gorm.Model{CreatedAt: old, UpdatedAt: old}, TaskID: "t-old", FunctionID: "job.old", Status: "success"},
-		{Model: gorm.Model{CreatedAt: recent, UpdatedAt: recent}, TaskID: "t-new", FunctionID: "job.new", Status: "success"},
+		// AUD-058：终态任务需带 finished_at（清理以终态时间为边界）
+		{Model: gorm.Model{CreatedAt: old, UpdatedAt: old}, TaskID: "t-old", FunctionID: "job.old", Status: "success", FinishedAt: &old},
+		{Model: gorm.Model{CreatedAt: recent, UpdatedAt: recent}, TaskID: "t-new", FunctionID: "job.new", Status: "success", FinishedAt: &recent},
 	}
 	require.NoError(t, db.Create(&runs).Error)
 }

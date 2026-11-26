@@ -344,13 +344,55 @@ func MustJSON(v interface{}) []byte {
 	return b
 }
 
-// DeleteBefore 删除创建时间早于 cutoff 的任务运行记录，返回删除行数
-// （R3 保留期清理，分批删除防长事务）。
+// DeleteBefore 删除终态时间早于 cutoff 的任务运行记录，返回删除行数
+// （R3/AUD-058 保留期清理，分批删除防长事务）。终态以 finished_at 划界：
+// 运行、排队、等待确认（finished_at IS NULL）的任务不受 created_at 影响，
+// 超龄也保留（可继续查询）；已结束任务以确定的终态时间判断保留期。所有
+// 终态写入路径都会盖 finished_at（完成/失败/取消事件、agent 会话丢失
+// reap、failover MarkRunFailed），finished_at 为 NULL 的行不会被误删。
 func (m *TaskRunModel) DeleteBefore(ctx context.Context, cutoff time.Time, batch int) (int64, error) {
-	return deleteBatch(ctx, m.db, &TaskRun{}, cutoff, batch)
+	resolved := dbctx.Resolve(ctx, m.db).WithContext(ctx)
+	if batch <= 0 {
+		batch = 1000
+	}
+	var total int64
+	for {
+		res := resolved.
+			Where("finished_at IS NOT NULL AND finished_at < ?", cutoff).
+			Limit(batch).Delete(&TaskRun{})
+		if res.Error != nil {
+			return total, res.Error
+		}
+		total += res.RowsAffected
+		if res.RowsAffected < int64(batch) {
+			break
+		}
+	}
+	return total, nil
 }
 
-// DeleteBefore 删除创建时间早于 cutoff 的任务事件，返回删除行数。
+// DeleteBefore 删除任务事件，返回删除行数。事件与所属任务同生命周期
+// （AUD-058 关联事件清理）：未结束任务（运行/排队/等待确认，finished_at
+// IS NULL）的事件无论多老都保留；已结束任务的事件随任务的保留期走——
+// 任务终态时间早于 cutoff、或任务行已删（孤儿）且事件超龄的才清理。
 func (m *TaskEventModel) DeleteBefore(ctx context.Context, cutoff time.Time, batch int) (int64, error) {
-	return deleteBatch(ctx, m.db, &TaskEvent{}, cutoff, batch)
+	resolved := dbctx.Resolve(ctx, m.db).WithContext(ctx)
+	if batch <= 0 {
+		batch = 1000
+	}
+	var total int64
+	for {
+		res := resolved.
+			Where("created_at < ? AND task_id NOT IN (SELECT task_id FROM task_runs WHERE finished_at IS NULL OR finished_at >= ?)",
+				cutoff, cutoff).
+			Limit(batch).Delete(&TaskEvent{})
+		if res.Error != nil {
+			return total, res.Error
+		}
+		total += res.RowsAffected
+		if res.RowsAffected < int64(batch) {
+			break
+		}
+	}
+	return total, nil
 }

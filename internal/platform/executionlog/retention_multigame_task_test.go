@@ -43,7 +43,7 @@ func seedTaskLogFixture(t *testing.T, db *gorm.DB, taskID string, ageDays int) {
 	at := time.Now().UTC().AddDate(0, 0, -ageDays)
 	require.NoError(t, db.Create(&model.TaskRun{
 		Model:  gorm.Model{CreatedAt: at, UpdatedAt: at},
-		TaskID: taskID, FunctionID: "job." + taskID, GameID: "g1", Env: "prod", Status: "success",
+		TaskID: taskID, FunctionID: "job." + taskID, GameID: "g1", Env: "prod", Status: "success", FinishedAt: &at,
 	}).Error)
 	require.NoError(t, db.Create(&model.TaskEvent{
 		TaskID: taskID, Seq: 1, Type: "progress", CreatedAt: at,
@@ -126,7 +126,7 @@ func TestRetentionPurgeBeforeTaskScopesMultiGameMetaWithoutTaskTables(t *testing
 	at := time.Now().UTC().AddDate(0, 0, -30)
 	require.NoError(t, g3.Create(&model.TaskRun{
 		Model:  gorm.Model{CreatedAt: at, UpdatedAt: at},
-		TaskID: "t-g3-old", FunctionID: "job.g3", GameID: "g3", Env: "prod", Status: "success",
+		TaskID: "t-g3-old", FunctionID: "job.g3", GameID: "g3", Env: "prod", Status: "success", FinishedAt: &at,
 	}).Error)
 
 	r := NewRetention(bare, RetentionConfig{
@@ -188,4 +188,33 @@ func TestRetentionSweepTaskLogsMetaWithoutTaskTablesStillFansOut(t *testing.T) {
 	runs, events := countTaskLogs(t, g1)
 	assert.Equal(t, int64(0), runs)
 	assert.Equal(t, int64(0), events)
+}
+
+// AUD-058：后台 Sweep 保留超龄未结束任务及其事件（可继续查询）；任务到达
+// 终态后（终态时间未超龄）仍不清理。
+func TestRetentionSweepKeepsUnfinishedTasksAndEvents(t *testing.T) {
+	db := newTestDB(t)
+	at := time.Now().UTC().AddDate(0, 0, -30)
+	require.NoError(t, db.Create(&model.TaskRun{
+		Model:  gorm.Model{CreatedAt: at, UpdatedAt: at},
+		TaskID: "t-running-old", FunctionID: "job.long", GameID: "g1", Env: "prod", Status: "running",
+	}).Error)
+	require.NoError(t, db.Create(&model.TaskEvent{
+		TaskID: "t-running-old", Seq: 1, Type: "progress", CreatedAt: at,
+	}).Error)
+
+	r := NewRetention(db, RetentionConfig{ExecutionLogDays: 0, TaskLogDays: 7})
+	summary := r.Sweep(context.Background())
+	assert.Equal(t, int64(0), summary.TaskRunsDeleted)
+	assert.Equal(t, int64(0), summary.TaskEventsDeleted)
+
+	// 状态并发变化：任务到达终态（finished_at=now，未超龄）→ 下轮仍保留
+	require.NoError(t, db.Model(&model.TaskRun{}).Where("task_id = ?", "t-running-old").
+		Update("finished_at", time.Now().UTC()).Error)
+	summary = r.Sweep(context.Background())
+	assert.Equal(t, int64(0), summary.TaskRunsDeleted)
+
+	runs, events := countTaskLogs(t, db)
+	assert.Equal(t, int64(1), runs)
+	assert.Equal(t, int64(1), events)
 }
