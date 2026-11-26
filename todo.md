@@ -2235,9 +2235,9 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 依赖：—。交付与验收：清理前核对发请求时的会话身份，旧服务器或旧 token 的迟到 401 只结束原请求。同一会话真实失效仍跳登录。证据：`mobile/lib/core/api/api_client.dart:44,65` 请求逐次取会话，响应处理无条件清除当前存储。
   - 状态／条件：DONE · LOCAL VERIFIED（2026-11-27，commit 10f72bb1f）。`onError` 401 分支清理前核对会话身份：取被拒请求携带的 `Authorization` 头与当前 SessionStore 会话重建的 `Bearer <token>` 对比——一致（或当前无会话）才 `clear()` + `onUnauthorized`（同一会话真实失效仍跳登录）；不一致（旧 token 请求的迟到 401、无 Authorization 的匿名旧请求撞上新登录的会话）只结束原请求，新会话保留不跳登录。库 docstring 同步策略。验证：`api_client_test.dart` 新增两用例（请求在途会话刷新 jwt-1→jwt-2 的迟到 401 不清 jwt-2 不回调 / 匿名请求在途用户登录 jwt-new 的迟到 401 不清 jwt-new），既有「同 token 401 清会话跳登录」「登录端点 401 透传」两用例不回归；mutation 自测（回退无条件清会话→两新用例红，复原全绿）；`TZ=UTC flutter test` 全量 243 passed。
 
-- [ ] **AUD-062 · P1 · 修复 · 移动端预选 scope 与发请求使用的 scope 一致**
+- [x] **AUD-062 · P1 · 修复 · 移动端预选 scope 与发请求使用的 scope 一致**
   - 依赖：—。交付与验收：首次选择或已保存作用域失效时，界面显示、请求头与持久化选择一致。首次启动或旧作用域失效时，用请求替身核对界面预选与真实请求头。证据：`mobile/lib/features/scope/scope_controller.dart:84` 的 load 只更新预选状态，请求头仍从 SessionStore 读取。
-  - 状态／条件：未开始。
+  - 状态／条件：DONE · LOCAL VERIFIED（2026-11-27，commit e238002ed）。`load()` 解析预选后与持久化会话核对：`_resolveInitial` 结果 ≠ 会话 scope（旧作用域失效落默认）即 `sessionStore.save` 同步（copyWith 覆写 gameId/env）+ `ref.invalidate(sessionFutureProvider)`（读会话的 App 根同步刷新）；预选仍可选时会话保持不动（不误写）。此后界面预选、`onRequest` 注入的 X-Game-ID/X-Env 请求头与本地持久化选择三者一致（与 `select()` 同一持久化面）。验证：`scope_controller_test.dart` 新增三用例（失效 scope 落默认后会话同步为 demo/dev / 请求替身核对落默认后 scoped 请求头=X-Game-ID:demo+X-Env:dev / lastGameId 仍可选时会话不误写），既有 5 用例不回归；mutation 自测（摘除同步块→两新用例红，复原全绿 8/8）。
 
 - [ ] **AUD-063 · P1 · 修复 · 移动端函数目录按当前作用域刷新**
   - 依赖：AUD-062。交付与验收：切换作用域清空旧目录并新查，旧请求在途时不阻塞新请求。用 A→B 后旧请求迟到的样例核对目录、错误和 loading。证据：`mobile/lib/features/functions/functions_controller.dart:104,133` 切换调用 refresh，正加载时直接退出。
