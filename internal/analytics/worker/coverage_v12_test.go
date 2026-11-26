@@ -36,8 +36,19 @@ func (h deadStreamFailHook) ProcessPipelineHook(next redis.ProcessPipelineHook) 
 }
 func (h deadStreamFailHook) ProcessHook(next redis.ProcessHook) redis.ProcessHook {
 	return func(ctx context.Context, cmd redis.Cmder) error {
-		if cmd.Name() == "xadd" && len(cmd.Args()) > 1 && cmd.Args()[1] == h.stream {
-			return h.err
+		switch cmd.Name() {
+		case "xadd":
+			if len(cmd.Args()) > 1 && cmd.Args()[1] == h.stream {
+				return h.err
+			}
+		case "eval":
+			// DATA-052: the dead-letter move is one atomic script whose KEYS
+			// include the dead stream — refuse the whole script.
+			for _, a := range cmd.Args() {
+				if a == h.stream {
+					return h.err
+				}
+			}
 		}
 		return next(ctx, cmd)
 	}

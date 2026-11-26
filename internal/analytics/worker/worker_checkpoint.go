@@ -65,8 +65,10 @@ func (w *Worker) persistCheckpoint(ctx context.Context, stream, id string) {
 // a crash lands between Send and XACK; the ClickHouse natural key
 // (event_id for events, order_id for payments) is the dedup point, and the
 // raw tables are plain MergeTree so consumers must treat those keys as
-// unique. A message that is re-queued or dead-lettered is ACKed only after
-// the re-queue / dead-letter XAdd succeeds — otherwise it stays pending.
+// unique. A message that is re-queued or dead-lettered is ACKed in the same
+// atomic, idempotent script that writes the target stream (DATA-052) — the
+// target write and the source ACK cannot split, so reclaim never duplicates
+// the retry copy or the dead letter.
 func (w *Worker) processMessage(ctx context.Context, stream string, msg redis.XMessage) error {
 	data := string(fmtAny(msg.Values["data"]))
 	if data == "" {
@@ -85,7 +87,8 @@ func (w *Worker) processMessage(ctx context.Context, stream string, msg redis.XM
 		if derr := w.sendToDeadLetter(ctx, stream, msg, "invalid_json", err.Error()); derr != nil {
 			return derr // do not ack: reclaim retries the dead-letter
 		}
-		return w.ackImmediate(ctx, stream, msg)
+		// sendToDeadLetter ACKed the source in the same atomic script (DATA-052).
+		return nil
 	}
 
 	// Add retry count if not present
@@ -110,7 +113,8 @@ func (w *Worker) processMessage(ctx context.Context, stream string, msg redis.XM
 			if derr := w.sendToDeadLetter(ctx, stream, msg, "max_retries_exceeded", err.Error()); derr != nil {
 				return derr // do not ack: reclaim retries the dead-letter
 			}
-			return w.ackImmediate(ctx, stream, msg)
+			// sendToDeadLetter ACKed the source in the same atomic script (DATA-052).
+			return nil
 		}
 		// Increment retry count and re-queue
 		// Normalization: regardless of the original value type, the retry
@@ -127,56 +131,20 @@ func (w *Worker) processMessage(ctx context.Context, stream string, msg redis.XM
 		// silent data loss. The retry path cannot grow the stream without
 		// bound: retry_count rides in the payload and dead-letters after
 		// maxPendingRetries requeues.
-		if rerr := w.rdb.XAdd(ctx, &redis.XAddArgs{
-			Stream: stream,
-			ID:     "*",
-			Values: map[string]interface{}{"data": string(retryData)},
-		}).Err(); rerr != nil {
-			// Re-queue failed: do NOT ack. The message stays pending so the
-			// reclaim path retries it; acking here would lose it.
+		// The copy and the source ACK are one atomic idempotent script
+		// (DATA-052): a failed XAdd aborts before the ACK (the message stays
+		// pending so the reclaim path retries it), and a repeated attempt
+		// never writes a second retry copy.
+		if rerr := w.requeueMessage(ctx, stream, msg, retryData, retries+1); rerr != nil {
 			slog.Warn("message requeue failed; leaving pending for reclaim", "stream", stream, "id", msg.ID, "retries", retries+1, "err", rerr)
 			return rerr
 		}
 		slog.Warn("message processing failed, re-queued", "stream", stream, "id", msg.ID, "retries", retries+1, "err", err)
-		return w.ackImmediate(ctx, stream, msg)
+		return nil
 	}
 
 	// Success: the row is in an unsent ClickHouse batch. XACK is deferred
 	// until the batch Send()s; do not ack or advance the checkpoint here.
-	return nil
-}
-
-// sendToDeadLetter sends a message to the dead letter stream. It returns the
-// XAdd error so the caller can avoid ACKing a message whose dead-letter entry
-// was not enqueued (ARCH-011: unchecked re-queue/dead-letter error would
-// otherwise lose the message).
-func (w *Worker) sendToDeadLetter(ctx context.Context, stream string, msg redis.XMessage, reason, details string) error {
-	deadStream := w.deadEventsStream
-	if stream == w.streamPayments {
-		deadStream = w.deadPaymentsStream
-	}
-
-	deadEntry := map[string]interface{}{
-		"original_stream": stream,
-		"original_id":     msg.ID,
-		"reason":          reason,
-		"details":         details,
-		"failed_at":       time.Now().Unix(),
-		"retry_count":     msg.Values["retry_count"],
-		"original_data":   msg.Values["data"],
-	}
-
-	if err := w.rdb.XAdd(ctx, &redis.XAddArgs{
-		Stream: deadStream,
-		MaxLen: 10000, // Keep dead letter queue bounded
-		Approx: true,
-		ID:     "*",
-		Values: deadEntry,
-	}).Err(); err != nil {
-		slog.Error("failed to send to dead letter", "stream", deadStream, "original_id", msg.ID, "err", err)
-		return err
-	}
-	slog.Warn("message sent to dead letter", "stream", deadStream, "original_stream", stream, "original_id", msg.ID, "reason", reason)
 	return nil
 }
 

@@ -231,10 +231,11 @@ func addPendingInvalidMessageV11(t *testing.T, w *Worker, mr *miniredis.Miniredi
 
 func TestReclaimProcessErrorWarnsClaimedAndOrphaned(t *testing.T) {
 	w, mr := testWorker(t)
-	// Invalid JSON -> dead-letter delivery succeeds -> ackImmediate is forced to
-	// fail by the hook -> processMessage returns an error -> both the claim loop
-	// and the orphan loop take the warning branch
-	w.rdb.AddHook(hookV10{failAck: true})
+	// Invalid JSON -> dead-letter transfer fails (the dead-stream key is
+	// occupied, the atomic DATA-052 script aborts at its XADD) ->
+	// processMessage returns an error -> both the claim loop and the orphan
+	// loop take the warning branch
+	require.NoError(t, w.rdb.Set(context.Background(), w.deadEventsStream, "occupied", 0).Err())
 	addPendingInvalidMessageV11(t, w, mr)
 
 	w.reclaimPendingFromStream(context.Background(), w.streamEvents)
@@ -248,9 +249,11 @@ func TestReclaimProcessErrorWarnsClaimedAndOrphaned(t *testing.T) {
 func TestReclaimOrphanedProcessErrorWarns(t *testing.T) {
 	w, mr := testWorker(t)
 	// XPendingExt fails -> the per-consumer loop is skipped; the orphan loop
-	// (XAutoClaim 0-0) claims the message and then processMessage errors (invalid
-	// JSON + ack forced to fail) -> the orphan warning branch
-	w.rdb.AddHook(hookV10{failAck: true, failPending: true})
+	// (XAutoClaim 0-0) claims the message and then processMessage errors
+	// (invalid JSON + the dead-letter transfer failing at its XADD because
+	// the dead-stream key is occupied) -> the orphan warning branch
+	w.rdb.AddHook(hookV10{failPending: true})
+	require.NoError(t, w.rdb.Set(context.Background(), w.deadEventsStream, "occupied", 0).Err())
 	addPendingInvalidMessageV11(t, w, mr)
 
 	w.reclaimPendingFromStream(context.Background(), w.streamEvents)
