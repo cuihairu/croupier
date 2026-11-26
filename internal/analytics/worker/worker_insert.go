@@ -10,6 +10,13 @@ import (
 )
 
 func (w *Worker) insertEvent(ctx context.Context, m map[string]any, msgID string) error {
+	return w.appendEventRow(ctx, msgID, eventRowArgs(m)...)
+}
+
+// eventRowArgs derives the insertEventsSQL column values from the raw wire
+// payload map. Factored out for the DATA-053 retry path, which re-derives
+// held rows from their wire payloads.
+func eventRowArgs(m map[string]any) []any {
 	// Minimal fields; props_json stays raw
 	ts := normalizeTimestamp(asString(m, "ts"))
 	game := asString(m, "game_id")
@@ -33,7 +40,7 @@ func (w *Worker) insertEvent(ctx context.Context, m map[string]any, msgID string
 		eid = deriveEventID(m)
 	}
 	propsBytes, _ := json.Marshal(m["props"]) // may be nil
-	return w.appendEventRow(ctx, msgID, ts, game, env, uid, sid, evt, channel, platform, country, appv, eid, string(propsBytes))
+	return []any{ts, game, env, uid, sid, evt, channel, platform, country, appv, eid, string(propsBytes)}
 }
 
 // eventIDDedupNamespace is the fixed UUIDv5 namespace for worker-derived
@@ -61,6 +68,17 @@ func deriveEventID(m map[string]any) string {
 }
 
 func (w *Worker) insertPayment(ctx context.Context, m map[string]any, msgID string) error {
+	args, err := paymentRowArgs(m)
+	if err != nil {
+		return err
+	}
+	return w.appendPaymentRow(ctx, msgID, args...)
+}
+
+// paymentRowArgs derives the insertPaymentsSQL column values from the raw
+// wire payload map. The exact integer amount parse (DATA-018) can reject the
+// record; the error is the caller's dead-letter signal.
+func paymentRowArgs(m map[string]any) ([]any, error) {
 	ts := normalizeTimestamp(asString(m, "ts"))
 	game := asString(m, "game_id")
 	env := asString(m, "env")
@@ -70,7 +88,7 @@ func (w *Worker) insertPayment(ctx context.Context, m map[string]any, msgID stri
 	// fractional/oversized/absent amounts error into the dead-letter path.
 	amount, err := amountCentsUint64(m)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	curr := asString(m, "currency")
 	status := asString(m, "status")
@@ -81,7 +99,7 @@ func (w *Worker) insertPayment(ctx context.Context, m map[string]any, msgID stri
 	city := asString(m, "city")
 	product := asString(m, "product_id")
 	reason := asString(m, "reason")
-	return w.appendPaymentRow(ctx, msgID, ts, game, env, uid, oid, amount, curr, status, channel, platform, country, region, city, product, reason)
+	return []any{ts, game, env, uid, oid, amount, curr, status, channel, platform, country, region, city, product, reason}, nil
 }
 
 func (w *Worker) ensureEventBatch(ctx context.Context) (chdriver.Batch, error) {
@@ -128,6 +146,12 @@ func (w *Worker) ensurePaymentBatchLocked(ctx context.Context) (chdriver.Batch, 
 func (w *Worker) appendEventRow(ctx context.Context, msgID string, args ...any) error {
 	w.batchMu.Lock()
 	defer w.batchMu.Unlock()
+	return w.appendEventRowLocked(ctx, msgID, args...)
+}
+
+// appendEventRowLocked is appendEventRow for callers already holding batchMu
+// (the DATA-053 flush retry path).
+func (w *Worker) appendEventRowLocked(ctx context.Context, msgID string, args ...any) error {
 	batch, err := w.ensureEventBatchLocked(ctx)
 	if err != nil {
 		return err
@@ -149,6 +173,12 @@ func (w *Worker) appendEventRow(ctx context.Context, msgID string, args ...any) 
 func (w *Worker) appendPaymentRow(ctx context.Context, msgID string, args ...any) error {
 	w.batchMu.Lock()
 	defer w.batchMu.Unlock()
+	return w.appendPaymentRowLocked(ctx, msgID, args...)
+}
+
+// appendPaymentRowLocked is appendPaymentRow for callers already holding
+// batchMu (the DATA-053 flush retry path).
+func (w *Worker) appendPaymentRowLocked(ctx context.Context, msgID string, args ...any) error {
 	batch, err := w.ensurePaymentBatchLocked(ctx)
 	if err != nil {
 		return err

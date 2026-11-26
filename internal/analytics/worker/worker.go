@@ -101,6 +101,18 @@ type Worker struct {
 	batchMu     sync.Mutex
 	eventAcks   []ackRef
 	paymentAcks []ackRef
+	// DATA-053: rows whose batch Send failed are held here — together with
+	// their wire payload — instead of being dropped, so the periodic flush
+	// retries them and a persistently failing record dead-letters after
+	// maxPendingRetries failed flush rounds instead of cycling pending with a
+	// zero retry count. The payload maps hold the raw wire payload of every
+	// row currently in an unsent batch (keyed by source message id);
+	// holdFails counts failed flush rounds per "stream\x1fid".
+	eventHeld   []heldRow
+	paymentHeld []heldRow
+	eventData   map[string]string
+	paymentData map[string]string
+	holdFails   map[string]int
 	// lastMu guards lastIDs (written by both the Run goroutine's immediate
 	// ACK path and the flush goroutine's batch-ACK path).
 	lastMu sync.Mutex

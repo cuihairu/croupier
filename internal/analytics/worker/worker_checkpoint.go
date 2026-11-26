@@ -88,6 +88,7 @@ func (w *Worker) processMessage(ctx context.Context, stream string, msg redis.XM
 			return derr // do not ack: reclaim retries the dead-letter
 		}
 		// sendToDeadLetter ACKed the source in the same atomic script (DATA-052).
+		w.forgetMessageBookkeeping(stream, msg.ID)
 		return nil
 	}
 
@@ -95,6 +96,10 @@ func (w *Worker) processMessage(ctx context.Context, stream string, msg redis.XM
 	if m["retry_count"] == nil {
 		m["retry_count"] = float64(0) // JSON numbers are float64
 	}
+
+	// DATA-053: keep the wire payload so a failed flush can hold and retry
+	// the row without a reclaim round-trip.
+	w.holdEventData(stream, msg.ID, data)
 
 	var err error
 	switch stream {
@@ -114,6 +119,7 @@ func (w *Worker) processMessage(ctx context.Context, stream string, msg redis.XM
 				return derr // do not ack: reclaim retries the dead-letter
 			}
 			// sendToDeadLetter ACKed the source in the same atomic script (DATA-052).
+			w.forgetMessageBookkeeping(stream, msg.ID)
 			return nil
 		}
 		// Increment retry count and re-queue
@@ -140,6 +146,7 @@ func (w *Worker) processMessage(ctx context.Context, stream string, msg redis.XM
 			return rerr
 		}
 		slog.Warn("message processing failed, re-queued", "stream", stream, "id", msg.ID, "retries", retries+1, "err", err)
+		w.forgetMessageBookkeeping(stream, msg.ID)
 		return nil
 	}
 
