@@ -2239,9 +2239,9 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 依赖：—。交付与验收：首次选择或已保存作用域失效时，界面显示、请求头与持久化选择一致。首次启动或旧作用域失效时，用请求替身核对界面预选与真实请求头。证据：`mobile/lib/features/scope/scope_controller.dart:84` 的 load 只更新预选状态，请求头仍从 SessionStore 读取。
   - 状态／条件：DONE · LOCAL VERIFIED（2026-11-27，commit e238002ed）。`load()` 解析预选后与持久化会话核对：`_resolveInitial` 结果 ≠ 会话 scope（旧作用域失效落默认）即 `sessionStore.save` 同步（copyWith 覆写 gameId/env）+ `ref.invalidate(sessionFutureProvider)`（读会话的 App 根同步刷新）；预选仍可选时会话保持不动（不误写）。此后界面预选、`onRequest` 注入的 X-Game-ID/X-Env 请求头与本地持久化选择三者一致（与 `select()` 同一持久化面）。验证：`scope_controller_test.dart` 新增三用例（失效 scope 落默认后会话同步为 demo/dev / 请求替身核对落默认后 scoped 请求头=X-Game-ID:demo+X-Env:dev / lastGameId 仍可选时会话不误写），既有 5 用例不回归；mutation 自测（摘除同步块→两新用例红，复原全绿 8/8）。
 
-- [ ] **AUD-063 · P1 · 修复 · 移动端函数目录按当前作用域刷新**
+- [x] **AUD-063 · P1 · 修复 · 移动端函数目录按当前作用域刷新**
   - 依赖：AUD-062。交付与验收：切换作用域清空旧目录并新查，旧请求在途时不阻塞新请求。用 A→B 后旧请求迟到的样例核对目录、错误和 loading。证据：`mobile/lib/features/functions/functions_controller.dart:104,133` 切换调用 refresh，正加载时直接退出。
-  - 状态／条件：未开始。
+  - 状态／条件：DONE · LOCAL VERIFIED（2026-11-27，commit e22a724ac）。`refresh()` 改请求代际语义：去掉 `state.loading` 早退（旧请求在途不再阻塞新查询），每次调用 `++_loadGen` 开新代，`service.list()` 响应/ApiError/StateError 落地前核对代次，被取代的旧响应（含错误）一律丢弃不写 state；scope 切换监听器改调 `refresh(clearCatalog: true)`，新查询发出前同步清空旧目录+置 loading（手动刷新仍保留旧列表防闪烁）。验证：`functions_controller_test.dart` 新增三用例（demo→beta 切换即清目录+重查请求头 X-Game-ID: demo/prod→beta/prod / A→B 旧请求迟到成功不回灌旧目录、loading/error 不被污染 / 旧请求迟到 500 不污染新作用域错误面），既有 7 用例不回归；mutation 自测（还原旧 refresh+监听器→恰好三条新用例红，复原全绿 10/10）；全量 `TZ=UTC flutter test` 249/249 绿，pubspec.lock 未动。
 
 - [ ] **AUD-064 · P1 · 修复 · 移动端审批列表丢弃失效的分页响应**
   - 依赖：AUD-062。交付与验收：按会话、作用域和状态筛选追踪请求代次，切换后不附加旧分组的列表或描述符。验证旧页追加请求晚于新筛选的首页返回。证据：`mobile/lib/features/approvals/approvals_controller.dart:109,131` 异步完成后直接写入当前状态。
