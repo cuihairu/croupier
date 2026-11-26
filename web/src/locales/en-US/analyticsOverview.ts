@@ -5,6 +5,8 @@ export default {
   'pages.analyticsOverview.spark.dailyNewUsers': 'Daily New Users (Trend)',
   'pages.analyticsOverview.spark.dailyPeakOnline': 'Daily Peak Online (Trend)',
   'pages.analyticsOverview.spark.dailyRevenue': 'Daily Revenue (Trend)',
+  'pages.analyticsOverview.spark.peakOnlineCoverage':
+    '{timezone} · {granularity} sampling · {covered}/{total} days',
   'pages.analyticsOverview.stat.newUsers': 'New Users',
   'pages.analyticsOverview.stat.payRate': 'Pay Rate',
   'pages.analyticsOverview.stat.registeredTotal': 'Total Registered Users',

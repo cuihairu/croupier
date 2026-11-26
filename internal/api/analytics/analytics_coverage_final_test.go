@@ -80,6 +80,7 @@ func TestOverview_AggregateQueryFailures(t *testing.T) {
 		{"daily_activity_fails", 8},
 		{"daily_revenue_fails", 9},
 		{"daily_new_players_fails", 10},
+		{"peak_rows_query_fails", 11},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

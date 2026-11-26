@@ -5,7 +5,7 @@ import { FormattedMessage, useIntl } from '@umijs/max';
 import { useThemeAccent } from '@/hooks/useThemePref';
 import { exportToXLSX } from '@/utils/export';
 import { fetchAnalyticsOverview } from '@/services/api/analytics';
-import type { AnalyticsRetentionMetric } from '@/services/api/analytics';
+import type { AnalyticsPeakOnlineMeta, AnalyticsRetentionMetric } from '@/services/api/analytics';
 
 interface OverviewData {
   dau?: number;
@@ -25,6 +25,7 @@ interface OverviewData {
     d7?: AnalyticsRetentionMetric | null;
     d30?: AnalyticsRetentionMetric | null;
   };
+  peakOnlineMeta?: AnalyticsPeakOnlineMeta | null;
   payRate?: number | null;
   arpu?: number;
   arppu?: number;
@@ -115,6 +116,16 @@ export default function AnalyticsOverviewPage() {
   const d1View = retentionView(data?.retention?.d1);
   const d7View = retentionView(data?.retention?.d7);
   const d30View = retentionView(data?.retention?.d30);
+
+  // DATA-028: disclose the peak series' sampling granularity and covered day
+  // range next to the chart, so gaps are visible instead of reading as zeros.
+  const formatGranularity = (seconds?: number): string => {
+    if (!seconds || seconds <= 0) return '1m';
+    if (seconds % 3600 === 0) return `${seconds / 3600}h`;
+    if (seconds % 60 === 0) return `${seconds / 60}m`;
+    return `${seconds}s`;
+  };
+  const peakMeta = data?.peakOnlineMeta;
 
   const Spark: React.FC<{ data?: [string | number, number][] }> = ({ data }) => {
     const w = 300,
@@ -300,6 +311,22 @@ export default function AnalyticsOverviewPage() {
                 })}
               >
                 <Spark data={data?.series?.peakOnline || []} />
+                {peakMeta ? (
+                  <div style={{ color: 'rgba(128,128,128,0.9)', fontSize: 12, marginTop: 4 }}>
+                    {intl.formatMessage(
+                      {
+                        id: 'pages.analyticsOverview.spark.peakOnlineCoverage',
+                        defaultMessage: '{timezone} · {granularity} 采样 · {covered}/{total} 天',
+                      },
+                      {
+                        timezone: peakMeta.timezone || 'UTC',
+                        granularity: formatGranularity(peakMeta.granularitySeconds),
+                        covered: peakMeta.coveredDays ?? 0,
+                        total: peakMeta.totalDays ?? 0,
+                      },
+                    )}
+                  </div>
+                ) : null}
               </Card>
             </Col>
             <Col span={8}>

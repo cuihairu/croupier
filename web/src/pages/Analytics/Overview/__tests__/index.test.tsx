@@ -282,6 +282,47 @@ describe('AnalyticsOverviewPage 留存状态展示（DATA-027）', () => {
   });
 });
 
+describe('AnalyticsOverviewPage 峰值在线覆盖披露（DATA-028）', () => {
+  it('峰值曲线卡下方展示时区、采样粒度与覆盖天数', async () => {
+    // beforeEach 的 mock 实现丢弃 values；本用例换成与 setupTests 同语义的
+    // 插值实现，以验证 timezone/granularity/covered/total 真实参与渲染
+    formatMessageMock.mockImplementation(
+      ({ defaultMessage }: { defaultMessage: string }, values?: Record<string, unknown>) =>
+        Object.entries(values || {}).reduce(
+          (msg: string, [key, val]) => msg.split(`{${key}}`).join(String(val)),
+          defaultMessage,
+        ),
+    );
+    mockFetchOverview.mockResolvedValue({
+      dau: 10,
+      series: { peakOnline: [['2026-11-25', 120]] },
+      peakOnlineMeta: {
+        timezone: 'UTC',
+        granularitySeconds: 60,
+        totalDays: 7,
+        coveredDays: 5,
+      },
+    } as unknown as OverviewResponse);
+    render(<AnalyticsOverviewPage />);
+
+    await waitFor(() => expect(screen.getByText('每日峰值在线（曲线）')).toBeInTheDocument());
+    // intl mock 用 defaultMessage 渲染并做 {placeholder} 插值；meta 行在数据
+    // 到达后才出现，须 waitFor
+    await waitFor(() => expect(screen.getByText('UTC · 1m 采样 · 5/7 天')).toBeInTheDocument());
+  });
+
+  it('无 meta 时不渲染覆盖披露行（旧后端兼容形态）', async () => {
+    mockFetchOverview.mockResolvedValue({
+      dau: 10,
+      series: { peakOnline: [] },
+    } as unknown as OverviewResponse);
+    render(<AnalyticsOverviewPage />);
+
+    await waitFor(() => expect(screen.getByText('每日峰值在线（曲线）')).toBeInTheDocument());
+    expect(screen.queryByText(/采样/)).not.toBeInTheDocument();
+  });
+});
+
 describe('AnalyticsOverviewPage 导出兜底补充', () => {
   it('newUsers 最短：t 逐级回退 peakOnline/revenue，缺失列取空串', async () => {
     mockFetchOverview.mockResolvedValue({

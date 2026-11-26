@@ -189,13 +189,14 @@ describe('analytics API adapters (param/scope normalization matrix)', () => {
       retention: { d1: null, d7: null, d30: null },
       series: {
         newUsers: [['', 0]],
-        peakOnline: [['d', 0]],
+        peakOnline: [],
         revenue: [
           ['d', 5],
           ['d2', 7],
           ['', 0],
         ],
       },
+      peakOnlineMeta: null,
     });
   });
 
@@ -217,6 +218,7 @@ describe('analytics API adapters (param/scope normalization matrix)', () => {
       d30: null,
       retention: { d1: null, d7: null, d30: null },
       series: { newUsers: [], peakOnline: [], revenue: [] },
+      peakOnlineMeta: null,
     });
   });
 
@@ -241,6 +243,43 @@ describe('analytics API adapters (param/scope normalization matrix)', () => {
       d1: { status: 'ok', value: 0, cohorts: 3, sampled: false },
       d7: { status: 'pending', value: null, cohorts: 0 },
       d30: { status: 'no_source', value: 12, cohorts: 0 },
+    });
+  });
+
+  it('maps the peak-online series and its coverage meta instead of active users', async () => {
+    mockedRequest.mockResolvedValue({
+      trends: { activeUsers: [{ date: 'd1', value: 99 }] },
+      peakOnline: {
+        points: [
+          { date: '2026-11-25', value: 120 },
+          { date: '2026-11-26', value: 0 },
+        ],
+        meta: {
+          timezone: 'UTC',
+          granularitySeconds: 60,
+          totalDays: 3,
+          coveredDays: 2,
+          coveredFrom: '2026-11-25',
+          coveredTo: '2026-11-26',
+        },
+      },
+    });
+
+    const result = await fetchAnalyticsOverview();
+    // Only the real peak series feeds the chart; trends.activeUsers (daily
+    // active users) no longer wears the peak-online label, and missing days
+    // are absent from points rather than drawn as zeros.
+    expect(result.series.peakOnline).toEqual([
+      ['2026-11-25', 120],
+      ['2026-11-26', 0],
+    ]);
+    expect(result.peakOnlineMeta).toEqual({
+      timezone: 'UTC',
+      granularitySeconds: 60,
+      totalDays: 3,
+      coveredDays: 2,
+      coveredFrom: '2026-11-25',
+      coveredTo: '2026-11-26',
     });
   });
 

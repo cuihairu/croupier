@@ -45,6 +45,19 @@ function retentionValue(metric?: AnalyticsRetentionMetric | null): number | null
   return metric.value;
 }
 
+// PeakOnlineMeta mirrors the backend peak-online disclosure (DATA-028): the
+// day-boundary timezone, the sampling granularity and the covered day range,
+// so a day without observations is never drawn as a zero.
+export type AnalyticsPeakOnlineMeta = {
+  timezone?: string;
+  granularitySeconds?: number;
+  sampled?: boolean;
+  totalDays?: number;
+  coveredDays?: number;
+  coveredFrom?: string;
+  coveredTo?: string;
+};
+
 export async function fetchAnalyticsOverview(params?: AnalyticsParams) {
   const response = await request<{
     metrics?: {
@@ -61,6 +74,10 @@ export async function fetchAnalyticsOverview(params?: AnalyticsParams) {
       retentionD1?: AnalyticsRetentionMetric;
       retentionD7?: AnalyticsRetentionMetric;
       retentionD30?: AnalyticsRetentionMetric;
+    };
+    peakOnline?: {
+      points?: Array<{ date?: string; value?: number }>;
+      meta?: AnalyticsPeakOnlineMeta;
     };
     trends?: {
       newUsers?: Array<{ date?: string; value?: number }>;
@@ -92,11 +109,17 @@ export async function fetchAnalyticsOverview(params?: AnalyticsParams) {
     },
     series: {
       newUsers: tuple(trends.newUsers),
-      peakOnline: tuple(trends.activeUsers),
+      // DATA-028: the real per-day peak of the online series. The old
+      // mapping of trends.activeUsers (daily active users) was a different
+      // metric wearing the peak-online label.
+      peakOnline: (response.peakOnline?.points || []).map(
+        (point) => [point.date || '', Number(point.value || 0)] as [string, number],
+      ),
       revenue: (trends.revenue || []).map(
         (item) => [item.date || '', Number(item.revenue ?? item.value ?? 0)] as [string, number],
       ),
     },
+    peakOnlineMeta: response.peakOnline?.meta ?? null,
   };
 }
 

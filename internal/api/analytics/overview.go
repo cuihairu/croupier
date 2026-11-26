@@ -34,6 +34,15 @@ var maxRealtimeBucketRows = 100000
 // feeds retention computation. It is a var so tests can lower it.
 var maxRetentionPairRows = 200000
 
+// peakOnlineBucketInterval is the sampling granularity of the per-day peak:
+// the same bucket shape as the realtime online series' default interval.
+// It is a var so tests can adjust it.
+var peakOnlineBucketInterval = time.Minute
+
+// maxPeakOnlineRows bounds the single window query feeding the daily peak.
+// It is a var so tests can lower it.
+var maxPeakOnlineRows = 100000
+
 func overview(ctx context.Context, svcCtx *svc.ServiceContext, req *OverviewRequest) (*OverviewResponse, error) {
 	if svcCtx.BehaviorModel == nil || svcCtx.PaymentsModel == nil || svcCtx.PlayerModel == nil {
 		return nil, errors.New("analytics models unavailable")
@@ -103,6 +112,13 @@ func overview(ctx context.Context, svcCtx *svc.ServiceContext, req *OverviewRequ
 		return nil, err
 	}
 
+	// DATA-028: per-day peak of the same online series the realtime screen
+	// plots, with sampling granularity and coverage disclosed.
+	peakOnline, err := dailyPeakOnline(ctx, svcCtx.BehaviorModel, gameID, env, start, end)
+	if err != nil {
+		return nil, err
+	}
+
 	trends := map[string]interface{}{
 		"activeUsers": summarizeBehaviorStats(activityStats, func(stat model.BehaviorDailyStat) int64 { return stat.ActiveUsers }),
 		"events":      summarizeBehaviorStats(activityStats, func(stat model.BehaviorDailyStat) int64 { return stat.Events }),
@@ -124,7 +140,8 @@ func overview(ctx context.Context, svcCtx *svc.ServiceContext, req *OverviewRequ
 			RetentionD7:  retentionD7,
 			RetentionD30: retentionD30,
 		},
-		Trends: trends,
+		Trends:     trends,
+		PeakOnline: peakOnline,
 	}, nil
 }
 
@@ -213,6 +230,103 @@ func shiftUTCDay(day string, days int) (time.Time, bool) {
 		return time.Time{}, false
 	}
 	return parsed.AddDate(0, 0, days), true
+}
+
+// dailyPeakOnline derives each day's peak online from the same bounded scan
+// as the realtime online series (DATA-028): rows are bucketed at
+// peakOnlineBucketInterval, each bucket dedupes its liveness users, and a
+// day's peak is the maximum bucket count observed on that day.
+func dailyPeakOnline(ctx context.Context, m *model.BehaviorModel, gameID, env string, start, end time.Time) (*PeakOnlineReport, error) {
+	rows, err := m.RealtimeBucketEvents(ctx, gameID, env, start, end, maxPeakOnlineRows+1)
+	if err != nil {
+		return nil, err
+	}
+	sampled := len(rows) > maxPeakOnlineRows
+	if sampled {
+		rows = rows[:maxPeakOnlineRows]
+	}
+	return peakOnlineFromRows(rows, start, end, sampled), nil
+}
+
+// peakOnlineFromRows buckets rows per interval in UTC and reduces each UTC
+// calendar day to its peak bucket. Days follow the same UTC day boundary the
+// rest of the relational overview trends use (DATE(occurred_at)) and the meta
+// declares it. A day counts as observed when ANY event row falls on it: a day
+// with rows but no liveness events has a real zero peak, while a day without
+// rows was never measured (缺测) — it is excluded from points and counted in
+// the meta, so absence is never presented as a zero.
+func peakOnlineFromRows(rows []model.RealtimeBucketRow, start, end time.Time, sampled bool) *PeakOnlineReport {
+	interval := peakOnlineBucketInterval
+	if interval <= 0 {
+		interval = time.Minute
+	}
+	if interval < time.Second {
+		interval = time.Second
+	}
+
+	firstDay := start.UTC().Truncate(24 * time.Hour)
+	type dayStat struct {
+		peak int
+	}
+	days := map[string]*dayStat{}
+	totalDays := 0
+	for day := firstDay; day.Before(end); day = day.Add(24 * time.Hour) {
+		days[day.Format("2006-01-02")] = &dayStat{}
+		totalDays++
+	}
+
+	bucketUsers := map[string]map[string]struct{}{}
+	observedDays := map[string]struct{}{}
+	for _, row := range rows {
+		ts := row.OccurredAt.UTC()
+		dayKey := ts.Truncate(24 * time.Hour).Format("2006-01-02")
+		if _, expected := days[dayKey]; !expected {
+			continue
+		}
+		observedDays[dayKey] = struct{}{}
+		if !isRealtimeLivenessEvent(row.EventType) {
+			continue
+		}
+		// The leading 10 chars of the RFC3339 bucket key are the UTC date.
+		bucketKey := ts.Truncate(interval).Format("2006-01-02T15:04:05Z")
+		if bucketUsers[bucketKey] == nil {
+			bucketUsers[bucketKey] = map[string]struct{}{}
+		}
+		bucketUsers[bucketKey][row.UserID] = struct{}{}
+	}
+	for bucketKey, users := range bucketUsers {
+		stat := days[bucketKey[:10]]
+		if n := len(users); n > stat.peak {
+			stat.peak = n
+		}
+	}
+
+	points := make([]PeakOnlinePoint, 0, len(observedDays))
+	var coveredFrom, coveredTo string
+	for day := firstDay; day.Before(end); day = day.Add(24 * time.Hour) {
+		key := day.Format("2006-01-02")
+		if _, ok := observedDays[key]; !ok {
+			continue
+		}
+		points = append(points, PeakOnlinePoint{Date: key, Value: days[key].peak})
+		if coveredFrom == "" {
+			coveredFrom = key
+		}
+		coveredTo = key
+	}
+
+	return &PeakOnlineReport{
+		Points: points,
+		Meta: PeakOnlineMeta{
+			Timezone:           "UTC",
+			GranularitySeconds: int(interval.Seconds()),
+			Sampled:            sampled,
+			TotalDays:          totalDays,
+			CoveredDays:        len(observedDays),
+			CoveredFrom:        coveredFrom,
+			CoveredTo:          coveredTo,
+		},
+	}
 }
 
 // realtime reports three deliberately distinct signals:

@@ -151,8 +151,38 @@ type RetentionMetric struct {
 }
 
 type OverviewResponse struct {
-	Metrics OverviewMetrics        `json:"metrics"`
-	Trends  map[string]interface{} `json:"trends"`
+	Metrics    OverviewMetrics        `json:"metrics"`
+	Trends     map[string]interface{} `json:"trends"`
+	PeakOnline *PeakOnlineReport      `json:"peakOnline,omitempty"`
+}
+
+// PeakOnlineReport is the per-day peak of the realtime online series
+// (DATA-028): for every observed day, the maximum count of distinct liveness
+// users in any bucket of that day, plus a meta object disclosing the sampling
+// granularity, the covered time range and the missing-day state, so a real
+// zero day (events but no liveness) stays distinguishable from a day that was
+// never observed.
+type PeakOnlineReport struct {
+	Points []PeakOnlinePoint `json:"points"`
+	Meta   PeakOnlineMeta    `json:"meta"`
+}
+
+type PeakOnlinePoint struct {
+	Date  string `json:"date"`
+	Value int    `json:"value"`
+}
+
+type PeakOnlineMeta struct {
+	// Timezone declares the day-boundary zone. The relational overview
+	// trends bucket days with DATE(occurred_at) in UTC, so the peak uses the
+	// same business day boundary and says so.
+	Timezone           string `json:"timezone"`
+	GranularitySeconds int    `json:"granularitySeconds"`
+	Sampled            bool   `json:"sampled"`
+	TotalDays          int    `json:"totalDays"`
+	CoveredDays        int    `json:"coveredDays"`
+	CoveredFrom        string `json:"coveredFrom,omitempty"`
+	CoveredTo          string `json:"coveredTo,omitempty"`
 }
 
 type RealtimeRequest struct {
