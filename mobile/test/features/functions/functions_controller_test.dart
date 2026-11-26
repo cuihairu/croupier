@@ -334,4 +334,179 @@ void main() {
     notifier.clearResult();
     expect(container.read(functionsControllerProvider).task, isNull);
   });
+
+  test('poll：旧任务终态晚到不覆盖当前任务（AUD-067）', () async {
+    await login();
+    final oldAck = Completer<void>();
+    var oldSeen = false;
+    var bDetailCalls = 0;
+    adapter.handler = (options, _) {
+      final path = options.uri.path;
+      if (path.endsWith('/invoke')) {
+        return jsonResponse(200, {
+          'taskId': path.contains('task-a') ? 'task-a' : 'task-b',
+        });
+      }
+      if (path == '/api/v1/tasks/task-a') {
+        oldSeen = true;
+        return oldAck.future.then(
+          (_) => jsonResponse(200, {
+            'id': 'task-a',
+            'status': 'success',
+            'progress': 100,
+          }),
+        );
+      }
+      if (path == '/api/v1/tasks/task-b') {
+        bDetailCalls++;
+        return jsonResponse(200, {
+          'id': 'task-b',
+          'status': 'running',
+          'progress': 10,
+        });
+      }
+      return jsonResponse(200, {'ok': true});
+    };
+    final notifier = container.read(functionsControllerProvider.notifier);
+
+    final invA = notifier.invoke(
+      functionId: 'task-a',
+      payload: const {},
+      mode: 'async',
+    ); // A 首拉在途（门控挂起）
+    while (!oldSeen) {
+      await Future<void>.delayed(const Duration(milliseconds: 1));
+    }
+
+    // 切到新任务 B：换代使 A 的在途轮询失效
+    await notifier.invoke(
+      functionId: 'task-b',
+      payload: const {},
+      mode: 'async',
+    );
+    var state = container.read(functionsControllerProvider);
+    expect(state.task?.id, 'task-b');
+    expect(state.taskRunning, isTrue);
+
+    oldAck.complete(); // 旧任务 A 的终态此刻迟到
+    await invA;
+    state = container.read(functionsControllerProvider);
+    expect(state.task?.id, 'task-b', reason: '旧任务终态不覆盖当前任务');
+    expect(state.taskRunning, isTrue, reason: '旧终态不停当前任务轮询');
+
+    // 当前任务轮询仍可用：手动刷新照常发请求
+    await notifier.refreshTask();
+    expect(bDetailCalls, greaterThanOrEqualTo(2));
+    notifier.clearResult();
+  });
+
+  test('poll：同一任务仅保留一次在途轮询（AUD-067）', () async {
+    await login();
+    final ack = Completer<void>();
+    var seen = false;
+    var detailCalls = 0;
+    adapter.handler = (options, _) {
+      final path = options.uri.path;
+      if (path.endsWith('/invoke')) {
+        return jsonResponse(200, {'taskId': 'task-x'});
+      }
+      if (path == '/api/v1/tasks/task-x') {
+        detailCalls++;
+        seen = true;
+        return ack.future.then(
+          (_) =>
+              jsonResponse(200, {'id': 'task-x', 'status': 'running'}),
+        );
+      }
+      return jsonResponse(200, {'ok': true});
+    };
+    final notifier = container.read(functionsControllerProvider.notifier);
+
+    final inv = notifier.invoke(
+      functionId: 'task-x',
+      payload: const {},
+      mode: 'async',
+    ); // 首拉在途（门控挂起）
+    while (!seen) {
+      await Future<void>.delayed(const Duration(milliseconds: 1));
+    }
+
+    // 在途期间多个 tick / 手动刷新：不叠加请求
+    await notifier.refreshTask();
+    await notifier.refreshTask();
+    expect(detailCalls, 1, reason: '在途轮询期间同代次不叠加请求');
+
+    ack.complete();
+    await inv;
+    expect(detailCalls, 1);
+
+    // 上一轮已返回：新轮询照常发出
+    await notifier.refreshTask();
+    expect(detailCalls, 2);
+    notifier.clearResult();
+  });
+
+  test('poll：切作用域清任务且旧任务终态不回灌（AUD-067）', () async {
+    await login();
+    final oldAck = Completer<void>();
+    var oldSeen = false;
+    adapter.handler = (options, _) {
+      final path = options.uri.path;
+      if (path == '/api/v1/profile/games') {
+        return jsonResponse(200, {
+          'games': [
+            {
+              'gameId': 'demo',
+              'gameName': '演示',
+              'envs': ['dev', 'prod'],
+            },
+            {
+              'gameId': 'beta',
+              'gameName': 'Beta',
+              'envs': ['prod'],
+            },
+          ],
+        });
+      }
+      if (path == '/api/v1/profile/scope') {
+        return jsonResponse(200, {'ok': true});
+      }
+      if (path.endsWith('/invoke')) {
+        return jsonResponse(200, {'taskId': 'task-a'});
+      }
+      if (path == '/api/v1/tasks/task-a') {
+        oldSeen = true;
+        return oldAck.future.then(
+          (_) => jsonResponse(200, {
+            'id': 'task-a',
+            'status': 'success',
+            'progress': 100,
+          }),
+        );
+      }
+      return jsonResponse(200, {'functions': <Object>[]});
+    };
+    final notifier = container.read(functionsControllerProvider.notifier);
+
+    final inv = notifier.invoke(
+      functionId: 'task-a',
+      payload: const {},
+      mode: 'async',
+    ); // 首拉在途（门控挂起）
+    while (!oldSeen) {
+      await Future<void>.delayed(const Duration(milliseconds: 1));
+    }
+    expect(container.read(functionsControllerProvider).task?.id, 'task-a');
+
+    // 切作用域：任务属旧作用域，联动失效（清任务 + 停定时器 + 换代）
+    await container
+        .read(scopeControllerProvider.notifier)
+        .select('beta', 'prod');
+    expect(container.read(functionsControllerProvider).task, isNull);
+
+    oldAck.complete(); // 旧任务终态此刻迟到
+    await inv;
+    expect(container.read(functionsControllerProvider).task, isNull,
+        reason: '旧任务终态不回灌');
+  });
 }

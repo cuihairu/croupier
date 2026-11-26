@@ -105,12 +105,20 @@ class FunctionsController extends Notifier<FunctionsState> {
   /// 均不被旧作用域请求污染；旧请求在途也不阻塞新请求。
   int _loadGen = 0;
 
+  /// 任务轮询代次（AUD-067）：新任务 / 清结果 / 作用域切换都会换代；
+  /// 在途轮询响应落地前核对代次，旧任务的终态不得覆盖当前任务或停掉
+  /// 新任务的定时器。同一代次同时只保留一次在途轮询。
+  int _taskGen = 0;
+  int _pollInFlightGen = -1;
+
   @override
   FunctionsState build() {
-    // scope 切换联动：descriptors 是 scoped 端点，切后清空旧目录并重查。
+    // scope 切换联动：descriptors 是 scoped 端点，切后清空旧目录并重查；
+    // 任务与轮询属旧作用域，一并失效（AUD-067）。
     ref.listen(scopeControllerProvider, (prev, next) {
       if (prev?.selected != next.selected && next.selected != null) {
         refresh(clearCatalog: true);
+        invalidateTask();
       }
     });
     ref.onDispose(() => _poll?.cancel());
@@ -199,7 +207,9 @@ class FunctionsController extends Notifier<FunctionsState> {
       );
       state = state.copyWith(submitting: false, invokeResult: result);
       if (result.isTask) {
-        // 异步任务：立即拉一次并启动 5s 轮询（页面可见时；见 page）。
+        // 异步任务：换代使旧任务的在途轮询失效（AUD-067），立即拉一次
+        // 并启动 5s 轮询（页面可见时；见 page）。
+        _taskGen++;
         state = state.copyWith(
           task: TaskStatus(id: result.taskId, status: 'running'),
         );
@@ -235,10 +245,19 @@ class FunctionsController extends Notifier<FunctionsState> {
       _poll = null;
       return;
     }
-    final service = await _invokeServiceAsync();
-    if (service == null) return;
+    // 同一代次仅保留一次在途轮询（AUD-067）：上一 tick 未返回时本 tick
+    // 跳过；代次已换代（新任务/清除）的旧在途轮询不阻塞新轮询。
+    final gen = _taskGen;
+    if (_pollInFlightGen == gen) return;
+    _pollInFlightGen = gen;
     try {
+      final service = await _invokeServiceAsync();
+      if (gen != _taskGen) return;
+      if (service == null) return;
       final task = await service.taskDetail(current.id);
+      // 迟到响应（任务已切换/清除/作用域已切）按代次丢弃：不覆盖当前
+      // 任务，也不停掉新任务的定时器。
+      if (gen != _taskGen) return;
       state = state.copyWith(task: task);
       if (task.isDone) {
         _poll?.cancel();
@@ -248,7 +267,17 @@ class FunctionsController extends Notifier<FunctionsState> {
       // 单次轮询失败不中断：下一 tick 重试（终态由用户手动刷新兜底）。
     } on StateError {
       // 同上。
+    } finally {
+      if (_pollInFlightGen == gen) _pollInFlightGen = -1;
     }
+  }
+
+  /// 清任务并使在途轮询响应失效（作用域切换 / 清结果共用，AUD-067）。
+  void invalidateTask() {
+    _taskGen++;
+    _poll?.cancel();
+    _poll = null;
+    state = state.copyWith(clearTask: true);
   }
 
   /// 取消异步任务（终态由后续轮询/刷新确认）。
@@ -270,8 +299,7 @@ class FunctionsController extends Notifier<FunctionsState> {
 
   /// 清空调用结果 / 任务（返回目录或再次调用前）。
   void clearResult() {
-    _poll?.cancel();
-    _poll = null;
-    state = state.copyWith(clearTask: true, clearInvokeResult: true);
+    invalidateTask();
+    state = state.copyWith(clearInvokeResult: true);
   }
 }
