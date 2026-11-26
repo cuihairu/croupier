@@ -2255,9 +2255,9 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 依赖：AUD-062。交付与验收：同一会话的切换有最终写入顺序，旧请求结束时再次校验会话与切换代次。验证切换响应乱序、退出后迟到、切换服务器期间保存，界面、服务端选择与本地存储最终一致。证据：`mobile/lib/features/scope/scope_controller.dart:113` 用请求开始前的完整会话快照写回。
   - 状态／条件：DONE · LOCAL VERIFIED（2026-11-27，commit 7844d1e52）。`select()` 引入切换代次 `_selectGen`（入口换代）：PUT 失败分支与成功写回前均核对代次（乱序旧切换的迟到完成不覆盖新切换的最终写入顺序）；写回前 fresh 重读会话并核对身份（同 serverUrl+token）——登出清空（token 空）、换服新会话（地址/token 变）一律丢弃写回，不复活会话、不覆盖新会话字段；写回以 freshly loaded 会话为基底（copyWith 只覆写 gameId/env，保留切换期间并发变更）；界面 selected 同口径（跨会话/被取代的完成不更新预选）。验证：`scope_controller_test.dart` 新增三用例（切换响应乱序旧迟到不覆盖新切换 / 登出清会话后迟到完成不复活会话 / 换服新会话期间迟到完成不覆盖新会话），既有 8 用例不回归；mutation 自测（还原快照写回→恰好三条新用例红，复原全绿 11/11）；全量 `TZ=UTC flutter test` 256/256 绿，pubspec.lock 未动。
 
-- [ ] **AUD-067 · P2 · 修复 · 移动端异步任务轮询隔离任务代次**
+- [x] **AUD-067 · P2 · 修复 · 移动端异步任务轮询隔离任务代次**
   - 依赖：AUD-062。交付与验收：同一任务仅保留一次在途轮询，任务切换或页面离开后忽略失效的响应。覆盖旧任务终态晚到、同任务多个 tick 和切作用域，防止旧结果覆盖当前任务或停止其定时器。证据：`mobile/lib/features/functions/functions_controller.dart:210,214` 周期轮询可重叠，完成后直接更新任务并可能停止共享定时器。
-  - 状态／条件：未开始。
+  - 状态／条件：DONE · LOCAL VERIFIED（2026-11-27，commit b66f11dc3）。任务轮询引入代次 `_taskGen`（invoke 建新任务 / clearResult / 作用域切换 `invalidateTask` 三处换代）：`_pollTaskOnce` 捕获代次，`taskDetail` 响应落地前核对——旧任务终态晚到不覆盖当前任务、不停新任务定时器，切作用域后旧任务终态不回灌；同一代次用 `_pollInFlightGen` 哨兵只保留一次在途轮询（tick 重入/手动刷新在途期间跳过），被换代旧轮询不阻塞新轮询（finally 只清自己代次的哨兵）；scope 联动监听器追加 `invalidateTask()`（清任务+停定时器+换代）。验证：`functions_controller_test.dart` 新增三用例（旧任务终态晚到不覆盖当前任务且其轮询仍可用 / 同一任务在途期间多 tick 不叠加请求、返回后新请求照发 / 切作用域清任务且旧任务终态不回灌），既有 10 用例不回归；mutation 自测（摘除全部代次核对+在途哨兵+联动失效→恰好三条新用例红，复原全绿 13/13）；全量 `TZ=UTC flutter test` 259/259 绿，pubspec.lock 未动。
 
 ### 六语言 SDK 与相邻运行链复审（2026-11-21）
 
