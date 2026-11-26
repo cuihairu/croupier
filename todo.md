@@ -881,9 +881,10 @@
   - 依赖：DATA-004, DATA-005。交付与验收：按注册 cohort 和币种核对净收入、人数、观察期和退款修正；跨期与欠成熟样本状态清晰。预测型分析沿既有外部分析路线。
   - 状态／条件：未开始。
 
-- [ ] **DATA-037 · P2 · 实现 · 会话时长分布**
+- [x] **DATA-037 · P2 · 实现 · 会话时长分布**（879059d2e）
   - 依赖：DATA-025。交付与验收：仅对具备会话标识和明确结束或超时策略的输入产出时长分布。固定样本覆盖掉线、重复心跳及跨日会话。
-  - 状态／条件：未开始。
+  - 状态／条件：LOCAL VERIFIED — 2026-11-27。`GET /api/v1/analytics/warehouse/sessions`（`internal/api/analytics/warehouse_sessions.go` + handler + 路由 `internal/handler/routes_alert.go`）只读 ClickHouse 管道 A 的 `session_end`/`session.end` 事件：输入契约=非空 session_id + 数值 duration_ms（`JSONHas` 预过滤，字符串/NaN/Inf/负值入 `invalidDurations`）；同会话最新结束事件为准（重复结束收敛、`duplicateEnds` 披露），时长绝不插补，有开始无有效结束披露为 `unresolved`，重复心跳开始不虚增；会话按结束时间归属，跨日恰好计一次；11 个固定半开桶 + 原因计数（按量排序）+ 最近秩 avg/p50/p95；扫描有界 `maxWarehouseSessionRows=50000`，触顶标记 `sampled`。固定样本覆盖验收三点：掉线（cause_end=disconnect）、重复心跳（同会话 3 次开始）、跨日（前一日开始窗口内结束）。测试：`warehouse_sessions_test.go` 8 例（routingConn 双查询 fake）+ 包内全量绿；web `fetchWarehouseSessions` + 类型 + analytics.test.ts 通过；e2e `scripts/e2e/analytics.sh` 植入两种拼写（下划线 now + 点号昨日跨日）结束样本，真实引擎断言 22/22（EXIT=0）。变异证明：M1 破坏 latest-end-wins→红、M2 接受非法时长→红、M3 去 JSONHas 谓词→红，还原后 0 标记全绿。门禁：go build/vet 过、`go test ./internal/...` 全绿（exit 0）、web tsc 0 错、jest 全量 5781 过/4 套件负载 flake（load 22+ 与 Go 全测并行）隔离复跑 4/4 套件 89/89 绿、dashboard_vnext_guard PASSED、docs build 过（en/zh analytics index 同步）。文档：docs/analytics/index.md + docs/zh/analytics/index.md DATA-037 条目（c01ae9535）。边界：关系型管道 B 不喂本端点（来源统一归 DATA-002）；心跳不延长时长；查询时点未结束的会话保持 unresolved；服务端点未在 e2e 内起 HTTP 栈，HTTP 面由 handler 级单测覆盖。
+  - 完成证据：`internal/api/analytics/warehouse_sessions.go`、`internal/api/analytics/warehouse_sessions_test.go`、`scripts/e2e/analytics.sh` 第 7c 节、`/tmp/e2e-analytics-data037.log`（22 passed, 0 failed）、`/tmp/go-full-data037.log`（GO-EXIT=0）、`/tmp/jest-retry-data037.log`（89/89）。
 
 - [ ] **DATA-038 · P2 · 实现 · 任务完成漏斗的首个可核对样本**
   - 依赖：DATA-002, DATA-024。交付与验收：以一类任务的领取、进度和完成事件定义步骤与窗口，按样本核对转化并记录事件缺失。复用现有行为漏斗。
