@@ -14,6 +14,7 @@ export interface RealtimeData {
   active1M?: number;
   active5M?: number;
   active15M?: number;
+  eventsPerMinute?: number;
   qps?: number;
   avgLatency?: number;
   errorRate?: number;
@@ -29,10 +30,17 @@ export interface RealtimeData {
   realtimeMetrics?: {
     onlineUsers?: number;
     activeSessions?: number;
+    eventsPerMinute?: number;
     qps?: number;
     avgLatency?: number;
     errorRate?: number;
     topEvents?: { event: string; count: number }[];
+  };
+  source?: {
+    onlineUsers?: string;
+    activeSessions?: string;
+    eventsPerMinute?: string;
+    windowSeconds?: number;
   };
 }
 

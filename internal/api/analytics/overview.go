@@ -104,6 +104,18 @@ func overview(ctx context.Context, svcCtx *svc.ServiceContext, req *OverviewRequ
 	}, nil
 }
 
+// realtime reports three deliberately distinct signals:
+//
+//   - onlineUsers: count of DISTINCT users seen in heartbeat/session_start
+//     events within the last heartbeat window (DATA-025). A user with many
+//     heartbeats is counted once; a user whose heartbeats stopped is not
+//     counted once the staleness window has passed. This is a liveness proxy
+//     derived from the same events that feed the worker's minute_online HLL,
+//     not a socket-level concurrent connection count — no player-session table
+//     exists yet. The source and its limits are disclosed in the response.
+//   - activeSessions: count of session_start events in the window (one start
+//     = one declared session), NOT the old raw event count.
+//   - eventsPerMinute: event throughput, previously mislabelled as sessions.
 func realtime(ctx context.Context, svcCtx *svc.ServiceContext, req *RealtimeRequest) (*RealtimeResponse, error) {
 	if svcCtx.BehaviorModel == nil {
 		return nil, errors.New("behavior analytics unavailable")
@@ -119,7 +131,15 @@ func realtime(ctx context.Context, svcCtx *svc.ServiceContext, req *RealtimeRequ
 	end := time.Now().UTC()
 	start := end.Add(-defaultRealtimeWindow)
 
-	activeUsers, err := svcCtx.BehaviorModel.CountDistinctUsers(ctx, gameID, env, start, end)
+	// Only heartbeat/session_start events mark a user as currently online.
+	onlineUsers, err := svcCtx.BehaviorModel.CountDistinctUsersByEventTypes(ctx, gameID, env, start, end, []string{"heartbeat", "session_start", "session.start"})
+	if err != nil {
+		return nil, err
+	}
+	// A session is a session_start event, not an arbitrary business event.
+	// Count starts separately so repeated events inside one session cannot
+	// inflate the session count.
+	activeSessions, err := svcCtx.BehaviorModel.CountEventsAnyType(ctx, gameID, env, start, end, []string{"session_start", "session.start"})
 	if err != nil {
 		return nil, err
 	}
@@ -137,12 +157,19 @@ func realtime(ctx context.Context, svcCtx *svc.ServiceContext, req *RealtimeRequ
 
 	return &RealtimeResponse{
 		RealtimeMetrics: RealtimeMetrics{
-			OnlineUsers:    int(activeUsers),
-			ActiveSessions: int(eventsCount),
-			QPS:            qps,
-			AvgLatency:     avgLatency,
-			ErrorRate:      errorRate,
-			TopEvents:      mapTopEvents(eventTypeCounts),
+			OnlineUsers:     int(onlineUsers),
+			ActiveSessions:  int(activeSessions),
+			EventsPerMinute: safeDivide(float64(eventsCount), defaultRealtimeWindow.Minutes()),
+			QPS:             qps,
+			AvgLatency:      avgLatency,
+			ErrorRate:       errorRate,
+			TopEvents:       mapTopEvents(eventTypeCounts),
+		},
+		Source: RealtimeSource{
+			OnlineUsers:     "heartbeat/session_start distinct users (liveness proxy, not concurrent sockets)",
+			ActiveSessions:  "session_start events in window",
+			EventsPerMinute: "all behavior events in window",
+			WindowSeconds:   int(defaultRealtimeWindow.Seconds()),
 		},
 		Timestamp: helper.FormatTimestamp(end),
 	}, nil
@@ -182,7 +209,10 @@ func realtimeSeries(ctx context.Context, svcCtx *svc.ServiceContext, req *Realti
 		if err != nil {
 			return nil, err
 		}
-		usersCount, err := svcCtx.BehaviorModel.CountDistinctUsers(ctx, gameID, env, cursor, bucketEnd)
+		// DATA-025: the "online" series counts only liveness events, not
+		// arbitrary user activity. Multiple heartbeats by one user in a bucket
+		// count once; ordinary business events do not mark a user online.
+		usersCount, err := svcCtx.BehaviorModel.CountDistinctUsersByEventTypes(ctx, gameID, env, cursor, bucketEnd, []string{"heartbeat", "session_start", "session.start"})
 		if err != nil {
 			return nil, err
 		}

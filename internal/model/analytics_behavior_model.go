@@ -2,6 +2,7 @@ package model
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/cuihairu/croupier/internal/db/dbctx"
@@ -154,6 +155,62 @@ func (m *BehaviorModel) EventTypeCounts(ctx context.Context, gameID, env string,
 		return nil, err
 	}
 	return rows, nil
+}
+
+// eventTypeAliases expands each canonical event type name with its dotted
+// OTel spelling ("session_start" -> "session.start") so both name layers are
+// counted in one query.
+func eventTypeAliases(eventTypes []string) []string {
+	aliases := make([]string, 0, len(eventTypes)*2)
+	for _, raw := range eventTypes {
+		name := strings.ToLower(strings.TrimSpace(raw))
+		if name == "" {
+			continue
+		}
+		aliases = append(aliases, name)
+		if dotted := strings.ReplaceAll(name, "_", "."); dotted != name {
+			aliases = append(aliases, dotted)
+		}
+	}
+	return aliases
+}
+
+// CountEventsByType returns the number of matching events of the given types
+// in the window. Names match case-insensitively and include both canonical
+// underscore and dotted OTel spellings.
+func (m *BehaviorModel) CountEventsByType(ctx context.Context, gameID, env string, start, end time.Time, eventTypes ...string) (int64, error) {
+	query := m.scopedEvents(ctx, gameID, env, start, end)
+	if aliases := eventTypeAliases(eventTypes); len(aliases) > 0 {
+		query = query.Where("LOWER(event_type) IN ?", aliases)
+	}
+	var count int64
+	if err := query.Count(&count).Error; err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+// CountDistinctUsersByEventTypes counts distinct users that emitted any of
+// the given event types in the window. Multiple events by one user (for
+// example repeated heartbeats) contribute exactly one to the result.
+func (m *BehaviorModel) CountDistinctUsersByEventTypes(ctx context.Context, gameID, env string, start, end time.Time, eventTypes []string) (int64, error) {
+	query := m.scopedEvents(ctx, gameID, env, start, end)
+	if aliases := eventTypeAliases(eventTypes); len(aliases) > 0 {
+		query = query.Where("LOWER(event_type) IN ?", aliases)
+	} else {
+		// An empty type list must match nothing, not every event.
+		query = query.Where("1 = 0")
+	}
+	var count int64
+	if err := query.Distinct("user_id").Count(&count).Error; err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+// CountEventsAnyType is CountEventsByType with an explicit multi-type name.
+func (m *BehaviorModel) CountEventsAnyType(ctx context.Context, gameID, env string, start, end time.Time, eventTypes []string) (int64, error) {
+	return m.CountEventsByType(ctx, gameID, env, start, end, eventTypes...)
 }
 
 // DailyActivity returns per-day active users and event counts between the provided range.

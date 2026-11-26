@@ -42,6 +42,7 @@ export function useRealtimeStream() {
       active1M: payload?.active1M ?? metrics.activeSessions ?? 0,
       active5M: payload?.active5M ?? metrics.activeSessions ?? 0,
       active15M: payload?.active15M ?? metrics.activeSessions ?? 0,
+      eventsPerMinute: metrics.eventsPerMinute ?? 0,
       qps: payload?.qps ?? metrics.qps ?? 0,
       avgLatency: payload?.avgLatency ?? metrics.avgLatency ?? 0,
       errorRate: payload?.errorRate ?? metrics.errorRate ?? 0,

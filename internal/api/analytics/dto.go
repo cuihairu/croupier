@@ -140,16 +140,28 @@ type RealtimeRequest struct {
 }
 
 type RealtimeMetrics struct {
-	OnlineUsers    int         `json:"onlineUsers"`
-	ActiveSessions int         `json:"activeSessions"`
-	QPS            float64     `json:"qps"`
-	AvgLatency     float64     `json:"avgLatency"`
-	ErrorRate      float64     `json:"errorRate"`
-	TopEvents      interface{} `json:"topEvents"`
+	OnlineUsers     int         `json:"onlineUsers"`
+	ActiveSessions  int         `json:"activeSessions"`
+	EventsPerMinute float64     `json:"eventsPerMinute"`
+	QPS             float64     `json:"qps"`
+	AvgLatency      float64     `json:"avgLatency"`
+	ErrorRate       float64     `json:"errorRate"`
+	TopEvents       interface{} `json:"topEvents"`
+}
+
+// RealtimeSource discloses where each realtime figure comes from, so consumers
+// know onlineUsers is a heartbeat-based liveness proxy rather than a
+// concurrent socket count (no player-session table exists yet).
+type RealtimeSource struct {
+	OnlineUsers     string `json:"onlineUsers"`
+	ActiveSessions  string `json:"activeSessions"`
+	EventsPerMinute string `json:"eventsPerMinute"`
+	WindowSeconds   int    `json:"windowSeconds"`
 }
 
 type RealtimeResponse struct {
 	RealtimeMetrics RealtimeMetrics `json:"realtimeMetrics"`
+	Source          RealtimeSource  `json:"source"`
 	Timestamp       string          `json:"timestamp"`
 }
 

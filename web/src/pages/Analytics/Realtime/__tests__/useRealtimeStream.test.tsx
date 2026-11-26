@@ -144,6 +144,7 @@ describe('useRealtimeStream 补充分支', () => {
         realtimeMetrics: {
           onlineUsers: 7,
           activeSessions: 3,
+          eventsPerMinute: 11,
           qps: 1.5,
           avgLatency: 20,
           errorRate: 0.1,
@@ -157,6 +158,7 @@ describe('useRealtimeStream 补充分支', () => {
     expect(result.current.data.active1M).toBe(3);
     expect(result.current.data.active5M).toBe(3);
     expect(result.current.data.active15M).toBe(3);
+    expect(result.current.data.eventsPerMinute).toBe(11);
     expect(result.current.data.qps).toBe(1.5);
     expect(result.current.data.avgLatency).toBe(20);
     expect(result.current.data.errorRate).toBe(0.1);
@@ -177,6 +179,7 @@ describe('useRealtimeStream 补充分支', () => {
       active1M: 0,
       active5M: 0,
       active15M: 0,
+      eventsPerMinute: 0,
       qps: 0,
       avgLatency: 0,
       errorRate: 0,

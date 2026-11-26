@@ -295,10 +295,12 @@ func runRealtimeSSE(t *testing.T, svcCtx *svc.ServiceContext) []string {
 func TestRealtimeHandlerStreamsSuccessEventsThenStopsOnDisconnect(t *testing.T) {
 	db := setupServiceTestDB(t)
 	svcCtx := setupFullServiceTestContext(t, db)
+	// DATA-025: a heartbeat is the liveness signal; login alone no longer
+	// counts as an online user.
 	event := &model.BehaviorEvent{
 		GameID:     "demo",
 		Env:        "prod",
-		EventType:  "login",
+		EventType:  "heartbeat",
 		UserID:     "u-1",
 		OccurredAt: time.Now().UTC(),
 	}
