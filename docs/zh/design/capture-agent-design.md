@@ -287,8 +287,13 @@ handleAlertEvent`（`SetAlertModel`/`SetOutletManager` 注入，cmd/server/root.
    `alert.inbound` 同形态（scope 在 Details）。
 4. **持久不背压**：命中先原子写入本地 alert spool（幂等键=
    `agent|rule|gtid|table|key|event_ts`，容量 4096），再尝试进入内存快
-   信道；队列满不丢弃，由 spool 重放循环按序上报。仅磁盘/容量不可持久化
-   或持久化后发送重试耗尽才计 `AlertDropped`。ACK 必须 `err=nil` 且
+   信道；队列满不丢弃，由 spool 重放循环按序上报。磁盘/容量连 spool 也写
+   不进时，事件上下文的命中**不再丢弃**：路由失败自 `consume` 上抛，源
+   checkpoint 不前移，重开后源重投事件——闸层重评、命中重生成、持久化
+   重试（AUD-059；装配 event journal 时事件已先落 journal，`Append` 幂等
+   去重重放安全）。每次此类失败计入 `Stats.AlertPersistFailed`；
+   `AlertDropped` 只留给真实丢失（发送重试耗尽、无源事件可重投的销账上
+   下文命中）。ACK 必须 `err=nil` 且
    `accepted=true`（duplicate ACK 也须 accepted）；ACK 后删除记录。发送后
    未收到有效 ACK、停机或重启时记录保留，重启后按序重放，服务端用同一幂
    等键折叠重复业务告警。checkpoint 只在事件消费确认后推进；告警 spool
@@ -644,6 +649,6 @@ runner 消费面整体切换到 `connector.SourceConnector` /
 - binlog/WAL 保留期短于 capture-agent 停机时长时位点失效，从可得起点重扫（对账闸窗口兜底误报）；监控位点滞后并告警。
 - 闸层评估为尽力而为（agent 侧内存态）：agent 重启丢失滑窗状态，血缘/对账不受影响（纯逐事件）。
 - 前像依赖 `binlog_row_image=FULL` / `REPLICA IDENTITY FULL`，未满足时 update 前像为空，对账/突变按后像降级。
-- 告警上报仍有边界：队列满立即丢，已入队发送失败最多重试 3 次；重试耗尽、停机中断或 agent 重启都会丢 alerts 记录。命中真相在 agent `slog warn` 日志（`capture gate hit`），可对账核对，丢弃计数见 `Stats.AlertDropped`；跨重启持久队列与 ACK 后清理待实现。
+- 告警上报仍有边界：已入队发送失败最多重试 3 次；重试耗尽、停机中断会丢从未持久化的在途记录（无 spool 时队列满不再丢弃，改为暂缓 checkpoint 等源重投，AUD-059）。命中真相在 agent `slog warn` 日志（`capture gate hit`），可对账核对，真实丢弃计数见 `Stats.AlertDropped`、保留重试的持久化失败计数见 `Stats.AlertPersistFailed`；跨重启持久队列与 ACK 后清理待实现。
 - 告警上报对旧 server 仍会降级：server 不认识 msgID → 已入队报告最多重试 3 次后丢弃（混版部署期无上报，仅本地日志）。
 - C1 行像为位置数组 JSON（binlog ROW 事件裸形态，无列名映射）——闸层血缘/对账可按位置对齐，但面板摘要可读性受限；列名映射（information_schema 摄取）随 C2。

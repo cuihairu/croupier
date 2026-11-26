@@ -27,6 +27,7 @@ type stubSource struct {
 	block    bool                    // Poll 返回永不关闭的通道（模拟常驻流）
 	events   []connector.ChangeEvent // 非空时 Poll 交付这批事件后关流
 	ackErr   error                   // AckCheckpoint 注入失败
+	ackCnt   int                     // AckCheckpoint 调用次数（AUD-059 断言检查点是否前移）
 	closeCnt int
 }
 
@@ -62,7 +63,10 @@ func (s *stubSource) Poll(context.Context, connector.PollRequest) (<-chan connec
 
 func (s *stubSource) Checkpoint(context.Context) (connector.Position, error) { return s.cp, s.cpErr }
 
-func (s *stubSource) AckCheckpoint(context.Context, connector.Position) error { return s.ackErr }
+func (s *stubSource) AckCheckpoint(context.Context, connector.Position) error {
+	s.ackCnt++
+	return s.ackErr
+}
 
 func (s *stubSource) Close(context.Context) error { s.closeCnt++; return nil }
 

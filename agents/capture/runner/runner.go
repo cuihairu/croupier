@@ -57,7 +57,9 @@ var errGatesConnNotReady = errors.New("control conn not ready")
 
 // hitQueueSize 告警上报缓冲队列容量；hitSendTimeout 单次上报超时；
 // hitMaxAttempts 单条命中的最大发送次数；alertSpoolLimit 持久溢出队列
-// 容量。入队保持非阻塞，绝不背压消费循环；队列满时命中先落 spool。
+// 容量。入队保持非阻塞；队列满时命中先落 spool。spool 也写不进（磁盘满/
+// 容量满）时事件上下文的命中不再静默丢弃：consume 上抛路由失败，检查点
+// 不前移，源重投事件后闸层重评、命中重试（AUD-059 保留重试策略）。
 const (
 	hitQueueSize    = 512
 	hitSendTimeout  = 5 * time.Second
@@ -74,19 +76,20 @@ const captureReadinessInterval = 10 * time.Second
 
 // Stats 消费统计（原子计数，C1 仅日志暴露；C2 随上报捎带）。
 type Stats struct {
-	Total             int64
-	Insert            int64
-	Update            int64
-	Delete            int64
-	Skipped           int64 // 白名单外丢弃
-	FilteredNoMatch   int64 // 事件粗过滤丢弃：未列入操作白名单（过滤策略简档 §8 events_filtered_total 分类子集）
-	FilteredError     int64 // 事件粗过滤丢弃：操作形态不可评估（非法操作）
-	Evaluated         int64 // 进入闸层评估的事件数（粗过滤之后；§8 events_evaluated_total）
-	PolicyApplyErrors int64 // 策略应用失败次数（面板下发解析/校验失败 keep last-good；§8 policy_apply_errors_total）
-	RuleEvalErrors    int64 // 规则执行错误次数（闸层检测失败保留事件只计数，sweep 聚合；§8 rule_evaluation_errors_total）
-	GateHits          int64 // 闸规则命中累计（reconcile 起步，C2 批接入）
-	AlertDropped      int64 // 告警上报丢弃累计（队列满/断连/发送失败）
-	LastEventUnixMs   int64
+	Total              int64
+	Insert             int64
+	Update             int64
+	Delete             int64
+	Skipped            int64 // 白名单外丢弃
+	FilteredNoMatch    int64 // 事件粗过滤丢弃：未列入操作白名单（过滤策略简档 §8 events_filtered_total 分类子集）
+	FilteredError      int64 // 事件粗过滤丢弃：操作形态不可评估（非法操作）
+	Evaluated          int64 // 进入闸层评估的事件数（粗过滤之后；§8 events_evaluated_total）
+	PolicyApplyErrors  int64 // 策略应用失败次数（面板下发解析/校验失败 keep last-good；§8 policy_apply_errors_total）
+	RuleEvalErrors     int64 // 规则执行错误次数（闸层检测失败保留事件只计数，sweep 聚合；§8 rule_evaluation_errors_total）
+	GateHits           int64 // 闸规则命中累计（reconcile 起步，C2 批接入）
+	AlertDropped       int64 // 告警上报丢弃累计（断连/发送重试耗尽；销账命中路由失败）
+	AlertPersistFailed int64 // 事件上下文命中持久化失败累计（AUD-059：保留重试，检查点暂缓）
+	LastEventUnixMs    int64
 }
 
 // gateSet 一份自洽的闸层快照（事件粗过滤 + 三闸实例或 nil）。热更经
@@ -127,7 +130,8 @@ type Runner struct {
 	sendAlert func(ctx context.Context, rep *opsv1.CaptureRuleHitReport) (*opsv1.CaptureRuleHitAck, error)
 	// fetchConfig 拉取 seam（测试注入；生产经 conn.PullCaptureGates）。
 	fetchConfig func(ctx context.Context) (*configsync.Versioned[[]byte], error)
-	// hitCh 命中→上报异步队列（容量 hitQueueSize，满即丢）。
+	// hitCh 命中→上报异步队列（容量 hitQueueSize；满=事件上下文命中经
+	// consume 上抛路由失败暂缓检查点，销账命中计丢弃）。
 	hitCh chan gate.Hit
 	// hitRetryInterval 发送失败重试间隔；New 后由测试注入快档。
 	hitRetryInterval time.Duration
@@ -330,19 +334,20 @@ func (r *Runner) newGatesPuller() *configsync.Puller[[]byte] {
 // Stats 返回消费统计快照。
 func (r *Runner) Stats() Stats {
 	return Stats{
-		Total:             atomic.LoadInt64(&r.stats.Total),
-		Insert:            atomic.LoadInt64(&r.stats.Insert),
-		Update:            atomic.LoadInt64(&r.stats.Update),
-		Delete:            atomic.LoadInt64(&r.stats.Delete),
-		Skipped:           atomic.LoadInt64(&r.stats.Skipped),
-		FilteredNoMatch:   atomic.LoadInt64(&r.stats.FilteredNoMatch),
-		FilteredError:     atomic.LoadInt64(&r.stats.FilteredError),
-		Evaluated:         atomic.LoadInt64(&r.stats.Evaluated),
-		PolicyApplyErrors: atomic.LoadInt64(&r.stats.PolicyApplyErrors),
-		RuleEvalErrors:    atomic.LoadInt64(&r.stats.RuleEvalErrors),
-		GateHits:          atomic.LoadInt64(&r.stats.GateHits),
-		AlertDropped:      atomic.LoadInt64(&r.stats.AlertDropped),
-		LastEventUnixMs:   atomic.LoadInt64(&r.stats.LastEventUnixMs),
+		Total:              atomic.LoadInt64(&r.stats.Total),
+		Insert:             atomic.LoadInt64(&r.stats.Insert),
+		Update:             atomic.LoadInt64(&r.stats.Update),
+		Delete:             atomic.LoadInt64(&r.stats.Delete),
+		Skipped:            atomic.LoadInt64(&r.stats.Skipped),
+		FilteredNoMatch:    atomic.LoadInt64(&r.stats.FilteredNoMatch),
+		FilteredError:      atomic.LoadInt64(&r.stats.FilteredError),
+		Evaluated:          atomic.LoadInt64(&r.stats.Evaluated),
+		PolicyApplyErrors:  atomic.LoadInt64(&r.stats.PolicyApplyErrors),
+		RuleEvalErrors:     atomic.LoadInt64(&r.stats.RuleEvalErrors),
+		GateHits:           atomic.LoadInt64(&r.stats.GateHits),
+		AlertDropped:       atomic.LoadInt64(&r.stats.AlertDropped),
+		AlertPersistFailed: atomic.LoadInt64(&r.stats.AlertPersistFailed),
+		LastEventUnixMs:    atomic.LoadInt64(&r.stats.LastEventUnixMs),
 	}
 }
 
@@ -509,7 +514,9 @@ func (r *Runner) loadPosition() (connector.Position, error) {
 
 // consume 计数 + 闸层评估（命中落日志）。行像已过源侧白名单过滤（双保险），
 // 契约事件自带位置下标行像（ColumnsMapped=false）——闸层取数面与数据源无关。
-func (r *Runner) consume(ev connector.ChangeEvent) {
+// 命中路由失败（AUD-059）以错误上抛：consumeDurable 不前移检查点，源重投
+// 后本事件闸层重评、命中重生成重试。
+func (r *Runner) consume(ev connector.ChangeEvent) error {
 	now := time.Now().UnixMilli()
 	atomic.StoreInt64(&r.stats.LastEventUnixMs, now)
 	atomic.AddInt64(&r.stats.Total, 1)
@@ -528,7 +535,7 @@ func (r *Runner) consume(ev connector.ChangeEvent) {
 		"table", ev.Table, "op", ev.Operation, "gtid", ev.Position.Value)
 	gs := r.gates.Load()
 	if gs == nil {
-		return
+		return nil
 	}
 	// 事件粗过滤（EventFilterPolicy v1）：未列入白名单的合法操作在进闸前
 	// 丢弃（FilteredNoMatch），形态不可评估的非法操作计 FilteredError——
@@ -537,51 +544,66 @@ func (r *Runner) consume(ev connector.ChangeEvent) {
 		switch gs.event.Evaluate(string(ev.Operation)) {
 		case filter.ResultNoMatch:
 			atomic.AddInt64(&r.stats.FilteredNoMatch, 1)
-			return
+			return nil
 		case filter.ResultError:
 			atomic.AddInt64(&r.stats.FilteredError, 1)
-			return
+			return nil
 		}
 	}
 	if gs.reconcile == nil && gs.cep == nil && gs.lineage == nil {
-		return
+		return nil
 	}
 	// 进入闸层评估（过滤策略简档 §8 events_evaluated_total）：事件粗过滤
 	// 之后、三闸之前；无任何闸实例的直通不计。
 	atomic.AddInt64(&r.stats.Evaluated, 1)
+	var routeErr error
 	if gs.reconcile != nil {
-		r.recordHits(gs.reconcile.Evaluate(&ev))
+		if err := r.recordHits(gs.reconcile.Evaluate(&ev), true); err != nil && routeErr == nil {
+			routeErr = err
+		}
 	}
 	if gs.cep != nil {
-		r.recordHits(gs.cep.Evaluate(&ev))
+		if err := r.recordHits(gs.cep.Evaluate(&ev), true); err != nil && routeErr == nil {
+			routeErr = err
+		}
 	}
 	if gs.lineage != nil {
-		r.recordHits(gs.lineage.Evaluate(&ev))
+		if err := r.recordHits(gs.lineage.Evaluate(&ev), true); err != nil && routeErr == nil {
+			routeErr = err
+		}
 	}
+	return routeErr
 }
 
 // consumeDurable applies a delivered event and only then advances the
-// connector checkpoint; a failed save cannot make an event invisible.
+// connector checkpoint; a failed save cannot make an event invisible. Hit
+// routing failures likewise hold the checkpoint (AUD-059): the source
+// redelivers after reopen, gates re-evaluate, and the hit retries — with
+// the event journal the entry is already durably appended and Append is
+// idempotent on replay.
 func (r *Runner) consumeDurable(ctx context.Context, ev connector.ChangeEvent, cn connector.SourceConnector) error {
 	if r.eventJournal != nil {
 		_, err := cdjournal.CaptureEvent(ctx, cn, r.eventJournal, r.journalFilter, ev, func(event connector.ChangeEvent) error {
-			r.consume(event)
-			return nil
+			return r.consume(event)
 		})
 		return err
 	}
-	r.consume(ev)
+	if err := r.consume(ev); err != nil {
+		return err
+	}
 	return cn.AckCheckpoint(ctx, ev.Position)
 }
 
-// sweepGates 周期销账/清桶（位点 tick 同频；无闸直通）。
+// sweepGates 周期销账/清桶（位点 tick 同频；无闸直通）。销账命中无源事件
+// 可重投，路由失败按丢弃计（AlertDropped），不阻塞 sweep（AUD-059 只对
+// 事件上下文的命中暂缓检查点）。
 func (r *Runner) sweepGates(nowMs int64) {
 	gs := r.gates.Load()
 	if gs == nil {
 		return
 	}
 	if gs.reconcile != nil {
-		r.recordHits(gs.reconcile.Sweep(nowMs))
+		_ = r.recordHits(gs.reconcile.Sweep(nowMs), false)
 	}
 	if gs.cep != nil {
 		gs.cep.Sweep(nowMs)
@@ -597,9 +619,13 @@ func (r *Runner) sweepGates(nowMs int64) {
 	}
 }
 
-// recordHits 命中出口：日志 + GateHits 计数。队列满时把命中写入持久
-// spool，只有持久化也失败才计丢弃。
-func (r *Runner) recordHits(hits []gate.Hit) {
+// recordHits 命中出口：日志 + GateHits 计数 + 路由。队列满时把命中写入
+// 持久 spool。replayable（事件上下文）命中持久化也失败时不丢弃：计
+// AlertPersistFailed 并返回首个错误，consume 上抛暂缓检查点，源重投后
+// 重试（AUD-059）。非 replayable（销账周期）命中无源事件可重投，失败按
+// 丢弃计（AlertDropped）。
+func (r *Runner) recordHits(hits []gate.Hit, replayable bool) error {
+	var firstErr error
 	for _, h := range hits {
 		atomic.AddInt64(&r.stats.GateHits, 1)
 		r.log.Warn("capture gate hit", "rule", h.Rule, "severity", h.Severity,
@@ -607,9 +633,17 @@ func (r *Runner) recordHits(hits []gate.Hit) {
 			"gtid", h.Event.Position.Value, "tsUnixMs", h.Event.TsUnixMs)
 		if err := r.routeHit(h); err != nil {
 			r.log.Warn("capture alert persistence failed", "rule", h.Rule, "error", err)
-			atomic.AddInt64(&r.stats.AlertDropped, 1)
+			if replayable {
+				atomic.AddInt64(&r.stats.AlertPersistFailed, 1)
+				if firstErr == nil {
+					firstErr = err
+				}
+			} else {
+				atomic.AddInt64(&r.stats.AlertDropped, 1)
+			}
 		}
 	}
+	return firstErr
 }
 
 func (r *Runner) routeHit(h gate.Hit) error {

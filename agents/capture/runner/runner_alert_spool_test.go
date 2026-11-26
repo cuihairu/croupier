@@ -209,7 +209,7 @@ func TestRecordHitsPersistsWhenQueueSaturated(t *testing.T) {
 	r.sendAlert = func(context.Context, *opsv1.CaptureRuleHitReport) (*opsv1.CaptureRuleHitAck, error) {
 		return nil, errors.New("server unavailable")
 	}
-	r.recordHits([]gate.Hit{first, second})
+	r.recordHits([]gate.Hit{first, second}, true)
 
 	if r.spoolCount() != 2 {
 		t.Fatalf("spool count = %d, want 2", r.spoolCount())
@@ -219,7 +219,9 @@ func TestRecordHitsPersistsWhenQueueSaturated(t *testing.T) {
 	}
 }
 
-func TestRecordHitsDropsWhenSpoolWriteFails(t *testing.T) {
+func TestRecordHitsHoldsWhenSpoolWriteFails(t *testing.T) {
+	// AUD-059：事件上下文命中 spool 写失败（磁盘满）不丢弃——计
+	// AlertPersistFailed 并返回错误，由 consume 上抛暂缓检查点重试。
 	r := hitFixture(t)
 	r.hitSpool = newAlertSpool(r.cfg.AlertSpoolPath())
 	r.hitSpool.writeFile = func(string, []byte) error {
@@ -230,9 +232,16 @@ func TestRecordHitsDropsWhenSpoolWriteFails(t *testing.T) {
 		return nil, errors.New("server unavailable")
 	}
 
-	r.recordHits([]gate.Hit{r.pendingHit()})
-	if st := r.Stats(); st.AlertDropped != 1 {
-		t.Fatalf("dropped = %d, want 1 when spool write fails", st.AlertDropped)
+	err := r.recordHits([]gate.Hit{r.pendingHit()}, true)
+	if err == nil {
+		t.Fatal("recordHits must surface the persistence failure for checkpoint hold")
+	}
+	st := r.Stats()
+	if st.AlertPersistFailed != 1 {
+		t.Fatalf("persistFailed = %d, want 1 when spool write fails", st.AlertPersistFailed)
+	}
+	if st.AlertDropped != 0 {
+		t.Fatalf("dropped = %d, want 0: the hit is retained for replay, not dropped", st.AlertDropped)
 	}
 }
 

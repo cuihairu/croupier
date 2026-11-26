@@ -239,16 +239,23 @@ func TestHitSenderKeepsAlertWithoutAck(t *testing.T) {
 	}
 }
 
-func TestHitSenderQueueFullDrops(t *testing.T) {
+func TestHitSenderQueueFullHoldsForReplay(t *testing.T) {
+	// AUD-059：无 spool 时队列满（发送方断连）不再静默丢弃——事件上下文
+	// 命中返回错误，consume 上抛暂缓检查点，源重投后重评重试。
 	r := hitFixtureWithoutSpool(t)
-	// 替换为无缓冲队列且无人消费：recordHits 非阻塞 → 直接丢。
 	r.hitCh = make(chan gate.Hit)
 	if r.hitSpool != nil {
 		t.Fatal("test requires no durable fallback")
 	}
-	r.recordHits([]gate.Hit{{Rule: "r", Table: "t", Event: connector.ChangeEvent{TsUnixMs: time.Now().UnixMilli()}}})
+	err := r.recordHits([]gate.Hit{{Rule: "r", Table: "t", Event: connector.ChangeEvent{TsUnixMs: time.Now().UnixMilli()}}}, true)
+	if err == nil {
+		t.Fatal("recordHits must surface the queue-full failure for checkpoint hold")
+	}
 	st := r.Stats()
-	if st.AlertDropped != 1 {
-		t.Fatalf("dropped = %d after queue-full hit without spool, want 1", st.AlertDropped)
+	if st.AlertPersistFailed != 1 {
+		t.Fatalf("persistFailed = %d after queue-full hit, want 1", st.AlertPersistFailed)
+	}
+	if st.AlertDropped != 0 {
+		t.Fatalf("dropped = %d, want 0: the hit is retained for replay, not dropped", st.AlertDropped)
 	}
 }
