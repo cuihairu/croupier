@@ -2215,9 +2215,9 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
 
 本节覆盖任务留痕、采集 Agent、JS SDK 连接、移动端会话与作用域、分析工具的容器生命周期。AUD-COV-002/003/004/006/007 保留后续覆盖，移动端分析卡片问题继续跟踪 AUD-003。验证：Go 双库探针复现任务清理遗漏，JS 替身 socket 复现 close 后重新建立连接，替身 Docker 命令复现复用模式误执行 down。移动端为源码复核，当前 Flutter SDK 缺少 flutter_tools，定向测试未能启动。
 
-- [ ] **AUD-057 · P1 · 修复 · 多游戏任务留痕清理按物理库执行**
+- [x] **AUD-057 · P1 · 修复 · 多游戏任务留痕清理按物理库执行**
   - 依赖：—。交付与验收：后台和手动清理处理实际持有 TaskRun/TaskEvent 的 game/env 库，汇报成功与失败范围。用 meta 加两个游戏物理库验证历史任务及事件清理和保留结果。证据：`internal/platform/executionlog/retention.go:114,196` 只从 meta 判断表和执行后台任务清理。
-  - 状态／条件：未开始。
+  - 状态／条件：DONE · LOCAL VERIFIED（2026-11-27，commit 211413a9e）。`sweepTaskLogs` 改为 multiGame 逐 scope fanout（复用 `sweepExecutionLogs` 的 Router.Resolve + dbctx 路由模式），`sweepTaskLogs` 内逐库守卫（双表皆缺跳过、半迁移库可清的表照清），Sweep 周期清理门卫改为「meta 有表或 Router 已装配」，meta 缺任务表（croupier_meta 形态）不再短路 game 库清理；`RetentionSummary` 新增 `FailedScopes`（"gameId/env"），两条 fanout 的 Resolve/删除失败 scope 均汇报，`sweepLogged` 同步输出（全败时删除计数 0 仍告警）。验证：meta + g1/g2 两个游戏物理库 sqlite，后台 Sweep 与手动 PurgeBefore 各一用例（历史 run/event 清掉、新记录保留、gbad 解析失败与 g3 半迁移库 event 缺表均入 FailedScopes），见 `retention_multigame_task_test.go`；mutation 自测两发（Sweep 门回退 → StillFansOut 红；摘除 FailedScopes append → 两用例红）均咬合后复原。`go build ./...`、`go vet`、`go test ./internal/...` 全绿；原证据行号行为已在 211413a9e 修正（:114 门卫放宽 + :196 sweepTaskLogs fanout）。
 
 - [ ] **AUD-058 · P1 · 修复 · 任务保留期以终态为清理边界**
   - 依赖：—。交付与验收：超过创建时间阈值但正在运行、排队或等待确认的任务和事件可继续查询，已结束任务以确定的终态时间判断保留期。覆盖状态并发变化及关联事件清理。证据：`internal/model/task_model.go:349` 复用只按 `created_at` 的删除逻辑。
