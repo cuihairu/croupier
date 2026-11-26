@@ -12,17 +12,57 @@ import (
 	redis "github.com/redis/go-redis/v9"
 )
 
-// checkpointFor returns the persisted checkpoint id for a stream, or "" when
-// none is stored (or the store read fails).
+// checkpointKey is the persistent key of a stream checkpoint. The consumer
+// group is part of the key (DATA-055): two groups sharing one stream each
+// keep their own high-water mark instead of overwriting each other's with an
+// older progress value.
+func (w *Worker) checkpointKey(stream string) string {
+	return fmt.Sprintf("%s:%s:%s", w.checkpointPrefix, w.group, stream)
+}
+
+// legacyCheckpointKey is the pre-DATA-055 key shape (no group component).
+// Migration rule: legacy keys are read once as the adoptCheckpoint monotonic
+// floor and never written again — persistCheckpoint only writes the
+// group-scoped key. The floor path is the only consumer: group creation and
+// WORKER_GROUP_RESET read the group-scoped key exclusively, so a second
+// group added after an upgrade cannot inherit another group's progress and
+// silently skip its own backlog. A group recreated after a pre-upgrade Redis
+// loss falls back to its declared start position; the replay is absorbed by
+// the ClickHouse natural-key dedup contract (event_id / order_id).
+func legacyCheckpointKey(prefix, stream string) string {
+	return fmt.Sprintf("%s:%s", prefix, stream)
+}
+
+// checkpointFor returns the persisted checkpoint id for a stream and this
+// worker's consumer group, or "" when none is stored (or the store read
+// fails). Reads the group-scoped key only (DATA-055).
 func (w *Worker) checkpointFor(ctx context.Context, stream string) string {
 	if w.checkpointPrefix == "" {
 		return ""
 	}
-	key := fmt.Sprintf("%s:%s", w.checkpointPrefix, stream)
-	id, err := w.rdb.Get(ctx, key).Result()
+	id, err := w.rdb.Get(ctx, w.checkpointKey(stream)).Result()
 	if err != nil {
 		if err != redis.Nil {
 			slog.Warn("checkpoint get", "stream", stream, "err", err)
+		}
+		return ""
+	}
+	return id
+}
+
+// checkpointFloorFor is checkpointFor plus the legacy pre-DATA-055 key as a
+// read-only migration fallback. Only the adoptCheckpoint floor uses it.
+func (w *Worker) checkpointFloorFor(ctx context.Context, stream string) string {
+	if id := w.checkpointFor(ctx, stream); id != "" {
+		return id
+	}
+	if w.checkpointPrefix == "" {
+		return ""
+	}
+	id, err := w.rdb.Get(ctx, legacyCheckpointKey(w.checkpointPrefix, stream)).Result()
+	if err != nil {
+		if err != redis.Nil {
+			slog.Warn("legacy checkpoint get", "stream", stream, "err", err)
 		}
 		return ""
 	}
@@ -33,9 +73,10 @@ func (w *Worker) checkpointFor(ctx context.Context, stream string) string {
 // monotonic floor for advanceCheckpoint without touching the group cursor.
 // On an existing group the Redis-native cursor is the source of truth
 // (DATA-023): a stale application checkpoint must never rewind it, so this
-// only influences in-memory regression guarding.
+// only influences in-memory regression guarding. The read includes the
+// legacy no-group key as a migration fallback (DATA-055).
 func (w *Worker) adoptCheckpoint(ctx context.Context, stream string) {
-	id := w.checkpointFor(ctx, stream)
+	id := w.checkpointFloorFor(ctx, stream)
 	if id == "" {
 		return
 	}
@@ -48,8 +89,8 @@ func (w *Worker) persistCheckpoint(ctx context.Context, stream, id string) {
 	if w.checkpointPrefix == "" || id == "" {
 		return
 	}
-	key := fmt.Sprintf("%s:%s", w.checkpointPrefix, stream)
-	if err := w.rdb.Set(ctx, key, id, 0).Err(); err != nil {
+	// The group-scoped key only (DATA-055); the legacy key is never written.
+	if err := w.rdb.Set(ctx, w.checkpointKey(stream), id, 0).Err(); err != nil {
 		slog.Warn("checkpoint set", "stream", stream, "err", err)
 	}
 }

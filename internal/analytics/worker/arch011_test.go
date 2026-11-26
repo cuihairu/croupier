@@ -93,7 +93,7 @@ func TestFlushEventBatch_AcksRefsAfterSend(t *testing.T) {
 	if len(pending) != 1 {
 		t.Fatalf("before flush: pending = %d, want 1 (ack deferred)", len(pending))
 	}
-	if n, _ := w.rdb.Exists(ctx, w.checkpointPrefix+":"+w.streamEvents).Result(); n != 0 {
+	if n, _ := w.rdb.Exists(ctx, w.checkpointKey(w.streamEvents)).Result(); n != 0 {
 		t.Fatalf("before flush: checkpoint must not exist")
 	}
 
@@ -107,7 +107,7 @@ func TestFlushEventBatch_AcksRefsAfterSend(t *testing.T) {
 	if len(pending) != 0 {
 		t.Errorf("after flush: pending = %d, want 0 (acked)", len(pending))
 	}
-	got, _ := w.rdb.Get(ctx, w.checkpointPrefix+":"+w.streamEvents).Result()
+	got, _ := w.rdb.Get(ctx, w.checkpointKey(w.streamEvents)).Result()
 	if got != id {
 		t.Errorf("checkpoint = %q, want %q", got, id)
 	}
@@ -126,7 +126,7 @@ func TestAdvanceCheckpoint_Monotonic(t *testing.T) {
 	w.advanceCheckpoint(ctx, w.streamEvents, "2000-5")
 	w.advanceCheckpoint(ctx, w.streamEvents, "1000-0") // earlier — must not regress
 
-	got, _ := w.rdb.Get(ctx, w.checkpointPrefix+":"+w.streamEvents).Result()
+	got, _ := w.rdb.Get(ctx, w.checkpointKey(w.streamEvents)).Result()
 	if got != "2000-5" {
 		t.Errorf("checkpoint = %q, want 2000-5 (no regression)", got)
 	}

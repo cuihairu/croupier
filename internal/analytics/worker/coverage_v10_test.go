@@ -118,7 +118,7 @@ func TestRunProcessMessageErrorWarnV10(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 	}
 	// The failure path does not write a checkpoint.
-	if n, _ := w.rdb.Exists(context.Background(), w.checkpointPrefix+":"+w.streamEvents).Result(); n != 0 {
+	if n, _ := w.rdb.Exists(context.Background(), w.checkpointKey(w.streamEvents)).Result(); n != 0 {
 		t.Error("checkpoint must not be persisted when ack fails")
 	}
 
@@ -141,7 +141,7 @@ func TestRunProcessMessageErrorWarnV10(t *testing.T) {
 func TestRestoreCheckpointSetIDSuccessV10(t *testing.T) {
 	w, _ := testWorker(t)
 	ctx := context.Background()
-	w.rdb.Set(ctx, w.checkpointPrefix+":"+w.streamEvents, "5-1", 0)
+	w.rdb.Set(ctx, w.checkpointKey(w.streamEvents), "5-1", 0)
 
 	w.adoptCheckpoint(ctx, w.streamEvents)
 	if got := w.lastIDs[w.streamEvents]; got != "5-1" {
@@ -189,7 +189,7 @@ func TestReclaimAutoClaimFailV10(t *testing.T) {
 	if p.Count != 1 {
 		t.Errorf("pending = %d, want 1 (claim failed)", p.Count)
 	}
-	if n, _ := w.rdb.Exists(context.Background(), w.checkpointPrefix+":"+w.streamEvents).Result(); n != 0 {
+	if n, _ := w.rdb.Exists(context.Background(), w.checkpointKey(w.streamEvents)).Result(); n != 0 {
 		t.Error("checkpoint must not be persisted when claim fails")
 	}
 }

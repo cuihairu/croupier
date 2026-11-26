@@ -56,7 +56,7 @@ func TestFlushBatches_IndependentStreamProgress(t *testing.T) {
 	}).Result()
 	require.NoError(t, err)
 	assert.Empty(t, payPending, "payments must still be ACKed despite the event Send failure")
-	n, err := w.rdb.Exists(ctx, w.checkpointPrefix+":"+w.streamPayments).Result()
+	n, err := w.rdb.Exists(ctx, w.checkpointKey(w.streamPayments)).Result()
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), n, "payment checkpoint must advance")
 	assert.Len(t, w.revAgg, 1, "payment revenue delta must be committed")

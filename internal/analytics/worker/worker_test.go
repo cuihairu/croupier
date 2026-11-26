@@ -529,7 +529,7 @@ func TestPersistCheckpoint_EmptyPrefix(t *testing.T) {
 func TestPersistCheckpoint_EmptyID(t *testing.T) {
 	w, _ := testWorker(t)
 	w.persistCheckpoint(context.Background(), "analytics:events", "")
-	val, err := w.rdb.Get(context.Background(), "analytics:checkpoint:analytics:events").Result()
+	val, err := w.rdb.Get(context.Background(), w.checkpointKey("analytics:events")).Result()
 	if err != redis.Nil {
 		t.Fatalf("expected redis.Nil, got val=%q err=%v", val, err)
 	}
@@ -538,7 +538,7 @@ func TestPersistCheckpoint_EmptyID(t *testing.T) {
 func TestPersistCheckpoint_Normal(t *testing.T) {
 	w, _ := testWorker(t)
 	w.persistCheckpoint(context.Background(), "analytics:events", "999-0")
-	val, err := w.rdb.Get(context.Background(), "analytics:checkpoint:analytics:events").Result()
+	val, err := w.rdb.Get(context.Background(), w.checkpointKey("analytics:events")).Result()
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -562,7 +562,7 @@ func TestRestoreCheckpoints_NoCheckpoint(t *testing.T) {
 
 func TestRestoreCheckpoints_EmptyID(t *testing.T) {
 	w, _ := testWorker(t)
-	w.rdb.Set(context.Background(), "analytics:checkpoint:analytics:events", "", 0)
+	w.rdb.Set(context.Background(), w.checkpointKey("analytics:events"), "", 0)
 	w.adoptCheckpoint(context.Background(), "analytics:events")
 	if _, ok := w.lastIDs["analytics:events"]; ok {
 		t.Error("lastIDs should not be set for empty checkpoint ID")

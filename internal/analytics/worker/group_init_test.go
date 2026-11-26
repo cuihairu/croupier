@@ -199,13 +199,13 @@ func TestGroupInit_ExistingGroupKeepsPositionDespiteStaleCheckpoint(t *testing.T
 		}
 		w.advanceCheckpoint(ctx, w.streamEvents, id)
 	}
-	if got := w.rdb.Get(ctx, w.checkpointPrefix+":"+w.streamEvents).Val(); got != id2 {
+	if got := w.rdb.Get(ctx, w.checkpointKey(w.streamEvents)).Val(); got != id2 {
 		t.Fatalf("checkpoint = %q, want %q", got, id2)
 	}
 
 	// A stale/rolled-back application checkpoint points behind the group
 	// cursor — exactly what must NOT rewind the group on restart.
-	w.rdb.Set(ctx, w.checkpointPrefix+":"+w.streamEvents, id1, 0)
+	w.rdb.Set(ctx, w.checkpointKey(w.streamEvents), id1, 0)
 
 	// Second life: fresh worker on the same Redis.
 	w2 := testWorkerOn(t, mr)
@@ -235,7 +235,7 @@ func TestGroupInit_NewGroupAdoptsCheckpointAsStart(t *testing.T) {
 
 	// Redis lost the group (flush/replacement) but the checkpoint key
 	// survives: a freshly created group resumes AT the checkpoint.
-	w.rdb.Set(ctx, w.checkpointPrefix+":"+w.streamEvents, id2, 0)
+	w.rdb.Set(ctx, w.checkpointKey(w.streamEvents), id2, 0)
 
 	w2 := testWorkerOn(t, mr)
 	w2.ensureGroups(ctx)
@@ -259,7 +259,7 @@ func TestGroupInit_ExplicitResetRewindsGroup(t *testing.T) {
 	// The only sanctioned reposition: WORKER_GROUP_RESET=true rewinds the
 	// existing group to the persisted checkpoint (id1 here); the payments
 	// stream has no checkpoint and falls back to the declared start "0".
-	w.rdb.Set(ctx, w.checkpointPrefix+":"+w.streamEvents, id1, 0)
+	w.rdb.Set(ctx, w.checkpointKey(w.streamEvents), id1, 0)
 	w2 := testWorkerOn(t, mr)
 	w2.groupReset = true
 	rec := &setidRecorderHook{}
@@ -297,7 +297,7 @@ func TestGroupInit_BusyGroupRaceKeepsForeignCursor(t *testing.T) {
 	seedEvent(t, w, "u2")
 	// Another instance already created the group mid-backlog.
 	w.rdb.XGroupCreateMkStream(ctx, w.streamEvents, w.group, id1)
-	w.rdb.Set(ctx, w.checkpointPrefix+":"+w.streamEvents, id1, 0)
+	w.rdb.Set(ctx, w.checkpointKey(w.streamEvents), id1, 0)
 
 	w2 := testWorkerOn(t, mr)
 	w2.ensureGroups(ctx)
@@ -323,7 +323,7 @@ func TestGroupInit_AdoptedCheckpointFloorsAdvance(t *testing.T) {
 	w2 := testWorkerOn(t, mr)
 	w2.ensureGroups(ctx)
 	w2.advanceCheckpoint(ctx, w2.streamEvents, id1)
-	if got := w2.rdb.Get(ctx, w2.checkpointPrefix+":"+w2.streamEvents).Val(); got != id2 {
+	if got := w2.rdb.Get(ctx, w2.checkpointKey(w2.streamEvents)).Val(); got != id2 {
 		t.Fatalf("checkpoint regressed to %q, want %q", got, id2)
 	}
 }

@@ -125,8 +125,8 @@ func TestRunProcessesMessagesV9(t *testing.T) {
 	deadline := time.Now().Add(5 * time.Second)
 	for {
 		n, _ := w.rdb.Exists(context.Background(),
-			w.checkpointPrefix+":"+w.streamEvents,
-			w.checkpointPrefix+":"+w.streamPayments).Result()
+			w.checkpointKey(w.streamEvents),
+			w.checkpointKey(w.streamPayments)).Result()
 		if n == 2 {
 			break
 		}
@@ -378,7 +378,7 @@ func TestRestoreCheckpointsV9(t *testing.T) {
 	// longer depends on XGroupSetID succeeding — the group cursor is never
 	// touched by adoption).
 	w2, _ := testWorker(t)
-	w2.rdb.Set(ctx, w2.checkpointPrefix+":"+w2.streamEvents, "5-1", 0)
+	w2.rdb.Set(ctx, w2.checkpointKey(w2.streamEvents), "5-1", 0)
 	w2.adoptCheckpoint(ctx, w2.streamEvents)
 	if got := w2.lastIDs[w2.streamEvents]; got != "5-1" {
 		t.Errorf("lastIDs should adopt the checkpoint, got %q", got)
@@ -450,7 +450,7 @@ func TestReclaimPendingIdleClaimV9(t *testing.T) {
 	// ARCH-011: the reclaimed message was re-appended to an unsent ClickHouse
 	// batch, so it is still PENDING (XACK deferred until the batch flushes).
 	// No checkpoint may be written before the rows are durably sent.
-	n, err := w.rdb.Exists(ctx, w.checkpointPrefix+":"+w.streamEvents).Result()
+	n, err := w.rdb.Exists(ctx, w.checkpointKey(w.streamEvents)).Result()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -473,7 +473,7 @@ func TestReclaimPendingIdleClaimV9(t *testing.T) {
 	if err := w.flushEventBatch(ctx); err != nil {
 		t.Fatalf("flush event batch: %v", err)
 	}
-	n, err = w.rdb.Exists(ctx, w.checkpointPrefix+":"+w.streamEvents).Result()
+	n, err = w.rdb.Exists(ctx, w.checkpointKey(w.streamEvents)).Result()
 	if err != nil {
 		t.Fatal(err)
 	}
