@@ -969,9 +969,10 @@
   - 依赖：DATA-001。交付与验收：采集、写仓、活跃分桶统一解析 RFC3339、兼容 epoch 输入和业务时区。对无效时间采用明确处置，重放结果不随处理时间漂移。证据：`internal/analytics/worker/worker_insert.go:13` 与 `worker_helpers.go:90` 的原始行允许 epoch 字符串，`worker_agg.go:32` 的 HLL 只读 RFC3339。探针从同一旧事件得到正确历史原始行和当天活跃桶。
   - 状态／条件：未开始。
 
-- [ ] **DATA-055 · P1 · 修复 · 隔离不同 Redis 消费组的检查点**
+- [x] **DATA-055 · P1 · 修复 · 隔离不同 Redis 消费组的检查点**
   - 依赖：DATA-023。交付与验收：若保留应用检查点，则将消费组纳入持久键，明确旧无分组键的迁移规则。共享同一 stream 的两个组独立消费与重启，验收各自消费位置均不受另一个组影响。证据：`internal/analytics/worker/worker_checkpoint.go:18,29,42` 检查点键只含 stream，恢复对各自的 group 调用 XGroupSetID。两个组的替身探针复现共用键被较旧进度覆盖。
-  - 状态／条件：未开始。
+  - 状态／条件：已交付。检查点持久键纳入消费组（`<prefix>:<group>:<stream>`），persistCheckpoint 只写新键；组创建与 WORKER_GROUP_RESET 只读新键（新组不继承他组进度、不静默跳过自己的积压）；旧无分组键仅作为 adoptCheckpoint 单调地板被只读采纳一次（迁移规则），永不回写，升级前 Redis 丢失后重建的组回落声明起点、重放由自然键去重契约吸收。证据：`internal/analytics/worker/worker_checkpoint.go`（checkpointKey/legacyCheckpointKey/checkpointFloorFor）、`internal/analytics/worker/data055_group_scoped_checkpoint_test.go`（双组隔离与重启 / 旧键迁移地板两例）；21 处既有测试键字面量随迁移更新为 checkpointKey。变异证明：M1 键退回无分组共享→隔离用例红；M2 去掉旧键地板→迁移用例红；恢复后 0 MUTATION 残留。commit 1b4d8e918。LOCAL VERIFIED。
+  - 完成证据：`internal/analytics/worker/data055_group_scoped_checkpoint_test.go`（TestGroupScopedCheckpoint_IsolationAndRestart / TestCheckpointLegacyKeyAdoptedAsMigrationFloor 全绿）；`go build ./...` 通过；`go test ./internal/... -count=1` 全绿；`docs/analytics/index.md`+`docs/zh/analytics/index.md` DATA-055 条目；`cd docs && CI=true pnpm build` 通过。
 
 - [ ] **DATA-056 · P1 · 修复 · 按周和月的实际窗口去重付费人数**
   - 依赖：DATA-004。交付与验收：天、ISO 周、月分别按请求作用域及身份粒度进行区间去重。跨日重复购买的同一玩家在周或月内只计算一次，收入与订单数仍保持原语义。证据：`internal/api/analytics/payments.go:181,316,356` 先查日去重数，再按周或月相加，无法识别跨日重复用户。SQLite 对账采用生产 SQL，同一人两天各支付一次时日去重相加得到 2，周内 DISTINCT 得到 1。完整 Go API 定向测试在限时内未完成。
