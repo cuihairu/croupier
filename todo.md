@@ -2251,9 +2251,9 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 依赖：—。交付与验收：复用已有容器的模式下，所有失败分支均不执行 compose down，DDL、查询和初始化使用相同配置的容器。自建模式清理自有进程和容器。用替身 Docker 命令验证两种模式。证据：`scripts/e2e/analytics.sh:34,53,67,268` 复用模式只保护常规退出，DDL 容器名仍为硬编码。
   - 状态／条件：DONE · LOCAL VERIFIED（2026-11-27，commit 891326267）。新增 `cleanup_down`（SKIP_COMPOSE_UP=1 复用模式跳过 compose down），12 处失败分支全部改走它（复用模式失败只 kill 自有 worker/ingest 进程，不动共享栈；自建模式照常 down 自有容器）；末尾 cleanup 同口径。`export REDIS_CONTAINER CH_CONTAINER`，两处内嵌 python（5c XLEN 探测、§6 XADD 初始化）改读 `os.environ.get("REDIS_CONTAINER", …)`，DDL/查询/初始化与 shell 侧 docker exec 用同一配置容器；顺带修复 XADD 失败与 events-not-in-stream 两分支漏 kill ingest 的进程泄漏。验证（替身 docker：日志型 stub，可注入 readiness/DDL 失败，fake worker=sleep、fake ingest=202/200 HTTP 服务）：A 复用+readiness 失败→exit1 且日志零 compose down；B 自建+readiness 失败→compose up+down 均执行；C 复用+DDL 失败→零 compose down、exec 全走 custom-ch、全日志零默认容器名；D 自建+DDL 失败→up+down 均执行；E 复用+全通至 ingest 链 python（fake 二进制）→XLEN exec 行走 custom-redis、零 compose down、锚定 pgrep 零残留进程。stub 副产物 bin/analytics-worker、bin/ingest 已清除；shellcheck 无新增告警。
 
-- [ ] **AUD-066 · P1 · 修复 · 移动端作用域保存不能覆盖新会话**
+- [x] **AUD-066 · P1 · 修复 · 移动端作用域保存不能覆盖新会话**
   - 依赖：AUD-062。交付与验收：同一会话的切换有最终写入顺序，旧请求结束时再次校验会话与切换代次。验证切换响应乱序、退出后迟到、切换服务器期间保存，界面、服务端选择与本地存储最终一致。证据：`mobile/lib/features/scope/scope_controller.dart:113` 用请求开始前的完整会话快照写回。
-  - 状态／条件：未开始。
+  - 状态／条件：DONE · LOCAL VERIFIED（2026-11-27，commit 7844d1e52）。`select()` 引入切换代次 `_selectGen`（入口换代）：PUT 失败分支与成功写回前均核对代次（乱序旧切换的迟到完成不覆盖新切换的最终写入顺序）；写回前 fresh 重读会话并核对身份（同 serverUrl+token）——登出清空（token 空）、换服新会话（地址/token 变）一律丢弃写回，不复活会话、不覆盖新会话字段；写回以 freshly loaded 会话为基底（copyWith 只覆写 gameId/env，保留切换期间并发变更）；界面 selected 同口径（跨会话/被取代的完成不更新预选）。验证：`scope_controller_test.dart` 新增三用例（切换响应乱序旧迟到不覆盖新切换 / 登出清会话后迟到完成不复活会话 / 换服新会话期间迟到完成不覆盖新会话），既有 8 用例不回归；mutation 自测（还原快照写回→恰好三条新用例红，复原全绿 11/11）；全量 `TZ=UTC flutter test` 256/256 绿，pubspec.lock 未动。
 
 - [ ] **AUD-067 · P2 · 修复 · 移动端异步任务轮询隔离任务代次**
   - 依赖：AUD-062。交付与验收：同一任务仅保留一次在途轮询，任务切换或页面离开后忽略失效的响应。覆盖旧任务终态晚到、同任务多个 tick 和切作用域，防止旧结果覆盖当前任务或停止其定时器。证据：`mobile/lib/features/functions/functions_controller.dart:210,214` 周期轮询可重叠，完成后直接更新任务并可能停止共享定时器。
