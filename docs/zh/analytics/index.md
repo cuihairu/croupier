@@ -62,6 +62,7 @@ tag:
 - 重试契约：以相同内容整批重发。生产方未携带 `event_id` 的事件由 worker 按载荷指纹派生确定性 UUIDv5（`internal/analytics/worker/worker_insert.go` 的 `deriveEventID`），重复提交与 worker 重投收敛到同一 ClickHouse 自然键，不再产生随机新 id；生产方提供的合法 UUID `event_id` 原样沿用。
 - 金额精度（DATA-018）：`amount_cents` 只接受 uint64 值域内的正整数。ingest 以 `UseNumber` 解码并逐位解析——分值小数、负数与超范围值拒绝 `400` 并携带条目位置；worker 同样逐位解析，坏行带原因进死信，不再经 float64 截断。
 - 重试保留（DATA-019）：失败消息重投回**源流时不带任何自有保留上限**——源流裁剪（如 `ANALYTICS_REDIS_MAXLEN`）由发布方配置掌控。重试副本不再会在积压超过旧 1000 条上限时驱逐未读条目；重试总量由 `retry_count` 收敛（超过 `maxPendingRetries` 进死信）。
+- 聚合恢复（DATA-020）：每个触碰的分钟/日在 Redis 中留有**持久化刷新标记**（`ANALYTICS_AGG_DIRTY_SET`），因此原始事件 ACK 后、聚合行落库前杀进程，重启后仍有刷新义务。HLL 尽力写入失败时另置重建标记（`ANALYTICS_AGG_REBUILD_SET`），下次刷新从持久化的 `analytics.events` 行重建该 HLL（HLL 并集幂等）。重建失败保留标记且不写入虚假的零；HLL 正常写入不触发重建查询。
 - 边界：payments 表无去重列，相同支付行重发仍会追加第二条原始行，依赖按 `order_id` 的读取口径对账（DATA-004/051/056 跟踪）。
 
 ## 启动顺序

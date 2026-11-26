@@ -99,6 +99,14 @@ type Worker struct {
 	// checkpoints
 	checkpointPrefix string
 	lastIDs          map[string]string
+	// aggregation durability (DATA-020): aggDirtySet names the Redis set that
+	// records which HLL buckets still owe a flushed aggregate row, and aggRdb
+	// is the command surface used by the marker/HLL-rebuild paths. aggRdb is
+	// nil-safe (falls back to rdb); tests swap it to simulate a HLL write
+	// failure without breaking the rest of the worker's Redis use.
+	aggDirtySet   string
+	aggRebuildSet string
+	aggRdb        aggRedis
 	// dead letter handling
 	deadEventsStream   string
 	deadPaymentsStream string
@@ -170,6 +178,9 @@ func NewWorker() (*Worker, error) {
 		clickBatchSize:     batchSize,
 		checkpointPrefix:   strings.TrimSuffix(envOrDefault("ANALYTICS_CHECKPOINT_PREFIX", "analytics:checkpoint"), ":"),
 		lastIDs:            map[string]string{},
+		aggDirtySet:        envOrDefault("ANALYTICS_AGG_DIRTY_SET", "analytics:agg:dirty"),
+		aggRebuildSet:      envOrDefault("ANALYTICS_AGG_REBUILD_SET", "analytics:agg:rebuild"),
+		aggRdb:             rdb,
 		deadEventsStream:   deadEvents,
 		deadPaymentsStream: deadPayments,
 	}, nil
@@ -180,6 +191,7 @@ func (w *Worker) ensureGroups(ctx context.Context) {
 	_ = w.rdb.XGroupCreateMkStream(ctx, w.streamPayments, w.group, "$").Err()
 	w.restoreCheckpoints(ctx, w.streamEvents)
 	w.restoreCheckpoints(ctx, w.streamPayments)
+	w.restoreAggDirty(ctx)
 }
 
 func (w *Worker) Run(ctx context.Context) error {

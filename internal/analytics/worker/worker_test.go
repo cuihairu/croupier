@@ -128,8 +128,38 @@ func testWorker(t *testing.T) (*Worker, *miniredis.Miniredis) {
 		lastIDs:            map[string]string{},
 		deadEventsStream:   "analytics:events:dead",
 		deadPaymentsStream: "analytics:payments:dead",
+		aggDirtySet:        "analytics:agg:dirty",
+		aggRebuildSet:      "analytics:agg:rebuild",
+		aggRdb:             rdb,
 	}
 	return w, mr
+}
+
+// testWorkerOn builds a Worker on an existing miniredis instance so a test
+// can simulate a worker restart (two workers sharing one Redis state).
+func testWorkerOn(t *testing.T, mr *miniredis.Miniredis) *Worker {
+	t.Helper()
+	rdb := redis.NewClient(&redis.Options{Addr: mr.Addr()})
+	t.Cleanup(func() { _ = rdb.Close() })
+	return &Worker{
+		rdb:                rdb,
+		ch:                 &mockConn{batch: &mockBatch{}},
+		streamEvents:       "analytics:events",
+		streamPayments:     "analytics:payments",
+		group:              "analytics-worker",
+		consumer:           "test-consumer",
+		touchedMinutes:     map[string]struct{}{},
+		touchedDays:        map[string]struct{}{},
+		revAgg:             map[string]*revRow{},
+		clickBatchSize:     500,
+		checkpointPrefix:   "analytics:checkpoint",
+		lastIDs:            map[string]string{},
+		deadEventsStream:   "analytics:events:dead",
+		deadPaymentsStream: "analytics:payments:dead",
+		aggDirtySet:        "analytics:agg:dirty",
+		aggRebuildSet:      "analytics:agg:rebuild",
+		aggRdb:             rdb,
+	}
 }
 
 // ===========================================================================

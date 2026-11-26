@@ -56,25 +56,46 @@ func (w *Worker) touchAgg(ctx context.Context, m map[string]any) {
 	if evt == "heartbeat" || evt == "session_start" {
 		min := t.Truncate(time.Minute)
 		k := fmt.Sprintf("hll:online:%s:%s:%s", game, env, min.Format("200601021504"))
-		_ = w.rdb.PFAdd(ctx, k, uid).Err()
-		_ = w.rdb.Expire(ctx, k, 48*time.Hour).Err()
+		// DATA-020: the flush marker is durable, so a kill after the raw
+		// event was ACKed but before the aggregate row landed still leaves
+		// the next worker a flush obligation. A failed HLL write additionally
+		// marks the bucket for rebuild from the persisted raw events.
+		w.markAggDirty(ctx, aggDirtyMinutePrefix+k)
+		if err := w.agg().PFAdd(ctx, k, uid).Err(); err != nil {
+			slog.Warn("minute HLL write failed; marked for rebuild", "key", k, "err", err)
+			w.markAggRebuild(ctx, aggRebuildMinutePrefix+k)
+		} else {
+			_ = w.agg().Expire(ctx, k, 48*time.Hour).Err()
+		}
 		w.touchedMinutes[k] = struct{}{}
 	}
 	// DAU
 	if evt == "login" || evt == "session_start" {
 		day := t.Format("2006-01-02")
 		k := fmt.Sprintf("hll:dau:%s:%s:%s", game, env, day)
-		_ = w.rdb.PFAdd(ctx, k, uid).Err()
-		_ = w.rdb.Expire(ctx, k, 30*24*time.Hour).Err()
-		w.touchedDays[fmt.Sprintf("%s|%s|%s", day, game, env)] = struct{}{}
+		dk := fmt.Sprintf("%s|%s|%s", day, game, env)
+		w.markAggDirty(ctx, aggDirtyDayPrefix+dk)
+		if err := w.agg().PFAdd(ctx, k, uid).Err(); err != nil {
+			slog.Warn("dau HLL write failed; marked for rebuild", "key", k, "err", err)
+			w.markAggRebuild(ctx, aggRebuildDayPrefix+"dau:"+dk)
+		} else {
+			_ = w.agg().Expire(ctx, k, 30*24*time.Hour).Err()
+		}
+		w.touchedDays[dk] = struct{}{}
 	}
 	// new users
 	if evt == "register" || evt == "first_active" {
 		day := t.Format("2006-01-02")
 		k := fmt.Sprintf("hll:new:%s:%s:%s", game, env, day)
-		_ = w.rdb.PFAdd(ctx, k, uid).Err()
-		_ = w.rdb.Expire(ctx, k, 30*24*time.Hour).Err()
-		w.touchedDays[fmt.Sprintf("%s|%s|%s", day, game, env)] = struct{}{}
+		dk := fmt.Sprintf("%s|%s|%s", day, game, env)
+		w.markAggDirty(ctx, aggDirtyDayPrefix+dk)
+		if err := w.agg().PFAdd(ctx, k, uid).Err(); err != nil {
+			slog.Warn("new HLL write failed; marked for rebuild", "key", k, "err", err)
+			w.markAggRebuild(ctx, aggRebuildDayPrefix+"new:"+dk)
+		} else {
+			_ = w.agg().Expire(ctx, k, 30*24*time.Hour).Err()
+		}
+		w.touchedDays[dk] = struct{}{}
 	}
 }
 
@@ -133,6 +154,15 @@ func (w *Worker) flush(ctx context.Context) error {
 		}
 		game := parts[2]
 		env := parts[3]
+		// DATA-020: a bucket whose HLL write failed is rebuilt from the
+		// persisted raw events here, before the count is read. On rebuild
+		// failure, keep the bucket dirty for the next flush rather than
+		// writing a false zero.
+		if err := w.ensureHLL(ctx, k, aggRebuildMinutePrefix+k, 48*time.Hour); err != nil {
+			slog.Warn("rebuild minute HLL", "key", k, "err", err)
+			w.remergeTouchedMinute(k)
+			continue
+		}
 		n, err := w.rdb.PFCount(ctx, k).Result()
 		if err != nil {
 			slog.Warn("pfcount", "key", k, "err", err)
@@ -159,6 +189,17 @@ func (w *Worker) flush(ctx context.Context) error {
 			w.remergeTouchedMinute(k)
 			continue
 		}
+		// The aggregate row is durable: drop the rebuild obligation. A new
+		// event may have re-marked this bucket while the row was being
+		// written; re-add it so a crash before the next flush still leaves
+		// the obligation durable.
+		w.clearAggDirty(ctx, aggDirtyMinutePrefix+k)
+		w.aggMu.Lock()
+		_, stillTouched := w.touchedMinutes[k]
+		w.aggMu.Unlock()
+		if stillTouched {
+			w.markAggDirty(ctx, aggDirtyMinutePrefix+k)
+		}
 	}
 	// flush daily_users
 	for dk := range daySnap {
@@ -170,6 +211,19 @@ func (w *Worker) flush(ctx context.Context) error {
 		day, game, env := sp[0], sp[1], sp[2]
 		kdau := fmt.Sprintf("hll:dau:%s:%s:%s", game, env, day)
 		knew := fmt.Sprintf("hll:new:%s:%s:%s", game, env, day)
+		// DATA-020: both daily HLLs are rebuildable from the raw events. If
+		// either rebuild fails, keep the day dirty for the next flush instead
+		// of persisting a partial/zero daily row.
+		if err := w.ensureHLL(ctx, kdau, aggRebuildDayPrefix+"dau:"+dk, 30*24*time.Hour); err != nil {
+			slog.Warn("rebuild dau HLL", "key", kdau, "err", err)
+			w.remergeTouchedDay(dk)
+			continue
+		}
+		if err := w.ensureHLL(ctx, knew, aggRebuildDayPrefix+"new:"+dk, 30*24*time.Hour); err != nil {
+			slog.Warn("rebuild new HLL", "key", knew, "err", err)
+			w.remergeTouchedDay(dk)
+			continue
+		}
 		dau, err := w.rdb.PFCount(ctx, kdau).Result()
 		if err != nil {
 			// A PFCount failure must not overwrite the day's real DAU with 0 (ReplacingMergeTree
@@ -202,6 +256,16 @@ func (w *Worker) flush(ctx context.Context) error {
 			slog.Warn("daily_users send", "err", err)
 			w.remergeTouchedDay(dk)
 			continue
+		}
+		// The daily_users row is durable: drop the rebuild obligation (both
+		// the dau and new HLLs are covered by this one day marker). Re-add if
+		// a new event re-marked the day during the flush, same as minutes.
+		w.clearAggDirty(ctx, aggDirtyDayPrefix+dk)
+		w.aggMu.Lock()
+		_, stillTouched := w.touchedDays[dk]
+		w.aggMu.Unlock()
+		if stillTouched {
+			w.markAggDirty(ctx, aggDirtyDayPrefix+dk)
 		}
 	}
 	// flush daily_revenue
