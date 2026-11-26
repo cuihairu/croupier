@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -115,7 +116,9 @@ var rootCmd = &cobra.Command{
 // waitForShutdownFn 是 runIngest 的关停等待接缝：产品代码恒为
 // waitForShutdown；测试注入假实现以瞬时收尾 runIngest 并探查已装配的
 // mux。用后必须在测试中复位。
-var waitForShutdownFn = waitForShutdown
+var waitForShutdownFn = func(svr *http.Server, sig <-chan os.Signal, serverErr <-chan error) error {
+	return waitForShutdown(svr, sig, serverErr)
+}
 
 // Execute runs the CLI entrypoint.
 func Execute() {
@@ -234,6 +237,10 @@ func runIngest() error {
 		IdleTimeout:  s.idleTimeout,
 	}
 
+	// Register shutdown signals before the ready line: a SIGTERM racing the
+	// startup window must reach the graceful path, not the default kill.
+	shutdown := notifyShutdownSignals()
+
 	addr := net.JoinHostPort(host, strconv.Itoa(port))
 	log.Printf("[ingest] listening on %s (rate: %d rps, burst: %d, max body: %d MB)",
 		addr, rateLimitRPS, rateBurst, maxBodySizeMB)
@@ -244,15 +251,18 @@ func runIngest() error {
 	// Start queue monitoring
 	go s.monitorQueueBacklog(context.Background())
 
-	// Start server in background
+	// DATA-045: a listener that fails at startup (port occupied) or dies
+	// mid-run must take the process down through the exit path instead of
+	// being logged away while the process keeps "running" without serving.
+	serverErr := make(chan error, 1)
 	go func() {
-		if err := svr.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Printf("[ingest] server error: %v", err)
+		if err := svr.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			serverErr <- err
 		}
 	}()
 
-	// Wait for interrupt signal
-	return waitForShutdownFn(svr, notifyShutdownSignals())
+	// Wait for interrupt signal or listener exit
+	return waitForShutdownFn(svr, shutdown, serverErr)
 }
 
 // notifyShutdownSignals 注册进程级中断信号（SIGINT/SIGTERM）并返回其通道。
@@ -264,8 +274,15 @@ func notifyShutdownSignals() <-chan os.Signal {
 	return sigChan
 }
 
-func waitForShutdown(svr *http.Server, sig <-chan os.Signal) error {
-	<-sig
+func waitForShutdown(svr *http.Server, sig <-chan os.Signal, serverErr <-chan error) error {
+	select {
+	case err := <-serverErr:
+		// DATA-045: the listener died (port occupied at startup, or a
+		// mid-run failure) — surface it as the process exit error instead
+		// of serving nothing while looking healthy.
+		return fmt.Errorf("ingest http server exited: %w", err)
+	case <-sig:
+	}
 
 	log.Println("[ingest] shutting down...")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

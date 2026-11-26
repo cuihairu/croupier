@@ -959,7 +959,7 @@ func TestWaitForShutdown(t *testing.T) {
 
 	sig := make(chan os.Signal, 1)
 	done := make(chan error, 1)
-	go func() { done <- waitForShutdown(srv.Config, sig) }()
+	go func() { done <- waitForShutdown(srv.Config, sig, make(chan error, 1)) }()
 
 	sig <- syscall.SIGTERM
 	select {
@@ -991,7 +991,7 @@ func TestRunIngest_ConfigFallbacks(t *testing.T) {
 
 	orig := waitForShutdownFn
 	t.Cleanup(func() { waitForShutdownFn = orig })
-	waitForShutdownFn = func(*http.Server, <-chan os.Signal) error { return nil }
+	waitForShutdownFn = func(*http.Server, <-chan os.Signal, <-chan error) error { return nil }
 
 	origListen, origSecret := listenAddr, sharedSecret
 	t.Cleanup(func() { listenAddr, sharedSecret = origListen, origSecret })
@@ -1043,7 +1043,7 @@ func TestRunIngest_Full(t *testing.T) {
 	t.Cleanup(func() { _ = occupied.Close() })
 
 	var captured *http.Server
-	waitForShutdownFn = func(svr *http.Server, sig <-chan os.Signal) error {
+	waitForShutdownFn = func(svr *http.Server, sig <-chan os.Signal, serverErr <-chan error) error {
 		captured = svr
 		// 经装配好的 mux 走一遍健康检查
 		w := httptest.NewRecorder()
@@ -1115,4 +1115,45 @@ func TestValidateMQCombination(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestWaitForShutdown_ServerErrorExits pins the DATA-045 error priority: a
+// listener that dies (port occupied at startup, mid-run failure) surfaces as
+// the process exit error even though the process has not received a signal.
+func TestWaitForShutdown_ServerErrorExits(t *testing.T) {
+	errCh := make(chan error, 1)
+	errCh <- errors.New("listen tcp: address already in use")
+
+	err := waitForShutdown(&http.Server{}, make(chan os.Signal, 1), errCh)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "ingest http server exited")
+	assert.Contains(t, err.Error(), "address already in use")
+}
+
+// TestRunIngest_OccupiedPortFailsFast covers the acceptance shape "an already
+// normally occupied port": runIngest must return an error promptly (which the
+// CLI turns into a non-zero exit) instead of running without a listener.
+func TestRunIngest_OccupiedPortFailsFast(t *testing.T) {
+	t.Setenv("ANALYTICS_MQ_TYPE", "noop")
+	t.Setenv("ANALYTICS_INGEST_SECRETS", "")
+
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	defer func() { _ = ln.Close() }()
+	occupied := ln.Addr().String()
+
+	origListen, origSecret := listenAddr, sharedSecret
+	origWait := waitForShutdownFn
+	t.Cleanup(func() {
+		listenAddr, sharedSecret = origListen, origSecret
+		waitForShutdownFn = origWait
+	})
+	listenAddr, sharedSecret = occupied, "secret"
+	waitForShutdownFn = waitForShutdown // real wait path: select on serverErr
+
+	start := time.Now()
+	err = runIngest()
+	require.Error(t, err)
+	assert.Less(t, time.Since(start), 10*time.Second, "listener failure must fail fast")
+	assert.Contains(t, err.Error(), "ingest http server exited")
 }
