@@ -2,7 +2,11 @@ package analytics
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"math"
 	"net/http"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -269,9 +273,14 @@ type FacadeTimeRange struct {
 }
 
 // AnalyticsQuery is the wire shape of the unified query entry point (contract keys are
-// lowerCamelCase): domain locates the domain interface, metrics reserves metric
-// narrowing (today every domain returns its canonical shape, no narrowing), filter
-// carries gameId/env plus in-domain filters, and timeRange maps to startDate/endDate.
+// lowerCamelCase). Every parameter has an explicit per-domain contract (DATA-029,
+// declared in facadeDomainSpecs): domain locates the domain interface; metrics
+// narrows the response to a subset of the domain's declared top-level keys
+// (absent/empty returns the canonical shape, unknown keys get a field-level
+// diagnostic); filter carries gameId/env plus the in-domain filters the domain
+// declares; timeRange maps to startDate/endDate for date-range domains, to an
+// hour lookback for invocations, and is rejected for fixed-window domains
+// (realtime, warehouse). Cross-domain metric-caliber unification remains DATA-006.
 type AnalyticsQuery struct {
 	Domain    string            `json:"domain"`
 	Metrics   []string          `json:"metrics"`
@@ -300,6 +309,154 @@ func (q *AnalyticsQuery) filter(key string) string {
 	return strings.TrimSpace(q.Filter[key])
 }
 
+// ============================================================================
+// Per-domain parameter contract (DATA-029): every domain declares the query
+// parameters it actually consumes. Query applies the supported ones and
+// answers anything outside the contract with a field-level diagnostic (422,
+// details keyed by the offending field) instead of silently ignoring it.
+// ============================================================================
+
+// facadeTimeWindow classifies how a domain consumes timeRange.
+type facadeTimeWindow string
+
+const (
+	// timeWindowDateRange: startDate/endDate are consumed as the query window.
+	timeWindowDateRange facadeTimeWindow = "date_range"
+	// timeWindowFixed: the domain resolves its own window (the realtime 15m
+	// window, warehouse filter.days); a non-empty timeRange is rejected.
+	timeWindowFixed facadeTimeWindow = "fixed"
+	// timeWindowLookback: startDate/endDate are mapped onto the domain's
+	// lookback span (invocations Hours).
+	timeWindowLookback facadeTimeWindow = "lookback"
+)
+
+// facadeDomainSpec declares one domain's parameter surface. Metric keys are the
+// top-level keys of the domain's canonical response: metrics narrows the
+// payload to that subset, absent/empty metrics returns the whole payload.
+type facadeDomainSpec struct {
+	metrics   []string
+	filters   []string
+	timeRange facadeTimeWindow
+}
+
+var facadeDomainSpecs = map[string]facadeDomainSpec{
+	DomainOverview:    {metrics: []string{"metrics", "trends", "peakOnline"}, filters: []string{"gameId", "env"}, timeRange: timeWindowDateRange},
+	DomainBehavior:    {metrics: []string{"topActions", "userFlows", "heatMap", "sample"}, filters: []string{"gameId", "env"}, timeRange: timeWindowDateRange},
+	DomainPayments:    {metrics: []string{"items"}, filters: []string{"gameId", "env"}, timeRange: timeWindowDateRange},
+	DomainRetention:   {metrics: []string{"cohorts"}, filters: []string{"gameId", "env", "cohort"}, timeRange: timeWindowDateRange},
+	DomainRealtime:    {metrics: []string{"realtimeMetrics", "source", "timestamp"}, filters: []string{"gameId", "env"}, timeRange: timeWindowFixed},
+	DomainInvocations: {metrics: []string{"total", "failed", "successRate", "avgDurationMs", "p95DurationMs", "topFunctions"}, filters: []string{"gameId", "env"}, timeRange: timeWindowLookback},
+	DomainLevels:      {metrics: []string{"levels", "sample"}, filters: []string{"gameId", "env"}, timeRange: timeWindowDateRange},
+	DomainWarehouse:   {metrics: []string{"points"}, filters: []string{"gameId", "env", "days"}, timeRange: timeWindowFixed},
+}
+
+func (s facadeDomainSpec) hasMetric(key string) bool {
+	for _, m := range s.metrics {
+		if m == key {
+			return true
+		}
+	}
+	return false
+}
+
+func (s facadeDomainSpec) hasFilter(key string) bool {
+	for _, f := range s.filters {
+		if f == key {
+			return true
+		}
+	}
+	return false
+}
+
+// validateAgainst checks the query against one domain's declared contract: every
+// violation lands in details keyed by the offending field, so a caller sees all
+// diagnostics for its input in one round trip.
+func (q *AnalyticsQuery) validateAgainst(spec facadeDomainSpec, domain string) error {
+	details := map[string]string{}
+	var unknownMetrics []string
+	for _, m := range q.Metrics {
+		if !spec.hasMetric(strings.TrimSpace(m)) {
+			unknownMetrics = append(unknownMetrics, strings.TrimSpace(m))
+		}
+	}
+	if len(unknownMetrics) > 0 {
+		details["metrics"] = fmt.Sprintf("unsupported for %s: %s; supported: %s", domain, strings.Join(unknownMetrics, ", "), strings.Join(spec.metrics, ", "))
+	}
+	var unknownFilters []string
+	for key := range q.Filter {
+		if !spec.hasFilter(key) {
+			unknownFilters = append(unknownFilters, key)
+		}
+	}
+	if len(unknownFilters) > 0 {
+		sort.Strings(unknownFilters)
+		details["filter"] = fmt.Sprintf("unsupported for %s: %s; supported: %s", domain, strings.Join(unknownFilters, ", "), strings.Join(spec.filters, ", "))
+	}
+	if spec.timeRange == timeWindowFixed &&
+		(strings.TrimSpace(q.TimeRange.StartDate) != "" || strings.TrimSpace(q.TimeRange.EndDate) != "") {
+		details["timeRange"] = fmt.Sprintf("%s resolves its own window; timeRange is not consumed", domain)
+	}
+	if len(details) == 0 {
+		return nil
+	}
+	return errorx.NewValidationErrorWithDetails("query parameters outside the domain contract", details)
+}
+
+// facadeTimeLayout is the date-only layout facade timeRange values use (the
+// same convention as the domain requests' startDate/endDate).
+const facadeTimeLayout = "2006-01-02"
+
+// maxFacadeLookbackHours mirrors the invocation summary's 30-day cap; clamping
+// here keeps a too-wide window at the maximum lookback instead of letting the
+// domain silently snap it back to its default 24h.
+const maxFacadeLookbackHours = 24 * 30
+
+// lookbackHours maps timeRange onto an hour count for lookback domains
+// (invocations): both bounds are required in YYYY-MM-DD, the span rounds up to
+// whole hours, and anything beyond the domain's cap clamps to the cap.
+func (q *AnalyticsQuery) lookbackHours() (int, error) {
+	start, errStart := time.Parse(facadeTimeLayout, strings.TrimSpace(q.TimeRange.StartDate))
+	end, errEnd := time.Parse(facadeTimeLayout, strings.TrimSpace(q.TimeRange.EndDate))
+	if errStart != nil || errEnd != nil {
+		return 0, errorx.NewValidationErrorWithDetails("lookback timeRange needs startDate and endDate as YYYY-MM-DD",
+			map[string]string{"timeRange": "expected YYYY-MM-DD for both bounds"})
+	}
+	if !end.After(start) {
+		return 0, errorx.NewValidationErrorWithDetails("timeRange endDate must be after startDate",
+			map[string]string{"timeRange": "endDate must be after startDate"})
+	}
+	hours := int(math.Ceil(end.Sub(start).Hours()))
+	if hours > maxFacadeLookbackHours {
+		hours = maxFacadeLookbackHours
+	}
+	return hours, nil
+}
+
+// narrowResponse prunes a canonical domain payload to the requested metric keys
+// (already validated against the domain spec). The JSON round-trip keeps the
+// wire shape of every kept key identical to the un-narrowed payload.
+func narrowResponse(payload interface{}, metrics []string) (interface{}, error) {
+	if payload == nil {
+		return nil, nil
+	}
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		return nil, err
+	}
+	var full map[string]interface{}
+	if err := json.Unmarshal(raw, &full); err != nil {
+		return nil, err
+	}
+	narrowed := make(map[string]interface{}, len(metrics))
+	for _, key := range metrics {
+		name := strings.TrimSpace(key)
+		if v, ok := full[name]; ok {
+			narrowed[name] = v
+		}
+	}
+	return narrowed, nil
+}
+
 // isPendingDomain reports whether the domain is one whose data source is not built yet (a ❌ domain).
 func isPendingDomain(domain string) bool {
 	for _, d := range PendingDomains {
@@ -311,7 +468,9 @@ func isPendingDomain(domain string) bool {
 }
 
 // Query routes to the matching domain interface by domain. Unknown or unwired domains
-// give 422 (client-input semantics, not a server-side failure).
+// give 422 (client-input semantics, not a server-side failure). Parameters are first
+// checked against the domain's declared contract (facadeDomainSpecs, DATA-029):
+// supported ones are applied, unsupported ones get a field-level diagnostic.
 func (f *Facade) Query(ctx context.Context, q *AnalyticsQuery) (interface{}, error) {
 	if q == nil || strings.TrimSpace(q.Domain) == "" {
 		return nil, errorx.NewValidationErrorWithDetails("domain is required", nil)
@@ -321,34 +480,60 @@ func (f *Facade) Query(ctx context.Context, q *AnalyticsQuery) (interface{}, err
 		return nil, errorx.NewValidationErrorWithDetails("filter.gameId is required", nil)
 	}
 	env := q.env()
+	domain := strings.TrimSpace(q.Domain)
 	tr := q.TimeRange
-	switch strings.TrimSpace(q.Domain) {
+	if spec, known := facadeDomainSpecs[domain]; known {
+		if err := q.validateAgainst(spec, domain); err != nil {
+			return nil, err
+		}
+	}
+	var (
+		data interface{}
+		err  error
+	)
+	switch domain {
 	case DomainOverview:
-		return f.overviewQueryer().Overview(ctx, &OverviewRequest{GameId: gameId, Env: env, StartDate: tr.StartDate, EndDate: tr.EndDate})
+		data, err = f.overviewQueryer().Overview(ctx, &OverviewRequest{GameId: gameId, Env: env, StartDate: tr.StartDate, EndDate: tr.EndDate})
 	case DomainBehavior:
-		return f.behaviorQueryer().Behavior(ctx, &BehaviorRequest{GameId: gameId, Env: env, StartDate: tr.StartDate, EndDate: tr.EndDate})
+		data, err = f.behaviorQueryer().Behavior(ctx, &BehaviorRequest{GameId: gameId, Env: env, StartDate: tr.StartDate, EndDate: tr.EndDate})
 	case DomainPayments:
-		return f.paymentsQueryer().PaymentsSummary(ctx, &PaymentsSummaryRequest{GameId: gameId, Env: env, StartDate: tr.StartDate, EndDate: tr.EndDate})
+		data, err = f.paymentsQueryer().PaymentsSummary(ctx, &PaymentsSummaryRequest{GameId: gameId, Env: env, StartDate: tr.StartDate, EndDate: tr.EndDate})
 	case DomainRetention:
-		return f.retentionQueryer().Retention(ctx, &RetentionRequest{GameId: gameId, Env: env, Cohort: q.filter("cohort"), StartDate: tr.StartDate, EndDate: tr.EndDate})
+		data, err = f.retentionQueryer().Retention(ctx, &RetentionRequest{GameId: gameId, Env: env, Cohort: q.filter("cohort"), StartDate: tr.StartDate, EndDate: tr.EndDate})
 	case DomainRealtime:
-		return f.realtimeQueryer().Realtime(ctx, &RealtimeRequest{GameId: gameId, Env: env})
+		data, err = f.realtimeQueryer().Realtime(ctx, &RealtimeRequest{GameId: gameId, Env: env})
 	case DomainInvocations:
-		return f.invocationsQueryer().InvocationsSummary(ctx, &InvocationsSummaryRequest{GameId: gameId, Env: env})
+		hours := 0
+		if strings.TrimSpace(tr.StartDate) != "" || strings.TrimSpace(tr.EndDate) != "" {
+			hours, err = q.lookbackHours()
+			if err != nil {
+				return nil, err
+			}
+		}
+		data, err = f.invocationsQueryer().InvocationsSummary(ctx, &InvocationsSummaryRequest{GameId: gameId, Env: env, Hours: hours})
 	case DomainLevels:
-		return f.levelsQueryer().Levels(ctx, &LevelsRequest{GameId: gameId, Env: env, StartDate: tr.StartDate, EndDate: tr.EndDate})
+		data, err = f.levelsQueryer().Levels(ctx, &LevelsRequest{GameId: gameId, Env: env, StartDate: tr.StartDate, EndDate: tr.EndDate})
 	case DomainWarehouse:
 		days := 0
 		if v := q.filter("days"); v != "" {
 			days = atoiSafe(v)
 		}
-		return f.warehouseQueryer().WarehouseDAU(ctx, &WarehouseDAURequest{GameId: gameId, Env: env, Days: days})
+		data, err = f.warehouseQueryer().WarehouseDAU(ctx, &WarehouseDAURequest{GameId: gameId, Env: env, Days: days})
 	default:
-		if isPendingDomain(strings.TrimSpace(q.Domain)) {
-			return nil, &errorx.CodeError{Code: http.StatusUnprocessableEntity, Message: "数据源待建：" + q.Domain, StableCode: "domain_pending"}
+		if isPendingDomain(domain) {
+			return nil, &errorx.CodeError{Code: http.StatusUnprocessableEntity, Message: "数据源待建：" + domain, StableCode: "domain_pending"}
 		}
-		return nil, errorx.NewValidationErrorWithDetails("unknown domain: "+q.Domain, nil)
+		return nil, errorx.NewValidationErrorWithDetails("unknown domain: "+domain, nil)
 	}
+	if err != nil {
+		return nil, err
+	}
+	// metrics narrows the canonical payload to the requested top-level keys
+	// (pre-validated against the domain spec); absent/empty returns it whole.
+	if len(q.Metrics) > 0 {
+		return narrowResponse(data, q.Metrics)
+	}
+	return data, nil
 }
 
 // Nil-domain guard: a wiring gap returns an unavailable error instead of panicking.

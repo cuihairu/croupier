@@ -395,6 +395,33 @@ describe('analytics API adapters (param/scope normalization matrix)', () => {
     });
   });
 
+  it('different windows produce different realtime-series requests and results', async () => {
+    // Window semantics (DATA-029): the derived duration distinguishes the two
+    // windows on the wire, and each mapped result reflects its own response.
+    mockedRequest
+      .mockResolvedValueOnce({ series: { users: [{ timestamp: 'a1', value: 5 }] } })
+      .mockResolvedValueOnce({ series: { users: [{ timestamp: 'b1', value: 2 }] } });
+
+    const windowA = await fetchRealtimeSeries({
+      startDate: '2026-09-01T00:00:00Z',
+      endDate: '2026-09-01T01:00:00Z',
+    });
+    const windowB = await fetchRealtimeSeries({
+      startDate: '2026-09-01T00:00:00Z',
+      endDate: '2026-09-01T00:30:00Z',
+    });
+
+    expect(mockedRequest).toHaveBeenNthCalledWith(1, '/api/v1/analytics/realtime/series', {
+      params: { duration: 60, gameId: 'game-a', env: 'prod' },
+    });
+    expect(mockedRequest).toHaveBeenNthCalledWith(2, '/api/v1/analytics/realtime/series', {
+      params: { duration: 30, gameId: 'game-a', env: 'prod' },
+    });
+    expect(windowA.online).toEqual([['a1', 5]]);
+    expect(windowB.online).toEqual([['b1', 2]]);
+    expect(windowA).not.toEqual(windowB);
+  });
+
   it('normalizes behavior events without legacy aliases and with empty rows', async () => {
     mockedRequest.mockResolvedValueOnce({ items: [{}], total: 0 });
 

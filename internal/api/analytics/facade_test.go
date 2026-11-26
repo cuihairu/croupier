@@ -52,9 +52,10 @@ func (stubRealtime) Realtime(context.Context, *RealtimeRequest) (*RealtimeRespon
 	return &RealtimeResponse{RealtimeMetrics: RealtimeMetrics{OnlineUsers: 5}}, nil
 }
 
-type stubInvocations struct{}
+type stubInvocations struct{ hours int }
 
-func (stubInvocations) InvocationsSummary(context.Context, *InvocationsSummaryRequest) (*InvocationsSummaryResponse, error) {
+func (s *stubInvocations) InvocationsSummary(_ context.Context, req *InvocationsSummaryRequest) (*InvocationsSummaryResponse, error) {
+	s.hours = req.Hours
 	return &InvocationsSummaryResponse{Total: 3, SuccessRate: 1}, nil
 }
 
@@ -80,7 +81,7 @@ func allOK() *Facade {
 		Payments:    stubPayments{},
 		Retention:   stubRetention{},
 		Realtime:    stubRealtime{},
-		Invocations: stubInvocations{},
+		Invocations: &stubInvocations{},
 		Levels:      stubLevels{},
 		Warehouse:   stubWarehouse{},
 	}

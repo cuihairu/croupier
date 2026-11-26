@@ -94,6 +94,34 @@ void main() {
     );
   });
 
+  test('query 不同窗口产生不同请求体', () async {
+    // 窗口语义（DATA-029）：不同 timeRange 必须在 wire 上可区分。
+    adapter.handler = (options, _) => jsonResponse(200, {
+      'domain': 'behavior',
+      'data': {'topActions': []},
+    });
+
+    await service.query(
+      domain: 'behavior',
+      gameId: 'demo',
+      startDate: '2026-11-01',
+      endDate: '2026-11-08',
+    );
+    final bodyA = adapter.lastBody!;
+    expect(bodyA, contains('"startDate":"2026-11-01"'));
+    expect(bodyA, contains('"endDate":"2026-11-08"'));
+
+    await service.query(
+      domain: 'behavior',
+      gameId: 'demo',
+      startDate: '2026-11-01',
+      endDate: '2026-11-02',
+    );
+    final bodyB = adapter.lastBody!;
+    expect(bodyB, contains('"endDate":"2026-11-02"'));
+    expect(bodyA, isNot(bodyB));
+  });
+
   test('分域请求注入 scope 头（analytics 是 scoped 端）', () async {
     await store.save(
       const SessionData(
