@@ -818,9 +818,10 @@
 
 #### 查询口径与运营闭环
 
-- [ ] **DATA-024 · P1 · 修复 · 行为分析覆盖完整查询窗口**
+- [x] **DATA-024 · P1 · 修复 · 行为分析覆盖完整查询窗口**（2f2bf0097）
   - 依赖：—。交付与验收：摘要、热图、采用明细、漏斗和路径按完整窗口做有界聚合。若采用抽样，在响应中明确规模和覆盖偏差。超过 100 条的样本必须覆盖跨分页的漏斗步骤。证据：`internal/api/analytics/behavior.go:31,168,235,323` 只读第一页且丢弃总量，`internal/model/vars.go:58` 将 3000/5000 压为 100。续审确认关卡、剧集、地图也走同一个只取一页的 helper，见 `internal/api/analytics/retention.go:76,154,231`，验收需一并覆盖。
-  - 状态／条件：未开始。
+  - 状态／条件：LOCAL VERIFIED（2026-11-26）：根因确认比条目描述的更糟——`ListEvents` 每次调用都执行 `opts.Normalize()`，把 `NewPagination(1,3000/5000)` 压到 **100 且丢弃 total**，所有聚合此前只描述最新 100 条事件。修复：新增共享扫描器 `scanBehaviorEvents`（`internal/api/analytics/service.go`），以各类型首个查询返回的权威 `count` 为终止条件逐页翻读整窗（页大小经 `NewAggregationPagination` 请求，`ListEvents` 内部仍会重新归一，故终止只看 count 不看页长）；上限 `maxWindowEvents=50000`（var，测试可下调），超限返回有界样本。摘要/热图、采用明细、漏斗、路径（`behavior.go`）与关卡/剧集/地图（`retention.go`，原 `loadBehaviorEvents` 换用扫描器）全部接入；响应新增 `sample` 披露对象（`totalEvents`/`scannedEvents`/`sampled`/`coverage`=complete|partial），部分读取绝不冒充完整。分页事件列表端点 `behaviorEvents` 保持自身 page+total 语义不变。test：`internal/api/analytics/behavior_window_test.go` 11 例——250 条事件跨 3 天区域/热图全覆盖、漏斗三步骤全部位于>100 条新事件之后的旧页仍计数、路径跨页、采用明细跨页、关卡 120+120、剧集 240 玩家、地图 150 热力点、超限披露 partial、多类型总量、分页端点语义。变异自证：① 扫描改回单页 → 8 例转红；② 超限仍报 complete → partial 披露用例转红；复修全绿。
+  - 完成证据：`internal/api/analytics/service.go`（scanBehaviorEvents/windowSample/maxWindowEvents）、`internal/model/vars.go`（NewAggregationPagination + normalizeWithLimit，交互态上限仍 100）、`internal/api/analytics/behavior.go`、`internal/api/analytics/retention.go`、`internal/api/analytics/dto.go`（sample 字段）、`internal/api/analytics/behavior_window_test.go`（11 例）、docs 双语 analytics/index.md（Window-wide behavior aggregation 条目）；`go build ./...` PASS、`go test ./internal/api/analytics/ ./internal/model/ -count=1` PASS（25.5s/67s）、guard PASSED、docs build DOCS-EXIT=0、gofmt clean。
 
 - [ ] **DATA-025 · P1 · 实现 · 实时在线与会话采用各自权威来源**
   - 依赖：DATA-001, DATA-002。交付与验收：以心跳或会话生命周期计算在线与活跃会话，事件吞吐单独展示；验证一会话多事件、多个设备和长时间无心跳。证据：`internal/api/analytics/overview.go:137` 将窗口用户数作为在线人数、事件数作为活跃会话数。

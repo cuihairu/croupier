@@ -65,6 +65,7 @@ tag:
 - 聚合恢复（DATA-020）：每个触碰的分钟/日在 Redis 中留有**持久化刷新标记**（`ANALYTICS_AGG_DIRTY_SET`），因此原始事件 ACK 后、聚合行落库前杀进程，重启后仍有刷新义务。HLL 尽力写入失败时另置重建标记（`ANALYTICS_AGG_REBUILD_SET`），下次刷新从持久化的 `analytics.events` 行重建该 HLL（HLL 并集幂等）。重建失败保留标记且不写入虚假的零；HLL 正常写入不触发重建查询。
 - 管道告警恢复（DATA-022）：`event_stream_stalled` / `event_volume_drop` 告警只在**正向证据**下关闭——本轮实际读到的该作用域数据行满足恢复规则。作用域从发现窗口消失（完全静默恰是告警中的断流本身）、查询失败或只读到部分结果都按未知处理并保持告警（`events_query_failed` 单独标记未知轮次）。近期速率与基线速率各除以自己的窗口长度，非默认窗口组合不会使比较失真。
 - 消费组初始化（DATA-023）：新建组从 `WORKER_GROUP_START` 声明的位点起步——默认 `0`，晚于首批入站启动的 worker 会消费保留积压；`$` 表示只消费新消息。**既有组启动时绝不复复位**：Redis 原生位点即消费位置，跨重启保持，旧应用 checkpoint 不会回放已 ACK 数据。持久化 checkpoint 只在两类场景生效：组不存在时以其建组（Redis 丢组后的续传恢复），或显式 `WORKER_GROUP_RESET=true` 运维复位。建组失败必须记录日志，不再静默吞掉；与其他 worker 的 `BUSYGROUP` 竞态保持对方游标。
+- 行为分析全窗口聚合（DATA-024）：摘要、热图、采用明细、漏斗、路径及关卡/剧集/地图报表通过**逐页翻读全部匹配事件**覆盖完整查询窗口——以模型返回的权威 `count` 判定单类型何时读完（请求页大小会被 `ListEvents` 重新归一）。超过聚合上限（`maxWindowEvents`，50000 条）的窗口返回有界样本并在响应 `sample` 对象中披露（`totalEvents`/`scannedEvents`/`sampled`/`coverage`），部分读取绝不冒充完整结果；分页事件端点保留自身页大小契约。
 - 边界：payments 表无去重列，相同支付行重发仍会追加第二条原始行，依赖按 `order_id` 的读取口径对账（DATA-004/051/056 跟踪）。
 
 ## 启动顺序
