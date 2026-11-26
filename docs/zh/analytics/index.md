@@ -75,6 +75,7 @@ tag:
 - 入站链路验收（DATA-031）：`scripts/e2e/analytics.sh` 以测试 HMAC 凭据经真实 `cmd/ingest` 入口发布固定样本——正常批次、同内容重复提交、非法批次（DATA-016：`400` + `details.index`，零入队）、header 与 `game_id` 不一致、`amount_cents` 分值小数拒绝（DATA-018）、nonce 重放（429）——并核对下游 ClickHouse 形态：原始行收敛到派生 event-id 自然键、支付金额全程无损、`minute_online` 覆盖互异的已落幕分钟、`daily_revenue` 按精确分值聚合。保留直写 Redis XADD 的 worker 测试，用于把 worker 行为与 ingest 隔离验证。
 - 会话时长分布（DATA-037）：`/analytics/warehouse/sessions` 返回**已落幕**会话的时长分布，只读 ClickHouse 管道 A（桥接 `session_end`/`session.end` 事件；关系型 BehaviorEvent 表属另一条管道，不喂本端点）。输入契约：结束事件必须同时携带非空 `session_id` 与数值型 `duration_ms` 属性才计入（`JSONHas` 预过滤；字符串/NaN/Inf/负值落入 `invalidDurations`，绝不进分布）。策略：同一会话以**最新**结束事件为准（重复投递或重复关闭收敛为一个会话）；时长**绝不插补**——窗口内有开始但无有效结束的会话以 `unresolved` 披露，不假设时长，重复心跳驱动的开始不虚增任何计数。会话按结束时间归属，跨日会话（前一日开始、窗口内结束）恰好计一次。响应物化 11 个固定半开桶（`0-30s` … `12-24h`、`24h+`）、按量排序的结束原因计数与最近秩 `avg`/`p50`/`p95`（毫秒）；原始扫描有界（`maxWarehouseSessionRows`，50000），触及上限即把响应标记 `sampled`，绝不把截断读取冒充完整。E2E 脚本植入下划线拼写与点号拼写（跨日）各一个结束样本，证明端点的谓词族（`event IN (...)` + `JSONHas`）在真实引擎上可执行。边界：心跳永不延长会话时长；查询时点仍未结束的会话保持 unresolved；跨管道来源统一仍归 DATA-002。
 - 发布器工厂快速失败（DATA-043）：`REDIS_URL` 无法解析时 `mq.NewFromEnv` 拒绝构造（`mq.NewRedis` 返回初始化错误，不再静默降级为 noop 发布器），ingest 入口在打开监听前以非零码退出——配置错误的地址不可能一边应答「采集成功」一边丢弃全部事件。空写入模式仅能通过显式 `ANALYTICS_MQ_TYPE=noop` 选择。
+- 结果流迭代错误被尊重（DATA-044）：所有逐行读取 ClickHouse 的仓库读端（DAU、在线、营收、会话时长分布）与管道监控的作用域查询在迭代结束后检查驱动 `Err()`——流在首行前或中途断掉即以仓库查询失败上报（经仓库错误映射为 HTTP 500），绝不把截断的点列表冒充成功载荷；完整读取与空读取保持原形态。
 - 边界：payments 表无去重列，相同支付行重发仍会追加第二条原始行，依赖按 `order_id` 的读取口径对账（DATA-004/051/056 跟踪）。
 
 ## 启动顺序
