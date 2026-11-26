@@ -13,8 +13,12 @@
 //
 // All decisions are simple window comparisons against ClickHouse/Redis and pull in no
 // external dependency; on recovery the firing alert is automatically set to resolved.
-// The same key is naturally debounced (AlertID unique index + read-then-write). When
-// CLICKHOUSE_DSN is not configured the monitor idles on its own (disabled).
+// Recovery requires positive evidence (DATA-022): an alert is closed only by a scope
+// row that was actually read and satisfies the recovery rule; a scope whose data is
+// missing from the result set, or a round with a failed/partial query, is unknown and
+// keeps the existing alert firing. The same key is naturally debounced (AlertID unique
+// index + read-then-write). When CLICKHOUSE_DSN is not configured the monitor idles on
+// its own (disabled).
 // ---------------------------------------------------------------------------
 package analytics
 
@@ -213,6 +217,9 @@ GROUP BY game_id, env`,
 		int(m.cfg.StallWindow.Minutes()),
 		int(m.cfg.BaselineWindow.Minutes())))
 	if err != nil {
+		// Unknown, not recovered (DATA-022): nothing is known about any scope
+		// this round. Existing alerts stay firing; the failure is marked
+		// separately instead of being read as recovery.
 		m.fireAlert(ctx, "events_query_failed", AlertTypeDataPipeline, "warning",
 			"管道监控查询 analytics.events 失败", map[string]any{"error": err.Error()})
 		return
@@ -220,10 +227,14 @@ GROUP BY game_id, env`,
 	defer func() { _ = rows.Close() }()
 
 	scoped := map[string]pipelineScopeRow{}
+	partial := false
+	var scanErr error
 	for rows.Next() {
 		var r pipelineScopeRow
 		if err := rows.Scan(&r.Game, &r.Env, &r.Recent, &r.Baseline); err != nil {
 			slog.Warn("pipeline monitor scan", "err", err)
+			partial = true
+			scanErr = err
 			continue
 		}
 		if strings.TrimSpace(r.Game) == "" && strings.TrimSpace(r.Env) == "" {
@@ -231,8 +242,19 @@ GROUP BY game_id, env`,
 		}
 		scoped[scopeKey(r.Game, r.Env)] = r
 	}
+	if partial {
+		// Partial data: the scopes behind the unread rows are unknown, not
+		// healthy. Mark the round incomplete; only positively evaluated rows
+		// may close an alert below.
+		m.fireAlert(ctx, "events_query_failed", AlertTypeDataPipeline, "warning",
+			"管道监控仅读到部分作用域数据，未读数按未知处理",
+			map[string]any{"partial": true, "error": scanErr.Error()})
+	} else {
+		m.resolveIfFiring(ctx, "events_query_failed", "管道监控查询已恢复")
+	}
 
-	// Stall / volume drop
+	// Stall / volume drop. scoped holds every row actually read this round;
+	// only those scopes carry evidence for closing an alert.
 	fired := map[string]bool{}
 	for k, r := range scoped {
 		if r.Baseline < m.cfg.BaselineMinRows {
@@ -247,7 +269,7 @@ GROUP BY game_id, env`,
 				fmt.Sprintf("事件断流：%s/%s 近 %s 无任何事件（前 %s 基线 %d 条）",
 					r.Game, r.Env, m.cfg.StallWindow, m.cfg.BaselineWindow, r.Baseline),
 				map[string]any{"gameId": r.Game, "env": r.Env, "recent": r.Recent, "baseline": r.Baseline})
-		case float64(r.Recent)/m.cfg.StallWindow.Minutes() < (float64(r.Baseline)/m.cfg.BaselineWindow.Minutes())*m.cfg.DropRatio:
+		case !m.rateHealthy(r):
 			fired[dropKey] = true
 			m.fireAlert(ctx, dropKey, AlertTypeDataQuality, "warning",
 				fmt.Sprintf("事件量骤降：%s/%s 近 %s 仅 %d 条，低于前 %s 均值的 %.0f%%",
@@ -255,19 +277,22 @@ GROUP BY game_id, env`,
 				map[string]any{"gameId": r.Game, "env": r.Env, "recent": r.Recent, "baseline": r.Baseline})
 		}
 	}
-	// Recovery detection: fired on the previous round and not re-triggered this round -> resolved
+	// Recovery detection (DATA-022): only positive evidence closes an alert.
+	// A scope that vanished from the result set (fully silent, i.e. exactly the
+	// stall being alerted) or whose row was unreadable this round is unknown and
+	// must keep its alert. Resolution is driven by the evaluated rows rather
+	// than by in-memory firing state, so a monitor restart cannot strand an
+	// alert whose scope has already recovered.
 	m.mu.Lock()
-	defer m.mu.Unlock()
-	for _, kind := range []string{"event_stream_stalled", "event_volume_drop"} {
-		for k := range m.states {
-			if !strings.HasPrefix(k, kind+":") {
-				continue
-			}
-			if fired[k] {
-				continue
-			}
-			// The scope may have vanished from the result set (very low traffic), treated as recovered too
-			m.resolveAsync(ctx, k)
+	for k, r := range scoped {
+		if stallKey := "event_stream_stalled:" + k; !fired[stallKey] && r.Recent > 0 {
+			m.resolveAsync(ctx, stallKey)
+		}
+		// A volume-drop alert is cleared only by a healthy rate reading. Below
+		// the baseline floor the rate is unknowable: keep the alert firing.
+		dropKey := "event_volume_drop:" + k
+		if !fired[dropKey] && r.Recent > 0 && r.Baseline >= m.cfg.BaselineMinRows && m.rateHealthy(r) {
+			m.resolveAsync(ctx, dropKey)
 		}
 	}
 	// Record the firing state for this round
@@ -279,6 +304,17 @@ GROUP BY game_id, env`,
 	for k := range fired {
 		m.states[k] = true
 	}
+	m.mu.Unlock()
+}
+
+// rateHealthy reports whether the recent event rate matches the baseline rate
+// closely enough to clear a volume-drop alert. Each rate is computed over its
+// own actual window (DATA-022): recent over StallWindow, baseline over
+// BaselineWindow, so a non-default window pair does not skew the comparison.
+func (m *PipelineMonitor) rateHealthy(r pipelineScopeRow) bool {
+	recentRate := float64(r.Recent) / m.cfg.StallWindow.Minutes()
+	baselineRate := float64(r.Baseline) / m.cfg.BaselineWindow.Minutes()
+	return recentRate >= baselineRate*m.cfg.DropRatio
 }
 
 // ---- Dead letter backlog ----

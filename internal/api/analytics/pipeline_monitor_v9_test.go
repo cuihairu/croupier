@@ -231,9 +231,124 @@ func TestMonitorEventStreamScanErrorSkipsRowV9(t *testing.T) {
 	}
 	m := newScopeMonitorV9(sink, rows, nil)
 	require.NoError(t, m.Check(context.Background()))
-	alerts, _, err := sink.List(context.Background(), model.ListAlertsOptions{})
+	// DATA-022: partial reads are unknown, not recovery. The row is skipped
+	// and the incomplete round is marked with its own query alert.
+	alert, err := sink.FindByAlertID(context.Background(), "pipe:events_query_failed")
 	require.NoError(t, err)
-	assert.Empty(t, alerts)
+	assert.Equal(t, PipelineAlertStatusFiring, alert.Status)
+	assert.Equal(t, true, alert.Details["partial"])
+}
+
+func data022FiringAlert(t *testing.T, sink *model.AlertModel, key string) *model.Alert {
+	t.Helper()
+	a := &model.Alert{
+		AlertID: alertIDFor(key),
+		Type:    AlertTypeDataPipeline,
+		Level:   "critical",
+		Message: "m",
+		Source:  PipelineAlertSource,
+		Status:  PipelineAlertStatusFiring,
+	}
+	require.NoError(t, sink.Create(context.Background(), a))
+	return a
+}
+
+func data022Status(t *testing.T, sink *model.AlertModel, key string) string {
+	t.Helper()
+	a, err := sink.FindByAlertID(context.Background(), alertIDFor(key))
+	require.NoError(t, err)
+	return a.Status
+}
+
+func data022Resolve(t *testing.T, m *PipelineMonitor, sink *model.AlertModel, key string) {
+	t.Helper()
+	require.Eventually(t, func() bool {
+		return data022Status(t, sink, key) == PipelineAlertStatusResolved
+	}, 3*time.Second, 20*time.Millisecond)
+}
+
+func TestMonitorEventStreamAbsenceKeepsFiringUntilPositiveRecoveryV9(t *testing.T) {
+	sink := newMonitorTestSink(t)
+	// Round 1: the monitor itself fires stall (quiet) and drop (low) alerts,
+	// populating the in-memory firing state that absence-driven recovery
+	// wrongly consumed.
+	m := newScopeMonitorV9(sink, &scopeRowsV9{rows: [][]any{
+		{"quiet", "prod", int64(0), int64(2000)}, // recent==0 → stalled
+		{"low", "prod", int64(4), int64(2000)},   // 0.8/min < 20% of 33.3/min → drop
+	}}, nil)
+	require.NoError(t, m.Check(context.Background()))
+	require.Equal(t, PipelineAlertStatusFiring, data022Status(t, sink, "event_stream_stalled:quiet/prod"))
+	require.Equal(t, PipelineAlertStatusFiring, data022Status(t, sink, "event_volume_drop:low/prod"))
+
+	// Round 2: both alerted scopes vanish from the discovery window (fully
+	// silent = exactly the stall being alerted). Absence is not recovery.
+	m.conn = func() (warehouseConn, error) {
+		return &stubConn{rows: &scopeRowsV9{rows: [][]any{
+			{"other", "prod", int64(1000), int64(2000)},
+		}}}, nil
+	}
+	require.NoError(t, m.Check(context.Background()))
+	assert.Equal(t, PipelineAlertStatusFiring, data022Status(t, sink, "event_stream_stalled:quiet/prod"))
+	assert.Equal(t, PipelineAlertStatusFiring, data022Status(t, sink, "event_volume_drop:low/prod"))
+
+	// Round 3: the scopes reappear below the baseline floor — the rate is
+	// unknowable, so the alerts stay firing instead of resolving.
+	m.conn = func() (warehouseConn, error) {
+		return &stubConn{rows: &scopeRowsV9{rows: [][]any{
+			{"quiet", "prod", int64(0), int64(50)},
+			{"low", "prod", int64(1), int64(50)},
+		}}}, nil
+	}
+	require.NoError(t, m.Check(context.Background()))
+	assert.Equal(t, PipelineAlertStatusFiring, data022Status(t, sink, "event_stream_stalled:quiet/prod"))
+	assert.Equal(t, PipelineAlertStatusFiring, data022Status(t, sink, "event_volume_drop:low/prod"))
+
+	// Round 4: positive recovery evidence (rows actually read, healthy rate)
+	// closes both alerts.
+	m.conn = func() (warehouseConn, error) {
+		return &stubConn{rows: &scopeRowsV9{rows: [][]any{
+			{"quiet", "prod", int64(1000), int64(2000)},
+			{"low", "prod", int64(1000), int64(2000)},
+		}}}, nil
+	}
+	require.NoError(t, m.Check(context.Background()))
+	data022Resolve(t, m, sink, "event_stream_stalled:quiet/prod")
+	data022Resolve(t, m, sink, "event_volume_drop:low/prod")
+}
+
+func TestMonitorEventStreamQueryFailureKeepsFiringV9(t *testing.T) {
+	sink := newMonitorTestSink(t)
+	data022FiringAlert(t, sink, "event_stream_stalled:quiet/prod")
+	m := newScopeMonitorV9(sink, nil, errors.New("query boom"))
+
+	require.NoError(t, m.Check(context.Background()))
+	assert.Equal(t, PipelineAlertStatusFiring, data022Status(t, sink, "event_stream_stalled:quiet/prod"))
+	assert.Equal(t, PipelineAlertStatusFiring, data022Status(t, sink, "events_query_failed"))
+}
+
+func TestMonitorEventStreamPartialDataKeepsFiringV9(t *testing.T) {
+	sink := newMonitorTestSink(t)
+	data022FiringAlert(t, sink, "event_stream_stalled:quiet/prod")
+	rows := &scopeRowsV9{
+		rows:    [][]any{{"quiet", "prod", int64(0), int64(2000)}},
+		scanErr: errors.New("scan boom"),
+	}
+	m := newScopeMonitorV9(sink, rows, nil)
+	require.NoError(t, m.Check(context.Background()))
+	assert.Equal(t, PipelineAlertStatusFiring, data022Status(t, sink, "event_stream_stalled:quiet/prod"))
+	assert.Equal(t, PipelineAlertStatusFiring, data022Status(t, sink, "events_query_failed"))
+}
+
+func TestMonitorRateUsesActualWindowV9(t *testing.T) {
+	// 10 events in a 5-minute window vs 100 in 60 minutes: totals say 10 < 20,
+	// but rates (2/min vs 1.667/min) are healthy. The drop alert must not fire.
+	m := NewPipelineMonitor(nil, nil)
+	m.cfg.StallWindow = 5 * time.Minute
+	m.cfg.BaselineWindow = 60 * time.Minute
+	assert.True(t, m.rateHealthy(pipelineScopeRow{Recent: 10, Baseline: 100}))
+	// A ratio above 1.0 requires the recent rate to exceed the baseline itself.
+	m.cfg.DropRatio = 1.5
+	assert.False(t, m.rateHealthy(pipelineScopeRow{Recent: 10, Baseline: 100}))
 }
 
 func TestMonitorDeadLetterAndMQRedisErrorsAreSkippedV9(t *testing.T) {
