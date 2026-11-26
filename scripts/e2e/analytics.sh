@@ -1,10 +1,12 @@
 #!/bin/bash
 # scripts/e2e/analytics.sh
-# Simplified Analytics E2E: validates the worker → ClickHouse pipeline by
-# writing directly to Redis Streams (bypassing ingest HMAC auth). This
-# verifies the core data path without the complexity of the ingest layer.
+# Analytics E2E: covers both inbound paths:
+#   1. direct Redis XADD → worker → ClickHouse (worker-path regression, kept);
+#   2. signed HTTP POST → ingest → Redis → worker → ClickHouse, including
+#      batch validation (DATA-016/017), nonce replay, amount precision
+#      (DATA-018) and cross-window aggregates.
 #
-# Prerequisites: docker, docker compose, Go toolchain.
+# Prerequisites: docker, docker compose, Go toolchain, python3.
 # Runs against docker/docker-compose.yml (Redis + ClickHouse).
 
 set -uo pipefail
@@ -19,13 +21,24 @@ ok()   { echo -e "${GREEN}PASS${NC} — $1"; PASS=$((PASS+1)); }
 fail() { echo -e "${RED}FAIL${NC} — $1"; FAIL=$((FAIL+1)); }
 
 COMPOSE_FILE="${COMPOSE_FILE:-docker/docker-compose.yml}"
+# docker compose wrapper: the repo default file is passed via -f; any other
+# COMPOSE_FILE value is honored through the environment, where compose
+# accepts a separator list of files (COMPOSE_PATH_SEPARATOR) — the -f flag
+# does not split lists.
+compose() {
+  if [ "$COMPOSE_FILE" = "docker/docker-compose.yml" ]; then
+    docker compose -f docker/docker-compose.yml "$@"
+  else
+    COMPOSE_PATH_SEPARATOR=':' docker compose "$@"
+  fi
+}
 # Container names the script talks to via docker exec. CI gets the compose
 # defaults; hosts running the self-hosted deploy stack side by side can point
 # these at a separate compose project's containers.
 REDIS_CONTAINER="${REDIS_CONTAINER:-croupier-redis}"
 CH_CONTAINER="${CH_CONTAINER:-croupier-clickhouse}"
 
-echo "==> Analytics E2E (simplified: Redis XADD → worker → ClickHouse)"
+echo "==> Analytics E2E (Redis XADD + signed HTTP ingest → worker → ClickHouse)"
 echo ""
 
 # --- 1. Docker-compose up (Redis + ClickHouse) ---
@@ -35,7 +48,7 @@ if [ "${SKIP_COMPOSE_UP:-0}" = "1" ]; then
   echo "SKIP_COMPOSE_UP=1: reusing running containers ($REDIS_CONTAINER / $CH_CONTAINER)"
 else
   echo "Starting Redis + ClickHouse..."
-  docker compose -f "$COMPOSE_FILE" up -d --wait redis clickhouse 2>&1 || { fail "docker-compose up"; exit 1; }
+  compose up -d --wait redis clickhouse 2>&1 || { fail "docker-compose up"; exit 1; }
 fi
 
 # Verify ClickHouse is responding (HTTP port 8123 is more reliable than
@@ -50,7 +63,7 @@ if ! docker exec "$CH_CONTAINER" wget -qO- "http://localhost:8123/?query=SELECT%
   fail "ClickHouse not ready"
   echo "--- ClickHouse container logs (last 20 lines) ---"
   docker logs "$CH_CONTAINER" 2>&1 | tail -20
-  docker compose -f "$COMPOSE_FILE" down; exit 1
+  compose down; exit 1
 fi
 ok "ClickHouse ready"
 
@@ -66,7 +79,7 @@ echo "Creating analytics tables from initdb files..."
 for ddl in configs/clickhouse/initdb/001_init.sql configs/clickhouse/initdb/010_analytics.sql; do
   if ! docker exec -i croupier-clickhouse clickhouse-client --multiquery < "$ddl"; then
     fail "apply $ddl"
-    docker compose -f "$COMPOSE_FILE" down; exit 1
+    compose down; exit 1
   fi
 done
 ok "analytics tables created (initdb 001 + 010)"
@@ -79,20 +92,25 @@ else
   echo "Building analytics-worker..."
   if ! go build -o bin/analytics-worker ./cmd/analytics-worker 2>&1; then
     fail "build analytics-worker"
-    docker compose -f "$COMPOSE_FILE" down; exit 1
+    compose down; exit 1
   fi
 fi
 ok "analytics-worker ready"
 
 # --- 4. Start worker (background) ---
-export CLICKHOUSE_DSN="clickhouse://localhost:9000/analytics"
-export REDIS_URL="redis://localhost:6379/0"
+# REDIS_URL / CLICKHOUSE_DSN honor caller-provided values (they are the two
+# binaries' canonical env vars) so hosts where the compose-published ports
+# collide (e.g. a native Redis on 6379) can republish the services via a
+# COMPOSE_FILE override and point these at the alternate ports. CI keeps the
+# defaults.
+export CLICKHOUSE_DSN="${CLICKHOUSE_DSN:-clickhouse://localhost:9000/analytics}"
+export REDIS_URL="${REDIS_URL:-redis://localhost:6379/0}"
 ./bin/analytics-worker > /tmp/e2e-analytics-worker.log 2>&1 &
 WORKER_PID=$!
 sleep 1
 if ! kill -0 $WORKER_PID 2>/dev/null; then
   fail "worker start"; cat /tmp/e2e-analytics-worker.log
-  docker compose -f "$COMPOSE_FILE" down; exit 1
+  compose down; exit 1
 fi
 ok "worker started (pid=$WORKER_PID)"
 
@@ -111,9 +129,207 @@ done
 if [ "$GROUP_READY" -ne 1 ]; then
   fail "worker consumer group not created"
   kill $WORKER_PID 2>/dev/null
-  docker compose -f "$COMPOSE_FILE" down >/dev/null 2>&1; exit 1
+  compose down >/dev/null 2>&1; exit 1
 fi
 ok "worker consumer group ready"
+
+# --- 5b. Build ingest (or reuse a prebuilt binary via INGEST_BIN) ---
+INGEST_E2E_PORT="${INGEST_E2E_PORT:-18088}"
+INGEST_E2E_SECRET="${INGEST_E2E_SECRET:-e2e-ingest-secret}"
+if [ -n "${INGEST_BIN:-}" ] && [ -x "$INGEST_BIN" ]; then
+  echo "Using prebuilt ingest: $INGEST_BIN"
+  mkdir -p bin && cp "$INGEST_BIN" bin/ingest
+else
+  echo "Building ingest..."
+  if ! go build -o bin/ingest ./cmd/ingest 2>&1; then
+    fail "build ingest"
+    compose down; exit 1
+  fi
+fi
+ok "ingest binary ready"
+
+# --- 5c. Ingest chain: signed HTTP publish (the full inbound path) ---
+# Fixed samples go through cmd/ingest with test credentials: accepted batch,
+# duplicate re-submit (same payload, fresh nonce), invalid batch (DATA-016:
+# 400 + details.index, nothing enqueued), header/game_id mismatch, fractional
+# amount_cents rejection (DATA-018) and nonce replay (429). Downstream rows
+# are verified in ClickHouse in section 7b. The direct-XADD worker test in
+# section 6 is retained on purpose: it isolates worker behavior from ingest.
+echo "Starting ingest (127.0.0.1:${INGEST_E2E_PORT}, signed)..."
+./bin/ingest --addr "127.0.0.1:${INGEST_E2E_PORT}" --secret "$INGEST_E2E_SECRET" \
+  > /tmp/e2e-ingest.log 2>&1 &
+INGEST_PID=$!
+sleep 1
+INGEST_READY=0
+for i in $(seq 1 20); do
+  if ! kill -0 $INGEST_PID 2>/dev/null; then break; fi
+  if python3 -c "
+import os, sys, urllib.request
+try:
+    with urllib.request.urlopen('http://127.0.0.1:${INGEST_E2E_PORT}/healthz', timeout=2) as r:
+        sys.exit(0 if r.status == 200 else 1)
+except Exception:
+    sys.exit(1)
+" 2>/dev/null; then
+    INGEST_READY=1; break
+  fi
+  sleep 0.5
+done
+if [ "$INGEST_READY" -ne 1 ]; then
+  fail "ingest start"; cat /tmp/e2e-ingest.log
+  kill $WORKER_PID 2>/dev/null
+  compose down >/dev/null 2>&1; exit 1
+fi
+ok "ingest started (pid=$INGEST_PID)"
+
+echo "Publishing fixed samples via signed HTTP..."
+INGEST_E2E_PORT="$INGEST_E2E_PORT" INGEST_E2E_SECRET="$INGEST_E2E_SECRET" python3 - <<'PYEOF'
+import base64, hashlib, hmac, json, os, subprocess, sys, time, urllib.error, urllib.request
+
+PORT = os.environ["INGEST_E2E_PORT"]
+SECRET = os.environ["INGEST_E2E_SECRET"].encode()
+BASE = f"http://127.0.0.1:{PORT}"
+GAME = "e2e-ingest"
+
+def xlen(stream):
+    r = subprocess.run(
+        ["docker", "exec", "croupier-redis", "redis-cli", "XLEN", stream],
+        capture_output=True, text=True,
+    )
+    try:
+        return int(r.stdout.strip())
+    except ValueError:
+        return -1
+
+def post(path, game, body_obj, ts=None, nonce=None):
+    # Signature contract (cmd/ingest/cmd/root.go authMiddleware):
+    # X-Signature = base64(HMAC_SHA256(secret, ts + "\n" + nonce + "\n" + sha256hex(body)))
+    body = json.dumps(body_obj).encode()
+    ts = ts if ts is not None else str(int(time.time()))
+    nonce = nonce if nonce is not None else f"e2e-{time.time_ns()}"
+    digest = hashlib.sha256(body).hexdigest()
+    msg = (ts + "\n" + nonce + "\n" + digest).encode()
+    sig = base64.b64encode(hmac.new(SECRET, msg, hashlib.sha256).digest()).decode()
+    req = urllib.request.Request(BASE + path, data=body, method="POST", headers={
+        "Content-Type": "application/json",
+        "X-Game-Id": game,
+        "X-Timestamp": ts,
+        "X-Nonce": nonce,
+        "X-Signature": sig,
+    })
+    try:
+        with urllib.request.urlopen(req, timeout=10) as r:
+            return r.status, r.read().decode()
+    except urllib.error.HTTPError as e:
+        return e.code, e.read().decode()
+
+def expect_accept(label, st, body):
+    if st != 202:
+        print(f"FAIL {label}: status={st} want=202 body={body[:300]}", file=sys.stderr)
+        sys.exit(1)
+    print(f"ok {label}: 202")
+
+def expect_reject(label, st, body, want_status, want_error, want_index=None):
+    good = st == want_status and want_error in body
+    if want_index is not None:
+        try:
+            good = good and json.loads(body).get("details", {}).get("index") == want_index
+        except Exception:
+            good = False
+    if not good:
+        print(f"FAIL {label}: status={st} want={want_status}/{want_error} "
+              f"index={want_index} body={body[:300]}", file=sys.stderr)
+        sys.exit(1)
+    print(f"ok {label}: {st} {want_error}")
+
+now = int(time.time())
+
+def iso(offset):
+    return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(now + offset))
+
+def sample(event, user, offset, props=None):
+    return {
+        "game_id": GAME, "env": "dev", "event": event,
+        "user_id": user, "session_id": f"s-{user}",
+        "channel": "direct", "platform": "linux", "country": "US",
+        "ts": iso(offset), "props": props or {},
+    }
+
+# Cross-window liveness samples: session_start 100s apart, both >= 100s in
+# the past, so they land in two distinct, fully elapsed minutes (the
+# minute_online HLL only counts heartbeat/session_start).
+batch = [
+    sample("session_start", "iu1", -200),
+    sample("session_start", "iu2", -100),
+    sample("purchase", "iu1", 0, {"item": "potion", "amount": 1}),
+]
+
+st, body = post("/api/ingest/events", GAME, batch)
+expect_accept("signed batch accepted", st, body)
+
+# Duplicate re-submit: same content, fresh nonce -> accepted again; the
+# worker re-inserts onto the same derived event_id (natural key).
+st, body = post("/api/ingest/events", GAME, batch)
+expect_accept("duplicate re-submit accepted", st, body)
+
+# Invalid batch: item 1 misses required 'event' -> 400 invalid_payload with
+# details.index=1 and NOTHING enqueued (validate-then-publish).
+bad_batch = [dict(batch[0]), {"game_id": GAME, "env": "dev", "ts": iso(0)}, dict(batch[2])]
+len_before = xlen("analytics:events")
+st, body = post("/api/ingest/events", GAME, bad_batch)
+expect_reject("invalid item rejected", st, body, 400, "invalid_payload", want_index=1)
+len_after = xlen("analytics:events")
+if len_before < 0 or len_after != len_before:
+    print(f"FAIL invalid batch enqueued rows: XLEN {len_before} -> {len_after}", file=sys.stderr)
+    sys.exit(1)
+print(f"ok invalid batch enqueued nothing (XLEN stayed {len_after})")
+
+# Header game vs payload game_id mismatch -> 400.
+st, body = post("/api/ingest/events", "e2e-not-ingest", [dict(batch[0])])
+expect_reject("game_id header mismatch rejected", st, body, 400, "invalid_payload")
+
+# Payment with an exact cents amount through the whole chain.
+payment = {
+    "game_id": GAME, "env": "dev", "user_id": "iu1",
+    "order_id": "ORD-ING-001", "amount_cents": 999, "currency": "USD",
+    "status": "success", "channel": "direct", "platform": "linux",
+    "country": "US", "region": "", "city": "", "product_id": "potion",
+    "ts": iso(0),
+}
+st, body = post("/api/ingest/payments", GAME, [payment])
+expect_accept("signed payment accepted", st, body)
+
+# Fractional cents must be rejected with the item index (DATA-018), and
+# nothing may be enqueued.
+plen_before = xlen("analytics:payments")
+st, body = post("/api/ingest/payments", GAME,
+                [dict(payment, order_id="ORD-ING-BAD", amount_cents=99.5)])
+expect_reject("fractional amount rejected", st, body, 400, "invalid_payload", want_index=0)
+plen_after = xlen("analytics:payments")
+if plen_before < 0 or plen_after != plen_before:
+    print(f"FAIL rejected payment enqueued rows: XLEN {plen_before} -> {plen_after}", file=sys.stderr)
+    sys.exit(1)
+print(f"ok rejected payment enqueued nothing (XLEN stayed {plen_after})")
+
+# Nonce replay: byte-identical signed request (same ts + nonce) must be
+# refused after first use (429 duplicate_nonce).
+ts0 = str(int(time.time()))
+nonce0 = "e2e-replay-nonce-1"
+st, body = post("/api/ingest/events", GAME, [sample("session_start", "iu3", -300)],
+                ts=ts0, nonce=nonce0)
+expect_accept("replay first use accepted", st, body)
+st, body = post("/api/ingest/events", GAME, [sample("session_start", "iu3", -300)],
+                ts=ts0, nonce=nonce0)
+expect_reject("nonce replay refused", st, body, 429, "duplicate_nonce")
+
+print("INGEST-CHAIN-OK")
+PYEOF
+if [ $? -ne 0 ]; then
+  fail "ingest chain publish"
+  kill $WORKER_PID $INGEST_PID 2>/dev/null
+  compose down >/dev/null 2>&1; exit 1
+fi
+ok "ingest chain: signed/duplicate/invalid/mismatch/amount/replay cases verified"
 
 # --- 6. Write test events via Redis Streams (bypassing ingest HMAC) ---
 # Worker processMessage expects a single "data" field containing JSON.
@@ -166,7 +382,7 @@ xadd('analytics:payments', {
 "
 if [ $? -ne 0 ]; then
   fail "XADD failed"
-  kill $WORKER_PID 2>/dev/null; docker compose -f "$COMPOSE_FILE" down >/dev/null 2>&1; exit 1
+  kill $WORKER_PID 2>/dev/null; compose down >/dev/null 2>&1; exit 1
 fi
 
 # Verify events are in Redis stream
@@ -176,7 +392,7 @@ if [ "$EVENTS_LEN" -ge 2 ]; then
 else
   fail "events NOT in Redis stream (count=$EVENTS_LEN, expected >= 2)"
   kill $WORKER_PID 2>/dev/null
-  docker compose -f "$COMPOSE_FILE" down >/dev/null 2>&1; exit 1
+  compose down >/dev/null 2>&1; exit 1
 fi
 
 # --- 6. Wait for worker to consume events and flush to ClickHouse ---
@@ -263,10 +479,57 @@ else
   docker exec "$REDIS_CONTAINER" redis-cli --scan --pattern 'hll:*' | head -10
 fi
 
+# --- 7b. Ingest chain results in ClickHouse (game e2e-ingest) ---
+# All rows published via signed HTTP in section 5c. Expected shapes:
+#   events:       3 (batch) + 3 (duplicate re-submit) + 1 (replay first use)
+#                 = 7 raw rows collapsing onto 4 derived event_id natural keys
+#                 (identical payloads -> identical worker UUIDv5 fingerprints);
+#   payments:     exactly 1 row with amount_cents = 999 (99.5 was rejected);
+#   minute_online: 3 distinct fully-elapsed minutes (session_start at
+#                 -300s/-200s/-100s, pairwise >60s apart);
+#   daily_revenue: revenue_cents = 999 (FINAL collapses rewrites).
+ING_ROWS=$(docker exec "$CH_CONTAINER" clickhouse-client --query \
+  "SELECT count() FROM analytics.events WHERE game_id = 'e2e-ingest'" 2>/dev/null || echo "0")
+ING_KEYS=$(docker exec "$CH_CONTAINER" clickhouse-client --query \
+  "SELECT uniqExact(event_id) FROM analytics.events WHERE game_id = 'e2e-ingest'" 2>/dev/null || echo "0")
+if [ "$ING_ROWS" -eq 7 ] && [ "$ING_KEYS" -eq 4 ]; then
+  ok "ingest events: 7 rows collapse onto 4 natural keys (rows=$ING_ROWS, keys=$ING_KEYS)"
+else
+  fail "ingest event natural-key collapse wrong (rows=$ING_ROWS, keys=$ING_KEYS; expected 7 rows / 4 keys)"
+  echo "--- ingest log tail ---"
+  tail -20 /tmp/e2e-ingest.log 2>/dev/null || echo "(no ingest log)"
+fi
+
+ING_PAY_ROWS=$(docker exec "$CH_CONTAINER" clickhouse-client --query \
+  "SELECT count() FROM analytics.payments WHERE game_id = 'e2e-ingest'" 2>/dev/null || echo "0")
+ING_PAY_SUM=$(docker exec "$CH_CONTAINER" clickhouse-client --query \
+  "SELECT sum(amount_cents) FROM analytics.payments WHERE game_id = 'e2e-ingest'" 2>/dev/null || echo "0")
+if [ "$ING_PAY_ROWS" -eq 1 ] && [ "$ING_PAY_SUM" -eq 999 ]; then
+  ok "ingest payment amount intact through chain (rows=1, amount_cents=$ING_PAY_SUM)"
+else
+  fail "ingest payment wrong (rows=$ING_PAY_ROWS, amount_cents=$ING_PAY_SUM; expected 1 row / 999)"
+fi
+
+ING_MINUTES=$(docker exec "$CH_CONTAINER" clickhouse-client --query \
+  "SELECT uniqExact(m) FROM analytics.minute_online WHERE game_id = 'e2e-ingest'" 2>/dev/null || echo "0")
+if [ "$ING_MINUTES" -eq 3 ]; then
+  ok "ingest cross-window online minutes (distinct=$ING_MINUTES)"
+else
+  fail "ingest cross-window minutes wrong (distinct=$ING_MINUTES; expected 3)"
+fi
+
+ING_REV=$(docker exec "$CH_CONTAINER" clickhouse-client --query \
+  "SELECT sum(revenue_cents) FROM analytics.daily_revenue FINAL WHERE game_id = 'e2e-ingest'" 2>/dev/null || echo "0")
+if [ "$ING_REV" -eq 999 ]; then
+  ok "ingest daily_revenue aggregate (revenue_cents=$ING_REV)"
+else
+  fail "ingest daily_revenue wrong (revenue_cents=$ING_REV; expected 999)"
+fi
+
 # --- 8. Cleanup ---
-kill $WORKER_PID 2>/dev/null
+kill $WORKER_PID $INGEST_PID 2>/dev/null
 if [ "${SKIP_COMPOSE_UP:-0}" != "1" ]; then
-  docker compose -f "$COMPOSE_FILE" down >/dev/null 2>&1
+  compose down >/dev/null 2>&1
 fi
 
 echo ""
