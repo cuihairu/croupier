@@ -1922,9 +1922,12 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 完成证据：commit 2ab9d2e34（`sdks/cpp/src/croupier_client.cpp` `ensureTransportSecurityAllowed()`+三处调用+`LastError()`；`sdks/cpp/include/croupier/sdk/croupier_client.h`；`sdks/cpp/tests/test_coverage_boost4.cpp` 新测试；`sdks/csharp/src/Croupier.Sdk/CroupierClient.cs` 两处 guard；`sdks/csharp/src/Croupier.Sdk.Tests/CroupierClientTests.cs` 新测试；`sdks/SDK_FEATURE_MATRIX.md` TLS 行；`docs/sdks/{cpp,csharp}/**`+`docs/zh/**` 边界文档）。
   - 已知边界：TLS（OpenSSL 握手 / C# `SslStream` + CA/cert/key 校验 + 真实 TLS listener 对接）未实现，为后续跟进项；本次按验收第二分支「请求安全模式时明确拒绝连接」闭环（消除静默降级洞），特征矩阵已如实标注 ❌。C++ 拒绝路径被既有 try/catch 捕获后经 `last_error_`/`LastError()` 暴露（`Connect()` 返回 false 而非抛出，保持既有返回契约）；C# 直接抛 `NotSupportedException` 到调用方。
 
-- [ ] **AUD-015 · P2 · 修复 · 多游戏冷启动任务恢复不能只枚举已打开库**
+- [x] **AUD-015 · P2 · 修复 · 多游戏冷启动任务恢复不能只枚举已打开库**（commit 0d9340bb4）
   - 依赖：—。交付与验收：提供有界持久巡检或等效恢复保障，未被用户访问的游戏库也能收敛陈旧任务。
-  - 状态／条件：tasks/store.go:135 仅遍历 Router.OpenScopes；文件库测试中冷启动空集合收割 0 行，加入 scope 后同一任务才收敛。 2026-11-21 复核确认现行启动装配仍使用 `cmd/server/root.go:561,813` 的 `OpenScopes` 适配器。
+  - 状态／条件：LOCAL VERIFIED（2026-11-22 交付，commit 0d9340bb4；2026-11-27 本席复验恢复勾行——c187d1015 台账重构时本项勾行被回退，产品代码与测试始终在 main）：根因——`tasks/store.go` `ReapStale` 仅经 `Router.OpenScopes()` 枚举当前已打开的库；从未被用户访问的休眠游戏库陈旧任务永不收敛。修复——新增 `RegisteredScopeSource` 可选接口（`RegisteredScopes()` 从 meta 库 `game_envs` 绑定枚举全部已注册 scope，ARCH-006 权威路由真值），`cmd/server/root.go` 的 `routerTaskScopes` 实现之；`ReapStale` 在 open-scope fan-out 之外追加 `reapDormantScopes`：registered−open 的休眠库按 `dormantScopeBudget=8` 有界逐次开启收割，被开启的库经 `ScopeContext` 加入 router 缓存成为 open（休眠集单调收缩，首开副作用有界不突发）。`ReapAgentNonTerminal`（事件触发断开路径）保持 open-only 便宜；未实现接口/nil resolver 保持 AUD-015 前行为。
+  - 验证：本席 2026-11-27 本地复跑 `go test ./internal/tasks/ -count=1` 全绿；变异自证：M1 旁路 RegisteredScopeSource 枚举（恒走 open-only）→ `TestStore_ReapStale_DormantScopeConverges` 与 `TestStore_ReapStale_DormantBudgetCapped` 如实红；还原后全绿、0 MUTATION 残留。原始交付验证（2026-11-22）：`go build ./...` 0 错误；`go test ./internal/tasks/... ./cmd/server/...` 全绿；`go test ./internal/...` 除负载风暴下 `internal/api/ops` 环境性 600s 超时（与改动零交集，隔离复跑全绿）外全绿。
+  - 完成证据：commit 0d9340bb4（`internal/tasks/store.go`：+`RegisteredScopeSource` 接口、`dormantScopeBudget`、`reapDormantScopes`、`ReapStale` 两路收割 `errors.Join`；`cmd/server/root.go`：`routerTaskScopes.RegisteredScopes()` 查 `[]model.GameEnvBinding`；`internal/tasks/store_scopes_test.go`：+121 行两新用例含 budget 封顶）。
+  - 已知边界：休眠收割依赖 resolver 实现 `RegisteredScopeSource`（当前仅 `cmd/server/root.go` 的 `routerTaskScopes` 实现）；`game_envs` 绑定与物理库名映射的 legacy/自定义映射需核验（ARCH-006），休眠库名解析失败该 scope 收割报错聚合不静默丢弃。`dormantScopeBudget=8`：冷启动休眠库 >8 时需多轮看门狗周期收敛（有界不突发是有意权衡）。`ReapAgentNonTerminal` 保持 open-only（断开路径便宜），非 open 库的 agent 断开收敛不在本次范围。
 
 - [ ] **AUD-016 · P1 · 修复 · 对象存储写入补齐权限和保留前缀边界**
   - 依赖：—。交付与验收：按现有权限定义控制上传、覆盖、删除、目录变更与签名访问，保护备份/发布对象。
