@@ -400,9 +400,22 @@ func (s *server) authMiddleware(next http.Handler) http.Handler {
 			respondJSON(w, http.StatusUnauthorized, map[string]string{"error": "timestamp_skew"})
 			return
 		}
-		// hash body
-		body, err := io.ReadAll(r.Body)
+		// DATA-046: the shared body cap applies before any read. A declared
+		// oversize is rejected without touching the body; a chunked upload
+		// without Content-Length stops at the cap via MaxBytesReader. The
+		// auth digest and the business decoding therefore consume bytes
+		// bounded by the same s.maxBodySize — an oversized request can never
+		// be fully buffered here just to verify its signature.
+		if r.ContentLength > 0 && r.ContentLength > s.maxBodySize {
+			s.respondBodyTooLarge(w)
+			return
+		}
+		body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, s.maxBodySize))
 		if err != nil {
+			if isBodyTooLarge(err) {
+				s.respondBodyTooLarge(w)
+				return
+			}
 			respondJSON(w, http.StatusBadRequest, map[string]string{"error": "read_body_failed"})
 			return
 		}
@@ -429,6 +442,21 @@ func (s *server) authMiddleware(next http.Handler) http.Handler {
 		r.Body = io.NopCloser(bytes.NewReader(body))
 		r.Header.Set("X-Game-Id", gameID)
 		next.ServeHTTP(w, r)
+	})
+}
+
+// isBodyTooLarge reports whether err came from an http.MaxBytesReader cap.
+func isBodyTooLarge(err error) bool {
+	var maxErr *http.MaxBytesError
+	return errors.As(err, &maxErr)
+}
+
+// respondBodyTooLarge writes the stable 413 shared by every body-cap site
+// (auth gate, business decoders, metrics middleware).
+func (s *server) respondBodyTooLarge(w http.ResponseWriter) {
+	respondJSON(w, http.StatusRequestEntityTooLarge, map[string]string{
+		"error":       "body_too_large",
+		"max_size_mb": fmt.Sprintf("%d", maxBodySizeMB),
 	})
 }
 
@@ -529,12 +557,9 @@ func (s *server) ingestEvents(w http.ResponseWriter, r *http.Request) {
 	dec := json.NewDecoder(limitedReader)
 	dec.UseNumber()
 	if err := dec.Decode(&arr); err != nil {
-		// Check if it's a size error
-		if err.Error() == "http: request body too large" {
-			respondJSON(w, http.StatusRequestEntityTooLarge, map[string]string{
-				"error":       "body_too_large",
-				"max_size_mb": fmt.Sprintf("%d", maxBodySizeMB),
-			})
+		// DATA-046: detect the size cap by error type, not by message text.
+		if isBodyTooLarge(err) {
+			s.respondBodyTooLarge(w)
 			return
 		}
 		respondJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_payload"})
@@ -583,12 +608,9 @@ func (s *server) ingestPayments(w http.ResponseWriter, r *http.Request) {
 	dec := json.NewDecoder(limitedReader)
 	dec.UseNumber()
 	if err := dec.Decode(&arr); err != nil {
-		// Check if it's a size error
-		if err.Error() == "http: request body too large" {
-			respondJSON(w, http.StatusRequestEntityTooLarge, map[string]string{
-				"error":       "body_too_large",
-				"max_size_mb": fmt.Sprintf("%d", maxBodySizeMB),
-			})
+		// DATA-046: detect the size cap by error type, not by message text.
+		if isBodyTooLarge(err) {
+			s.respondBodyTooLarge(w)
 			return
 		}
 		respondJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_payload"})

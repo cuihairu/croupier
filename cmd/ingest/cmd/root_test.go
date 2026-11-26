@@ -424,7 +424,7 @@ func TestAuthMiddleware(t *testing.T) {
 	})
 
 	newSrv := func() *server {
-		s := &server{secret: "top-secret", allowSkew: time.Minute}
+		s := &server{secret: "top-secret", allowSkew: time.Minute, maxBodySize: 1 << 20}
 		return s
 	}
 
@@ -505,8 +505,9 @@ func TestAuthMiddleware(t *testing.T) {
 
 	t.Run("valid_with_per_game_secret", func(t *testing.T) {
 		s := &server{
-			perSecret: map[string]string{"game-a": "a-secret"},
-			allowSkew: time.Minute,
+			perSecret:   map[string]string{"game-a": "a-secret"},
+			allowSkew:   time.Minute,
+			maxBodySize: 1 << 20,
 		}
 		body := `{"a":2}`
 		req := signedRequest(t, "a-secret", nowUnixStr(), "n-a", "", body)
@@ -1156,4 +1157,85 @@ func TestRunIngest_OccupiedPortFailsFast(t *testing.T) {
 	require.Error(t, err)
 	assert.Less(t, time.Since(start), 10*time.Second, "listener failure must fail fast")
 	assert.Contains(t, err.Error(), "ingest http server exited")
+}
+
+// DATA-046: the shared body cap applies before auth reads anything — a
+// declared oversize is rejected without a read, and a chunked upload without
+// Content-Length stops at the cap; both return the stable 413 shape instead
+// of being fully buffered for signature verification.
+func TestAuthMiddlewareBodyCapBeforeVerification(t *testing.T) {
+	const limit = 64
+	newSrv := func() *server {
+		return &server{secret: "cap-secret", allowSkew: time.Minute, maxBodySize: limit}
+	}
+	neverNext := http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		t.Fatal("next must not run for an oversized request")
+	})
+
+	t.Run("declared_oversize_rejected_before_verification", func(t *testing.T) {
+		s := newSrv()
+		body := strings.Repeat("x", limit*4)
+		// 签名故意错误：若上限在验签之后应用，这里会得到 401 bad_signature。
+		req := signedRequest(t, s.secret, nowUnixStr(), "cap-declared", "bogus-signature", body)
+		w := httptest.NewRecorder()
+		s.authMiddleware(neverNext).ServeHTTP(w, req)
+		assert.Equal(t, http.StatusRequestEntityTooLarge, w.Code)
+		assert.Contains(t, w.Body.String(), "body_too_large")
+	})
+
+	t.Run("chunked_unknown_length_stops_at_cap", func(t *testing.T) {
+		s := newSrv()
+		huge := strings.Repeat("x", limit*1024)
+		counting := &countingReader{r: strings.NewReader(huge)}
+		req := httptest.NewRequest(http.MethodPost, "/x", counting)
+		req.ContentLength = 0 // 分块请求：无 Content-Length
+		req.Header.Set("X-Timestamp", nowUnixStr())
+		req.Header.Set("X-Nonce", "cap-chunked")
+		req.Header.Set("X-Signature", "bogus")
+		w := httptest.NewRecorder()
+		s.authMiddleware(neverNext).ServeHTTP(w, req)
+		assert.Equal(t, http.StatusRequestEntityTooLarge, w.Code)
+		assert.Contains(t, w.Body.String(), "body_too_large")
+		// 在上限处停止读取：底层只被拉动上限附近字节，远小于完整 body
+		assert.LessOrEqual(t, counting.n, int64(limit+1))
+	})
+
+	t.Run("body_at_exact_limit_passes_verification", func(t *testing.T) {
+		s := newSrv()
+		body := strings.Repeat("x", limit)
+		req := signedRequest(t, s.secret, nowUnixStr(), "cap-exact", "", body)
+		called := 0
+		w := httptest.NewRecorder()
+		s.authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			called++
+			got, err := io.ReadAll(r.Body)
+			assert.NoError(t, err)
+			assert.Equal(t, body, string(got))
+			w.WriteHeader(http.StatusAccepted)
+		})).ServeHTTP(w, req)
+		assert.Equal(t, http.StatusAccepted, w.Code)
+		assert.Equal(t, 1, called)
+	})
+
+	t.Run("payments_route_uses_same_cap", func(t *testing.T) {
+		s := newSrv()
+		req := signedRequest(t, s.secret, nowUnixStr(), "cap-payments", "bogus-signature", strings.Repeat("x", limit*4))
+		w := httptest.NewRecorder()
+		s.authMiddleware(neverNext).ServeHTTP(w, req)
+		assert.Equal(t, http.StatusRequestEntityTooLarge, w.Code)
+		assert.Contains(t, w.Body.String(), "body_too_large")
+	})
+}
+
+// countingReader counts how many bytes the server actually pulled from the
+// underlying stream.
+type countingReader struct {
+	r io.Reader
+	n int64
+}
+
+func (c *countingReader) Read(p []byte) (int, error) {
+	n, err := c.r.Read(p)
+	c.n += int64(n)
+	return n, err
 }
