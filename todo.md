@@ -1929,89 +1929,158 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 完成证据：commit 0d9340bb4（`internal/tasks/store.go`：+`RegisteredScopeSource` 接口、`dormantScopeBudget`、`reapDormantScopes`、`ReapStale` 两路收割 `errors.Join`；`cmd/server/root.go`：`routerTaskScopes.RegisteredScopes()` 查 `[]model.GameEnvBinding`；`internal/tasks/store_scopes_test.go`：+121 行两新用例含 budget 封顶）。
   - 已知边界：休眠收割依赖 resolver 实现 `RegisteredScopeSource`（当前仅 `cmd/server/root.go` 的 `routerTaskScopes` 实现）；`game_envs` 绑定与物理库名映射的 legacy/自定义映射需核验（ARCH-006），休眠库名解析失败该 scope 收割报错聚合不静默丢弃。`dormantScopeBudget=8`：冷启动休眠库 >8 时需多轮看门狗周期收敛（有界不突发是有意权衡）。`ReapAgentNonTerminal` 保持 open-only（断开路径便宜），非 open 库的 agent 断开收敛不在本次范围。
 
-- [ ] **AUD-016 · P1 · 修复 · 对象存储写入补齐权限和保留前缀边界**
+- [x] **AUD-016 · P1 · 修复 · 对象存储写入补齐权限和保留前缀边界**（commit ce46f9a59）
   - 依赖：—。交付与验收：按现有权限定义控制上传、覆盖、删除、目录变更与签名访问，保护备份/发布对象。
-  - 状态／条件：storage/service.go:122-175 直接用输入 path 写全局存储；临时夹具确认只有登录身份即可覆盖 backups/ 对象。
+  - 状态／条件：LOCAL VERIFIED（交付 commit ce46f9a59；2026-11-27 本席复验恢复勾行——c187d1015 台账重构时本项勾行被回退，产品代码与测试始终在 main）：storage/service.go:122-175 直接用输入 path 写全局存储；临时夹具确认只有登录身份即可覆盖 backups/ 对象。
+  - 修复：服务层权限门禁 `utils.RequireAnyPermission`（`uploads:write`，超管经 HasAdminRole 直通）接进 SignedUrl/UploadObject/DeleteObject/BatchDeleteObjects/CreateDirectory/RenameDirectory；受保护前缀 `backups/`、`releases/`、`archives/`、`exports/` 的写/删/改名一律 403 `retention_prefix_forbidden`（超管也不豁免），批量删除整单拒绝无部分执行。签名访问按路径域镜像子系统授权：`backups/`→`backup:read`、`releases/`→仅超管，其余路径走 `uploads:write`。
+  - 验证：`go test ./internal/api/storage/... -count=1` 全绿（零角色六操作面 403 无副作用、仅持 uploads:write 操作员常规可用且不能触保留前缀/签发备份链接、超管不能触保留前缀、批量整单拒绝、预存备份对象不被覆盖/删除/改名）；`go vet` 与 `go build ./internal/...` 通过；`gofmt -l` 清洁。LOCAL VERIFIED。
+  - 完成证据：commit ce46f9a59（`internal/api/storage/service.go`：+`storagePermission`/`requirePermission`/`requireStoragePermission`/`requireSignedPermission`/`protectedStoragePrefixes`/`protectedPrefixKind`/`guardWritablePath` 并接进六个方法；`aud016_harness_test.go`：包级共享 sqlite 播种超管/仅持 uploads:write 操作员/零角色三身份 + `identitySvcCtx`/`authCtx`/`operatorCtx`/`viewerCtx`；`aud016_permission_test.go`：五个回归用例；既有 service/handler 测试统一升级经身份面）。
+  - 已知边界：ListObjects 仅认证未加门禁（只读，不在验收面）；`releases/` 签名访问归 admin:all（发布链自身无独立权限定义，未新造 catalog 外权限键）；`archives/`、`exports/` 为防御性前缀（当前无子系统写）；门禁仅在通用对象接口，子系统（backupexec/release 服务）直写 ObjectStore 不经此路径，其自身授权不变；权限键 `uploads:write` 为既有 catalog 权限，未新造。
 
-- [ ] **AUD-017 · P1 · 修复 · 全局电源配置操作补齐平台权限检查**
+- [x] **AUD-017 · P1 · 修复 · 全局电源配置操作补齐平台权限检查**（commit cf10d0310）
   - 依赖：—。交付与验收：合法游戏/环境作用域不等同硬件管理权限；覆盖 power-config 写入及其他 PowerOps 操作入口。
-  - 状态／条件：ops/powerops.go:221-263 更新全局节点不检查操作权限；真实 Auth+GameDBMiddleware 下零角色、合法单游戏 scope 账号可修改全局节点 BMC 配置。
+  - 状态／条件：LOCAL VERIFIED（交付 commit cf10d0310；2026-11-27 本席复验恢复勾行——c187d1015 台账重构时本项勾行被回退，产品代码与测试始终在 main）：ops/powerops.go:221-263 更新全局节点不检查操作权限；真实 Auth+GameDBMiddleware 下零角色、合法单游戏 scope 账号可修改全局节点 BMC 配置。
+  - 修复：六个 PowerOps 入口（提交/续行/拒绝/查询/列表/机器电源信息写入）在服务层加 `requirePowerPermission`（`utils.RequireAnyPermission`，只认超管域 `admin:all`，HasAdminRole 直通）；授权先于编排器/资源存在性检查（无权限不触子系统）。权限目录（configs/permissions.json 39 键）无电源/硬件管理键，故未新造目录外键。
+  - 验证：`go test ./internal/api/ops/... -count=1` 全绿（新增 AUD-017 回归：零角色与仅持 function:invoke 的游戏侧账号在六入口一律 403 permission_denied 且提交不落请求行、BMC 配置不变；超管对照六入口数据面可用、续行未批准报 409 证明已过授权门）；`go vet` 与 `go build ./internal/...` 通过；`gofmt -l` 清洁。LOCAL VERIFIED。
+  - 完成证据：commit cf10d0310（`internal/api/ops/powerops.go`：+`requirePowerPermission` 并接入 OpsPowerSubmit/Resume/Reject/Get/List/ConfigPut；`aud017_permission_test.go`：+`seedPowerViewer`/`seedPowerScopedOperator`/`powerCtx`/`assertPowerForbidden` 两回归用例；`powerops_test.go`：harness AutoMigrate 增 Admin/Role/AdminRole/RolePermission + `seedPowerSuperAdmin` 身份面；`handler_test.go`：`newOpsTestContext` 统一注入超管用户名）。
+  - 已知边界：门禁只认超管域 `admin:all`——权限目录无电源/硬件管理键，授予更低权限的角色（如仅游戏侧权限）一律拒绝；新增专用 `power:*` 键需改 `configs/permissions.json`+`roles.json` 目录（未做，避免目录外键）。未配置（powerops.enabled=false）仍如实报 503（授权在装配检查前，未配置部署对超管也报 503）。
 
-- [ ] **AUD-018 · P2 · 修复 · Python reader 所有退出路径统一清理连接和 pending**
+- [x] **AUD-018 · P2 · 修复 · Python reader 所有退出路径统一清理连接和 pending**（commit 96b9cde91）
   - 依赖：—。交付与验收：异常退出后连接立即不可用，在途调用及时失败，重连不被虚假 connected 阻断。
-  - 状态／条件：sdks/python/croupier/transport/tcp.py:336 通用异常只日志后退出；超长帧后 connected/running 仍 true 且 pending 未收到错误。
+  - 状态／条件：LOCAL VERIFIED（交付 commit 96b9cde91；2026-11-27 本席复验恢复勾行——c187d1015 台账重构时本项勾行被回退，产品代码与测试始终在 main）：sdks/python/croupier/transport/tcp.py:336 通用异常只日志后退出；超长帧后 connected/running 仍 true 且 pending 未收到错误。
+  - 修复：`_reader_loop` 通用异常分支改为与连接丢失共用 `_fail_pending_and_disconnect(err)`——置 `_connected=False`、逐个 fail 在途 pending 并清空（`ConnectionError("reader terminated: ...")`）；四个退出路径（close 清 sock / 连接丢失 / 通用异常 / `_running=False` 自然退出）清理语义一致。
+  - 验证：全量 `pytest`（sdks/python）**556 passed, 17 skipped**；新增两回归：fatal reader 错误（parse_message 注入 RuntimeError）与超长帧（裸 33MB 长度前缀直发）均断言 reader 退出、`is_connected()=False`、在途 call 快速收到 `reader terminated`、`_pending` 清空、重连后数据面可用；mutation 自测（临时还原旧行为）两用例均红，证明测试抓得住回归。mutation 已还原。LOCAL VERIFIED。
+  - 完成证据：commit 96b9cde91（`croupier/transport/tcp.py`：+`_fail_pending_and_disconnect` 并接进两异常分支；`tests/test_tcp_transport_e2e.py`：`test_reader_stops_on_unexpected_internal_error` 从「BUG（记录未修）」改为断言修复不变量 + 新增 `test_reader_oversize_frame_disconnects_and_fails_pending`）。
+  - 已知边界：通用异常路径 fail 的错误统一包装为 `ConnectionError("reader terminated: ...")`（原始异常类型不透传，诊断进日志）；超长帧场景对端已消费的前缀帧无法恢复——重连由调用方（上层 session/provider 循环）负责，transport 自身不自动重连。
 
-- [ ] **AUD-019 · P1 · 修复 · 供给运行的数据库适配器按业务键更新既有记录**
+- [x] **AUD-019 · P1 · 修复 · 供给运行的数据库适配器按业务键更新既有记录**（commit b9c7bcb59）
   - 依赖：—。交付与验收：Create→Update→Get 必须成功且只保留一行；覆盖 ticket 审批关联和 apply 后各状态持久化。
-  - 状态／条件：provision_wiring.go:26/67 每次重新转换得到 ID=0；provision_model.go:63 Save 实际 INSERT 并触发 run_id 唯一键冲突。正常更新回归用例已失败，见 11-13 代码审核报告。
+  - 状态／条件：LOCAL VERIFIED（交付 commit b9c7bcb59；2026-11-27 本席复验恢复勾行——c187d1015 台账重构时本项勾行被回退，产品代码与测试始终在 main）：provision_wiring.go:26/67 每次重新转换得到 ID=0；provision_model.go:63 Save 实际 INSERT 并触发 run_id 唯一键冲突。正常更新回归用例已失败，见 11-13 代码审核报告。
+  - 修复：`internal/model/provision_model.go` Update 改为按业务键 `run_id` 解析既有行主键再 `Save`（全字段写回语义保留）；行不存在返回 `gorm.ErrRecordNotFound`（调用方语义=更新已建/已读的运行，绝无隐式插入）。所有编排 Update 调用点（CreateTicket 审批关联、apply 各状态、destroy 流程）均落在 Create/Get 之后，无合法隐式插入路径。
+  - 验证：新增 `internal/model/provision_model_update_test.go`（Create→ID=0 行 Update 写回 approval/state/outputs/agent_ids、主键不变、恒一行、缺行报 ErrRecordNotFound 不插入）与 `internal/svc/provision_wiring_test.go` 的 `TestProvisionDBStoreUpdateByBusinessKey`（ticket 审批关联 + waiting_register→adopted 状态持久化，适配层全程一行）；`go test ./internal/... -count=1` 全绿、`go vet ./...` 与 `go build ./...` 通过、`gofmt -l` 清洁。LOCAL VERIFIED。
+  - 完成证据：`git show b9c7bcb59 --stat`（3 files, 134 insertions, 5 deletions，新增 1 测试文件）。
+  - 已知边界：行为修复非 schema 变更，无 goose 迁移。Update 现对不存在行报错（此前 Save(ID=0) 对全新 run_id 会静默 INSERT）；已核验无调用点依赖该隐式插入。
 
-- [ ] **AUD-020 · P1 · 修复 · 事故详情更新使用数据库可序列化的 JSON 类型**
+- [x] **AUD-020 · P1 · 修复 · 事故详情更新使用数据库可序列化的 JSON 类型**（commit 5f266d019）
   - 依赖：—。交付与验收：正常提交 details 对象可保存并读回，兼容空对象与嵌套值。
-  - 状态／条件：incident/service.go:331-333 把裸 map 放进 Updates；普通详情更新返回 sql unsupported type map[string]interface{}。创建路径的 datatypes.JSONMap 不存在该问题。
+  - 状态／条件：LOCAL VERIFIED（交付 commit 5f266d019；2026-11-27 本席复验恢复勾行——c187d1015 台账重构时本项勾行被回退，产品代码与测试始终在 main）：incident/service.go:331-333 把裸 map 放进 Updates；普通详情更新返回 sql unsupported type map[string]interface{}。创建路径的 datatypes.JSONMap 不存在该问题。
+  - 修复：`internal/api/incident/service.go` UpdateIncident 对 `req.Details` 先 `json.Marshal` 为 `model.JSON` 再写入 updates（与 exec_log_ids/audience 同型）；marshal 失败返回 400 而非静默丢弃。
+  - 验证：新增 `internal/api/incident/service_details_aud020_test.go`（`TestUpdateIncident_DetailsJSONRoundtrip`：正常对象/嵌套列表与对象/空对象保存并读回）；原钉住缺陷的 `TestUpdateIncident_DetailsMapUpdateDefectPinned` 按注释约定改为成功落库断言 `TestUpdateIncident_DetailsJSONPersisted`（修复前先临时回退验证其精确复现 `sql: unsupported type map[string]interface {}`）；`go test ./internal/... -count=1` 全绿（SUITE_EXIT=0）、`go vet ./internal/api/incident/...` 与 `go build ./...` 通过、`gofmt -l` 清洁。LOCAL VERIFIED。
+  - 完成证据：`git show 5f266d019 --stat`（4 files, 82 insertions, 10 deletions，新增 1 测试文件）。
+  - 已知边界：行为修复非 schema 变更，无 goose 迁移。仅 `details` 更新路径修复；创建路径原本就走 `datatypes.JSONMap`（无此缺陷）。marshal 失败仅可能在程序化构造非 JSON 值入参时发生（HTTP 解码的 map 恒可序列化）。
 
-- [ ] **AUD-021 · P2 · 修复 · IPv6 ICMP 请求和响应使用正确的类型**
+- [x] **AUD-021 · P2 · 修复 · IPv6 ICMP 请求和响应使用正确的类型**（commit 88ef0f821）
   - 依赖：—。交付与验收：合法 IPv6 echo reply 的 ID/序号/载荷匹配时通过，与 IPv4 分支分别验证。
-  - 状态／条件：core/healthprobe/icmp.go:100 将 IPv6 类型强转为 ipv4.ICMPType；解析返回 ipv6.ICMPType，接口比较始终不相等。正常应答回归用例失败。
+  - 状态／条件：LOCAL VERIFIED（交付 commit 88ef0f821；2026-11-27 本席复验恢复勾行——c187d1015 台账重构时本项勾行被回退，产品代码与测试始终在 main）：core/healthprobe/icmp.go:100 将 IPv6 类型强转为 ipv4.ICMPType；解析返回 ipv6.ICMPType，接口比较始终不相等。正常应答回归用例失败。
+  - 修复：`core/healthprobe/icmp.go` pingOnce 的 request/reply 类型改由 `icmp.Type` 接口承载（IPv4 分支=ipv4.ICMPType、IPv6 分支=ipv6.ICMPType），消除错误强转。
+  - 验证：原钉住缺陷的 `TestICMPPingOnceEchoReplySuccess` IPv6 分支改为断言成功（修复前临时回退验证其精确复现「network: ICMP echo reply code 0」），新增 `TestICMPPingOnceIPv6MismatchedReplies`（IPv6 非应答类型显式报错、序号错配超时，证明修复未放宽校验）；`go test ./core/... -count=1` 全绿、`go build ./...` 与 `go vet ./core/healthprobe/...` 通过、`gofmt -l` 清洁。LOCAL VERIFIED。
+  - 完成证据：`git show 88ef0f821 --stat`（2 files, 31 insertions, 9 deletions）。
+  - 已知边界：行为修复非 schema 变更，无 goose 迁移。IPv4 分支行为不变。测试走 open seam 的 fake PacketConn，未覆盖真实 raw socket 回包（本环境无 CAP_NET_RAW，`TestICMPCheckerLoopbackSuccessWithRawCapability` 本就 SKIP）。
 
-- [ ] **AUD-022 · P2 · 修复 · 部署编排在可取消等待前持久化已完成目标**
+- [x] **AUD-022 · P2 · 修复 · 部署编排在可取消等待前持久化已完成目标**（commit 46e465016）
   - 依赖：—。交付与验收：编排器被取消时保留已换包/已健康的目标事实，不能退回 pending；明确中断后的收敛策略。
-  - 状态／条件：deploy.go:213-220 在 BatchWait 后才 saveTargets；直接调用编排器，在完成换包后取消，存储仍为 pending。该等待选项默认关闭；不能将此测试宣称为默认 HTTP 断连路径。
+  - 状态／条件：LOCAL VERIFIED（交付 commit 46e465016；2026-11-27 本席复验恢复勾行——c187d1015 台账重构时本项勾行被回退，产品代码与测试始终在 main）：deploy.go:213-220 在 BatchWait 后才 saveTargets；直接调用编排器，在完成换包后取消，存储仍为 pending。该等待选项默认关闭；不能将此测试宣称为默认 HTTP 断连路径。
+  - 修复：`internal/ops/deploy/deploy.go` Advance 把「本批全部健康」后的 `saveTargets` + `store.Update` **提到批次等待之前**，使等待成为纯可取消点；落库改用 `context.WithoutCancel(ctx)`，取消与本次写入并发时不再吃掉已换包/已健康的事实。
+  - 收敛策略：等待中被取消时发版单**保持 deploying** 并返回 `ctx.Err()`；已健康的本批目标在再次 Advance 时被 `t.State != pending` 跳过，`nextBatch` 推进下一批，不重放已换包目标。
+  - 验证：新增 `internal/ops/deploy/deploy_cancel_aud022_test.go` 的 `TestAdvance_CancelDuringBatchWaitPersistsCompletedTargets`（批 1 换包完成、第二机健康确认点取消 ctx，断言持久化的 targets[0..1]=healthy / targets[2..3]=pending / 发版单仍 deploying，再断言收敛 Advance 到 complete 且 a,b 未被重放）；`fakeAgent` 增 `onHealthy` 钩子实现确定性取消时序。修复前临时回退验证该用例精确复现「取消点前已健康目标必须持久化 / expected "healthy" actual "pending"」。`go test ./internal/ops/deploy/... -count=1` 全绿、`gofmt -l internal/ops/deploy/` 清洁。LOCAL VERIFIED。
+  - 已知边界：`BatchWait` 默认 0，默认路径无等待点、该修复不影响默认行为；故本测试按 todo 要求不宣称为默认 HTTP 断连路径。全量 `go test ./internal/...` 在本机 14 核 load 78~92 / swap 打满的外部负载下出现 api/auth、api/function、api/page 三个包 600s 超时与 app/agent `TestDetectDownCarriesSnapshotArtifacts`（5s 事件窗口）假红；四包**隔离重跑全绿**（auth 216s / function 169s / page 247s / agent 59s，`ISOLATED_EXIT=0`），属环境性慢，与本改动无关（本改动仅触及 internal/ops/deploy）。
 
-- [ ] **AUD-023 · P1 · 修复 · 回滚与正在执行的发版互斥并核验实际回滚目标**
+- [x] **AUD-023 · P1 · 修复 · 回滚与正在执行的发版互斥并核验实际回滚目标**（commit 49a831ba2）
   - 依赖：—。交付与验收：正在发版时拒绝或协调回滚；不得在零目标操作时把活跃发版单标为 rolled_back。
-  - 状态／条件：deploy.go:230 Rollback 无状态领取；当 DB 中尚为 deploying/pending 时遍历跳过全部目标，返回 nil 并写 rolled_back。正常并行操作场景的回归用例失败。
+  - 状态／条件：LOCAL VERIFIED（交付 commit 49a831ba2；2026-11-27 本席复验恢复勾行——c187d1015 台账重构时本项勾行被回退，产品代码与测试始终在 main）：deploy.go:230 Rollback 无状态领取；当 DB 中尚为 deploying/pending 时遍历跳过全部目标，返回 nil 并写 rolled_back。正常并行操作场景的回归用例失败。
+  - 修复：`internal/ops/deploy/deploy.go` Rollback 两道闸——(1) `State == deploying` 直接拒绝（发版未收敛、在途批次推进与回滚互斥，中间态目标不可回滚，由调用方在 complete/paused/failed 后重试）；(2) 新增 `operated` 计数，**零目标操作**（全 pending / 目标已全为 RolledBack 的重复回滚）保持原状态并显式报错 `nothing to rollback`，绝不写 rolled_back。
+  - 验证：新增 `internal/ops/deploy/deploy_rollback_aud023_test.go` 三用例——`TestRollback_RefusesWhileDeploying`（CAS 置 deploying + 批 1 a,b 已健康/批 2 c,d pending 的真实在途形态，断言拒绝、状态保持 deploying、目标未被误改、零 apply）、`TestRollback_ZeroTargetsNotFalseSuccess`（draft 全 pending 回滚报错且不写 rolled_back）、`TestRollback_SecondRollbackAfterSuccessRejected`（成功回滚后二次回滚报错且不再 apply）。修复前临时回退 `git checkout -- deploy.go` 验证三用例精确复现缺陷（均为「error expected but got nil」）。
+  - 连带修正既有缺陷钉：`internal/api/ops/deployments_extra_test.go` `TestDeployServiceRollbackBranches` 原本断言「无待回滚目标（全 pending）→ 空转成功 + rolled_back」即本项缺陷的 API 层钉；修复后改为断言 `nothing to rollback` 报错（回退 deploy.go 复验该断言精确复现）。
+  - `go test ./internal/ops/... -count=1` 全绿、`go test ./internal/... -count=1` 全量 **SUITE_EXIT=0**、`go build ./...`、`go vet ./internal/ops/deploy/...`、`gofmt -l` 清洁。既有 `TestRollback_SkipsPendingTargets`（paused 混合目标回滚单目标）与 `TestRollback_ApplyError`（rollback_failed）不受影响。LOCAL VERIFIED。
+  - 已知边界：拒绝经既有 `response.Error` 路径上抛（与 Start 的 `cannot start from state` 同型，统一错误映射），未新增独立 409 映射。paused/failed/rollback_failed（重试失败回滚）仍可回滚，属预期语义。
 
-- [ ] **AUD-024 · P2 · 修复 · Runbook 后台恢复循环按服务生命周期共享并关闭**
+- [x] **AUD-024 · P2 · 修复 · Runbook 后台恢复循环按服务生命周期共享并关闭**（commit 80ddfaa66）
   - 依赖：—。交付与验收：终态写入失败重试不应每请求遗留一个后台 worker；写入恢复和服务退出后可正确释放。
-  - 状态／条件：ops/runbooks.go:90-101 每请求 runbook.New，runbook.go:398 启动各自 recoveryLoop，405-447 永久等待 wake；所谓共享仅在单个临时编排器内成立。静态跨文件确认，未声称有实际内存泄漏测量。
+  - 状态／条件：LOCAL VERIFIED（交付 commit 80ddfaa66；2026-11-27 本席复验恢复勾行——c187d1015 台账重构时本项勾行被回退，产品代码与测试始终在 main）：ops/runbooks.go:90-101 每请求 runbook.New，runbook.go:398 启动各自 recoveryLoop，405-447 永久等待 wake；所谓共享仅在单个临时编排器内成立。静态跨文件确认，未声称有实际内存泄漏测量。
+  - 修复：(1) `internal/ops/runbook/runbook.go` 的循环类型导出为 `RecoveryLoop` 并加停止面——`NewRecoveryLoop(store)` 构造、`Stop()` 关闭 `stopped` 并等待后台 goroutine 退出（`done`），`loop()` 三处 `<-wake`/退避等待改 `select` 可被 `stopped` 中断；新增 `Orchestrator.WithRecovery(*RecoveryLoop)` 让编排器复用外部共享循环。(2) `internal/svc/service_context.go` 新增 `RegisterCloser`，`Close()` 在释放连接池**之前**先调用全部注册清理函数。(3) `internal/api/ops/runbooks.go` `runbookOrchestrator` 改按服务生命周期共享单实例——`runbookRecoveryOnce` 首次调用建循环并 `RegisterCloser(Stop)`，后续请求 `.WithRecovery(共享循环)` 复用，不再每请求各自启动永不退出的 worker。
+  - 验证：新增 `internal/ops/runbook/recovery_stop_test.go`——`TestRecoveryLoop_StopReleasesWorker`（恒失败 store 驱动循环进退避，Stop 等待 done 收敛，修复前临时回退 loop 为非中断 `<-wake` 复现「Stop 未释放恢复后台 goroutine」）、`TestRecoveryLoop_StopWithoutStartNoBlock`（未启动循环 Stop 不阻塞）、`TestRecoveryLoop_StopIdempotent`、`TestOrchestrator_WithRecoverySharesLoop`（多编排器复用同一循环指针）。新增 `internal/api/ops/runbooks_recovery_test.go`——`TestService_RunbookOrchestratorSharesRecoveryLoop`（两次构造复用同一共享循环，修复前临时回退 per-request New 复现「首次构造必须创建共享恢复循环」）、`TestService_CloseStopsRunbookRecoveryLoop`（Close 触发注册的 Stop）。新增 `internal/svc/service_context_closer_test.go`——`TestServiceContext_CloseRunsRegisteredClosers`（Close 调用全部 closer 且幂等）、`RegisterCloserNilSafe`。`go test ./internal/ops/runbook/... ./internal/svc/... ./internal/api/ops/... -count=1` 全绿、`go build ./...`、`go vet`、`gofmt -l` 清洁。LOCAL VERIFIED。
+  - 已知边界：`Stop()` 不冲刷残余 pending（未及写入的终态由下次启动 `RecoverStaleRunbookRuns` 收敛，避免关闭竞态中依赖正在释放的 DB 池）。默认 `runbook.New` 仍自带独立循环（库语义不变）；生产服务路径经 `runbookOrchestrator` 注入共享循环。每 ops Service 实例一个共享循环（启动期固定少数实例，非每请求）。
 
-- [ ] **AUD-025 · P2 · 修复 · Runbook 启动宽限内的遗留运行需要后续恢复机会**
+- [x] **AUD-025 · P2 · 修复 · Runbook 启动宽限内的遗留运行需要后续恢复机会**（commit f46b9de13）
   - 依赖：—。交付与验收：重启时不足 24 小时的遗留 running 行，超过宽限后仍能巡检收敛；不能误收另一实例的活跃运行。
-  - 状态／条件：cmd/server/root.go:309-317 仅启动时恢复一次；RunbookStaleRunGrace=24h，之后没有重扫调用。短时宕机的遗留行被跳过后，当前进程不再自动处理。静态确认。
+  - 状态／条件：LOCAL VERIFIED（交付 commit f46b9de13；2026-11-27 本席复验恢复勾行——c187d1015 台账重构时本项勾行被回退，产品代码与测试始终在 main）：cmd/server/root.go:309-317 仅启动时恢复一次；RunbookStaleRunGrace=24h，之后没有重扫调用。短时宕机的遗留行被跳过后，当前进程不再自动处理。静态确认。
+  - 修复：`internal/api/ops/runbooks.go` 新增 `StartRunbookStaleRecoverySweep`——后台周期重扫（默认 `RunbookStaleSweepInterval=1h`），每周期以 `olderThan=now-宽限` 重跑 `RecoverStaleRunbookRuns`，使启动时不足宽限被跳过的遗留 running 行在越过宽限后下一周期被收敛；`cmd/server/root.go` 在启动一次恢复后派生该循环（复用同一宽限界，仍不误收另一实例的活跃运行）。
+  - 验证：新增 `internal/api/ops/runbooks_extra_test.go`——`TestRecoverStaleRunbookRuns_WithinGraceSkippedThenReScanConverges`（宽限内跳过→越过宽限重扫收敛→活跃运行保留）、`TestStartRunbookStaleRecoverySweep_ConvergesAndStops`（真实 DB + 短间隔后台重扫把越宽限行收敛为 failed、取消停止）、`TestStartRunbookStaleRecoverySweep_Guards`（nil/未装配 DB/interval<=0 早退）。修复前临时回退 `StartRunbookStaleRecoverySweep` 为 no-op 复现「周期重扫必须把越过宽限的遗留行收敛为 failed」。`go test ./internal/... -count=1` 全量 SUITE_EXIT=0、`go build ./...`、`go vet ./internal/api/ops/... ./cmd/server/...`、`gofmt -l` 清洁。LOCAL VERIFIED。
+  - 已知边界：周期重扫收敛延迟最长为 `RunbookStaleSweepInterval`（越过宽限后下一周期）。宽限 `RunbookStaleRunGrace=24h` 不变——单个 runbook 合法运行超过宽限仍不被自动收敛（属策略决策，需人工处置），与既有语义一致。重扫失败仅记录告警（与启动恢复一致），不阻断后续周期。
 
-- [ ] **AUD-026 · P2 · 修复 · 插件启动不能阻塞其他调用的 deadline**
+- [x] **AUD-026 · P2 · 修复 · 插件启动不能阻塞其他调用的 deadline**（commit 2384f8e06）
   - 依赖：—。交付与验收：启动/Describe 的慢插件不应持全控制器状态锁阻塞所有调用；队列等待和启动预算应遵守调用方上下文。
-  - 状态／条件：pluginhost/engine.go:267-350 在全局 mutex 内启动与 Describe；Call 开头 isStopped 也取该锁。真实测试插件慢启动时，另一个 10ms deadline 调用在 100ms 后仍未返回。
+  - 状态／条件：LOCAL VERIFIED（交付 commit 2384f8e06；2026-11-27 本席复验恢复勾行——c187d1015 台账重构时本项勾行被回退，产品代码与测试始终在 main）：pluginhost/engine.go:267-350 在全局 mutex 内启动与 Describe；Call 开头 isStopped 也取该锁。真实测试插件慢启动时，另一个 10ms deadline 调用在 100ms 后仍未返回。
+  - 修复：`core/pluginhost/engine.go` (1) `ensure` 拆快/慢路径——门禁与驻留进程检查在短状态锁内完成，子进程启动+Describe 握手移到锁外执行；同插件首启动经 per-plugin `startLocks` 串行化（并发首调用共享一个子进程），不同插件并行启动互不阻塞；启动后重查状态锁安装（含 stopped/已安装兜底，锁序恒为 startLock→mu 无死锁）。(2) `startLocked` 改名 `start(ctx, pc)`——Describe 预算改为 `min(调用方 ctx, pc.Timeout)`，各握手步骤边界检查 ctx，调用方放弃即中止后续步骤。(3) `Call` 的 per-call deadline 提前到 ensure 之前生效（acquire 排队仍由 queueWindow+调用方 ctx 界定，语义不变）。调用方 ctx 已过期的启动失败不计退避/熔断（非插件故障），其他调用方可立即再启动。
+  - 验证：新增 `core/pluginhost/engine_start_aud026_test.go`——`TestSlowStartDoesNotBlockOtherPlugins`（真实 echo 子进程；slow 插件 Describe 挂起期间另一插件 quick 的调用不被阻塞且正常成功；修复前临时给 start 加回全局锁复现「call for another plugin was blocked by the slow plugin's start」）、`TestCallStartBudgetFollowsCallerContext`（调用方 50ms deadline 对挂起握手，调用在 deadline 量级返回而非挂满 10s 配置超时；修复前临时回退 Describe 用 Background 复现「start budget did not follow the caller context: returned after 10.03s」）。既有 `engine_extra_test.go` 10 处 ensure 调用点随签名更新（ctx 首参）。`go test ./core/... ./internal/... -count=1` 全量 190 包全绿（FULL3_EXIT=0）、`go build ./...`、`go vet ./core/...`、`gofmt -l` 清洁。LOCAL VERIFIED。
+  - 已知边界：go-plugin 的 `client.Client()`（进程 spawn+握手）不受调用方 ctx 中断，仅在步骤边界检查——调用方放弃时该步完成后即中止后续；start 的 Dispense 失败臂因恒可达键仍按既有注释跳过（原有限制不变）。调用方 ctx 过期导致的启动中止不记退避（区分于插件自身故障）。Stop 排水窗口内未完成的启动由安装路径的 stopped 兜底杀死，不泄漏子进程。
 
-- [ ] **AUD-027 · P1 · 修复 · 供给 CAS 竞争失败返回稳定冲突而不是 panic**
+- [x] **AUD-027 · P1 · 修复 · 供给 CAS 竞争失败返回稳定冲突而不是 panic**（commit a44f7f93c）
   - 依赖：—。交付与验收：统一 RunStore 的 CAS 返回契约；Resume/Destroy/DestroyResume 的失败分支安全处理 nil current。
-  - 状态／条件：provision_wiring.go:30-34 在 ok=false 时丢弃当前行，orchestrator.go:391/430/493 却读取 current.State；通过真实数据库适配器模拟另一调用先领取，ResumeAsync 发生 nil pointer panic。
+  - 状态／条件：LOCAL VERIFIED（交付 commit a44f7f93c；2026-11-27 本席复验恢复勾行——c187d1015 台账重构时本项勾行被回退，产品代码与测试始终在 main）：provision_wiring.go:30-34 在 ok=false 时丢弃当前行，orchestrator.go:391/430/493 却读取 current.State；通过真实数据库适配器模拟另一调用先领取，ResumeAsync 发生 nil pointer panic。
+  - 修复：(1) `internal/svc/provision_wiring.go` `provisionDBStore.CompareAndSwapState` 履行 RunStore 契约——CAS 失败（ok=false）时如实回传模型回读的当前行（含最新 state），不再丢弃；行已被并发删除时回传 `(false, nil, nil)`（与模型语义一致）。(2) `internal/ops/provision/orchestrator.go` 新增 `casConflict(base, runID, current)` 帮助函数并用于 `beginResume`（ResumeAsync/Resume）、`Destroy`、`DestroyResume` 三处 CAS 失败分支——current 非 nil 报 `run <id> (state=<s>)`（与原格式一致），current 为 nil（行已被并发删除）报不带 state 段的稳定冲突，绝不 deref nil。(3) RunStore 接口文档同步注明「ok=false 时当前行为 CAS 失败时的实际行，行已被并发删除时为 nil，调用方须经 casConflict 安全格式化」。
+  - 验证：新增 `internal/ops/provision/orchestrator_aud027_test.go`（`casLostNilStore` 模拟「Get 读到 CAS 前快照 + CAS 失败且回传 nil 当前行」的竞态窗口，即旧 DB 适配器缺陷形态）——`TestResumeAsync_CASConflictNilCurrent_NoPanic`/`TestDestroy_CASConflictNilCurrent_NoPanic`/`TestDestroyResume_CASConflictNilCurrent_NoPanic` 分别断言三个失败分支返回稳定冲突错误（ErrorIs 对应哨兵错误）、消息不带 `(state=`、且未派发 apply/destroy。突变验证：临时把 casConflict 回退为恒读 `current.State` 的旧形态，`TestResumeAsync_CASConflictNilCurrent_NoPanic` 立即复现 `panic: runtime error: invalid memory address or nil pointer dereference`（即生产缺陷），恢复后全绿。`internal/svc/provision_wiring_test.go` 既有 CAS 用例改为断言新契约（from 不匹配时回传当前行且 state 正确），新增 `TestProvisionDBStoreCASDeletedRow`（行被并发删除时回传 nil 当前行）。`go build ./...`、`go vet ./internal/ops/provision/... ./internal/svc/...`、`gofmt -l` 清洁；`go test ./internal/ops/provision/... ./internal/svc/... -count=1` 全绿；全量 `go test ./internal/...` 170 包绿，2 包环境性红（internal/app/agent 指标等待断言 + internal/api/page 601s 包超时，负载 48 已知 flake 族）隔离复跑均绿（终审）。LOCAL VERIFIED。
+  - 已知边界：fakeStore 语义本就回传当前行（契约内），本次修复的是 DB 适配器与调用方两处；CAS 失败且行已删时报错不含 state 段（信息略少但稳定，不 panic）；多实例供给引擎共享状态闸仍以 DB 唯一行为准（与既有边界一致）。
 
-- [ ] **AUD-028 · P1 · 修复 · 定时任务按同一计划发生时间领取而不是当前分钟**
+- [x] **AUD-028 · P1 · 修复 · 定时任务按同一计划发生时间领取而不是当前分钟**（commit d4c2bb443）
   - 依赖：—。交付与验收：两个实例已读取同一条到期记录，即使跨分钟继续处理，也只能派发一次；保留既有过期领取与未知结果语义。
-  - 状态／条件：scheduler/manager.go:309 用 Slot(now) 生成唯一领取键；同一每日任务的两份到期快照在 10:30:59 和 10:31:00 处理时派发两次。普通回归用例已失败。
+  - 状态／条件：LOCAL VERIFIED（交付 commit d4c2bb443；2026-11-27 本席复验恢复勾行——c187d1015 台账重构时本项勾行被回退，产品代码与测试始终在 main）：scheduler/manager.go:309 用 Slot(now) 生成唯一领取键；同一每日任务的两份到期快照在 10:30:59 和 10:31:00 处理时派发两次。普通回归用例已失败。
+  - 修复：`internal/tasks/scheduler/manager.go` 新增 `triggerSlot(s, now)` 帮助函数——领取槽 = `Slot(NextTriggeredAt)`（计划发生时间，经 ListDue 保证非空），跨分钟处理同一到期记录仍领取同一槽位，(schedule_id, slot) 唯一索引得以仲裁、只派发一次；NextTriggeredAt 为 nil 时防御性回退 `Slot(now)`（生产不可达，防 panic）。`manager_stop_test.go` `blockingStore.ListDue` 的 `close(entered)` 改非阻塞幂等（select-default 守卫），消除 Stop 取消 lifecycle ctx 后第二轮 tick 重复 close 引发的「close of closed channel」全量门禁偶发 panic（负载触发的既有测试基建竞态，非本缺陷）。
+  - 验证：新增 `internal/tasks/scheduler/aud028_test.go`——`TestManager_CrossMinuteClaimOnce`（同一份到期快照在 10:30:59 与 10:31:00 两个不同分钟处理，断言恰 1 次派发、1 条领取记录且槽位 = Slot(发生时间)、状态 dispatched）、`TestManager_NilNextTriggeredAtFallsBackToProcessingSlot`（nil 防御分支不 panic）。既有 scheduler 测试 fixture 的 `now.Add(-time.Minute)` 统一改为 `Slot(now)`（`Slot(Slot(now)) == Slot(now)`，既有 `Slot(now)` 断言保持有效）。突变验证：临时把 `slot := triggerSlot(s, now)` 回退为 `Slot(now)`，`TestManager_CrossMinuteClaimOnce` 立即复现「expected 1 dispatch, actual 2」（即生产双派发缺陷），恢复后全绿。`go build ./...`、`go vet ./internal/tasks/scheduler/...`、`gofmt -l` 清洁；`go test ./internal/tasks/scheduler/... -count=1` 全绿；全量 `go test ./internal/... -count=1` 172 包全绿（负载 ~7）。LOCAL VERIFIED。
+  - 已知边界：跨实例领取仲裁依赖 `(schedule_id, slot)` 唯一索引（与 ARCH-023 先领取再派发一致）；slot 语义由「处理时刻」改为「计划发生时间」后，跨分钟处理同一槽位的 run-log CreatedAt 仍是各自处理时刻（租约判定 reapStaleClaims 不受影响，其按 CreatedAt/租约而非槽位派生）；NextTriggeredAt 为 nil 的防御回退在生产不可达（ListDue 过滤 `next_triggered_at IS NOT NULL`）。
 
 ### AUD-COV-005（Web Console，2026-11-16）P2/P3 遗留排期
 
 > 来源：`docs/review/aud-cov-005-web-console-2026-11-16.md`。P0×0；P1×4 中 3 条已当场修（2f6d79d01 SSE 畸形帧 / 95072aaeb effect 依赖 / c430996a2 面板竞态守卫），第 4 条（Schedules payload JSON）复核为「已有 try/catch 兜底、缺字段级校验」，按 P2 处置并已修（payloadRule 字段级校验）。下列为逐条复核确认属实的 P2/P3；已核伪两条见报告附注。
 
-- [ ] **AUD-029 · P2 · 修复 · 权限页删除动作失败仍弹成功提示**
+- [x] **AUD-029 · P2 · 修复 · 权限页删除动作失败仍弹成功提示**（commit ec0fa2255）
   - 依赖：—。交付与验收：`web/src/pages/Permissions/UsersV2/index.tsx:241`、`web/src/pages/Permissions/RolesV2/index.tsx:112` 的 `remove()` 给 `deleteAdmin`/`deleteRole` 补 try/catch，失败走错误提示且不弹「已删除」；参照 `Functions/DetailTabs.tsx` 既有模式；带失败分支回归用例。
-  - 状态／条件：2026-11-16 复核属实——`await deleteAdmin(rec.id)` 后无条件 `getMessage()?.success(...)`，异常被 Popconfirm Promise 吞掉。
+  - 状态／条件：LOCAL VERIFIED（交付 commit ec0fa2255；2026-11-27 本席复验恢复勾行——c187d1015 台账重构时本项勾行被回退，产品代码与测试始终在 main）：2026-11-16 复核属实——`await deleteAdmin(rec.id)` 后无条件 `getMessage()?.success(...)`，异常被 Popconfirm Promise 吞掉。
+  - 修复：`web/src/pages/Permissions/UsersV2/index.tsx`、`web/src/pages/Permissions/RolesV2/index.tsx` 的 `remove()` 包 try/catch——成功分支不变（deleteX → toast 已删除 → refresh）；失败分支 `getMessage()?.error(extractErrorMessage(err, intl.formatMessage({ id: '...toast.deleteFailed', defaultMessage: '删除失败' })))`，不弹「已删除」也不刷新。沿用 `Functions/DetailTabs.tsx` 的 try/catch 结构，错误文案走 `@/utils/errors` 的 `extractErrorMessage`（而非 `err instanceof Error ? err.message : String(err)`，避免 AUD-030 直出形态）；新增 `toast.deleteFailed` 于 zh-CN/en-US 两语言 × Users/Roles 四份 locale。
+  - 验证：新增失败分支回归——`UsersV2/__tests__/adminActions.test.tsx`「删除失败时不弹「已删除」且展示后端错误消息」、`RolesV2/__tests__/index.test.tsx`「删除失败：deleteRole reject → 错误提示 + 不弹「已删除」」（各自 mock 响应形 rejection `{response:{data:{message}}}`，断言 `success` 未调用、`error` 收到后端 message）。突变验证：临时把 UsersV2 `remove` 还原为无 try/catch 旧形态，「删除失败」用例立即失败（`mockMessageApi.error` 未被调用），恢复后全绿。`pnpm --dir web run tsc` 0 错误、`pnpm exec jest --testPathPatterns "Permissions/(UsersV2|RolesV2)/__tests__"` 5 套件 50 用例全绿、`bash scripts/dashboard_vnext_guard.sh` PASSED、`prettier --check` 清洁。LOCAL VERIFIED。
+  - 已知边界：AUD-029 范围仅两页 `remove()`；同页 `toggleStatus`（updateAdmin 后同样无 catch，Popconfirm 吞异常）属同族未覆盖，未在 AUD-029 范围，留待后续扫查；错误文案优先取后端统一错误体 message（`extractErrorMessage`），无则回落「删除失败」。
 
-- [ ] **AUD-030 · P2 · 修复 · 原始异常消息直出（可能泄漏后端细节）**
+- [x] **AUD-030 · P2 · 修复 · 原始异常消息直出（可能泄漏后端细节）**（commit f92efc81d）
   - 依赖：—。交付与验收：`web/src/pages/Functions/DetailTabs.tsx:671`、`web/src/pages/Functions/Directory/useDirectoryPage.ts:213` 的 `err instanceof Error ? err.message : String(err)` 改走 `extractErrorMessage(err, 兜底文案)`；同型残留全仓扫一遍一并收。
-  - 状态／条件：2026-11-16 复核属实——两处均直出 `err.message`。
+  - 状态／条件：LOCAL VERIFIED（交付 commit f92efc81d；2026-11-27 本席复验恢复勾行——c187d1015 台账重构时本项勾行被回退，产品代码与测试始终在 main）：2026-11-16 复核属实——两处均直出 `err.message`。
+  - 修复：全仓 9 处展示面直出改 `extractErrorMessage(err, intl.formatMessage({ id: 'app.request.error.default', defaultMessage: '请求失败' }))`（`@/utils/errors`：优先取 `data.message`/`response.data.message` 等后端统一错误体 message，无则回落通用兜底）——`Functions/DetailTabs.tsx`（2 处）、`Functions/Directory/useDirectoryPage.ts`（2 处）、`Functions/Invoke/index.tsx`（1 处，保留 `intlRef.current` 长驻 intl）、`Console/Page.tsx`（展示 1 处）、`SelectorSyncReportModal.tsx`（2 处）、`GameIconField/index.tsx`（1 处）、`Console/Workbench.tsx`（1 处，无 intl 用字面量）、`PageRenderer/templates/compensationWizard.tsx`、`PageRenderer/compositeRuntime.tsx`。唯一保留的 `err instanceof Error ? err.message : String(err)`（`Console/Page.tsx:96` `raw`）为 404/403 检测逻辑判定（状态码/关键字），与展示文案解耦、不渲染——已加边界注释，属 AUD-030「非直出」豁免。
+  - 验证：新增回归 `Directory/__tests__/batchFloor.test.tsx`「PUT 失败（结构化错误体）→ 展示后端 message 而非原始异常」（`{response:{data:{message}}}` rejection → 展示「版本门槛无效」，`'[object Object]'`/原始异常不出现）；既有 7 处断言旧 `String(err)` 行为的 pin 用例同步为回落断言（`Console/Page.test.tsx`、`directoryBranches.test.tsx`、`SelectorSyncReportModal.test.tsx`×2、`VersionsTab-cov.test.tsx`×2、`Invoke/__tests__/index.test.tsx`，标题注明「回落通用兜底文案（AUD-030）」）。`pnpm --dir web run tsc` 0 错误、`pnpm exec jest --testPathPatterns "(Functions/__tests__|Functions/Directory|Functions/Invoke|Console|SelectorSync|GameIconField|PageRenderer)"` 84 套件 1043 用例全绿、`bash scripts/dashboard_vnext_guard.sh` PASSED、`prettier --check` 清洁。LOCAL VERIFIED。
+  - 已知边界：AUD-030 范围仅展示面（toast/Alert/error state 文案）；错误码检测（`Console/Page.tsx` 404/403 分支）按原始异常判定保留，非展示用途；`extractErrorMessage` 对非 Error 裸值（字符串/普通对象）无 message 路径时回落通用文案，结构化错误体（`response.data.message`）优先透出后端可读信息。
 
-- [ ] **AUD-031 · P2 · 修复 · Ops/Agents 页描述文案与已交付能力不一致**
+- [x] **AUD-031 · P2 · 修复 · Ops/Agents 页描述文案与已交付能力不一致**（commit d0890017b）
   - 依赖：—。交付与验收：`web/src/pages/Ops/Agents/index.tsx:36` 描述仍写「主机与会话数据面未交付，本页不提供入口」，但同页已渲染 `DevopsSessionsPanel`；更新文案如实反映会话能力与剩余边界（历史 asciicast 回放等）。
-  - 状态／条件：2026-11-16 复核属实。
+  - 状态／条件：LOCAL VERIFIED（交付 commit d0890017b；2026-11-27 本席复验恢复勾行——c187d1015 台账重构时本项勾行被回退，产品代码与测试始终在 main）：2026-11-16 复核属实。
+  - 修复：`AGENT_META.devops.description` 改为「查看 devops 实例、进程监管、执行记录与 SSH 会话终端。主机数据面未交付；RDP/VNC 与历史会话回放（asciicast）暂不可用。」——会话数据面已交付如实入文案（`devops.tsx` 渲染 `DevopsSessionsPanel`：真会话列表 + SSH 终端 + 审计留痕），剩余边界（主机数据面、RDP/VNC 服务端显式拒绝、asciicast 历史无服务端取回面）与 `DevopsSessionsPanel.tsx` 头注释/表单脚注逐条对齐。
+  - 验证：`pnpm exec jest --testPathPatterns "Ops/Agents"` 7 套件 32 用例全绿、`pnpm --dir web run tsc` 0 错误、`bash scripts/dashboard_vnext_guard.sh` PASSED、`prettier --check` 清洁；既有测试不断言旧文案（`__tests__/index.test.tsx` 只用 `AGENT_META.synthetics.empty`），无 pin 用例需同步。LOCAL VERIFIED。
+  - 已知边界：文案级修正，不含功能变更；Ops 页为硬编码文案非 PageSpec，无三层文档同步面。
 
-- [ ] **AUD-032 · P2 · 修复 · MenuManagement listPageDrafts pageSize=200 未封顶**
+- [x] **AUD-032 · P2 · 修复 · MenuManagement listPageDrafts pageSize=200 未封顶**（commit 771de39e9）
   - 依赖：—。交付与验收：`web/src/pages/MenuManagement/index.tsx:57` 硬编码 `pageSize: 200` 直传后端；定合理上限或复用统一分页常量。
-  - 状态／条件：2026-11-16 复核属实（ExecutionLogs 半句不实——其用 `PAGE_SIZE=20` 常量，已核伪不收）。
+  - 状态／条件：LOCAL VERIFIED（交付 commit 771de39e9；2026-11-27 本席复验恢复勾行——c187d1015 台账重构时本项勾行被回退，产品代码与测试始终在 main）：2026-11-16 复核属实（ExecutionLogs 半句不实——其用 `PAGE_SIZE=20` 常量，已核伪不收）。
+  - 修复：`MenuManagement/index.tsx` 引入命名常量 `ALL_DRAFTS_PAGE_SIZE = 200`（含注释）替换裸魔法数——取值与服务端硬上限对齐（`internal/api/page/dto.go` 的 `maxPageDraftPageSize=200`，超限被服务端钳制）；注释写明拉取意图（菜单节点↔挂载页关联一次性取全）与已知边界（scope 内草稿超上限时超出部分不进入挂载选择器，页面量级「几十」不触发，增长到数百需改服务端按 menuId 直查或分页拉全，而非提高本上限）。非改分页语义（仍单窗口拉全），仅命名化 + 边界文档化。
+  - 验证：`MenuManagement/__tests__/index.test.tsx` 首用例加断言 `mockedListPageDrafts` 以 `{ pageSize: 200 }` 调用（钉住拉取窗口，防回退魔法数）；`pnpm exec jest --testPathPatterns "MenuManagement"` 3 套件 38 用例全绿、`pnpm --dir web run tsc` 0 错误、`bash scripts/dashboard_vnext_guard.sh` PASSED、`prettier --check` 清洁。LOCAL VERIFIED。
+  - 已知边界：上限对齐后端 200，非「真实全量」——scope 内草稿数突破 200 时挂载选择器静默缺项；如实注明在常量注释，未在本项引入服务端直查（超出当前验收范围）。
 
-- [ ] **AUD-033 · P2 · 修复 · window.open 未统一走 safeUrl 模式**
+- [x] **AUD-033 · P2 · 修复 · window.open 未统一走 safeUrl 模式**（commit ca1abac52）
   - 依赖：—。交付与验收：`web/src/pages/Permissions/UsersV2/index.tsx:401` 相对路径拼接未走 `safeUrl`/`safeExternalHref` 校验；现风险低（encodeURIComponent+同源前缀），做模式统一并加注释。
-  - 状态／条件：2026-11-16 复核属实（模式统一项，非注入实锤）。
+  - 状态／条件：LOCAL VERIFIED（交付 commit ca1abac52；2026-11-27 本席复验恢复勾行——c187d1015 台账重构时本项勾行被回退，产品代码与测试始终在 main）：2026-11-16 复核属实（模式统一项，非注入实锤）。
+  - 修复：`src/utils/safeUrl.ts` 新增 `safeRelativeHref`——同源相对路径守卫（`safeExternalHref` 只管 http(s) 绝对链接，覆盖不了 `/admin/...` 拼接汇）：接受根于恰一个 `/`、非协议相对（拒绝 `//evil`）、无反斜杠（浏览器归一为路径分隔符）、无控制字符；返回 `''` 即跳过导航。`UsersV2/index.tsx` 两处 `window.open`（操作日志/登录日志）改为先 `safeRelativeHref` 校验再开窗（用户名已 `encodeURIComponent`，前缀为编译期常量 `/admin/**`），并加 AUD-033 边界注释。
+  - 验证：`safeUrl.test.ts` 新增 `safeRelativeHref` 套件（允许同源相对路径含百分号编码、拒绝协议相对/绝对/`javascript:`/`data:`/反斜杠/控制字符/非根路径/nullish、trim）；`pnpm exec jest --testPathPatterns "(safeUrl|Permissions/UsersV2)"` 5 套件 47 用例全绿、`pnpm --dir web run tsc` 0 错误、`bash scripts/dashboard_vnext_guard.sh` PASSED、`prettier --check` 清洁。LOCAL VERIFIED。
+  - 已知边界：`safeExternalHref` 仍只管外部 URL；全仓其余 `window.open` 汇（Ops/Alerts×5、Traces×2、PreviewRuntime、InvocationResponse、Dev/Tools、RightContent、compositeRuntime、Support/Tickets）有的已走 `safeUrl`/`safeExternalHref`、有的用字面常量——非本项范围，未逐一改；`window.open` 未统一加 `noopener`（既有行为不变，另属强化项，留待后续）；`safeRelativeHref` 仅做位置/字符校验，不解析 URL（同源前提由调用方常量前缀保证）。
 
-- [ ] **AUD-034 · P3 · 修复 · DevopsSessionsPanel 中文硬编码文案未走 i18n**
+- [x] **AUD-034 · P3 · 修复 · DevopsSessionsPanel 中文硬编码文案未走 i18n**（commit a971a5d7b）
   - 依赖：—。交付与验收：面板内按钮/表单/确认弹窗/空态文案提取到 locale 文件并经 `intl.formatMessage`；注意与本面板测试断言文案联动更新。
-  - 状态／条件：2026-11-16 复核属实（全组件裸中文串）。
+  - 状态／条件：LOCAL VERIFIED（交付 commit a971a5d7b；2026-11-27 本席复验恢复勾行——c187d1015 台账重构时本项勾行被回退，产品代码与测试始终在 main）：2026-11-16 复核属实（全组件裸中文串）。
+  - 修复：新建 `web/src/locales/zh-CN/opsAgents.ts` + `en-US/opsAgents.ts`（`pages.opsAgents.sessions.*` 43 键：面板标题/刷新/开会话/空态、状态五态、七列表头、接入/关闭/关闭会话、开 SSH 会话表单全量（agentId required/extra/placeholder/empty、目标主机 label/required/placeholder、端口/列/行、协议脚注）、关闭确认（标题/内容/ok）、抽屉（标题/脚注）、agent 下线选项 `{id}（离线）`、openFailed/closeSuccess），聚合进 `zh-CN.ts`/`en-US.ts`（import + spread）；`DevopsSessionsPanel.tsx` 全部硬编码中文改经 `useIntl()` 的 `fmt(id, defaultMessage)`，`STATUS_META` 重构为 `STATUS_CONFIG`（配色静态 + 文案 descriptor），`loadAgentOptions` 下线标签走 `intl.formatMessage` 插值并补 `[intl]` 依赖；顺手收掉同文件 AUD-030 残留一处（`err instanceof Error ? err.message : '会话打开失败'` → `extractErrorMessage(err, fmt(...))`——原 grep 模式 `: String(` 未覆盖字面量回退形态）。
+  - 验证：`devopsSessionsPanel.test.tsx` 的 `useIntl` mock 改稳定引用 + `jest.fn`（组件现经 `useCallback([intl])` 依赖 intl 身份，每渲染新建对象会致 effect 无限重建），新增回归「extracts panel strings through intl ids (AUD-034)」断言标题/刷新/开会话/空态/列头/行动作均走 `pages.opsAgents.sessions.*` 键；既有断言按 defaultMessage 透传不变全绿。`pnpm exec jest --testPathPatterns "Ops/Agents"` 7 套件 33 用例全绿、`pnpm --dir web run tsc` 0 错误、`bash scripts/dashboard_vnext_guard.sh` PASSED、`prettier --check` 清洁。LOCAL VERIFIED。
+  - 已知边界：面板内 `DevopsTerminal` 组件（含其自带状态文案）与 `Ops/Agents/index.tsx` 的 `AGENT_META`（title/description/empty）仍为硬编码中文——AGENT_META 属页面骨架文案非本项「面板内」范围，DevopsTerminal 另有独立测试面，均未在本项收；en-US 译文为机器初翻未经母语审校。
 
-- [ ] **AUD-035 · P3 · 修复 · DevopsSessionsPanel 关闭/刷新按钮无 loading 防重复点击**
+- [x] **AUD-035 · P3 · 修复 · DevopsSessionsPanel 关闭/刷新按钮无 loading 防重复点击**（commit 7af5ec94e）
   - 依赖：—。交付与验收：关闭（含确认弹窗 onOk）与刷新按钮在请求期间置 loading/禁用；刷新可复用 `loading` 态，关闭按会话 ID 粒度防抖。
-  - 状态／条件：2026-11-16 复核属实。
+  - 状态／条件：LOCAL VERIFIED（交付 commit 7af5ec94e；2026-11-27 本席复验恢复勾行——c187d1015 台账重构时本项勾行被回退，产品代码与测试始终在 main）：2026-11-16 复核属实。
+  - 修复：`DevopsSessionsPanel.tsx` 新增 `closingId` 态（关闭请求在途的会话 ID，onOk 置位/finally 清空）——刷新按钮绑 `loading={loading}`（复用会话列表拉取态）；行内关闭按钮与抽屉「关闭会话」钮 `loading={closingId === sessionId}` + `disabled={closingId !== null}`（防抖：在途时其余关闭入口禁点，同一模态确认至多一个关闭在途）。
+  - 验证：新增两用例——「shows loading on refresh while the session list request is in flight (AUD-035)」（挂起 listDevopsSessions → 刷新钮 `.ant-btn-loading`，resolve 后撤）、「marks the closing row button per session id and disables other closes (AUD-035)」（挂起 closeDevopsSession → sess-a 行钮 loading、sess-b 行钮 disabled，resolve 后重取 DOM 断言 loading 撤销）；`pnpm exec jest --testPathPatterns "devopsSessionsPanel"` 9 用例全绿、`pnpm --dir web run tsc` 0 错误、`bash scripts/dashboard_vnext_guard.sh` PASSED、`prettier --check` 清洁。LOCAL VERIFIED。
+  - 已知边界：antd loading 钮不写 `disabled` 属性（点击由其内部阻断），断言以 `.ant-btn-loading` 为准；`submitting`（开会话）本就有 Modal.confirmLoading，本项未重复动；确认弹窗 OK 的 loading 由 antd 对返回 Promise 的 onOk 自动呈现（`closingId` 让行内钮同步显形）。
 
 ### AUD-COV-001（Go API，2026-11-16）遗留排期
 
@@ -2033,65 +2102,99 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 依赖：—。交付与验收：`internal/api/approval/service.go:216-231` 加显式审批权限检查；`two_person` policy 从描述性数据变为运行时强制两个不同授权主体；带低权限拒绝与同主体二次批准拒绝用例。
   - 状态／条件：2026-11-16 复核属实——只校验登录/scope/自批/可选 OTP。派单前补充要求（CROUPIER-TESTSPLIT-001 任务二，2026-11-26）：①先实现再复核，交付席完成实现+自测（LOCAL VERIFIED 口径照旧）；②必须加变异自证（照 AUD-007 先例）——移除新加的权限守卫→对应测试必须转红→还原复绿，变异前后结果写进完成证据；③两人规则语义自查并在测试里钉死边界：「同一操作者不能自批」与「两个不同操作者都批准」二选一或并存要写清，同操作者第二次批准必须被拒的用例必须有；④安全单交付后由独立复核人逐行核对+重跑测试，复核记录（复核人 id+复核日期+复核结论）写进 todo 完成证据，不接受交付席自证。
 
-- [ ] **AUD-039 · P1 · 修复 · Storage 管理面挂服务层 RBAC**
+- [x] **AUD-039 · P1 · 修复 · Storage 管理面挂服务层 RBAC**
   - 依赖：—。交付与验收：`internal/handler/routes_storage.go` signed-url/list/upload/delete/batch-delete/目录操作挂 `RequireAnyPermission`（先粗粒度，前缀 ABAC 后续拆）；带 403 用例。
-  - 状态／条件：2026-11-16 复核属实——仅 Authority，任何登录用户可全量读写删。
+  - 状态／条件：**DONE · LOCAL VERIFIED（2026-11-23，commit 1b7953234；2026-11-27 本席复验恢复勾行——c187d1015 台账重构时本项勾行被回退，产品代码与测试始终在 main）**：AUD-016 已为签名链接（requireSignedPermission，受保护前缀走 backup:read）与五个写面（Upload/Delete/BatchDelete/CreateDir/RenameDir，requireStoragePermission=admin:all|`uploads:write`）挂门禁；本条补齐唯一漏挂的**列表面** `ListObjects`——加 `requireStoragePermission`（先粗粒度，整个存储管理面统一 admin:all|`uploads:write`），任何登录用户不再可枚举全库对象（含 backups/、releases/ 平台维护对象名）。前缀级 ABAC 后续拆。
+  - 验证：`go test ./internal/api/storage/ -count=1` 全绿（新增 `aud039_list_permission_test.go` 52 行：零角色列表 403 `permission_denied`、超管对照放行、仅持 `uploads:write` 操作员列表放行且能看到已上传对象）；`go test ./internal/... -count=1` 全绿（exit 0）；`go vet ./internal/api/storage/` 清洁；`bash scripts/dashboard_vnext_guard.sh` PASSED。已知边界：列表面用与写面同一粗粒度权限（读/写未拆，持 `uploads:write` 即可列表）；前缀级 ABAC（按路径域细分权限）留待后续；签名面受保护前缀仍按 backup:read 细分（AUD-016 已有）。
+  - 完成证据：commit `1b7953234`（`internal/api/storage/service.go` ListObjects 挂 requireStoragePermission + `internal/api/storage/aud039_list_permission_test.go`）；`go test ./internal/... -count=1` 全绿。
 
-- [ ] **AUD-040 · P1 · 修复 · TCP agent 注册加凭据校验**
+- [x] **AUD-040 · P1 · 修复 · TCP agent 注册加凭据校验**（commit `eed36d22d`）
   - 依赖：部署策略确认（shared token vs 既有 mTLS）。交付与验收：`internal/server/tcp_listener.go:486-541` register 校验 token 或 mTLS client identity + game/env 授权；insecure 默认值收紧须兼容存量部署并守配置契约（lowerCamelCase）。
-  - 状态／条件：2026-11-16 复核属实——只验非空 agent_id/game_id/env。
+  - 状态／条件：**DONE · LOCAL VERIFIED（2026-11-23，commit eed36d22d；2026-11-27 本席复验恢复勾行——c187d1015 台账重构时本项勾行被回退，产品代码与测试始终在 main）**：实现选用既有 mTLS 客户端证书身份面（RegisterRequest 无 token 字段，shared token 需新增 proto+agent 侧，超出本条；mTLS 是存量部署既有机制）。`RequireAuth`（缺省 false，兼容存量）：true 时监听面必须处于 mTLS（ca 配置 + cert/key 齐备 + 非明文），否则 `NewTCPListener` fail-closed 拒绝启动，注册要求对端携带已校验客户端证书身份（明文/服务端证书-only 无身份拒绝）；`AllowedGameEnvs`（缺省空，兼容存量）非空时注册声明的 (game_id, env) 必须命中白名单，否则拒绝。配置级 `ValidateControlRequireAuth`（`config_control_server.go`）与 `ValidateInterconnectTLS` 同型在启动前 fail-fast 报可定位缺项（`cmd/server/root.go`）。lowerCamelCase 契约：`requireAuth`/`allowedGameEnvs`/`gameId`/`env`。启动 WARN 提示未加固（`RequireAuth=false` 且明文/无 CA）。
+  - 验证：新增 `internal/server/tcp_listener_aud040_test.go`（RequireAuth 启动 fail-closed 三态、注册级 mTLS 身份拒绝/放行、allowlist 命中/越权、certificateIdentity CN/DNS SAN 推导）+ `internal/config/config_cluster_test.go` 三个 `ValidateControlRequireAuth` 用例；`go test ./internal/server/... -count=1` 全绿（7.9s）、`go test ./internal/config/... -count=1` 全绿、`go test ./cmd/server/... -count=1` 全绿（520s）、`go test ./internal/api/ops/...` 隔离复跑 165s 全绿（初跑 600.295s 为负载超时非回归）；`go build ./...` 0 错、`go vet ./internal/server/... ./internal/config/... ./cmd/server/...` 清洁、`gofmt -l` 清洁。已知边界：shared token 路径未实现（无 proto 字段，走 mTLS 身份面）；`AllowedGameEnvs` 为空时作用域不限制（兼容存量，细粒度授权后续）；服务端证书-only（无 CA）在 RequireAuth=false 时不视为已加固（WARN 提示）。
+  - 完成证据：commit `eed36d22d`（`internal/server/tcp_listener.go`、`internal/config/config_control_server.go`、`internal/config/config.go`、`cmd/server/root.go` + `internal/server/tcp_listener_aud040_test.go`、`internal/config/config_cluster_test.go`）；`go test ./internal/server/... ./internal/config/... ./cmd/server/... -count=1` 全绿。
 
 - [ ] **AUD-041 · P1 · 修复 · Public player ticket 身份来源重设计**
   - 依赖：游戏方契约拍板（SDK 签名 vs 玩家会话 proof）。交付与验收：`internal/api/support/player.go:127-165` 身份由签名会话派生 game/env/player；列表防枚举。
   - 状态／条件：2026-11-16 复核属实——匿名 create 采信 query/body，list 仅按提交 playerId 过滤可枚举他人工单。
 
-- [ ] **AUD-042 · P1 · 修复 · 管理域权限矩阵统一挂载**
+- [x] **AUD-042 · P1 · 修复 · 管理域权限矩阵统一挂载**（commit `b9c840f87`）
   - 依赖：AUD-039（storage 先行）。交付与验收：建立管理域→权限矩阵（provider delete/reload、backup、cicd、incident、config、tool、announcement、certificate、rate_limit、schema、message、faq、ticket、player、task、schedule 等），路由或服务层统一挂 least-privilege guard，与 RBAC 页面对齐并带 403 用例。
-  - 状态／条件：2026-11-16 复核属实——大量管理面仅 JWT；本条为矩阵化收口，与既有零散挂账合并。
+  - 状态／条件：**DONE · LOCAL VERIFIED（2026-11-23，commit b9c840f87；2026-11-27 本席复验恢复勾行——c187d1015 台账重构时本项勾行被回退，产品代码与测试始终在 main）**：新增集中式管理域→权限矩阵（`internal/handler/routes_permission_matrix.go`，`managementPermissionMatrix` 前缀表），挂 `protected.Use(permissionMatrixGuard(serverCtx))`（JWT Authority 之后，`internal/handler/routes.go`）。15 个管理域（providers/cicd/incidents/incident-categories/incident-reports/configs/config-explorer/tools/admin/announcements/certificates/rate-limits/schemas/faqs/tickets/players/tasks/schedules）按动词分侧：GET/HEAD/OPTIONS 要求 `<域>:read`，POST/PUT/PATCH/DELETE 要求 `<域>:write`，`admin:all` 恒放行（最长前缀匹配，前缀边界拒绝相邻路径）。权限码 30 条写入 `configs/permissions.json`（RBAC 页 `ListPermissions` 可勾选授予）；守卫引用与目录由 `TestManagementPermissionMatrix_CatalogAligned` 机械对齐，防「引用目录不存在的码」。
+  - 验证：新增 `internal/handler/permission_matrix_test.go`（目录对齐 + 最长前缀/边界匹配 + 403/200 行为面：零角色 403 `permission_denied`、超管放行、仅持 `providers:write` 写放行读拒、未命中路径直通）；`go test ./internal/handler/ -count=1` 全绿；`go test ./internal/... -count=1` 全绿（exit 0，load 5.9）；`go vet` 清洁；`gofmt -l` 清洁；`cd docs && CI=true pnpm build` 绿；`bash scripts/dashboard_vnext_guard.sh` PASSED。
+  - 完成证据：commit `b9c840f87`（`configs/permissions.json` 30 条管理域码 + `internal/handler/routes_permission_matrix.go` 矩阵与中间件 + `internal/handler/routes.go` 挂载 + `internal/handler/permission_matrix_test.go` + `docs/security.md`/`docs/zh/security.md` 同步）；`go test ./internal/... -count=1` 全绿。
+  - 已知边界：backup/storage/admin/role/page 等域已服务层门禁，不入矩阵避免双门禁语义冲突；`/messages/stream`（本人收件箱 SSE）与 `/announcements/active` 用户侧公告保留 JWT 认证（自服务面，非管理操作，故不门禁）；`/messages` 仅群发 `/messages/broadcast` 门禁写面；certificate 写面兼容既有 `certificates:manage` 授权；既有非 admin 角色操作员访问管理面需经 RBAC 页授予对应 `<域>:read/write`（AUD-039 同型收紧，属预期安全行为）。
 
-- [ ] **AUD-043 · P1 · 修复 · CICD webhook payload scope 绑定 integration**
+- [x] **AUD-043 · P1 · 修复 · CICD webhook payload scope 绑定 integration**（commit `85222bb9b`）
   - 依赖：ce667c63d（fail-closed 已修，本条为残余半边）。交付与验收：回写 payload 的 game/env 与 integration 配置一致才接受，不一致 4xx 拒绝；带跨 scope 回写拒绝用例。
-  - 状态／条件：2026-11-16 复核属实——token 校验已补，payload game/env 仍未绑定。
+  - 状态／条件：**DONE · LOCAL VERIFIED（2026-11-23，commit 85222bb9b；2026-11-27 本席复验恢复勾行——c187d1015 台账重构时本项勾行被回退，产品代码与测试始终在 main）**：`IngestWebhook`（`internal/api/cicd/webhook.go`）改为把作用域绑定到 integration——token 校验通过后新增 `validateWebhookScope`（+ `bindScopeField`）：payload 提供 game/env 时必须与 integration 配置精确一致才接受；integration 未配置该作用域而 payload 携带 → 拒（scope 注入）；payload 冲突 → 拒（跨 scope 回写）。落库作用域改为只取 integration 配置（原 `firstNonEmpty(row.GameID, p.GameID)` 在 integration 未配作用域时会采信 payload 注入值，已移除该采信面）。拒绝响应为 400 + 稳定码 `scope_mismatch`（`errorx.NewBadRequestWithCode`，符合响应契约，前端可分支）。校验置于 token 校验之后、`ValidateCicdWebhook` 之前（凭据→作用域绑定→载荷校验）。
+  - 验证：新增 `internal/api/cicd/aud043_scope_binding_test.go` 两个用例——`TestCicdWebhook_Aud043_ScopeBoundToIntegration`（省略作用域 200 且落库取 integration 的 demo/prod；payload 与配置一致 200 幂等；game_id 冲突 400 `scope_mismatch` 且构建数不变；env 冲突 400）+ `TestCicdWebhook_Aud043_NoScopeInjectionWhenIntegrationUnconfigured`（未配作用域 integration 的 payload 注入 400 且零落库；省略作用域仍 200）；`go test ./internal/api/cicd/... -count=1` 全绿；`go test ./internal/... -count=1` 全绿（exit 0，0 FAIL）；`go vet ./internal/api/cicd/` 清洁；`gofmt -l` 清洁。用例对旧实现敏感（旧 `firstNonEmpty` 语义下冲突/注入均为 200，断言 400 必失败）。
+  - 完成证据：commit `85222bb9b`（`internal/api/cicd/webhook.go` validateWebhookScope/bindScopeField + 落库作用域改取 integration；`internal/api/cicd/aud043_scope_binding_test.go`）；`go test ./internal/... -count=1` 全绿。
+  - 已知边界：integration 创建/更新未强制要求 game/env 非空，未配作用域的接入只能接收省略作用域的回写（构建记录作用域为空，与存量行为一致）；如要强制作用域，属 integration 创建校验的单独收口。webhook 仍为公开端点（token 鉴权），token 未配置时保持 fail-closed 拒绝（ce667c63d）。
 
-- [ ] **AUD-044 · P2 · 修复 · query token 收敛到 SSE 路由**
+- [x] **AUD-044 · P2 · 修复 · query token 收敛到 SSE 路由**（commit `e5dc63fa6`）
   - 依赖：—。交付与验收：`internal/svc/service_context_auth.go:164-176` 与 `internal/handler/routes.go:56` 的 `?token=` fallback 仅对显式 SSE 路由启用且配一次性短时 token；其余端点只认 Authorization header。
-  - 状态／条件：2026-11-16 复核属实——fallback 挂全部 protected 路由，token 进日志/历史。
+  - 状态／条件：**DONE · LOCAL VERIFIED（2026-11-23，commit e5dc63fa6；2026-11-27 本席复验恢复勾行——c187d1015 台账重构时本项勾行被回退，产品代码与测试始终在 main）**：移除 `AuthMiddleware.Handle` 的 `?token=` query 回退，全部 protected 端点一律只认 `Authorization: Bearer`（无 header 即 401 `missing authorization`；`Bearer` 前后缀格式错误 401 `invalid authorization header format`；空 token 401）。收敛范围比原条目更强：原条目为「仅 SSE 路由启用 + 一次性短时 token」，现改为 query 通道整体关闭——含 SSE 路由在内。
+  - 依据（为何整体关闭而非保留 SSE 例外）：SSE 前端已改走 fetch 流 + `Authorization` header（C-004，`web/src/services/core/http.ts` 的 `createEventSource` → `FetchSSEStream`，`useRealtimeStream`/`devopsSessions`/`messages` 三处消费方均经此），仓内已无 query token 消费方；`grep` 全仓（Go 非测试 + web/src）确认无 `?token=` 生产者（仅 synthetics echoprobe 的无关文案与 verify-email/install 令牌，均非本通道）。保留 SSE 例外而不加短时 token 签发端点，等于让 SSE 路径继续把 24h admin JWT 写进 URL/日志/Referer（原漏洞不闭环）；新增签发端点又无任何消费方（无谓攻击面）。
+  - 验证：`internal/svc/svc_extra_test.go` `TestAuthMiddleware_Handle` 改写——`query token rejected (header only)`（`/any?token=` 与 `/api/v1/messages/stream?token=` 均 401 且报 `missing authorization`，证明 SSE 路径同样不再接受）+ `header token accepted on sse path`（header 经 SSE 形态路径仍 200）；`go test ./internal/svc/ -run TestAuthMiddleware_Handle` 全绿（8 subtests）；`go test ./internal/... -count=1` 全绿（exit 0）；pre-commit `go vet ./...` 清洁；`gofmt -l` 清洁。
+  - 完成证据：commit `e5dc63fa6`（`internal/svc/service_context_auth.go` 移除 fallback + `internal/svc/svc_extra_test.go` 用例改写 + `docs/operations/access-control.md`/`docs/zh/operations/access-control.md` 令牌提取条目同步）；`go test ./internal/... -count=1` 全绿。
+  - 已知边界：仓外自有客户端若曾用 `?token=` 访问任何 protected 端点（含 SSE 原生 `EventSource`），升级后一律 401；正解是改用 fetch 流 + `Authorization: Bearer`（前端已如此，见 C-004）或经反向代理注入 header。若将来确有第三方原生 EventSource 客户端需要 query 通道，须另行设计短时一次性 SSE 令牌签发端点（本条未实现，属新设计面而非本条收口范围）。
 
-- [ ] **AUD-045 · P2 · 修复 · 认证关键查询 fail-closed**
+- [x] **AUD-045 · P2 · 修复 · 认证关键查询 fail-closed**（commit `82824f163`）
   - 依赖：—。交付与验收：`internal/svc/service_context_auth.go:253-310` token version/OTP/scope 模型故障时生产 fail-closed；测试/精简模式显式兼容开关。
-  - 状态／条件：2026-11-16 复核属实——故障窗口 fail-open。
+  - 状态／条件：DONE · LOCAL VERIFIED（commit `82824f163`；2026-11-27 本席复验恢复勾行——c187d1015 台账重构时本项勾行被回退，产品代码与测试始终在 main）——`checkTokenVersion` 与 `cachedOTPEnabled` 的真存储故障分支按 `productionFailClosed()`（复用 AUD-008 的 `isDevelopmentConfig`/`isProductionSignal`：`server.mode` 或 `CROUPIER_MODE`/`CROUPIER_ENV` 呈 prod/production/release 即生产）分流：生产下 token 版本查询失败 → 401、OTP 状态查询失败 → 按未绑定处理（403 mfa_required），打挂存储不再能换通行证；无生产信号（测试/精简部署）保留原可用性优先 warn+放行兼容，svcCtx/Config 缺失同按兼容处理。`authorizeScope`（`internal/svc/game_middleware.go`）复核确认本就 fail-closed（角色/scope 查询错误一律落「not authorized」拒绝），未改码。
+  - 验证：`go build ./...` 通过；`internal/svc/aud045_fail_closed_test.go` 新增 3 组用例（prod 模式+关库 → 401 authentication_failed；prod+MFARequired+关库 → 403 mfa_required；authorizeScope 对照组放行→关库后拒绝；dev 模式两分支保留旧行为断言）；`go test ./internal/svc/` 与 `go test ./internal/...` 全绿。
+  - 完成证据：`internal/svc/service_context_auth.go`（productionFailClosed + 两处 fail-closed 分支）、`internal/svc/aud045_fail_closed_test.go`、`docs/security.md` + `docs/zh/security.md` 与 `docs/operations/access-control.md` + `docs/zh/operations/access-control.md` 同步 AUD-045 口径。
+  - 已知边界：生产判定是模式声明式（AUD-008 同源）——部署未声明 prod 信号则保持 fail-open 兼容，属运维显式选择；模型未装配（AdminModel nil）仍整段跳过（精简/单测形态，不变）。
 
-- [ ] **AUD-046 · P2 · 修复 · CICD TestConnection SSRF 防护与稳定错误码**
+- [x] **AUD-046 · P2 · 修复 · CICD TestConnection SSRF 防护与稳定错误码**（commit `0d001d63a`）
   - 依赖：—。交付与验收：`internal/api/cicd/service.go:309-315` 限制 scheme、解析并拒绝私网/链路本地地址；客户端错误改稳定码，原文入日志。
-  - 状态／条件：2026-11-16 复核属实。
+  - 状态／条件：DONE · LOCAL VERIFIED（commit `0d001d63a`；2026-11-27 本席复验恢复勾行——c187d1015 台账重构时本项勾行被回退，产品代码与测试始终在 main）——`TestConnection` 三面收敛：scheme 只认 http/https（兜住写入校验之前的直写库历史行，400 `cicd_probe_invalid_target`）；`sec.ssrfProtection` 开启时 `secguard.CheckURL` 解析级拦截回环/私网/链路本地（`sec.allowIPs` 可放行内网 CI，与其余出站探针同口径，400 `cicd_probe_target_blocked`）；客户端可见信息一律稳定文案——原始拨号错误（refused/no route/timeout 可区分内网主机存活，等于免费内网扫描器）只进 `slog` 日志。dial-time 守卫客户端由 routes 既有装配提供（routes_release.go）。同步更新 `TestCicdService_TestConnectionMalformedEndpoint` 契约（200 ok:false → 400+稳定码）。
+  - 验证：`go build ./...` 通过；`internal/api/cicd/aud046_probe_guard_test.go` 新增 3 组用例（scheme 三形态 → 400 stable code；守卫 on+关库拦截 → 400 blocked、allowIPs 放行 → 稳定不可达文案且不含 refused；守卫 off → 失败文案稳定不回传原始错误）；`go test ./internal/...` 全绿。
+  - 完成证据：`internal/api/cicd/service.go`（TestConnection）、`internal/api/cicd/aud046_probe_guard_test.go`、`internal/api/cicd/service_paths_test.go`（契约更新）、`docs/operations/external-service-probing.md` + `docs/zh/operations/external-service-probing.md` 新增 CI/CD 连通性测试小节。
+  - 已知边界：私网拦截是站点守卫开关（sec.ssrfProtection）项，默认关时不对自托管内网 CI 额外收紧——与仓库既有 secguard 口径一致（开关注解在 external-service-probing.md 出站安全策略小节）。
 
-- [ ] **AUD-047 · P2 · 修复 · 未知错误统一 opaque 500**
+- [x] **AUD-047 · P2 · 修复 · 未知错误统一 opaque 500**（commit `4135cd74a`）
   - 依赖：—。交付与验收：`internal/common/response/response.go:107-108` 未知错误改 opaque message + correlation id，原文仅入日志；带响应契约回归。
-  - 状态／条件：2026-11-16 复核属实——`err.Error()` 直出可泄漏 GORM/驱动细节。
+  - 状态／条件：DONE · LOCAL VERIFIED（commit `4135cd74a`；2026-11-27 本席复验恢复勾行——c187d1015 台账重构时本项勾行被回退，产品代码与测试始终在 main）——`Error` 兜底分支（所有分类错误未命中后的未知错误）不再回传 `err.Error()` 原文：响应为 `{error: internal_error, message: 稳定文案+追踪号, details.correlationId}`；原文经 `slog.ErrorContext`（含 correlationId/path）进服务端日志。correlationId 为 8 字节 crypto/rand hex（rand 失败退纳秒时间戳 36 进制，仍可关联）。nil error 顺带修复：旧实现兜底解引用直接 panic，现统一落 opaque 500（`TestError_NilError` 契约同步更新）。分类错误（validation/bad_request/not_found/AppError 码表/CodeError）行为不变。
+  - 验证：`go build ./...` 通过；`internal/common/response/aud047_opaque_500_test.go` 新增 2 用例（典型 GORM 泄漏原文零片段回传 + correlationId 合法 hex 且 message 可回查；两错误追踪号独立）；`go test ./internal/...` 全绿。存量 24 处原文断言按语义分流收口：客户端输入错误改 errorx 分类呈现（configexplorer 绑定校验/只读源 400、resourcecatalog chosenSource 400、ops synthetics 缺参 400、sitesettings ldap/oidc 未启用 400、page SetMenu 走 PageNotFoundError 404、cicd Trigger/RefreshBuild provider 构造 400）；内部路径注入故障断言改 opaque 契约（500 + `internal_error` + NotContains 原文，涉及 function/function-api/monitoring/platform/ops/page/storage/console/component/support 共 10 包）。
+  - 完成证据：`internal/common/response/response.go`、`internal/common/response/aud047_opaque_500_test.go`、`internal/common/response/response_test.go`（nil 契约）、`docs/security.md` + `docs/zh/security.md` 新增 AUD-047 说明。
+  - 已知边界：仅收敛统一出口 `response.Error` 的未知错误兜底；不经该出口的直写响应（SSE/健康检查/文件下载等显式例外，及 monitoring 健康输出原文属 AUD-053 范畴）不在本条覆盖内。
 
-- [ ] **AUD-048 · P2 · 修复 · Warehouse 查询强制 current scope**
+- [x] **AUD-048 · P2 · 修复 · Warehouse 查询强制 current scope**（commit `02932502e`）
   - 依赖：—。交付与验收：`internal/api/analytics/warehouse.go:141/247` 请求 game/env 只可收窄不可替换，空值不得展开为无过滤。
-  - 状态／条件：2026-11-16 复核属实——显式传其他 game/env 可跨域聚合。
+  - 状态／条件：DONE · LOCAL VERIFIED（commit `02932502e`；2026-11-27 本席复验恢复勾行——c187d1015 台账重构时本项勾行被回退，产品代码与测试始终在 main）——新增 `warehouseScope(ctx, gameID, env)` 统一守卫：作用域只取 `GameDBMiddleware` 解析的 `GameScope`（`svc.GameScopeFromContext`）；请求参数非空且与 current scope 不一致 → 403 `forbidden`（错误文案不回显请求方提交的目标值，避免越权枚举）；ctx 无 scope → 400 `bad_request`（不再退化为跨游戏无过滤聚合）。三条查询下推的 game/env 一律来自守卫返回值，请求参数不再进入 SQL 占位符。`/analytics` 路由挂在 `scoped` 组（`GameDBMiddleware`），因此合法请求恒带完整 (gameID, env) 对（header 成对 + last-scope 回退）。
+  - 验证：`go build ./...` 通过；`internal/api/analytics/warehouse_scope_test.go` 新增 `TestWarehouseScope_ForcesCurrentScope`（5 分支：缺省沿用 scope／参数一致视为收窄／替换 game 403／替换 env 403／无 scope 拒绝）与 `TestWarehouseDAU_Aud048_CrossScopeRejected`（跨域与无 scope 均不触达查询）；`TestWarehouseDAU_DefaultWindowUnscoped` 改写为 `DefaultWindowUsesCurrentScope`（空请求 + scope → 查询带 `AND game_id = ?`/`AND env = ?`，占位符与 args 对齐）；`go test ./internal/...` 全绿（存量仓库用例统一注入 `warehouseScopeCtx`/`withWarehouseScope`）。
+  - 完成证据：`internal/api/analytics/warehouse.go`（守卫 + 三查询）、`internal/api/analytics/warehouse_scope_test.go`、`internal/api/analytics/warehouse_test.go`、`internal/api/analytics/coverage_extra_test.go`、`internal/api/analytics/coverage_v9_test.go`、`docs/architecture/game-environment-scope.md` §12.5 规则条 + `docs/zh/architecture/game-environment-scope.md`。
+  - 已知边界：仅收敛三张 ClickHouse 聚合表读取路径（daily_users/minute_online/daily_revenue）；`Facade` 的 `domainWarehouse` 路径同样经 `warehouseScope` 生效（其 filter 的 gameId/env 须与 current scope 一致，否则 403）；同包其余报表（overview/payments/retention 等）的 `svc.ResolveGameID` 口径不在本条范围。
 
-- [ ] **AUD-049 · P2 · 修复 · 敏感写路径补统一审计**
+- [x] **AUD-049 · P2 · 修复 · 敏感写路径补统一审计**（commit `f6939af13`）
   - 依赖：AUD-042（权限矩阵先行，denied 面随 guard 收敛）。交付与验收：incident/ticket 变更、storage 删除/上传、cicd webhook 成功与 denied 路径接 AuditService.Log；统一 decorator 覆盖成功/失败/denied 三态。
-  - 状态／条件：2026-11-16 复核属实。
+  - 状态／条件：DONE · LOCAL VERIFIED（commit `f6939af13`；2026-11-27 本席复验恢复勾行——c187d1015 台账重构时本项勾行被回退，产品代码与测试始终在 main）——新增统一审计装饰器 `audit.LogWrite`（`internal/audit/decorator.go`）：三态 `StateSuccess`/`StateFailure`/`StateDenied` 共用同一事件类型与字段形态，差异只在 outcome；留痕写失败按 ARCH-008 D4 转 `ReportWriteGap`，不把业务结果改成 5xx。四类写路径全部接入：工单（创建/更新/删除/流转/评论/bug 关联，`ticket.*`）、事故（类别增删改/登记/更新/流转，`incident.*`）、对象存储（上传/删除/批量删除/目录变更，`storage.*`）、CICD webhook（ingest 成功 + token/scope 拒绝，`cicd.webhook_ingest`/`cicd.webhook_denied`）；denied 记录带拒绝原因，成功记录带操作者用户名（上下文可解析时）。actor 由调用方解析后传入——audit 包不得 import 业务侧 actor 解析器（否则 logic/utils→svc→audit 成环），解析不到时留空、凭 eventType+details 回查。
+  - 验证：四个包各新增 `aud049_*_test.go`（cicd/storage/incident/ticket）：断言成功留痕（outcome/actor/resource/details）与 denied 留痕（跨 scope、零角色、无用户名 ctx、token 不匹配、scope 冲突）；`InMemoryAuditStore.List` 底层是 map（遍历顺序随机），断言一律按 outcome/operation/reason 子集过滤不依赖顺序（曾因此翻出 order-dependent flake，已按子集断言修复并以 -count=3 复跑验证）。`go build ./...` 通过；`go test ./internal/...` 全绿（172 包）；`scripts/dashboard_vnext_guard.sh` PASSED；`pnpm --dir web run tsc` 0 错误；`pnpm --dir web test` 全绿（467 套件/5514 用例）；`cd docs && CI=true pnpm build` 通过。
+  - 完成证据：`internal/audit/decorator.go`、`internal/audit/audit.go`（事件常量）、`internal/api/cicd/webhook.go`、`internal/api/storage/service.go`、`internal/api/incident/service.go`、`internal/api/ticket/service.go`、四份 `aud049_*_test.go`、`docs/security.md` + `docs/zh/security.md`（AUD-049 规则条）。
+  - 已知边界：路由级权限矩阵（AUD-042）的拒绝不留痕，仅服务层门禁拒绝落 denied；storage 的 SignedUrl/列表读门禁不在本条范围。
 
-- [ ] **AUD-050 · P2 · 修复 · Ticket/CICD 多步写包事务**
+- [x] **AUD-050 · P2 · 修复 · Ticket/CICD 多步写包事务**（commit `78248882a`）
   - 依赖：—。交付与验收：`internal/api/ticket/service.go:202-209`（状态备注+状态更新）与 `internal/api/cicd/service.go:283-287`（删 builds+删 integration）包 GORM transaction；带第二步失败回滚用例。
-  - 状态／条件：2026-11-16 复核属实——半提交可产生不一致中间态。
+  - 状态／条件：DONE · LOCAL VERIFIED（commit `78248882a`；2026-11-27 本席复验恢复勾行——c187d1015 台账重构时本项勾行被回退，产品代码与测试始终在 main）——两处多步写改走统一事务封装：工单 `withTicketTransaction`（带备注流转的备注+状态两写同事务，备注落库后状态更新失败不再留下「有备注无状态变更」半提交）与 CICD `withCicdTransaction`（删 builds+删接入行同事务，接入行删除失败不再留下「有接入无构建」半提交）。范式与 page 域 `withPageTransaction` 一致：`dbctx.Resolve(ctx, svcCtx.DB)` 开事务 + `dbctx.WithDB(ctx, tx)` 注入 ctx，包内 model 方法经 `dbctx.Resolve(ctx, m.db)` 自动落到事务连接。工单封装在 svcCtx 无 DB（部分测试装配只给 model）时退化为直连双写，生产装配恒带 DB 走真事务。
+  - 验证：`internal/api/cicd/aud050_tx_test.go`（第二步删接入行注入失败 → builds 随回滚恢复 + 对照级联成功）与 `internal/api/ticket/aud050_tx_test.go`（failV9Updates 注入状态更新失败 → 备注随回滚消失、状态未变 + 对照整体提交）；`go build ./...` 通过；`go test ./internal/...` 全绿（172 包）；`scripts/dashboard_vnext_guard.sh` PASSED；`pnpm --dir web run tsc` 0 错误；`pnpm --dir web test` 全绿（467 套件/5514 用例）。
+  - 完成证据：`internal/api/ticket/service.go`（withTicketTransaction + Transition 事务化）、`internal/api/cicd/service.go`（withCicdTransaction + Delete 事务化）、两份 `aud050_tx_test.go`。
+  - 已知边界：无字段/wire 变更，三层文档无需同步；行为面仅在 code comment 与本条记录。
 
 - [ ] **AUD-051 · P3 · 修复 · Approval 挂账文档更新为 SQLStore 现状**
   - 依赖：—。交付与验收：`docs/operations/access-control.md:66` 与 CLAUDE.md「Approvals currently use MemStore」表述更新为 production SQLStore + CAS 事实；zh 镜像（docs/zh）同步。
   - 状态／条件：2026-11-16 复核属实——`internal/svc/service_context.go:379` 实际装配 SQLStore，重启丢失风险已不存在。
 
-- [ ] **AUD-052 · P3 · 修复 · 缩短 access JWT TTL 并引入 refresh 轮换**
+- [x] **AUD-052 · P3 · 修复 · 缩短 access JWT TTL 并引入 refresh 轮换** — f5e6d4e07
   - 依赖：AUD-008（密钥判定先行）。交付与验收：`internal/security/jwtutil/token.go:23` 拆 access/refresh + 重用检测轮换；存量登录灰度兼容。
-  - 状态／条件：2026-11-16 复核属实——TTL 硬编码 24h 无 refresh。
+  - 状态／条件：LOCAL VERIFIED（交付 commit f5e6d4e07；2026-11-27 本席复验恢复勾行——c187d1015 台账重构时本项勾行被回退，产品代码与测试始终在 main）：2026-11-16 复核属实——TTL 硬编码 24h 无 refresh。
+  - 完成证据：`internal/security/jwtutil/token.go` 拆 SignAccess(2h,typ=access)/SignRefresh(7d,typ=refresh,带随机 jti——NumericDate 秒级精度下同秒两次签发字节级相同的实测坑)+Parse 统一拒绝 typ=refresh（全部认证路径零改动继承）/ParseRefresh 反向拒绝 access；`admin_refresh_tokens` 表（迁移 0067 三处同步）只存 SHA-256，兑换 MarkUsed 轮换挂链，已兑换/已吊销再现金即 RevokeAllForAdmin 整族吊销+审计 auth.token_refresh_reuse；POST /auth/refresh（匿名，凭据即令牌）；登录 `useRefresh:true` opt-in，legacy 24h 单 token 行为不变（存储不可用自动回退）。LOCAL VERIFIED：`go test ./internal/...` 全绿（jwtutil/auth/migrations 新用例 8+7+2），guard PASSED，tsc/jest 467 套全绿，docs build 通过。已知边界：web/移动端尚未 opt-in（仍 24h token，属前端后续工作）；OIDC/OAuth 回调登录不发刷新令牌（useRefresh 仅密码登录生效）；传输仍 JSON body/localStorage，cookie 化属 C-005 延期。
 
-- [ ] **AUD-053 · P3 · 修复 · Backup 创建幂等键**
+- [x] **AUD-053 · P3 · 修复 · Backup 创建幂等键** — 4933fc5d2
   - 依赖：—。交付与验收：`internal/api/backup/service.go:75-106` 按 name/type/时间窗或客户端 Idempotency-Key 去重 pending/succeeded；带并发去重用例。
-  - 状态／条件：2026-11-16 复核属实——双击/重试并发创建多份重备份。
+  - 状态／条件：LOCAL VERIFIED（交付 commit 4933fc5d2；2026-11-27 本席复验恢复勾行——c187d1015 台账重构时本项勾行被回退，产品代码与测试始终在 main）：2026-11-16 复核属实——双击/重试并发创建多份重备份。
+  - 完成证据：`backups.idempotency_key` 指针列 + 唯一索引（迁移 0068 三处同步；NULL 多行三方言不冲突）；Create 预检同键 pending/succeeded 复用、failed 行让位键后重试建新行（ReleaseIdempotencyKey），并发双写由唯一索引兜底、冲突方回落已存在行（isIdempotencyConflict 三方言文案）；无键时 name+type 10 分钟窗兜底（自动生成名含秒戳，同秒双击同被收住）；handler 兼容 Idempotency-Key 头。LOCAL VERIFIED：backup 包 6 用例含 8 并发同键全员同 ID/库内单行、migrations 0068 存量形态复刻（Drop 列+索引再补齐）+注册断言；`go test ./internal/...` exit 0、guard PASSED、tsc 0 错、jest 467 套/5514 用例全绿（首跑 6 套红为 go test+docs build 同机并发负载 flake，空载全量重跑全绿）、docs build 通过。
 
 - [ ] **AUD-054 · P3 · 修复 · 删除旧式 PermissionMiddleware 死代码**
   - 依赖：—。交付与验收：确认无挂载引用后删除 `internal/service/permission/middleware.go:117-127`、`internal/common/middleware/auth.go:104` 的旧式实现（字符串 context key + gin.H 直写）。
