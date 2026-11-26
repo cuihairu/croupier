@@ -1895,9 +1895,10 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 状态／条件：LOCAL VERIFIED（2026-11-27 复核，产品 commit 4f4bfe4a3）：dumpSQLite 改用 SQLite 自带 `VACUUM INTO`（3.27+）一致性快照——源库只读事务重放全部已提交 WAL 帧后写出自包含单文件副本，不阻塞并发写者；源库缺失/目录/不可建目标一律失败，不「备份空库冒充成功」；产物可当库打开做恢复核对（checksum 仅作完整性附加）。证据：`internal/platform/backupexec/executor.go`（dumpSQLite VACUUM INTO + sqliteFilePath/sqliteStringLiteral）、`internal/platform/backupexec/executor_test.go`（TestDumpSQLite_WalCommittedRowsIncluded：前提取证 -wal 非空且行未回主文件，快照读回 5 行=WAL 已提交全部行；TestDumpSQLite_ConcurrentWriterDuringDump：dump 期间并发写 20 条，快照至少含 dump 前已提交 5 行且可读回；TestDumpSQLite_Snapshot：size/checksum/恢复读回 3 行）。变异自证：M1 把 dumpSQLite 退回旧「直接复制主文件」行为 → WAL 与并发写两例如实红（主文件缺未 checkpoint 行），还原后全包绿、0 MUTATION 残留。本席 2026-11-27 本地复跑 `go test ./internal/platform/backupexec/ -count=1` 全绿。产品与测试由并行会话 commit 4f4bfe4a3 交付并已在 origin/main。
   - 完成证据：`internal/platform/backupexec/executor_test.go`（WAL 已提交行 / 并发写一致性 / 快照恢复读回三例全绿）；本席复验 + 变异自证记录如上。
 
-- [ ] **AUD-010 · P1 · 修复 · 账号不存在时拒绝旧 JWT 认证**
+- [x] **AUD-010 · P1 · 修复 · 账号不存在时拒绝旧 JWT 认证**
   - 依赖：—。交付与验收：区分账号删除、禁用、令牌版本不匹配与数据库故障；覆盖无缓存的新中间件。
-  - 状态／条件：service_context_auth.go:304-316 把 RecordNotFound 也放行；软删除账号后新中间件仍接受旧 JWT。
+  - 状态／条件：LOCAL VERIFIED（2026-11-27 复核，产品 commit a63af12aa）：checkTokenVersion 对 `gorm.ErrRecordNotFound`（硬删/软删 First 无行）显式返回 "account not found" 认证失败——此前误当存储故障放行；真存储故障仍走 AUD-045 生产 fail-closed/开发兼容分支，修复未过度收紧。四类区分齐备：账号删除（软删实证，硬删同分支）、禁用/改密（版本 bump 撤销）、令牌版本不匹配（bump 后旧 token 拒绝）、数据库故障（非 RecordNotFound 仍放行）+ 无缓存新中间件实例（显式清 tokenVersions 走查库路径）。证据：`internal/svc/service_context_auth.go`（checkTokenVersion RecordNotFound 分支）、`internal/svc/token_revoke_test.go`（TestAuthMiddleware_RejectsDeletedAccountToken / TestAuthMiddleware_GenuineDBFailureStillBypasses / TestAuthMiddleware_TokenRevokedAfterBump / TestAuthMiddleware_LegacyTokenWithoutVersion）、`internal/svc/svc_extra_test.go:405`。变异自证：M1 短路 RecordNotFound 分支（退回旧放行）→ RejectsDeletedAccountToken 如实红；还原后全绿、0 MUTATION 残留。本席 2026-11-27 本地复跑 `go test ./internal/svc/ -count=1 -run TestAuthMiddleware` 全绿。产品与测试由并行会话 commit a63af12aa 交付并已在 origin/main。
+  - 完成证据：`internal/svc/token_revoke_test.go`（删除账号回归 + 真故障放行对照 + 版本 bump 撤销 + 无版本兼容四例全绿）；本席复验 + 变异自证记录如上。
 
 - [ ] **AUD-011 · P1 · 修复 · 修正移动端 CI 覆盖率阈值读取**
   - 依赖：—。交付与验收：100% 覆盖率通过，低于阈值和无有效覆盖数据拒绝。
