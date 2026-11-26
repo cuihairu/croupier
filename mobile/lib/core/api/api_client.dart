@@ -1,6 +1,8 @@
 /// dio 客户端装配（设计稿 §3.3 / §3.4 / §5.1）：
 /// 拦截器链 = token 注入 → scope 头（注入 + 剥除外部同名头防注入）→
-/// 错误归一 ApiError；401（登录端点除外）清会话并回调回登录页。
+/// 错误归一 ApiError；401（登录端点除外）核对发请求时的会话身份——
+/// 被拒 token 与当前会话一致（真实失效）才清会话并回调回登录页，
+/// 旧请求的迟到 401 只结束原请求（AUD-061）。
 library;
 
 import 'package:dio/dio.dart';
@@ -59,12 +61,24 @@ class ApiClient {
           handler.next(options);
         },
         onError: (e, handler) async {
-          // 3) 401 → 清会话回登录（登录端点自身的 401 分支除外）
+          // 3) 401 → 清会话回登录（登录端点自身的 401 分支除外）。
+          // 清理前核对发请求时的会话身份（AUD-061）：只有被拒 token 与
+          // 当前存储会话一致（同一会话真实失效）才清会话跳登录；旧
+          // token/匿名旧请求的迟到 401 只结束原请求，不清掉新会话。
           final status = e.response?.statusCode;
           final isLogin = e.requestOptions.uri.path == _loginPath;
           if (status == 401 && !isLogin) {
-            await sessionStore.clear();
-            onUnauthorized?.call();
+            final requestAuth =
+                e.requestOptions.headers['Authorization'] as String?;
+            final current = await sessionStore.load();
+            final currentAuth =
+                (current != null && current.token.isNotEmpty)
+                    ? 'Bearer ${current.token}'
+                    : null;
+            if (currentAuth == null || currentAuth == requestAuth) {
+              await sessionStore.clear();
+              onUnauthorized?.call();
+            }
           }
           handler.next(e);
         },

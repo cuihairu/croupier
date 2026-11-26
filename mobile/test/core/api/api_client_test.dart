@@ -87,6 +87,37 @@ void main() {
     expect(unauthorizedCalls, 0);
   });
 
+  test('旧 token 的迟到 401：不清新会话、不回调（AUD-061）', () async {
+    // 请求发出时携带 jwt-1；响应到达前会话已刷新为 jwt-2（重登录/刷新）。
+    // 401 属旧请求旧 token：只结束原请求，新会话保留、不跳登录。
+    await store.save(const SessionData(token: 'jwt-1'));
+    adapter.handler = (options, _) async {
+      await store.save(const SessionData(token: 'jwt-2'));
+      return jsonResponse(401, {'error': 'unauthorized', 'message': '未授权'});
+    };
+    await expectLater(
+      client.get<Map<String, Object?>>('/api/v1/tasks'),
+      throwsA(isA<ApiError>().having((e) => e.status, 'status', 401)),
+    );
+    expect((await store.load())?.token, 'jwt-2');
+    expect(unauthorizedCalls, 0);
+  });
+
+  test('匿名旧请求的 401：不清请求期间新建立的会话（AUD-061）', () async {
+    // 请求发出时无会话（无 Authorization 头）；响应到达前用户已登录。
+    // 迟到 401 不得清掉刚建立的新会话。
+    adapter.handler = (options, _) async {
+      await store.save(const SessionData(token: 'jwt-new'));
+      return jsonResponse(401, {'error': 'unauthorized', 'message': '未授权'});
+    };
+    await expectLater(
+      client.get<Map<String, Object?>>('/api/v1/tasks'),
+      throwsA(isA<ApiError>()),
+    );
+    expect((await store.load())?.token, 'jwt-new');
+    expect(unauthorizedCalls, 0);
+  });
+
   test('409 竞态错误体归一透传', () async {
     adapter.handler = (options, _) =>
         jsonResponse(409, {'error': 'conflict', 'message': '已被处理'});
