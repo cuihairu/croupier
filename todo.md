@@ -1900,9 +1900,10 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 状态／条件：LOCAL VERIFIED（2026-11-27 复核，产品 commit a63af12aa）：checkTokenVersion 对 `gorm.ErrRecordNotFound`（硬删/软删 First 无行）显式返回 "account not found" 认证失败——此前误当存储故障放行；真存储故障仍走 AUD-045 生产 fail-closed/开发兼容分支，修复未过度收紧。四类区分齐备：账号删除（软删实证，硬删同分支）、禁用/改密（版本 bump 撤销）、令牌版本不匹配（bump 后旧 token 拒绝）、数据库故障（非 RecordNotFound 仍放行）+ 无缓存新中间件实例（显式清 tokenVersions 走查库路径）。证据：`internal/svc/service_context_auth.go`（checkTokenVersion RecordNotFound 分支）、`internal/svc/token_revoke_test.go`（TestAuthMiddleware_RejectsDeletedAccountToken / TestAuthMiddleware_GenuineDBFailureStillBypasses / TestAuthMiddleware_TokenRevokedAfterBump / TestAuthMiddleware_LegacyTokenWithoutVersion）、`internal/svc/svc_extra_test.go:405`。变异自证：M1 短路 RecordNotFound 分支（退回旧放行）→ RejectsDeletedAccountToken 如实红；还原后全绿、0 MUTATION 残留。本席 2026-11-27 本地复跑 `go test ./internal/svc/ -count=1 -run TestAuthMiddleware` 全绿。产品与测试由并行会话 commit a63af12aa 交付并已在 origin/main。
   - 完成证据：`internal/svc/token_revoke_test.go`（删除账号回归 + 真故障放行对照 + 版本 bump 撤销 + 无版本兼容四例全绿）；本席复验 + 变异自证记录如上。
 
-- [ ] **AUD-011 · P1 · 修复 · 修正移动端 CI 覆盖率阈值读取**
+- [x] **AUD-011 · P1 · 修复 · 修正移动端 CI 覆盖率阈值读取**
   - 依赖：—。交付与验收：100% 覆盖率通过，低于阈值和无有效覆盖数据拒绝。
-  - 状态／条件：ci-mobile.yml:58 的 shell 参数表达式位于单引号 heredoc，Python float 收到字面量；实际 workflow 片段在 100% lcov 下仍 ValueError。
+  - 状态／条件：LOCAL VERIFIED（2026-11-27 复核，产品 commit d179e1a2b）：Coverage gate 的阈值改在 Python 侧 `os.environ.get("COVERAGE_THRESHOLD", "80")` 读取（单引号 heredoc 内 shell 不展开 `${...}`，字面量进 float() 恒 ValueError 是原缺陷）；env 未设默认 80。五场景本地实证（对当前 workflow 逐字提取执行）：100% 通过（exit 0）、50% 低于 80 拒绝、空 lcov（total=0）按无有效覆盖数据拒绝、COVERAGE_THRESHOLD=40 放行 50%、=30 拒绝 20%（env 覆盖真实生效）。变异自证：M1 在临时副本上重引入字面量 `${COVERAGE_THRESHOLD:-80}` → 100% 覆盖率也 ValueError 崩溃（复现审计原缺陷，判别力成立）；仓库工作流零改动、0 MUTATION 残留。审计期缺陷复现脚本存档 docs/review/evidence/2026-11-12/ci-probe.py。产品修复由并行会话 commit d179e1a2b 交付并已在 origin/main。
+  - 完成证据：`.github/workflows/ci-mobile.yml` Coverage gate 步骤（Python 侧 env 读阈值）；本席五场景复验 + 变异自证记录如上。
 
 - [ ] **AUD-012 · P2 · 修复 · SSE 解析保留跨分块 CRLF 状态**
   - 依赖：—。交付与验收：同一事件字节无论网络如何分块，事件名和多行 data 必须一致。
