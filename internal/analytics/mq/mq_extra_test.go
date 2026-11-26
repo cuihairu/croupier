@@ -4,6 +4,7 @@
 package mq
 
 import (
+	"context"
 	"os"
 	"testing"
 
@@ -19,13 +20,13 @@ func TestKafkaQueue_ZeroValueMethods(t *testing.T) {
 	assert.NoError(t, q.PublishPayment(map[string]any{"k": "v"}))
 	assert.NoError(t, q.Close())
 
-	n, err := q.PendingEvents()
-	require.NoError(t, err)
-	assert.Zero(t, n)
-
-	n, err = q.PendingPayments()
-	require.NoError(t, err)
-	assert.Zero(t, n)
+	// DATA-047: kafkaQueue reports no fake pending/backlog readings.
+	_, hasBacklog := any(q).(BacklogReporter)
+	assert.False(t, hasBacklog)
+	_, hasPending := any(q).(interface {
+		PendingEvents() (int64, error)
+	})
+	assert.False(t, hasPending)
 }
 
 // withMQEnv sets an environment variable and restores it after the test.
@@ -83,32 +84,36 @@ func TestNewRedisFromEnv_InvalidMaxLenAndApproxTrue(t *testing.T) {
 	require.NoError(t, rq.Close())
 }
 
-func TestRedisQueue_PendingAgainstMiniredis(t *testing.T) {
+func TestRedisQueue_BacklogAgainstMiniredis(t *testing.T) {
 	mr := miniredis.RunT(t)
 	q, _ := NewRedis("redis://"+mr.Addr()+"/0", "events", "payments", 1000, true)
 	rq, ok := q.(*redisQueue)
 	require.True(t, ok)
+	// miniredis 的 lag 不忠实于真实 Redis：无组语义（DATA-047 无组分支）
+	// 经真实 XLEN + 空组表验证，已消费场景见 mq_backlog_test.go 的 seam 注入。
 
-	t.Run("empty streams report zero", func(t *testing.T) {
-		n, err := rq.PendingEvents()
+	t.Run("empty stream keeps retained and unknown progress", func(t *testing.T) {
+		// 空流尚不存在，XINFO GROUPS 无从读起（真实 Redis 报错）：
+		// retained 有效为 0，组进度按 unknown 报告。
+		bl, err := rq.Backlog(context.Background())
 		require.NoError(t, err)
-		assert.Zero(t, n)
-		n, err = rq.PendingPayments()
-		require.NoError(t, err)
-		assert.Zero(t, n)
+		assert.Zero(t, bl.Events.Retained)
+		assert.Nil(t, bl.Events.Undelivered)
+		assert.Nil(t, bl.Events.PendingAck)
 	})
 
-	t.Run("published events counted", func(t *testing.T) {
+	t.Run("published events are undelivered without a group", func(t *testing.T) {
 		require.NoError(t, rq.PublishEvent(map[string]any{"id": "e1"}))
 		require.NoError(t, rq.PublishEvent(map[string]any{"id": "e2"}))
 		require.NoError(t, rq.PublishPayment(map[string]any{"order": "p1"}))
 
-		n, err := rq.PendingEvents()
+		bl, err := rq.Backlog(context.Background())
 		require.NoError(t, err)
-		assert.EqualValues(t, 2, n)
-		n, err = rq.PendingPayments()
-		require.NoError(t, err)
-		assert.EqualValues(t, 1, n)
+		assert.EqualValues(t, 2, bl.Events.Retained)
+		require.NotNil(t, bl.Events.Undelivered)
+		assert.EqualValues(t, 2, *bl.Events.Undelivered)
+		require.NotNil(t, bl.Events.PendingAck)
+		assert.Zero(t, *bl.Events.PendingAck)
 	})
 
 	t.Run("server down returns error", func(t *testing.T) {
@@ -118,9 +123,7 @@ func TestRedisQueue_PendingAgainstMiniredis(t *testing.T) {
 		require.True(t, ok)
 		down.Close()
 
-		_, err := drq.PendingEvents()
-		require.Error(t, err)
-		_, err = drq.PendingPayments()
+		_, err := drq.Backlog(context.Background())
 		require.Error(t, err)
 		require.NoError(t, drq.Close())
 	})

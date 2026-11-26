@@ -60,27 +60,3 @@ func TestRedisQueue_PublishEvent(t *testing.T) {
 	// Will fail to connect to Redis, but we're testing the method exists
 	_ = err
 }
-
-// TestRedisQueue_PendingEvents tests PendingEvents via type assertion
-func TestRedisQueue_PendingEvents(t *testing.T) {
-	q, _ := NewRedis("redis://localhost:6379/0", "events", "payments", 1000, true)
-	// Type assert to access PendingEvents method
-	if rq, ok := q.(interface{ PendingEvents() (int64, error) }); ok {
-		count, err := rq.PendingEvents()
-		// Will fail to connect, but we've covered the code path
-		_ = count
-		_ = err
-	}
-}
-
-// TestRedisQueue_PendingPayments tests PendingPayments via type assertion
-func TestRedisQueue_PendingPayments(t *testing.T) {
-	q, _ := NewRedis("redis://localhost:6379/0", "events", "payments", 1000, true)
-	// Type assert to access PendingPayments method
-	if rq, ok := q.(interface{ PendingPayments() (int64, error) }); ok {
-		count, err := rq.PendingPayments()
-		// Will fail to connect, but we've covered the code path
-		_ = count
-		_ = err
-	}
-}

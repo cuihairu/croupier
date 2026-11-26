@@ -56,6 +56,7 @@ type PipelineMonitorConfig struct {
 	DropRatio       float64       // volume-drop threshold ratio, default 0.2
 	DeadThreshold   int64         // dead letter backlog threshold, default 100
 	MQBacklogLimit  int64         // main stream backlog threshold, default 10000
+	WorkerGroup     string        // consumer group whose progress defines MQ backlog, default analytics-worker
 }
 
 func pipelineConfigFromEnv() PipelineMonitorConfig {
@@ -67,6 +68,7 @@ func pipelineConfigFromEnv() PipelineMonitorConfig {
 		DropRatio:       0.2,
 		DeadThreshold:   100,
 		MQBacklogLimit:  10000,
+		WorkerGroup:     "analytics-worker",
 	}
 	if v := os.Getenv("PIPELINE_MONITOR_INTERVAL"); v != "" {
 		if d, err := time.ParseDuration(v); err == nil && d > 0 {
@@ -94,9 +96,11 @@ type PipelineAlertSink interface {
 	UpdateStatus(ctx context.Context, id uint, status string) error
 }
 
-// DeadLetterCounter queries dead letter / main stream lengths (satisfied by *redis.Client).
+// DeadLetterCounter queries dead letter / main stream lengths and consumer
+// group progress (satisfied by *redis.Client).
 type DeadLetterCounter interface {
 	XLen(ctx context.Context, stream string) *redis.IntCmd
+	XInfoGroups(ctx context.Context, stream string) *redis.XInfoGroupsCmd
 }
 
 type PipelineMonitor struct {
@@ -361,20 +365,77 @@ func (m *PipelineMonitor) checkMQBacklog(ctx context.Context) {
 		{m.stream.events, "mq_backlog:events"},
 		{m.stream.payments, "mq_backlog:payments"},
 	} {
-		n, err := m.dead.XLen(ctx, s.stream).Result()
+		retained, err := m.dead.XLen(ctx, s.stream).Result()
 		if err != nil {
 			continue
 		}
+		// DATA-047: backlog is consumer-group progress (undelivered + delivered
+		// unacked), not the physical length — consumed+ACKed entries stay in
+		// the stream until the trim policy drops them and must not be reported
+		// as backlog. A nil reading is unknown, displayed as such and never
+		// collapsed into a fake zero.
+		undelivered, pendingAck := m.groupProgress(ctx, s.stream, retained)
+		knownProgress := undelivered != nil && pendingAck != nil
 		key := s.key
-		if n >= m.cfg.MQBacklogLimit {
+		backlog := int64(0)
+		if knownProgress {
+			backlog = *undelivered + *pendingAck
+		}
+		fire := false
+		switch {
+		case knownProgress && backlog >= m.cfg.MQBacklogLimit:
+			fire = true
+		case !knownProgress && pendingAck != nil && *pendingAck >= m.cfg.MQBacklogLimit:
+			// Lag unknown (e.g. Redis < 7 omits it) but a large pending-ack
+			// count is stalled-worker evidence on its own.
+			fire = true
+		}
+		if fire {
 			m.fireAlert(ctx, key, AlertTypeDataPipeline, "critical",
-				fmt.Sprintf("消息积压：%s 达 %d 条（阈值 %d），worker 可能停摆或消费不及",
-					s.stream, n, m.cfg.MQBacklogLimit),
-				map[string]any{"stream": s.stream, "length": n, "threshold": m.cfg.MQBacklogLimit})
-		} else {
-			m.resolveIfFiring(ctx, key, fmt.Sprintf("消息积压恢复：%s 当前 %d 条", s.stream, n))
+				fmt.Sprintf("消息积压：%s 未派发 %s + 已派发未ACK %s（留存 %d，阈值 %d），worker 可能停摆或消费不及",
+					s.stream, textOrUnknown(undelivered), textOrUnknown(pendingAck), retained, m.cfg.MQBacklogLimit),
+				map[string]any{"stream": s.stream, "retained": retained, "undelivered": undelivered, "pendingAck": pendingAck, "threshold": m.cfg.MQBacklogLimit})
+		} else if knownProgress {
+			// Only a complete healthy progress reading may clear the alert
+			// (DATA-022 positive evidence): a lag-unknown round proves nothing.
+			m.resolveIfFiring(ctx, key, fmt.Sprintf("消息积压恢复：%s 未派发 %d + 已派发未ACK %d", s.stream, *undelivered, *pendingAck))
 		}
 	}
+}
+
+// groupProgress reads the worker group's undelivered lag and pending-ack
+// count; nil = unknown (unreadable group info, or Redis omitted the lag
+// field, reported as lag -1 by the driver). A missing group means nothing has
+// been delivered yet (the group is created on first worker start, DATA-023):
+// every retained entry is undelivered and none are pending ACK.
+func (m *PipelineMonitor) groupProgress(ctx context.Context, stream string, retained int64) (*int64, *int64) {
+	gs, err := m.dead.XInfoGroups(ctx, stream).Result()
+	if err != nil {
+		return nil, nil
+	}
+	for i := range gs {
+		if gs[i].Name != m.cfg.WorkerGroup {
+			continue
+		}
+		var undelivered *int64
+		if gs[i].Lag >= 0 {
+			lag := gs[i].Lag
+			undelivered = &lag
+		}
+		pending := gs[i].Pending
+		return undelivered, &pending
+	}
+	undelivered := retained
+	zero := int64(0)
+	return &undelivered, &zero
+}
+
+// textOrUnknown renders a nullable count for the alert message.
+func textOrUnknown(p *int64) string {
+	if p == nil {
+		return "未知"
+	}
+	return fmt.Sprintf("%d", *p)
 }
 
 // ---- alert helpers ----

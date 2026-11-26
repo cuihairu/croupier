@@ -169,3 +169,9 @@ type stubCounter struct{ n int64 }
 func (s stubCounter) XLen(_ context.Context, _ string) *redis.IntCmd {
 	return redis.NewIntResult(s.n, nil)
 }
+
+func (s stubCounter) XInfoGroups(_ context.Context, stream string) *redis.XInfoGroupsCmd {
+	cmd := redis.NewXInfoGroupsCmd(context.Background(), stream)
+	cmd.SetVal(nil)
+	return cmd
+}

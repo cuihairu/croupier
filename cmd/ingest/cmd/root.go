@@ -65,6 +65,23 @@ type server struct {
 	queueLastCheck  time.Time
 	eventsPending   int64
 	paymentsPending int64
+	// DATA-047 split backlog readings (retained / undelivered / pendingAck);
+	// *Valid/*Known fields are atomic 0/1 flags — a zero flag renders the
+	// reading as unknown (null), never as a fake zero.
+	eventsPendingValid       int64
+	paymentsPendingValid     int64
+	eventsRetained           int64
+	eventsRetainedValid      int64
+	eventsUndelivered        int64
+	eventsUndeliveredKnown   int64
+	eventsPendingAck         int64
+	eventsPendingAckKnown    int64
+	paymentsRetained         int64
+	paymentsRetainedValid    int64
+	paymentsUndelivered      int64
+	paymentsUndeliveredKnown int64
+	paymentsPendingAck       int64
+	paymentsPendingAckKnown  int64
 
 	// Configuration
 	maxBodySize  int64 // maximum body size in bytes
@@ -304,6 +321,17 @@ func (s *server) healthzHandler(w http.ResponseWriter, r *http.Request) {
 		avgLatencyMs = float64(latencySum) / float64(latencyCount) / 1000
 	}
 
+	// DATA-047: pending/backlog readings render as null until a valid probe
+	// lands — an absent or unreadable queue must not look healthy.
+	eventsPendingAny := any(eventsPending)
+	if atomic.LoadInt64(&s.eventsPendingValid) == 0 {
+		eventsPendingAny = nil
+	}
+	paymentsPendingAny := any(paymentsPending)
+	if atomic.LoadInt64(&s.paymentsPendingValid) == 0 {
+		paymentsPendingAny = nil
+	}
+
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
 
@@ -322,8 +350,12 @@ func (s *server) healthzHandler(w http.ResponseWriter, r *http.Request) {
 			"queue_errors":       atomic.LoadInt64(&s.queueErrors),
 			"auth_errors":        atomic.LoadInt64(&s.authErrors),
 			"avg_latency_ms":     avgLatencyMs,
-			"events_pending":     eventsPending,
-			"payments_pending":   paymentsPending,
+			"events_pending":     eventsPendingAny,
+			"payments_pending":   paymentsPendingAny,
+			"backlog": map[string]interface{}{
+				"events":   s.streamBacklogJSON(&s.eventsRetained, &s.eventsRetainedValid, &s.eventsUndelivered, &s.eventsUndeliveredKnown, &s.eventsPendingAck, &s.eventsPendingAckKnown),
+				"payments": s.streamBacklogJSON(&s.paymentsRetained, &s.paymentsRetainedValid, &s.paymentsUndelivered, &s.paymentsUndeliveredKnown, &s.paymentsPendingAck, &s.paymentsPendingAckKnown),
+			},
 		},
 		"system": map[string]interface{}{
 			"goroutines":   runtime.NumGoroutine(),
@@ -822,21 +854,66 @@ func (s *server) monitorQueueBacklog(ctx context.Context) {
 	}
 }
 
-// sampleQueueBacklog 单轮积压采样：仅当底层队列支持积压查询接口时刷新
-// pending 计数（错误时保留上一次读数），并推进 queueLastCheck。
+// sampleQueueBacklog 单轮积压采样：读消费组进度拆分（DATA-047：留存长度、未
+// 派发 lag、已派发未 ACK 分开报告），错误时保留上一次读数，并推进
+// queueLastCheck。不再以 XLEN 冒充积压——消费+ACK 后即使物理长度不变，积压也
+// 应回落；无 BacklogReporter 的队列（如 Kafka）保持 unknown 而非伪造零。
 func (s *server) sampleQueueBacklog() {
-	if mq, ok := s.q.(interface {
-		PendingEvents() (int64, error)
-		PendingPayments() (int64, error)
-	}); ok {
-		if events, err := mq.PendingEvents(); err == nil {
-			atomic.StoreInt64(&s.eventsPending, events)
+	if br, ok := s.q.(mq.BacklogReporter); ok {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		if bl, err := br.Backlog(ctx); err == nil {
+			s.storeStreamBacklog(&s.eventsRetained, &s.eventsRetainedValid, &s.eventsUndelivered, &s.eventsUndeliveredKnown, &s.eventsPendingAck, &s.eventsPendingAckKnown, bl.Events)
+			s.storeStreamBacklog(&s.paymentsRetained, &s.paymentsRetainedValid, &s.paymentsUndelivered, &s.paymentsUndeliveredKnown, &s.paymentsPendingAck, &s.paymentsPendingAckKnown, bl.Payments)
+			s.storePendingSummary(&s.eventsPending, &s.eventsPendingValid, bl.Events)
+			s.storePendingSummary(&s.paymentsPending, &s.paymentsPendingValid, bl.Payments)
 		}
-		if payments, err := mq.PendingPayments(); err == nil {
-			atomic.StoreInt64(&s.paymentsPending, payments)
-		}
+		cancel()
 	}
 	s.queueLastCheck = time.Now()
+}
+
+// storeStreamBacklog 落一份流的拆分读数；nil 分量重置为 unknown。
+func (s *server) storeStreamBacklog(retained, retainedValid, undelivered, undeliveredKnown, pendingAck, pendingAckKnown *int64, b mq.StreamBacklog) {
+	atomic.StoreInt64(retained, b.Retained)
+	atomic.StoreInt64(retainedValid, 1)
+	if b.Undelivered != nil {
+		atomic.StoreInt64(undelivered, *b.Undelivered)
+		atomic.StoreInt64(undeliveredKnown, 1)
+	} else {
+		atomic.StoreInt64(undeliveredKnown, 0)
+	}
+	if b.PendingAck != nil {
+		atomic.StoreInt64(pendingAck, *b.PendingAck)
+		atomic.StoreInt64(pendingAckKnown, 1)
+	} else {
+		atomic.StoreInt64(pendingAckKnown, 0)
+	}
+}
+
+// storePendingSummary 派生旧 events_pending/payments_pending 字段：
+// 未派发+未 ACK 都已知时为其和，否则标记 unknown（渲染为 null）。
+func (s *server) storePendingSummary(pending, valid *int64, b mq.StreamBacklog) {
+	if b.Undelivered != nil && b.PendingAck != nil {
+		atomic.StoreInt64(pending, *b.Undelivered+*b.PendingAck)
+		atomic.StoreInt64(valid, 1)
+	} else {
+		atomic.StoreInt64(valid, 0)
+	}
+}
+
+// streamBacklogJSON 渲染一条流的 DATA-047 拆分；nil 分量即 unknown（JSON null）。
+func (s *server) streamBacklogJSON(retained, retainedValid, undelivered, undeliveredKnown, pendingAck, pendingAckKnown *int64) map[string]interface{} {
+	m := map[string]interface{}{"retained": nil, "undelivered": nil, "pendingAck": nil}
+	if atomic.LoadInt64(retainedValid) == 1 {
+		m["retained"] = atomic.LoadInt64(retained)
+	}
+	if atomic.LoadInt64(undeliveredKnown) == 1 {
+		m["undelivered"] = atomic.LoadInt64(undelivered)
+	}
+	if atomic.LoadInt64(pendingAckKnown) == 1 {
+		m["pendingAck"] = atomic.LoadInt64(pendingAck)
+	}
+	return m
 }
 
 // reportMetrics periodically reports detailed metrics

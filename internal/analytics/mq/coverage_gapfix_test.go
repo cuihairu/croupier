@@ -202,15 +202,15 @@ func TestKafkaQueue_WriteNilWriterNoOp(t *testing.T) {
 // interface (compile-time contract).
 var _ kafkaWriter = (*kafka.Writer)(nil)
 
-// PendingEvents/PendingPayments always return (0, nil).
-func TestKafkaQueue_PendingZero(t *testing.T) {
+// kafkaQueue intentionally exposes no backlog reading (DATA-047): without an
+// AdminClient it cannot read consumer progress, and a fixed zero would mask
+// real backlog as healthy. The sampler treats it as unknown.
+func TestKafkaQueue_ReportsNoFakeBacklog(t *testing.T) {
 	q := &kafkaQueue{}
-	n, err := q.PendingEvents()
-	if n != 0 || err != nil {
-		t.Fatalf("PendingEvents must be (0, nil), got (%d, %v)", n, err)
+	if _, ok := any(q).(BacklogReporter); ok {
+		t.Fatalf("kafkaQueue must not claim BacklogReporter without a real reading")
 	}
-	n, err = q.PendingPayments()
-	if n != 0 || err != nil {
-		t.Fatalf("PendingPayments must be (0, nil), got (%d, %v)", n, err)
+	if _, ok := any(q).(interface{ PendingEvents() (int64, error) }); ok {
+		t.Fatalf("kafkaQueue must not fake pending readings")
 	}
 }

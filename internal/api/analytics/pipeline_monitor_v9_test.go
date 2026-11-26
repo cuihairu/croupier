@@ -53,6 +53,12 @@ func (errDeadCounterV9) XLen(_ context.Context, _ string) *redis.IntCmd {
 	return redis.NewIntResult(0, errors.New("redis unavailable"))
 }
 
+func (errDeadCounterV9) XInfoGroups(_ context.Context, stream string) *redis.XInfoGroupsCmd {
+	cmd := redis.NewXInfoGroupsCmd(context.Background(), stream)
+	cmd.SetErr(errors.New("redis unavailable"))
+	return cmd
+}
+
 // updatedStatusV9 records one UpdateStatus call on the fake sink.
 type updatedStatusV9 struct {
 	id     uint

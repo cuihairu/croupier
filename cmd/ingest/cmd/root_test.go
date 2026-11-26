@@ -77,19 +77,10 @@ type fakeQueue struct {
 	events           []map[string]any
 	payments         []map[string]any
 
-	pendingEvents   int64
-	pendingPayments int64
-	// atomic：积压采样循环在独立 goroutine 里并发读取。
-	pendingErr   atomic.Pointer[error]
-	pendingCalls int64
-}
-
-// pendingError 取当前注入的积压查询错误（未注入返回 nil）。
-func (f *fakeQueue) pendingError() error {
-	if p := f.pendingErr.Load(); p != nil {
-		return *p
-	}
-	return nil
+	// DATA-047：积压采样走 BacklogReporter（消费组进度拆分读数）。
+	backlog      mq.QueueBacklog
+	backlogErr   error
+	backlogCalls int64
 }
 
 func (f *fakeQueue) PublishEvent(evt map[string]any) error {
@@ -116,20 +107,16 @@ func (f *fakeQueue) PublishPayment(pay map[string]any) error {
 
 func (f *fakeQueue) Close() error { return nil }
 
-func (f *fakeQueue) PendingEvents() (int64, error) {
-	atomic.AddInt64(&f.pendingCalls, 1)
-	if err := f.pendingError(); err != nil {
-		return 0, err
+// Backlog 返回注入的拆分读数（DATA-047）；backlogErr 模拟查询失败。
+func (f *fakeQueue) Backlog(ctx context.Context) (mq.QueueBacklog, error) {
+	atomic.AddInt64(&f.backlogCalls, 1)
+	if f.backlogErr != nil {
+		return mq.QueueBacklog{}, f.backlogErr
 	}
-	return f.pendingEvents, nil
+	return f.backlog, nil
 }
 
-func (f *fakeQueue) PendingPayments() (int64, error) {
-	if err := f.pendingError(); err != nil {
-		return 0, err
-	}
-	return f.pendingPayments, nil
-}
+func i64p(v int64) *int64 { return &v }
 
 func TestParseListenAddr(t *testing.T) {
 	cases := []struct {
@@ -895,9 +882,12 @@ func TestIngestPayments(t *testing.T) {
 }
 
 func TestMonitorQueueBacklog(t *testing.T) {
-	fq := &fakeQueue{pendingEvents: 12, pendingPayments: 34}
+	fq := &fakeQueue{}
+	fq.backlog = mq.QueueBacklog{
+		Events:   mq.StreamBacklog{Retained: 50, Undelivered: i64p(12), PendingAck: i64p(34)},
+		Payments: mq.StreamBacklog{Retained: 7, Undelivered: i64p(0), PendingAck: i64p(1)},
+	}
 	s := &server{q: fq, queueCheckInterval: time.Millisecond}
-	s.eventsPending, s.paymentsPending = -1, -1
 
 	ctx, cancel := context.WithCancel(context.Background())
 	var wg sync.WaitGroup
@@ -907,15 +897,18 @@ func TestMonitorQueueBacklog(t *testing.T) {
 		s.monitorQueueBacklog(ctx)
 	}()
 
+	// DATA-047：pending 字段 = 未派发 + 已派发未ACK（不是 XLEN 留存长度）
 	require.Eventually(t, func() bool {
-		return atomic.LoadInt64(&s.eventsPending) == 12 && atomic.LoadInt64(&s.paymentsPending) == 34
+		return atomic.LoadInt64(&s.eventsPending) == 46 && atomic.LoadInt64(&s.paymentsPending) == 1
+	}, 2*time.Second, 5*time.Millisecond)
+	require.Eventually(t, func() bool {
+		return atomic.LoadInt64(&s.eventsRetained) == 50 && atomic.LoadInt64(&s.paymentsRetained) == 7
 	}, 2*time.Second, 5*time.Millisecond)
 
 	// 查询报错时保留上次读数
-	err := errors.New("x")
-	fq.pendingErr.Store(&err)
+	fq.backlogErr = errors.New("x")
 	before := atomic.LoadInt64(&s.eventsPending)
-	require.Eventually(t, func() bool { return atomic.LoadInt64(&fq.pendingCalls) >= 3 }, 2*time.Second, 5*time.Millisecond)
+	require.Eventually(t, func() bool { return atomic.LoadInt64(&fq.backlogCalls) >= 3 }, 2*time.Second, 5*time.Millisecond)
 	assert.Equal(t, before, atomic.LoadInt64(&s.eventsPending))
 
 	cancel()

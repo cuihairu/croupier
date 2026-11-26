@@ -1,6 +1,7 @@
 package mq
 
 import (
+	"context"
 	"testing"
 )
 
@@ -92,31 +93,25 @@ func TestNoop_Close(t *testing.T) {
 	}
 }
 
-// TestNoop_PendingEvents verifies getting the pending events count
-func TestNoop_PendingEvents(t *testing.T) {
+// TestNoop_Backlog verifies the true-zero backlog reading (DATA-047): the
+// noop queue never enqueues, so empty streams are real readings.
+func TestNoop_Backlog(t *testing.T) {
 	n := NewNoop()
 
-	count, err := n.PendingEvents()
+	bl, err := n.Backlog(context.Background())
 	if err != nil {
-		t.Errorf("PendingEvents() should not return error, got %v", err)
+		t.Errorf("Backlog() should not return error, got %v", err)
 	}
-
-	if count != 0 {
-		t.Errorf("PendingEvents() should return 0, got %d", count)
-	}
-}
-
-// TestNoop_PendingPayments verifies getting the pending payments count
-func TestNoop_PendingPayments(t *testing.T) {
-	n := NewNoop()
-
-	count, err := n.PendingPayments()
-	if err != nil {
-		t.Errorf("PendingPayments() should not return error, got %v", err)
-	}
-
-	if count != 0 {
-		t.Errorf("PendingPayments() should return 0, got %d", count)
+	for name, sb := range map[string]StreamBacklog{"events": bl.Events, "payments": bl.Payments} {
+		if sb.Retained != 0 {
+			t.Errorf("%s Retained should be 0, got %d", name, sb.Retained)
+		}
+		if sb.Undelivered == nil || *sb.Undelivered != 0 {
+			t.Errorf("%s Undelivered should be a real zero, got %v", name, sb.Undelivered)
+		}
+		if sb.PendingAck == nil || *sb.PendingAck != 0 {
+			t.Errorf("%s PendingAck should be a real zero, got %v", name, sb.PendingAck)
+		}
 	}
 }
 
@@ -146,13 +141,9 @@ func TestNoop_ConcurrentOperations(t *testing.T) {
 		<-done
 	}
 
-	// Verify no errors occurred
-	if count, _ := n.PendingEvents(); count != 0 {
-		t.Errorf("PendingEvents() should return 0, got %d", count)
-	}
-
-	if count, _ := n.PendingPayments(); count != 0 {
-		t.Errorf("PendingPayments() should return 0, got %d", count)
+	// Verify the streams stayed empty (true zeros, DATA-047)
+	if bl, _ := n.Backlog(context.Background()); bl.Events.Retained != 0 || bl.Payments.Retained != 0 {
+		t.Errorf("Backlog() Retained should be 0, got events=%d payments=%d", bl.Events.Retained, bl.Payments.Retained)
 	}
 }
 
@@ -176,13 +167,9 @@ func TestNoop_SequentialOperations(t *testing.T) {
 		}
 	}
 
-	// Verify the counts
-	if count, _ := n.PendingEvents(); count != 0 {
-		t.Errorf("PendingEvents() should return 0 after 100 publishes, got %d", count)
-	}
-
-	if count, _ := n.PendingPayments(); count != 0 {
-		t.Errorf("PendingPayments() should return 0 after 100 publishes, got %d", count)
+	// Verify the streams stayed empty (true zeros, DATA-047)
+	if bl, _ := n.Backlog(context.Background()); bl.Events.Retained != 0 || bl.Payments.Retained != 0 {
+		t.Errorf("Backlog() Retained should be 0 after 200 publishes, got events=%d payments=%d", bl.Events.Retained, bl.Payments.Retained)
 	}
 }
 
@@ -218,12 +205,12 @@ func BenchmarkPublishPayment(b *testing.B) {
 	}
 }
 
-// BenchmarkPendingEvents is a benchmark for its performance
-func BenchmarkPendingEvents(b *testing.B) {
+// BenchmarkBacklog is a benchmark for its performance
+func BenchmarkBacklog(b *testing.B) {
 	n := NewNoop()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, _ = n.PendingEvents()
+		_, _ = n.Backlog(context.Background())
 	}
 }
 

@@ -79,18 +79,7 @@ func (q *kafkaQueue) write(w kafkaWriter, m map[string]any) error {
 func (q *kafkaQueue) PublishEvent(evt map[string]any) error   { return q.write(q.wEvents, evt) }
 func (q *kafkaQueue) PublishPayment(pay map[string]any) error { return q.write(q.wPayments, pay) }
 
-// PendingEvents returns an estimated number of pending events
-// For Kafka, we return 0 as we don't have direct access to consumer lag info
-func (q *kafkaQueue) PendingEvents() (int64, error) {
-	// In a real implementation, you might use Kafka AdminClient to get consumer lag
-	// For now, return 0 as Kafka handles backpressure internally
-	return 0, nil
-}
-
-// PendingPayments returns an estimated number of pending payments
-// For Kafka, we return 0 as we don't have direct access to consumer lag info
-func (q *kafkaQueue) PendingPayments() (int64, error) {
-	// In a real implementation, you might use Kafka AdminClient to get consumer lag
-	// For now, return 0 as Kafka handles backpressure internally
-	return 0, nil
-}
+// kafkaQueue intentionally implements neither BacklogReporter nor any pending
+// approximation (DATA-047): without an AdminClient it cannot read consumer
+// progress, and reporting a fixed zero would mask real backlog as healthy.
+// The ingest sampler treats it as unknown.
