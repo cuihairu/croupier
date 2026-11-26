@@ -55,6 +55,13 @@ tag:
 
 上图不画出未接通的能力：MQ 工厂另有 Kafka/noop 发布选项（`internal/analytics/mq/factory.go`），当前 worker 消费 Redis，不能把 Kafka 画成同一条已接通链路。专业分析集成和核心指标闭环参见 [范围与交付计划](./core-and-external)。
 
+### 批次校验与重试语义
+
+- ingest 对整批先校验后发布（DATA-016）：任一条目非法返回 `400` 并携带 `details.index`，全批入队数为 0。
+- 发布中途失败返回 `500 queue_write_failed`，`details.enqueued` / `details.failed_index` / `details.total` 显式披露已入队前缀（DATA-017），不再是裸的批次级错误。
+- 重试契约：以相同内容整批重发。生产方未携带 `event_id` 的事件由 worker 按载荷指纹派生确定性 UUIDv5（`internal/analytics/worker/worker_insert.go` 的 `deriveEventID`），重复提交与 worker 重投收敛到同一 ClickHouse 自然键，不再产生随机新 id；生产方提供的合法 UUID `event_id` 原样沿用。
+- 边界：payments 表无去重列，相同支付行重发仍会追加第二条原始行，依赖按 `order_id` 的读取口径对账（DATA-004/051/056 跟踪）。
+
 ## 启动顺序
 
 ```bash

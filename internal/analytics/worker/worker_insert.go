@@ -3,6 +3,7 @@ package worker
 import (
 	"context"
 	"encoding/json"
+	"strings"
 
 	chdriver "github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/google/uuid"
@@ -24,10 +25,39 @@ func (w *Worker) insertEvent(ctx context.Context, m map[string]any, msgID string
 	if _, err := uuid.Parse(eid); err != nil {
 		// ClickHouse UUID column rejects empty/invalid values; producers that
 		// do not assign event ids still get a dedup-key-grade identifier.
-		eid = uuid.NewString()
+		// The fallback is a deterministic UUIDv5 over the payload fingerprint,
+		// not a random id: a re-submitted batch or a redelivered stream
+		// message re-inserts the identical fingerprint and therefore lands on
+		// the same event_id, which is what the natural-key dedup contract
+		// (worker_ack.go / worker_checkpoint.go) relies on.
+		eid = deriveEventID(m)
 	}
 	propsBytes, _ := json.Marshal(m["props"]) // may be nil
 	return w.appendEventRow(ctx, msgID, ts, game, env, uid, sid, evt, channel, platform, country, appv, eid, string(propsBytes))
+}
+
+// eventIDDedupNamespace is the fixed UUIDv5 namespace for worker-derived
+// event ids. A constant namespace keeps ids reproducible across processes,
+// restarts and redelivery — the property random ids (the previous fallback)
+// could never provide.
+var eventIDDedupNamespace = uuid.NewSHA1(uuid.NameSpaceURL, []byte("croupier/analytics/event-id"))
+
+// deriveEventID maps a payload fingerprint to a stable UUIDv5. Inputs are the
+// raw wire values (not normalized), so re-parsing or re-submitting the same
+// payload always yields the same id regardless of when the worker runs.
+func deriveEventID(m map[string]any) string {
+	props, _ := json.Marshal(m["props"]) // map keys marshal in sorted order
+	fingerprint := strings.Join([]string{
+		asString(m, "game_id"),
+		asString(m, "env"),
+		asString(m, "ts"),
+		asString(m, "event"),
+		asString(m, "user_id"),
+		asString(m, "session_id"),
+		asString(m, "event_id"),
+		string(props),
+	}, "\x1f")
+	return uuid.NewSHA1(eventIDDedupNamespace, []byte(fingerprint)).String()
 }
 
 func (w *Worker) insertPayment(ctx context.Context, m map[string]any, msgID string) error {

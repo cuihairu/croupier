@@ -37,6 +37,13 @@ Arrows represent writes or query requests/responses, not a timeline. Dashed line
 
 This diagram shows the default Redis path. `internal/analytics/mq/factory.go` also offers Kafka/noop publishers, but the existing worker consumes Redis; Kafka is not a connected substitute in this diagram. Professional integrations and accepted core metrics remain [target deliverables](./core-and-external).
 
+### Batch validation and retry semantics
+
+- Ingest validates the whole batch before publishing anything (DATA-016): an invalid item returns `400` with `details.index` and enqueues nothing.
+- A publish failure mid-batch returns `500 queue_write_failed` with `details.enqueued` / `details.failed_index` / `details.total` (DATA-017): items before the failure are already in the stream and are disclosed, not hidden behind a bare batch-level error.
+- Retry contract: re-submit the same batch unchanged. Events without a producer `event_id` get a deterministic UUIDv5 derived from the payload fingerprint in the worker (`internal/analytics/worker/worker_insert.go`, `deriveEventID`), so re-submission and worker redelivery collapse onto the same ClickHouse natural key instead of inserting random new ids. A producer-supplied valid UUID `event_id` is honored as-is.
+- Boundary: the payments table has no dedup column; identical payment re-submission still appends a second raw row and relies on `order_id`-keyed read semantics for reconciliation (tracked by DATA-004/051/056).
+
 ## Metric groups
 
 - **Foundation:** DAU, WAU, MAU, stickiness, and D1/D7/D30 retention.

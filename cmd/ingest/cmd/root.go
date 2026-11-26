@@ -532,9 +532,15 @@ func (s *server) ingestEvents(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	for _, e := range arr {
+	for i, e := range arr {
 		if err := s.q.PublishEvent(e); err != nil {
-			respondJSON(w, http.StatusInternalServerError, map[string]string{"error": "queue_write_failed"})
+			// 部分成功必须显式披露：items 0..i-1 已入队。客户端以相同内容
+			// 整批重试即可对账——重复项在 ClickHouse 侧按 event_id 自然键收敛。
+			respondJSON(w, http.StatusInternalServerError, map[string]any{
+				"error":   "queue_write_failed",
+				"message": fmt.Sprintf("batch partially enqueued: items 0..%d accepted, item %d failed", i, i),
+				"details": map[string]any{"enqueued": i, "failed_index": i, "total": len(arr)},
+			})
 			return
 		}
 		atomic.AddInt64(&s.eventsProcessed, 1)
@@ -576,9 +582,14 @@ func (s *server) ingestPayments(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	for _, e := range arr {
+	for i, e := range arr {
 		if err := s.q.PublishPayment(e); err != nil {
-			respondJSON(w, http.StatusInternalServerError, map[string]string{"error": "queue_write_failed"})
+			// 同 ingestEvents：部分成功显式披露已入队前缀与失败位置。
+			respondJSON(w, http.StatusInternalServerError, map[string]any{
+				"error":   "queue_write_failed",
+				"message": fmt.Sprintf("batch partially enqueued: items 0..%d accepted, item %d failed", i, i),
+				"details": map[string]any{"enqueued": i, "failed_index": i, "total": len(arr)},
+			})
 			return
 		}
 		atomic.AddInt64(&s.paymentsProcessed, 1)

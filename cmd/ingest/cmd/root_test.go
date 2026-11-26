@@ -34,6 +34,9 @@ import (
 // nowUnixStr 当前 Unix 秒（签名契约的时间戳格式）。
 func nowUnixStr() string { return strconv.FormatInt(time.Now().Unix(), 10) }
 
+// intPtr 指针字面量（fakeQueue 失败下标注入用）。
+func intPtr(i int) *int { return &i }
+
 // newTestRedisClient 用 miniredis 地址构造已连接的 redis 客户端。
 func newTestRedisClient(t *testing.T, addr string) *redis.Client {
 	t.Helper()
@@ -67,8 +70,12 @@ func signPayload(secret string, ts int64, nonce string, body []byte) string {
 type fakeQueue struct {
 	pubEventErr error
 	pubPayErr   error
-	events      []map[string]any
-	payments    []map[string]any
+	// failEventAtIndex/failPayAtIndex：第 N 条发布失败（nil=不按序号失败），
+	// DATA-017 部分成功响应用。指针避免零值 0 误命中下标 0。
+	failEventAtIndex *int
+	failPayAtIndex   *int
+	events           []map[string]any
+	payments         []map[string]any
 
 	pendingEvents   int64
 	pendingPayments int64
@@ -89,6 +96,9 @@ func (f *fakeQueue) PublishEvent(evt map[string]any) error {
 	if f.pubEventErr != nil {
 		return f.pubEventErr
 	}
+	if f.failEventAtIndex != nil && len(f.events) == *f.failEventAtIndex {
+		return errors.New("stream down")
+	}
 	f.events = append(f.events, evt)
 	return nil
 }
@@ -96,6 +106,9 @@ func (f *fakeQueue) PublishEvent(evt map[string]any) error {
 func (f *fakeQueue) PublishPayment(pay map[string]any) error {
 	if f.pubPayErr != nil {
 		return f.pubPayErr
+	}
+	if f.failPayAtIndex != nil && len(f.payments) == *f.failPayAtIndex {
+		return errors.New("stream down")
 	}
 	f.payments = append(f.payments, pay)
 	return nil
@@ -798,6 +811,42 @@ func TestIngestPayments(t *testing.T) {
 		assert.Contains(t, w.Body.String(), `"index":1`)
 		assert.Contains(t, w.Body.String(), "amount_cents required")
 		assert.Contains(t, w.Body.String(), `"error":"invalid_payload"`)
+	})
+
+	// DATA-017：第 N 条入队失败时，响应显式披露已入队前缀（enqueued）与
+	// 失败位置，客户端可对账后以相同内容整批重试。
+	t.Run("partial_publish_failure_reports_enqueued_prefix", func(t *testing.T) {
+		fq := &fakeQueue{failEventAtIndex: intPtr(1)}
+		s := newTestServer(fq)
+		w := httptest.NewRecorder()
+		s.ingestEvents(w, httptest.NewRequest(http.MethodPost, "/x",
+			strings.NewReader(`[
+				{"game_id":"g","env":"p","ts":"1","event":"e"},
+				{"game_id":"g","env":"p","ts":"2","event":"e"},
+				{"game_id":"g","env":"p","ts":"3","event":"e"}
+			]`)))
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+		assert.Len(t, fq.events, 1, "items before the failed one stay enqueued")
+		assert.Contains(t, w.Body.String(), `"enqueued":1`)
+		assert.Contains(t, w.Body.String(), `"failed_index":1`)
+		assert.Contains(t, w.Body.String(), `"total":3`)
+		assert.Contains(t, w.Body.String(), `"error":"queue_write_failed"`)
+	})
+
+	t.Run("partial_payment_publish_failure_reports_enqueued_prefix", func(t *testing.T) {
+		fq := &fakeQueue{failPayAtIndex: intPtr(0)}
+		s := newTestServer(fq)
+		w := httptest.NewRecorder()
+		s.ingestPayments(w, httptest.NewRequest(http.MethodPost, "/x",
+			strings.NewReader(`[
+				{"game_id":"g","env":"p","ts":"1","order_id":"o1","status":"paid","amount_cents":5},
+				{"game_id":"g","env":"p","ts":"2","order_id":"o2","status":"paid","amount_cents":7}
+			]`)))
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+		assert.Empty(t, fq.payments, "index 0 failed, nothing enqueued")
+		assert.Contains(t, w.Body.String(), `"enqueued":0`)
+		assert.Contains(t, w.Body.String(), `"failed_index":0`)
+		assert.Contains(t, w.Body.String(), `"total":2`)
 	})
 }
 
