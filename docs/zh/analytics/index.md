@@ -66,6 +66,7 @@ tag:
 - 管道告警恢复（DATA-022）：`event_stream_stalled` / `event_volume_drop` 告警只在**正向证据**下关闭——本轮实际读到的该作用域数据行满足恢复规则。作用域从发现窗口消失（完全静默恰是告警中的断流本身）、查询失败或只读到部分结果都按未知处理并保持告警（`events_query_failed` 单独标记未知轮次）。近期速率与基线速率各除以自己的窗口长度，非默认窗口组合不会使比较失真。
 - 消费组初始化（DATA-023）：新建组从 `WORKER_GROUP_START` 声明的位点起步——默认 `0`，晚于首批入站启动的 worker 会消费保留积压；`$` 表示只消费新消息。**既有组启动时绝不复复位**：Redis 原生位点即消费位置，跨重启保持，旧应用 checkpoint 不会回放已 ACK 数据。持久化 checkpoint 只在两类场景生效：组不存在时以其建组（Redis 丢组后的续传恢复），或显式 `WORKER_GROUP_RESET=true` 运维复位。建组失败必须记录日志，不再静默吞掉；与其他 worker 的 `BUSYGROUP` 竞态保持对方游标。
 - 行为分析全窗口聚合（DATA-024）：摘要、热图、采用明细、漏斗、路径及关卡/剧集/地图报表通过**逐页翻读全部匹配事件**覆盖完整查询窗口——以模型返回的权威 `count` 判定单类型何时读完（请求页大小会被 `ListEvents` 重新归一）。超过聚合上限（`maxWindowEvents`，50000 条）的窗口返回有界样本并在响应 `sample` 对象中披露（`totalEvents`/`scannedEvents`/`sampled`/`coverage`），部分读取绝不冒充完整结果；分页事件端点保留自身页大小契约。
+- 实时指标来源（DATA-025）：`onlineUsers` 统计 15 分钟实时窗口内出现 `heartbeat`、`session_start` 或 OTel 点号别名 `session.start` 事件的**去重用户数**；`activeSessions` 统计同窗口内 `session_start`/`session.start` 事件数。业务事件（`login`、`purchase` 等）只计入吞吐（`eventsPerMinute`，全部行为事件 / 15 分钟），不再虚增在线与会话数。`/analytics/realtime` 响应新增 `source` 对象披露每项指标的来源与窗口长度，实时在线曲线使用同一活性事件集合。边界：系统无玩家会话/心跳表，「在线」仅是由分析事件推导的活性代理，并非实时 socket 连接数；窗口内无活性事件的用户按此口径视为不在线，即使连接仍存活。
 - 边界：payments 表无去重列，相同支付行重发仍会追加第二条原始行，依赖按 `order_id` 的读取口径对账（DATA-004/051/056 跟踪）。
 
 ## 启动顺序
