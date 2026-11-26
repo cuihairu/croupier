@@ -222,6 +222,30 @@ type RealtimeBucketRow struct {
 	EventType  string
 }
 
+// RetentionPairRow is one distinct (UTC day, user) activity pair, the raw
+// input of N-day retention computation.
+type RetentionPairRow struct {
+	Day    string
+	UserID string
+}
+
+// DailyActivePairs returns the distinct (day, user) activity pairs in the
+// window. limit is a hard row cap; a non-positive limit means no cap.
+func (m *BehaviorModel) DailyActivePairs(ctx context.Context, gameID, env string, start, end time.Time, limit int) ([]RetentionPairRow, error) {
+	query := m.scopedEvents(ctx, gameID, env, start, end).
+		Select("DATE(occurred_at) AS day, user_id").
+		Group("day, user_id").
+		Order("day ASC, user_id ASC")
+	if limit > 0 {
+		query = query.Limit(limit)
+	}
+	var rows []RetentionPairRow
+	if err := query.Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+	return rows, nil
+}
+
 // RealtimeBucketEvents returns events in [start, end] ordered by occurrence.
 // limit is a hard row cap; a non-positive limit means no cap (callers always
 // pass the realtime bound). The window itself is encoded in the WHERE clause.

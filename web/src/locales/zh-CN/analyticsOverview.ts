@@ -1,6 +1,7 @@
 // pages.analyticsOverview.* — Analytics/Overview 概览
 export default {
   'pages.analyticsOverview.button.export': '导出',
+  'pages.analyticsOverview.retention.pending': '待成熟',
   'pages.analyticsOverview.spark.dailyNewUsers': '每日新增（曲线）',
   'pages.analyticsOverview.spark.dailyPeakOnline': '每日峰值在线（曲线）',
   'pages.analyticsOverview.spark.dailyRevenue': '每日收入（曲线）',

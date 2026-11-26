@@ -1,6 +1,7 @@
 // pages.analyticsOverview.* — Analytics/Overview 概览
 export default {
   'pages.analyticsOverview.button.export': 'Export',
+  'pages.analyticsOverview.retention.pending': 'Pending maturity',
   'pages.analyticsOverview.spark.dailyNewUsers': 'Daily New Users (Trend)',
   'pages.analyticsOverview.spark.dailyPeakOnline': 'Daily Peak Online (Trend)',
   'pages.analyticsOverview.spark.dailyRevenue': 'Daily Revenue (Trend)',

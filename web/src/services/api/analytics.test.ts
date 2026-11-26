@@ -181,11 +181,12 @@ describe('analytics API adapters (param/scope normalization matrix)', () => {
       arpu: 1,
       arppu: 2,
       payRate: null,
-      wau: null,
+      wau: 0,
       registeredTotal: null,
       d1: null,
       d7: null,
       d30: null,
+      retention: { d1: null, d7: null, d30: null },
       series: {
         newUsers: [['', 0]],
         peakOnline: [['d', 0]],
@@ -209,12 +210,37 @@ describe('analytics API adapters (param/scope normalization matrix)', () => {
       arpu: 0,
       arppu: 0,
       payRate: null,
-      wau: null,
+      wau: 0,
       registeredTotal: null,
       d1: null,
       d7: null,
       d30: null,
+      retention: { d1: null, d7: null, d30: null },
       series: { newUsers: [], peakOnline: [], revenue: [] },
+    });
+  });
+
+  it('maps rolling WAU and retention statuses (real zero, pending, no source)', async () => {
+    mockedRequest.mockResolvedValue({
+      metrics: {
+        wau: 42,
+        retentionD1: { status: 'ok', value: 0, cohorts: 3, sampled: false },
+        retentionD7: { status: 'pending', value: null, cohorts: 0 },
+        retentionD30: { status: 'no_source', value: 12, cohorts: 0 },
+      },
+    });
+
+    const result = await fetchAnalyticsOverview();
+    expect(result.wau).toBe(42);
+    // A real zero stays 0; pending and no_source stay null even when a
+    // backend accidentally sends a value with those statuses.
+    expect(result.d1).toBe(0);
+    expect(result.d7).toBeNull();
+    expect(result.d30).toBeNull();
+    expect(result.retention).toEqual({
+      d1: { status: 'ok', value: 0, cohorts: 3, sampled: false },
+      d7: { status: 'pending', value: null, cohorts: 0 },
+      d30: { status: 'no_source', value: 12, cohorts: 0 },
     });
   });
 

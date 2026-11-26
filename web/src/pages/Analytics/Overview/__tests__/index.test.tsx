@@ -49,8 +49,9 @@ const formatMessageMock = (jest.requireMock('@umijs/max') as { __formatMessageMo
 
 type OverviewResponse = Awaited<ReturnType<typeof fetchAnalyticsOverview>>;
 
-/** 服务层返回类型当前将 wau/registeredTotal/d1/d7/d30 标注为恒 null（后端未接入），
- * 而页面 OverviewData 声明支持数值；此处 as 注入数值以覆盖 KPI 卡与导出取值分支。 */
+/** 服务层返回类型将 registeredTotal 标注为恒 null（后端未接入），而页面
+ * OverviewData 声明支持数值；此处 as 注入数值以覆盖 KPI 卡与导出取值分支。
+ * WAU 与留存已由后端读链接入（DATA-027），retention 携带 ok/pending/no_source 状态。 */
 const FULL_DATA = {
   dau: 321,
   wau: 654,
@@ -61,6 +62,11 @@ const FULL_DATA = {
   d1: 45.2,
   d7: 28,
   d30: 12,
+  retention: {
+    d1: { status: 'ok', value: 45.2, cohorts: 10 },
+    d7: { status: 'ok', value: 28, cohorts: 8 },
+    d30: { status: 'ok', value: 12, cohorts: 2 },
+  },
   payRate: 6.5,
   arpu: 2.5,
   arppu: 38.6,
@@ -241,6 +247,38 @@ describe('AnalyticsOverviewPage', () => {
       expect(values).toEqual(['0', '-', '0', '0', '-', '0', '-', '0', '0', '-', '-', '-']);
     });
     expect(container.querySelectorAll('svg')).toHaveLength(0);
+  });
+});
+
+describe('AnalyticsOverviewPage 留存状态展示（DATA-027）', () => {
+  it('真实零值显示 0%，待成熟显示文案，无来源显示 -', async () => {
+    mockFetchOverview.mockResolvedValue({
+      dau: 10,
+      wau: 20,
+      mau: 30,
+      d1: 0,
+      d7: null,
+      d30: null,
+      retention: {
+        d1: { status: 'ok', value: 0, cohorts: 3 },
+        d7: { status: 'pending', value: null, cohorts: 0 },
+        d30: { status: 'no_source', value: null, cohorts: 0 },
+      },
+    } as unknown as OverviewResponse);
+    const { container } = render(<AnalyticsOverviewPage />);
+
+    await waitFor(() => expect(screen.getByText('D1 留存')).toBeInTheDocument());
+    expect(screen.getByText('待成熟')).toBeInTheDocument();
+    const values = Array.from(container.querySelectorAll('.ant-statistic-content-value')).map(
+      (el) => el.textContent,
+    );
+    // KPI 顺序：dau/wau/mau/newUsers/registeredTotal/revenue/payRate/arpu/arppu/d1/d7/d30
+    expect(values.slice(9)).toEqual(['0', '待成熟', '-']);
+    // 真实零值保留百分号；待成熟/无来源不显示百分号。
+    const suffixes = Array.from(container.querySelectorAll('.ant-statistic-content-suffix')).map(
+      (el) => el.textContent,
+    );
+    expect(suffixes).toContain('%');
   });
 });
 

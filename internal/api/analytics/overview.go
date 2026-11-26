@@ -30,6 +30,10 @@ const (
 // realtime series. It is a var so tests can lower it.
 var maxRealtimeBucketRows = 100000
 
+// maxRetentionPairRows bounds the single (day, user) activity-pair query that
+// feeds retention computation. It is a var so tests can lower it.
+var maxRetentionPairRows = 200000
+
 func overview(ctx context.Context, svcCtx *svc.ServiceContext, req *OverviewRequest) (*OverviewResponse, error) {
 	if svcCtx.BehaviorModel == nil || svcCtx.PaymentsModel == nil || svcCtx.PlayerModel == nil {
 		return nil, errors.New("analytics models unavailable")
@@ -58,6 +62,13 @@ func overview(ctx context.Context, svcCtx *svc.ServiceContext, req *OverviewRequ
 	if mau, err = svcCtx.BehaviorModel.CountDistinctUsers(ctx, gameID, env, mauStart, end); err != nil {
 		return nil, err
 	}
+	// DATA-027: rolling weekly active users, the same distinct-user measure
+	// as DAU/MAU over a 7-day window.
+	var wau int64
+	wauStart := end.Add(-7 * 24 * time.Hour)
+	if wau, err = svcCtx.BehaviorModel.CountDistinctUsers(ctx, gameID, env, wauStart, end); err != nil {
+		return nil, err
+	}
 	if activeUsers, err = svcCtx.BehaviorModel.CountDistinctUsers(ctx, gameID, env, start, end); err != nil {
 		return nil, err
 	}
@@ -66,6 +77,11 @@ func overview(ctx context.Context, svcCtx *svc.ServiceContext, req *OverviewRequ
 	}
 
 	revenueAgg, err := svcCtx.PaymentsModel.AggregateRevenue(ctx, gameID, env, start, end)
+	if err != nil {
+		return nil, err
+	}
+
+	retentionD1, retentionD7, retentionD30, err := overviewRetention(ctx, svcCtx, gameID, env, start, end)
 	if err != nil {
 		return nil, err
 	}
@@ -96,16 +112,107 @@ func overview(ctx context.Context, svcCtx *svc.ServiceContext, req *OverviewRequ
 
 	return &OverviewResponse{
 		Metrics: OverviewMetrics{
-			DAU:        int(dau),
-			MAU:        int(mau),
-			NewUsers:   int(newUsers),
-			Revenue:    revenueAgg.Revenue,
-			ARPU:       arpu,
-			ARPPU:      arppu,
-			PayingRate: payingRate,
+			DAU:          int(dau),
+			WAU:          int(wau),
+			MAU:          int(mau),
+			NewUsers:     int(newUsers),
+			Revenue:      revenueAgg.Revenue,
+			ARPU:         arpu,
+			ARPPU:        arppu,
+			PayingRate:   payingRate,
+			RetentionD1:  retentionD1,
+			RetentionD7:  retentionD7,
+			RetentionD30: retentionD30,
 		},
 		Trends: trends,
 	}, nil
+}
+
+// overviewRetention derives pooled D1/D7/D30 retention from distinct
+// (day, user) activity pairs (DATA-027). The retention cohort table has no
+// production writer, so behavior events are the only source. Each figure
+// carries an explicit status so a real zero, a window without mature cohorts
+// and an absent source stay distinguishable on every client.
+func overviewRetention(ctx context.Context, svcCtx *svc.ServiceContext, gameID, env string, start, end time.Time) (*RetentionMetric, *RetentionMetric, *RetentionMetric, error) {
+	rows, err := svcCtx.BehaviorModel.DailyActivePairs(ctx, gameID, env, start, end, maxRetentionPairRows+1)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	sampled := len(rows) > maxRetentionPairRows
+	if sampled {
+		rows = rows[:maxRetentionPairRows]
+	}
+	return computeRetention(rows, end, 1, sampled),
+		computeRetention(rows, end, 7, sampled),
+		computeRetention(rows, end, 30, sampled),
+		nil
+}
+
+// computeRetention pools N-day retention over mature cohort days.
+//
+//   - Cohort day D is mature once day+N has fully elapsed inside the queried
+//     window (a date-only end covers its whole day, so the last end day
+//     qualifies; a "now" end only yields fully elapsed return days), so the
+//     return-day activity is actually observable and never under-counted.
+//   - value = pooled retained users / pooled cohort users across mature days,
+//     as a percentage. 0 is a real zero, not a missing value.
+//
+// Status: ok | pending (activity exists but no mature cohort day yet) |
+// no_source (no activity rows at all).
+func computeRetention(rows []model.RetentionPairRow, end time.Time, days int, sampled bool) *RetentionMetric {
+	if len(rows) == 0 {
+		return &RetentionMetric{Status: "no_source", Sampled: sampled}
+	}
+	dayUsers := make(map[string]map[string]struct{})
+	for _, row := range rows {
+		if dayUsers[row.Day] == nil {
+			dayUsers[row.Day] = map[string]struct{}{}
+		}
+		dayUsers[row.Day][row.UserID] = struct{}{}
+	}
+	var (
+		cohortTotal   int
+		retainedTotal int
+		matureDays    int
+	)
+	for day, users := range dayUsers {
+		returnDay, ok := shiftUTCDay(day, days)
+		if !ok {
+			continue
+		}
+		// The return day must be fully observable inside the queried window.
+		if returnDay.Add(24 * time.Hour).After(end) {
+			continue
+		}
+		matureDays++
+		cohortTotal += len(users)
+		returnUsers := dayUsers[returnDay.Format("2006-01-02")]
+		for user := range users {
+			if _, active := returnUsers[user]; active {
+				retainedTotal++
+			}
+		}
+	}
+	if matureDays == 0 || cohortTotal == 0 {
+		return &RetentionMetric{Status: "pending", Sampled: sampled}
+	}
+	value := float64(retainedTotal) / float64(cohortTotal) * 100
+	return &RetentionMetric{
+		Value:   &value,
+		Status:  "ok",
+		Cohorts: matureDays,
+		Sampled: sampled,
+	}
+}
+
+// shiftUTCDay parses a DATE()-formatted day and shifts it by the given number
+// of days, returning the result day at UTC midnight.
+func shiftUTCDay(day string, days int) (time.Time, bool) {
+	parsed, err := time.Parse("2006-01-02", day)
+	if err != nil {
+		return time.Time{}, false
+	}
+	return parsed.AddDate(0, 0, days), true
 }
 
 // realtime reports three deliberately distinct signals:

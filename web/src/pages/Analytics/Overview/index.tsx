@@ -5,6 +5,7 @@ import { FormattedMessage, useIntl } from '@umijs/max';
 import { useThemeAccent } from '@/hooks/useThemePref';
 import { exportToXLSX } from '@/utils/export';
 import { fetchAnalyticsOverview } from '@/services/api/analytics';
+import type { AnalyticsRetentionMetric } from '@/services/api/analytics';
 
 interface OverviewData {
   dau?: number;
@@ -17,6 +18,13 @@ interface OverviewData {
   d1?: number | null;
   d7?: number | null;
   d30?: number | null;
+  // DATA-027: raw retention figures with ok/pending/no_source status, so the
+  // page can label an immature or absent metric instead of showing a fake 0.
+  retention?: {
+    d1?: AnalyticsRetentionMetric | null;
+    d7?: AnalyticsRetentionMetric | null;
+    d30?: AnalyticsRetentionMetric | null;
+  };
   payRate?: number | null;
   arpu?: number;
   arppu?: number;
@@ -83,6 +91,30 @@ export default function AnalyticsOverviewPage() {
       { sheet: 'series', rows: seriesRows },
     ]);
   };
+
+  // A retention card renders its number only when the backend actually
+  // computed it (status ok, real zero included); an immature window shows
+  // 待成熟 and an absent source keeps the '-' placeholder (DATA-027).
+  const retentionView = (
+    metric?: AnalyticsRetentionMetric | null,
+  ): { value: number | string; suffix: string } => {
+    if (metric && metric.status === 'ok' && metric.value != null) {
+      return { value: metric.value, suffix: '%' };
+    }
+    if (metric && metric.status === 'pending') {
+      return {
+        value: intl.formatMessage({
+          id: 'pages.analyticsOverview.retention.pending',
+          defaultMessage: '待成熟',
+        }),
+        suffix: '',
+      };
+    }
+    return { value: '-', suffix: '' };
+  };
+  const d1View = retentionView(data?.retention?.d1);
+  const d7View = retentionView(data?.retention?.d7);
+  const d30View = retentionView(data?.retention?.d30);
 
   const Spark: React.FC<{ data?: [string | number, number][] }> = ({ data }) => {
     const w = 300,
@@ -214,8 +246,8 @@ export default function AnalyticsOverviewPage() {
                     id: 'pages.analyticsOverview.stat.retentionD1',
                     defaultMessage: 'D1 留存',
                   }),
-                  value: data?.d1 ?? '-',
-                  suffix: data?.d1 == null ? '' : '%',
+                  value: d1View.value,
+                  suffix: d1View.suffix,
                 }}
               />
             </Col>
@@ -227,8 +259,8 @@ export default function AnalyticsOverviewPage() {
                     id: 'pages.analyticsOverview.stat.retentionD7',
                     defaultMessage: 'D7 留存',
                   }),
-                  value: data?.d7 ?? '-',
-                  suffix: data?.d7 == null ? '' : '%',
+                  value: d7View.value,
+                  suffix: d7View.suffix,
                 }}
               />
             </Col>
@@ -240,8 +272,8 @@ export default function AnalyticsOverviewPage() {
                     id: 'pages.analyticsOverview.stat.retentionD30',
                     defaultMessage: 'D30 留存',
                   }),
-                  value: data?.d30 ?? '-',
-                  suffix: data?.d30 == null ? '' : '%',
+                  value: d30View.value,
+                  suffix: d30View.suffix,
                 }}
               />
             </Col>

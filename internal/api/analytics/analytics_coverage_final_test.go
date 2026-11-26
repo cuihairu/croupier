@@ -64,18 +64,22 @@ func newFullModelsContext(db *gorm.DB) *svc.ServiceContext {
 	}
 }
 
-// Overview's 2nd/3rd/6th/7th/8th queries failing each hit the MAU/activeUsers/
-// DailyActivity/DailyRevenue/DailyNewPlayers error branches.
+// Overview's aggregate queries failing each hit their error branch: the
+// order is dau(1) -> mau(2) -> wau(3) -> activeUsers(4) -> newPlayers(5) ->
+// revenue(6) -> retention pairs(7) -> DailyActivity(8) -> DailyRevenue(9) ->
+// DailyNewPlayers(10) (DATA-027 added the wau and retention-pair queries).
 func TestOverview_AggregateQueryFailures(t *testing.T) {
 	cases := []struct {
 		name string
 		nth  int
 	}{
 		{"mau_query_fails", 2},
-		{"active_users_query_fails", 3},
-		{"daily_activity_fails", 6},
-		{"daily_revenue_fails", 7},
-		{"daily_new_players_fails", 8},
+		{"wau_query_fails", 3},
+		{"active_users_query_fails", 4},
+		{"retention_pairs_query_fails", 7},
+		{"daily_activity_fails", 8},
+		{"daily_revenue_fails", 9},
+		{"daily_new_players_fails", 10},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

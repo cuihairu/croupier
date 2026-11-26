@@ -28,16 +28,39 @@ function withAnalyticsScope(params?: AnalyticsParams): AnalyticsParams {
 }
 
 // Overview KPI
+
+// RetentionMetric mirrors the backend retention figure (DATA-027): value is
+// only meaningful when status is "ok", and 0 is a real zero.
+export type AnalyticsRetentionMetric = {
+  value?: number | null;
+  status?: string;
+  cohorts?: number;
+  sampled?: boolean;
+};
+
+// Only an "ok" status carries a number; pending/no_source stay null so the
+// UI renders the unavailable placeholder instead of a fabricated value.
+function retentionValue(metric?: AnalyticsRetentionMetric | null): number | null {
+  if (!metric || metric.status !== 'ok' || metric.value == null) return null;
+  return metric.value;
+}
+
 export async function fetchAnalyticsOverview(params?: AnalyticsParams) {
   const response = await request<{
     metrics?: {
       dau?: number;
+      wau?: number;
       mau?: number;
       newUsers?: number;
       revenue?: number;
       arpu?: number;
       arppu?: number;
       payingRate?: number;
+      // DATA-027: retention status distinguishes a real zero ("ok", value 0)
+      // from an immature window ("pending") and an absent source ("no_source").
+      retentionD1?: AnalyticsRetentionMetric;
+      retentionD7?: AnalyticsRetentionMetric;
+      retentionD30?: AnalyticsRetentionMetric;
     };
     trends?: {
       newUsers?: Array<{ date?: string; value?: number }>;
@@ -57,11 +80,16 @@ export async function fetchAnalyticsOverview(params?: AnalyticsParams) {
     arpu: metrics.arpu ?? 0,
     arppu: metrics.arppu ?? 0,
     payRate: metrics.payingRate == null ? null : metrics.payingRate * 100,
-    wau: null,
+    wau: metrics.wau ?? 0,
     registeredTotal: null,
-    d1: null,
-    d7: null,
-    d30: null,
+    d1: retentionValue(metrics.retentionD1),
+    d7: retentionValue(metrics.retentionD7),
+    d30: retentionValue(metrics.retentionD30),
+    retention: {
+      d1: metrics.retentionD1 ?? null,
+      d7: metrics.retentionD7 ?? null,
+      d30: metrics.retentionD30 ?? null,
+    },
     series: {
       newUsers: tuple(trends.newUsers),
       peakOnline: tuple(trends.activeUsers),

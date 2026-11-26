@@ -121,12 +121,33 @@ type OverviewRequest struct {
 
 type OverviewMetrics struct {
 	DAU        int     `json:"dau"`
+	WAU        int     `json:"wau"`
 	MAU        int     `json:"mau"`
 	NewUsers   int     `json:"newUsers"`
 	Revenue    float64 `json:"revenue"`
 	ARPU       float64 `json:"arpu"`
 	ARPPU      float64 `json:"arppu"`
 	PayingRate float64 `json:"payingRate"`
+	// RetentionD1/D7/D30 are computed from behavior events, not the empty
+	// cohort table. A nil pointer means the metric was never requested.
+	RetentionD1  *RetentionMetric `json:"retentionD1"`
+	RetentionD7  *RetentionMetric `json:"retentionD7"`
+	RetentionD30 *RetentionMetric `json:"retentionD30"`
+}
+
+// RetentionMetric is one N-day retention figure with an explicit computation
+// status, so a real zero, a cohort that has not matured yet and an absent
+// data source are distinguishable on every client (DATA-027).
+type RetentionMetric struct {
+	// Value is the pooled retention percentage (0-100). Null unless status
+	// is ok; 0 is a real zero.
+	Value *float64 `json:"value"`
+	// Status: ok | pending | no_source.
+	Status string `json:"status"`
+	// Cohorts is the number of pooled mature cohort days behind value.
+	Cohorts int `json:"cohorts"`
+	// Sampled marks a distinct-pair scan truncated at the row cap.
+	Sampled bool `json:"sampled"`
 }
 
 type OverviewResponse struct {
