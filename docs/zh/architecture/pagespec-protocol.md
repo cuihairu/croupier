@@ -314,6 +314,8 @@ interface FormVariantFieldSpec {
 
 **校验规则（SUI-033 已实现）。** `ValidateFormPresentations` 在所有校验路径（保存/预览、发布、accept-and-publish、提案、版本化回滚预检）上按既有 `{field, message}` details 契约执行变体检查：变体 key 非空（`form_variant_key_missing`）且表单内唯一（`form_variant_key_conflict`）；`defaultVariant` 解析如上（`form_variant_default_unknown`）；变体字段 key 非空（`form_variant_field_key_missing`）、不重复（`form_variant_field_duplicate`）且能在表单 `jsonSchema` 中解析（`form_variant_field_unknown`）；变体字段上的调用相关键即使 `encoding/json` 会静默丢弃也能定位——`FormVariantFieldSpec.UnmarshalJSON` 把展示白名单外的每个键审计进 `UnknownKeys`，校验以 `form_variant_illegal_override` 报出并点名违规键；`widget` 合法性/类型兼容与 `width` 范围沿用基础字段的 SUI-020/SUI-021/SUI-028 规则，变体分组规则与基础对齐（`form_group_key_missing`/`form_group_key_duplicate`/`form_group_field_unknown`/`form_group_field_duplicate`/`form_group_field_conflict`，变体分组字段允许声明在基础 fields 或本变体 fields）。Web 端在 `web/src/utils/formValidation.ts` 镜像同一规则（`unknownVariantOverrideKeys` 承担 Go `UnmarshalJSON` 审计的角色），草稿保存前即被拦截。
 
+**调试页风格复用（SUI-043）。** 函数调用工作台没有 pageKey/Binding，不做自动风格查找；由操作者显式选择当前作用域内绑定该函数的已发布页面，仅复用其呈现（实时描述符 schema 仍为校验真值），无候选时保持描述符派生呈现。决策见 [composite-editor-v3](../dashboard/composite-editor-v3.md#调试页风格复用决策sui-0432026-11-26)；选择器本身属后续 UI 任务。
+
 ### 多态输入分支（SUI-042）
 
 OpenAPI 多态请求 schema（`oneOf`/`anyOf` + `discriminator`）在渲染结构化表单前必须选定分支：只有知道 discriminator 值，分支字段与 required 集合才有意义。SUI-042 在 `SchemaFormRenderer` 渲染期解决该问题——PageSpec 无新字段、wire 无变更：表单 `jsonSchema` 仍携带原始多态声明，已发布呈现、Binding 与调用治理不动。

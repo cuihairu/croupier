@@ -572,6 +572,14 @@ FormPresentationEditor（操作/任务/报表/资源页的表单页签与组合�
 
 **多态分支（SUI-042）。** 已发布表单 schema 在根上以 `discriminator` 声明 `oneOf`/`anyOf` 分支时，运行时表单在字段上方渲染分支选择器。选择分支即把渲染与校验字段切换为该分支，保留共享键值、预置 discriminator 值、丢弃新分支未声明的键，因此请求 payload 只含该分支允许的字段。`initialValues` 带已声明 discriminator 值时首屏选中对应分支；分支无法定值（缺 mapping/const/enum、悬空引用、重复值）则降级为完整请求 JSON 编辑器并说明原因，不猜语义。无 discriminator 的普通 `oneOf`/`anyOf` 与嵌套 discriminator 保持不变。编辑器无分支编写 UI——分支来自函数契约 schema。
 
+### 调试页风格复用决策（SUI-043，2026-11-26）
+
+函数调用工作台（`web/src/pages/Functions/Invoke`）是调试面而非已发布页面：表单由实时函数描述符经 `derivePresentationSpec` 派生，走直接 invoke 执行；它没有 pageKey、没有 Binding，无法自行定位已发布的表单位置。**决策：调试页不做自动风格查找。** 需要沿用已发布风格时，由操作者显式选择「风格来源」——候选限定为当前 game/env 作用域内绑定了所选函数的已发布页面；工作台读取该页面发布 spec 中 `bindingContracts[].functionId` 等于所选函数的表单位置的 `FormPresentationSpec`。选择是会话态，表单旁显示来源标签；清除选择即回到描述符派生表单。
+
+**页面/表单位点。** 页面来自 `GET /api/v1/console/pages`（已按 X-Game-ID/X-Env 限定作用域并经过 console 读权限门控）。按 `bindingContracts[].functionId === 所选 functionId` 过滤，再按规范路径定位每个候选页面的表单：`operation.form`（操作页）、`resource.actions.<actionKey>.form`（资源动作页，按动作 `bindingId` 匹配函数）、`composite.sections.<sectionKey>.form`（组合页区块）、`task.form`/`report.queryForm`（任务/报表页）。同一页面多个表单位置绑定同一函数时，选择器按「pageKey + 规范表单路径」分别列出。只复用呈现（`layout`/`groups`/`fields`/`variants`/`defaultVariant`、`submitButton`/`cancelButton`）；校验与下发仍以实时描述符的 `jsonSchema` 为真值——陈旧的已发布 schema 不可能削弱调试页的契约。发布风格不得改动 `jsonSchema`、可见性、默认值、校验规则与 Binding（SUI-045），故此替换按构造只影响展示。
+
+**作用域、权限与回退。** 读取走既有 console 读门（`admin:all`/`console:read`/`pages:read`/`function:invoke`）与当前 game/env 作用域——调试页不读草稿、不跨作用域，也不复用已发布页的执行治理（调试执行仍走自身 invoke 路径）。若没有页面绑定该函数，选择器说明无风格来源，工作台保持既有 `derivePresentationSpec` 派生表单；来源页面无法解析或已下架时跳过并给出诊断，不静默改表单。复用呈现中的运行时风格切换器（SUI-036）保持可用，其选择同样是会话态、与来源选择互不耦合。本决策只落文档：选择器本身未在 SUI-043 实现，属后续 UI 任务。
+
 ## 9. 已知边界
 
 - SUI-020 未新增任何 widget 实现：`DateRange` 与 `RichText` 仍仅声明、未实现，静默回退到类型默认控件；`Code`/`JSON` 仍是普通 textarea 字符串，不解析也不校验内容。能力提示仅为提示信息，不改变提交值。
