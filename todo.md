@@ -2206,9 +2206,10 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 状态／条件：DONE · LOCAL VERIFIED（2026-11-27）。复核修正：原「匿名 403」实为权限倒挂——`utils.CurrentUsername` 从 `c.Request.Context()` 取值，gin `c.Set` 的用户名到不了服务层 ctx，匿名恒 200、而已登录无 registry 角色的操作员反被 403（比任一干净形态都糟）。对齐选「真公开 + threat model 记录」：`access-control.md:40` 本就文档化 registry read-only 为公开白名单面，web 消费方（PageStudio 函数目录）虽登录但放行无碍。删除 `internal/api/registry/service.go` GetRegistry 的 username 条件 RequireAnyPermission 分支（注释留 AUD-055 指针）；`routes_storage.go` 节注释补只读目录 + 威胁模型指针；`docs/operations/access-control.md:40` + zh:40 补威胁模型（暴露 agent 存在性/game-env 绑定/内部地址/启用函数 id，无玩家数据无凭据无写；部署边界为私有网络，加固路径=边缘拒绝不可信网络）。
   - 验证：`go build ./...`、`go vet ./internal/api/registry/ ./internal/handler/` 清洁；`go test ./internal/api/registry/ ./internal/handler/ -count=1` 全绿（3 个钉旧条件 403/500 行为的用例改写为钉新「已登录同放行」语义并注明 AUD-055）；`cd docs && CI=true pnpm build` 通过。
 
-- [ ] **AUD-056 · P3 · 修复 · Monitoring 健康错误改稳定码**
+- [x] **AUD-056 · P3 · 修复 · Monitoring 健康错误改稳定码**（2026-11-27）
   - 依赖：—。交付与验收：`internal/api/monitoring/service.go:160-163` 状态响应改布尔/稳定码，详细错误仅日志。
-  - 状态／条件：2026-11-16 复核属实——底层错误直出响应。
+  - 状态／条件：DONE · LOCAL VERIFIED（2026-11-27）。`checkDatabaseHealth` 的 Exec 失败分支不再回传 `err.Error()` 原文（可含 DSN/host 片段）：原文经 `slog.ErrorContext` 进日志，响应 `status["error"]="database_error"` 稳定码；下游 `dbReadinessReason`（readiness reasons 面）与 components map 两个消费面随之自动稳定（驱动名保留、原文不再拼入），注释同步 AUD-056 口径。既有 `TestCheckDatabaseHealth_ExecError` 加强为 `assert.Equal("database_error")` + 原文片段不外泄断言（变异性：回退 err.Error() 即红）；nil-DB 分支既有稳定文案「database not initialized」不动（handler_test 三处断言兼容）。
+  - 验证：`go build ./...`、`go vet ./internal/api/monitoring/` 清洁；`gofmt -l` 清洁；`go test ./internal/api/monitoring/ -count=1` 全绿。
 
 ### 非分析代码续审（2026-11-21）
 

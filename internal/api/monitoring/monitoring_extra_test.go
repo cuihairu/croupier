@@ -120,7 +120,9 @@ func TestCheckDatabaseHealth_ExecError(t *testing.T) {
 
 	result := checkDatabaseHealth(ctx, svcCtx)
 	assert.False(t, result["ok"].(bool))
-	assert.NotEmpty(t, result["error"])
+	// AUD-056：响应只带稳定码，底层驱动错误细节（可含 DSN/host 片段）只进日志。
+	assert.Equal(t, "database_error", result["error"])
+	assert.NotContains(t, result["error"], "interrupted")
 	assert.Contains(t, result, "latencyMs")
 }
 

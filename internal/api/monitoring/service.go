@@ -2,6 +2,7 @@ package monitoring
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
 	"github.com/cuihairu/croupier/internal/logic/utils"
@@ -77,7 +78,8 @@ func (s *Service) Ready(ctx context.Context, req *ReadyRequest) (*ReadyResponse,
 }
 
 // dbReadinessReason explains why the database component is unavailable (stable
-// phrase plus driver/error detail).
+// phrase plus driver and stable error code — AUD-056 keeps raw driver errors
+// out of responses; the verbatim error is only in the server log).
 func dbReadinessReason(dbStatus map[string]interface{}) string {
 	reason := "database unavailable"
 	if driver, _ := dbStatus["driver"].(string); driver != "" {
@@ -163,7 +165,10 @@ func checkDatabaseHealth(ctx context.Context, svcCtx *svc.ServiceContext) map[st
 	err := svcCtx.DB.WithContext(ctx).Exec("SELECT 1").Error
 	status["latencyMs"] = time.Since(start).Milliseconds()
 	if err != nil {
-		status["error"] = err.Error()
+		// AUD-056: the underlying driver error (which can carry DSN/host
+		// fragments) stays in the log; the response carries a stable code.
+		slog.ErrorContext(ctx, "database health check failed", "err", err)
+		status["error"] = "database_error"
 		return status
 	}
 	status["ok"] = true
