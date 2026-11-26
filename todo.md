@@ -2231,9 +2231,9 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 依赖：—。交付与验收：并发连接与 close 采用明确的连接代次，旧拨号、读循环及入站队列只影响所属连接。在途拨号被关闭时不建立迟到会话；重连后仅新连接处理消息。证据：`sdks/js/src/tcp_transport.ts:215,274,383` 拨号 socket 局部持有，close 提前返回，读循环使用共享连接状态。
   - 状态／条件：DONE · LOCAL VERIFIED（2026-11-27，commit 671a47143）。连接代次面（`epoch`/`nextEpoch`）：每次 `connect()` 取号新代次，`close()` 无条件前移分配器（废除旧 `!connected && !running` 提前返回——那正是在途拨号漏拦的根因）。在途拨号：`onConnect` 代次过期（期间发生 close 或更新拨号）即销毁迟到 socket、不建立会话、挂起的 `connect()` 立即报 `connection closed` 不等拨号超时；并发拨号仅最新代次胜出。读循环：绑定捕获的 sock+代次（不再逐轮重读 `this.socket`），退出条件含 `this.socket === sock && this.epoch === gen`，finally 善后（断开置位、失败 pending）以代次仍归属本连接为前提——close/重连接管后旧读循环不误清新代次状态、不接管新 socket（杜绝多读者竞争帧解析错乱）。`close()` 清空 inbound/control 队列（旧连接消息不跨代）；`call()` 捕获 sock 并在写前核验代次/插座/destroyed，旧代次调用不向重连后的新连接写帧。验证：`tcp_transport_generation.test.ts` 五用例（jest.mock net 假插座确定性驱动：在途拨号被关后迟到 connect 事件废弃 / 并发拨号旧代次废弃新代次生效 / 旧读循环迟到醒来不清新代次状态且新连接响应照常处理 / close 清空双队列 / 旧 call 不写新连接帧）；mutation 自测（去掉拨号代次守卫+读循环代次守卫→三用例红，复原全绿）；`npx jest`（sdks/js）全量 449 passed 0 failed（既有 FakeAgent 真插座用例不回归）。
 
-- [ ] **AUD-061 · P1 · 修复 · 移动端旧请求 401 不清除新会话**
+- [x] **AUD-061 · P1 · 修复 · 移动端旧请求 401 不清除新会话**
   - 依赖：—。交付与验收：清理前核对发请求时的会话身份，旧服务器或旧 token 的迟到 401 只结束原请求。同一会话真实失效仍跳登录。证据：`mobile/lib/core/api/api_client.dart:44,65` 请求逐次取会话，响应处理无条件清除当前存储。
-  - 状态／条件：未开始。
+  - 状态／条件：DONE · LOCAL VERIFIED（2026-11-27，commit 10f72bb1f）。`onError` 401 分支清理前核对会话身份：取被拒请求携带的 `Authorization` 头与当前 SessionStore 会话重建的 `Bearer <token>` 对比——一致（或当前无会话）才 `clear()` + `onUnauthorized`（同一会话真实失效仍跳登录）；不一致（旧 token 请求的迟到 401、无 Authorization 的匿名旧请求撞上新登录的会话）只结束原请求，新会话保留不跳登录。库 docstring 同步策略。验证：`api_client_test.dart` 新增两用例（请求在途会话刷新 jwt-1→jwt-2 的迟到 401 不清 jwt-2 不回调 / 匿名请求在途用户登录 jwt-new 的迟到 401 不清 jwt-new），既有「同 token 401 清会话跳登录」「登录端点 401 透传」两用例不回归；mutation 自测（回退无条件清会话→两新用例红，复原全绿）；`TZ=UTC flutter test` 全量 243 passed。
 
 - [ ] **AUD-062 · P1 · 修复 · 移动端预选 scope 与发请求使用的 scope 一致**
   - 依赖：—。交付与验收：首次选择或已保存作用域失效时，界面显示、请求头与持久化选择一致。首次启动或旧作用域失效时，用请求替身核对界面预选与真实请求头。证据：`mobile/lib/features/scope/scope_controller.dart:84` 的 load 只更新预选状态，请求头仍从 SessionStore 读取。
