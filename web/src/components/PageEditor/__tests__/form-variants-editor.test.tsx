@@ -230,7 +230,10 @@ describe('FormVariantsEditor', () => {
       label: { 'zh-CN': '玩家' },
       width: 6,
     });
-    expect(merged.defaultVariant).toBe('standard');
+    // 预览是显式风格选择：剥离 variants/defaultVariant，渲染器解析链
+    // （SUI-035）不得在已合并呈现上二次解析
+    expect(merged.variants).toBeUndefined();
+    expect(merged.defaultVariant).toBeUndefined();
     // 合并结果不改源
     expect(onChange).not.toHaveBeenCalled();
     expect(value.variants?.[1]?.fields).toEqual([{ key: 'playerId', width: 6 }]);

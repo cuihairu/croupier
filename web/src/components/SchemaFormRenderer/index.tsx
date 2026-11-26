@@ -32,6 +32,7 @@ import { currentUiLocale } from '@/utils/uiLocale';
 import { localizedText } from '@/utils/localizedText';
 import { humanizeFieldKey } from '@/utils/humanize';
 import { deriveDefaultPresentationSpec } from '@/utils/schemaHints';
+import { resolveVariantPresentation } from '@/utils/formVariants';
 import { primarySchemaType } from '@/utils/schemaDialect';
 import { matchesCondition } from '@/components/PageRenderer/sectionCondition';
 import {
@@ -130,10 +131,15 @@ function getEnumNames(
   if (!field?.enumOptions?.length) return undefined;
   const labelByValue = new Map<string, string>();
   for (const option of field.enumOptions) {
-    labelByValue.set(String(option.value), localizedText(option.label, currentLocale(), String(option.value)));
+    labelByValue.set(
+      String(option.value),
+      localizedText(option.label, currentLocale(), String(option.value)),
+    );
   }
   if (!schemaEnum?.length) {
-    return field.enumOptions.map((option) => labelByValue.get(String(option.value)) ?? String(option.value));
+    return field.enumOptions.map(
+      (option) => labelByValue.get(String(option.value)) ?? String(option.value),
+    );
   }
   return schemaEnum.map((value) => labelByValue.get(String(value)) ?? String(value));
 }
@@ -332,7 +338,10 @@ function applyFieldPresentation(
     };
   }
   if (field.enumOptions?.length && target.container && target.property) {
-    const names = getEnumNames(field, Array.isArray(fieldSchema.enum) ? fieldSchema.enum : undefined);
+    const names = getEnumNames(
+      field,
+      Array.isArray(fieldSchema.enum) ? fieldSchema.enum : undefined,
+    );
     target.container[target.property] = {
       ...(target.container[target.property] as Record<string, unknown>),
       enumNames: names,
@@ -346,7 +355,8 @@ function applyFieldPresentation(
     };
   }
   if (field.disabled) nextUi['ui:disabled'] = true;
-  if (field.placeholder) nextUi['ui:placeholder'] = localizedText(field.placeholder, currentLocale(), '');
+  if (field.placeholder)
+    nextUi['ui:placeholder'] = localizedText(field.placeholder, currentLocale(), '');
   if (widget) nextUi['ui:widget'] = widget;
   if (field.widget === 'KeyValue') nextUi['ui:field'] = 'keyValue';
   if (field.widget === 'MultiSelect') {
@@ -733,16 +743,23 @@ export function deriveRuntimeSchema(
  * 调试页与发布页对同一 schema 的无配置形态表现一致。layout/groups 仅在 spec
  * 未声明时回填（发布 spec 的 layout 恒有值；派生 groups 只在 hints 存在时
  * 产出，届时 fields 已存在，不会走到兜底）。
+ *
+ * SUI-035：渲染端解析链落地——defaultVariant → 基础呈现 → 派生纵向。发布的
+ * `defaultVariant` 经 resolveVariantPresentation 合并（SUI-031 overlay 语义，
+ * 与编辑器预览/SUI-036 运行时切换同一合并规则）；key 解析不到已声明变体
+ * （陈旧缓存）原样回落基础；无变体配置的旧页面合并为恒等。显式选择（链首）
+ * 由 SUI-036 在调用侧替换 `spec.defaultVariant` 后进入同一解析。
  */
 function effectivePresentationSpec(spec: FormPresentationSpec): FormPresentationSpec {
-  if (spec.fields?.length) return spec;
-  const derived = deriveDefaultPresentationSpec(spec.jsonSchema);
-  if (!derived.fields?.length) return spec;
+  const resolved = resolveVariantPresentation(spec, spec.defaultVariant);
+  if (resolved.fields?.length) return resolved;
+  const derived = deriveDefaultPresentationSpec(resolved.jsonSchema);
+  if (!derived.fields?.length) return resolved;
   return {
-    ...spec,
-    layout: spec.layout ?? derived.layout,
+    ...resolved,
+    layout: resolved.layout ?? derived.layout,
     fields: derived.fields,
-    groups: spec.groups ?? derived.groups,
+    groups: resolved.groups ?? derived.groups,
   };
 }
 

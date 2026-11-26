@@ -394,7 +394,13 @@ export default function FormVariantsEditor({
                 </Form>
                 {previewKey === variant.key && (
                   <div data-testid={`variant-preview-pane-${index}`} style={{ marginTop: 12 }}>
-                    <SchemaFormRenderer spec={merged} disabled hideSubmit />
+                    {/* 预览显式选择该风格：剥离 variants/defaultVariant，防止
+                        渲染器解析链（SUI-035）在已合并呈现上二次解析。 */}
+                    <SchemaFormRenderer
+                      spec={{ ...merged, variants: undefined, defaultVariant: undefined }}
+                      disabled
+                      hideSubmit
+                    />
                   </div>
                 )}
               </Card>

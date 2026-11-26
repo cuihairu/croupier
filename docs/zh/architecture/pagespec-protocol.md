@@ -247,7 +247,7 @@ Page Studio 的 `FormPresentationEditor` 对所有含表单的页面（操作页
 
 ### 命名展示变体（SUI-031）
 
-一个表单可以携带多个命名的呈现形态——典型的一对是标准纵向表单与紧凑栅格——而不分叉调用契约。本节定义协议：存储（SUI-032——变体随表单节点经既有草稿/快照 `SpecJSON` blob 落库，零表结构变更）、发布前校验（SUI-033——变体形状规则与当前契约新鲜度，spec 级与服务级用例同证，含回滚预检）与 Page Studio 管理（SUI-034——操作/任务/报表/资源页表单页签管理命名风格：新增/改名/删除、设默认并在改名/删除时同步、逐字段列宽/控件覆盖、逐风格预览；按钮/分组/label 覆盖与变体独有字段仍走 API 编写——见使用文档）已落地，生效默认解析（SUI-035）与已发布表单切换（SUI-036）仍待实现——在这些任务落地前，渲染表单不消费 `defaultVariant`、不提供风格切换，以下内容是它们要实现的契约。
+一个表单可以携带多个命名的呈现形态——典型的一对是标准纵向表单与紧凑栅格——而不分叉调用契约。本节定义协议：存储（SUI-032——变体随表单节点经既有草稿/快照 `SpecJSON` blob 落库，零表结构变更）、发布前校验（SUI-033——变体形状规则与当前契约新鲜度，spec 级与服务级用例同证，含回滚预检）、Page Studio 管理（SUI-034——操作/任务/报表/资源页表单页签管理命名风格：新增/改名/删除、设默认并在改名/删除时同步、逐字段列宽/控件覆盖、逐风格预览；按钮/分组/label 覆盖与变体独有字段仍走 API 编写——见使用文档）与默认解析（SUI-035——渲染端生效 spec 解析应用发布的 `defaultVariant`，经共享合并规则回退 基础→派生纵向；旧页面与解析不到的 key 原样渲染基础）已落地，已发布表单切换（SUI-036）仍待实现——在它落地前，操作者没有会话内风格切换，渲染表单始终跟随发布默认项，以下是它们共同实现的契约。
 
 **稳定表单标识。** PageSpec 中每个携带表单的位置都由稳定段 key 组成的规范路径寻址，绝不使用数组下标：`resource.createForm`、`resource.updateForm`、`resource.actions.<actionKey>.form`（ActionSpec 的 `key`）、`operation.form`、`task.form`、`report.queryForm`、`composite.sections.<sectionKey>.form`（CompositeSection 的 `key`）。区块与动作重排不改变标识。数组下标路径（如 `composite.sections[2].form.fields[0].width`）仍是校验错误的定位惯例，不是标识。变体存放在它所覆盖的表单节点内部，因此变体继承表单标识，在草稿、快照与回滚之间永不悬空。
 
@@ -304,7 +304,7 @@ interface FormVariantFieldSpec {
 
 **共用一切调用面。** 同一表单的所有变体共用一份 `jsonSchema`、一套 Binding、一套调用治理（权限、风险、审批、危险确认、幂等——全部挂在绑定/函数层，无一挂在变体层）。同 schema、同 Binding、同输入下，一个表单的每个变体产出完全相同的请求 payload；切换变体按构造就是展示操作（SUI-045 的前提，现在由允许覆盖集合强制）。这也是切换能保留操作者输入与错误状态的原因：表单状态按 schema 路径键控，变体从不触碰路径。
 
-**解析语义（SUI-035 实现）。** 渲染表单的生效变体依次为：操作者的会话内显式选择（运行时 UI 态，SUI-036）→ 发布的 `defaultVariant` → 基础呈现 → `deriveDefaultPresentationSpec` 的标准纵向表单（基础不带 `fields` 的表单，SUI-025）。运行时解析失败的 key（陈旧缓存）沿同一链回退；发布校验使其在实践中不可达。
+**解析语义（SUI-035 已落地）。** 渲染表单的生效变体依次为：操作者的会话内显式选择（运行时 UI 态，SUI-036）→ 发布的 `defaultVariant` → 基础呈现 → `deriveDefaultPresentationSpec` 的标准纵向表单（基础不带 `fields` 的表单，SUI-025）。SUI-035 把 `defaultVariant` 以下的链路落在 `SchemaFormRenderer` 的生效 spec 步骤（`web/src/components/SchemaFormRenderer/index.tsx`）：所有消费方——操作/任务/报表/资源页渲染器与组合页渲染器——经 `resolveVariantPresentation`（与编辑器预览同一合并规则）解析发布默认项；运行时解析失败的 key（陈旧缓存）沿同一链回退，无变体配置的页面走恒等路径。编辑器逐风格预览传入显式选择的风格并剥离 `variants`/`defaultVariant`，渲染器解析链不会在已合并呈现上二次解析。发布校验使解析不到的默认项在实践中不可达；渲染端仍做优雅降级（防御边界）。SUI-036 将在调用侧用操作者显式选择替换 `defaultVariant` 进入同一解析。
 
 **发布快照与回滚。** 变体与 `defaultVariant` 位于表单节点内部，因此随同一份发布快照落库——一份 digest、沿用现有表、无旁表（SUI-032）。回滚原子恢复上一快照：其变体与默认项按发布时原样回来，绝不做跨版本合并。回滚预检已在跑 `ValidatePublishablePageShape`（SUI-021）；SUI-033 把校验扩展到变体并对照**当前**函数契约，因此回滚一个变体引用了已删除/已改名契约字段的快照会在预检失败并定位到受影响变体——陈旧快照被暴露，而不是被静默发布。
 
