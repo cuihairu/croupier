@@ -1910,9 +1910,10 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 状态／条件：LOCAL VERIFIED（2026-11-27 复核，产品 commit 0e30edd49）：readStream 引入 pendingCR 跨 chunk 状态——归一化前记录 buffer 尾裸 \r，下一 chunk 以 \n 开头时吞掉该 \n（它是跨 chunk CRLF 的后半），消除「悬垂 \r 先归一成 \n、下一 chunk 的 \n 拼成假空行错切事件」的原缺陷（update/hello 被拆成 message/hello）。验收测试齐备：CRLF 中腰拆开（update 事件保住、无假 message）、纯 CR 行尾跨 chunk、LF 无回归、事件间 CRLF 边界，另本席补「同一事件字节整块 / CRLF 三处中腰拆 / 逐字节送达三种分块结果一致（事件名 e1、多行 data 连为 "l1\nl2"）」验收用例。证据：`web/src/services/core/http.ts`（readStream pendingCR）、`web/src/services/core/__tests__/http.node.test.ts`（AUD-012 两例 + 验收一例，8/8 绿）。变异自证：M1 禁用 pendingCR 吞合并（退回旧归一化行为）→ CRLF 跨 chunk 与多行 data 验收两例如实红；还原后 8/8 绿、0 MUTATION 残留。`pnpm --dir web run tsc` 0 错误。产品修复由并行会话 commit 0e30edd49 交付并已在 origin/main。
   - 完成证据：`web/src/services/core/__tests__/http.node.test.ts`（跨分块等价 8 例全绿）；本席复验 + 变异自证记录如上。
 
-- [ ] **AUD-013 · P1 · 修复 · C++ transport 完整写帧并串行化连接写入**
+- [x] **AUD-013 · P1 · 修复 · C++ transport 完整写帧并串行化连接写入**
   - 依赖：—。交付与验收：统一 Call/响应 writer 的连接级锁、write-all 和失败收口；覆盖合法短写。
-  - 状态／条件：tcp_transport_inbound.cpp:164 单次 send 仅判断负数；注入 140 字节帧只写 5 字节后静默返回。并发帧交错为静态风险，未做拥塞网络实验。
+  - 状态／条件：LOCAL VERIFIED（2026-11-27 复核，产品 commit 89e8a47ea）：WriteAll（tcp_transport.cpp:509）循环 send 至整帧写完（EINTR/EAGAIN 短暂等待重试、错误记日志返回 false 收口）；连接级写锁 write_mu 在锁内完成整帧写——Call 请求帧（tcp_transport.cpp:444）与入站响应帧（WriteResponseOnSocket 5 参版，tcp_transport_inbound.cpp:94/127）共用同一把锁（inbound_pool_->write_mu = write_mu_ 同一对象），4 参兼容版注释声明仅单写者/测试路径。验收测试用真实 socketpair：WriteResponseOnSocketWriteAllSurvivesShortWrite（非阻塞 + SO_SNDBUF=4096 + 64KiB 帧强制合法短写，对端并发排空，断言整帧字节数 + 长度前缀 + 载荷逐字节一致）；WriteResponseConcurrentFramesStayWhole（8 线程 × 20 帧 × 16KiB 体，锁共享下逐帧校验体均一性，交错必红）。变异自证：M1 退回「单次 send 正数即返回」旧行为（合法编译形态）→ 短写与并发两例如实红（10s 读超时干净失败非挂死）；还原后 0 MUTATION、boost4 套件 20/20、全量 C++ 768 通过 + 1 跳过（环境性 ServerHTTPInvokerTest）。产品修复由并行会话 commit 89e8a47ea 交付并已在 origin/main。
+  - 完成证据：`sdks/cpp/src/tcp_transport.cpp`（WriteAll）、`sdks/cpp/src/tcp_transport_inbound.cpp`（5 参响应写 + 连接级锁）、`sdks/cpp/tests/test_coverage_boost4.cpp`（短写 + 并发整帧两例）；本席复验 + 变异自证记录如上。
 
 - [ ] **AUD-014 · P1 · 修复 · 将 C++ 和 C# Provider TLS 配置接入默认 transport**
   - 依赖：—。交付与验收：真正实现 TLS 或请求安全模式时明确拒绝连接；与真实 TLS listener 对接并同步矩阵。
