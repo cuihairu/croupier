@@ -5,7 +5,7 @@
  * memory only and must not be persisted into SDK/OpenAPI/PageSpec snapshots.
  */
 
-import { Segmented } from 'antd';
+import { Segmented, Select } from 'antd';
 import React, {
   useCallback,
   forwardRef,
@@ -49,6 +49,12 @@ import {
 import { customWidgets } from './widgets';
 import { uploadFields, uploadWidgets } from './widgets-upload';
 import { customTemplates } from './templates';
+import {
+  mergeBranchIntoSchema,
+  pruneValuesToBranch,
+  resolveDiscriminatorBranches,
+} from './branchSelection';
+import type { DiscriminatorBranch, DiscriminatorResolution } from './branchSelection';
 import SchemaFormErrorBoundary from './ErrorBoundary';
 import JsonRootEditor, { isJsonRootSpec } from './JsonRootEditor';
 
@@ -770,6 +776,45 @@ function effectivePresentationSpec(
   };
 }
 
+/**
+ * SUI-042：按所选分支构造有效呈现 spec。schema 换成分支合并产物后，fields
+ * 走与 SUI-025 相同的兜底判定：spec 未配置 fields（或 fields 是对原 schema
+ * 的派生产物）时按合并 schema 重新派生，分支专属字段获得类型缺省控件与标签
+ * 兜底；显式配置的 fields 原样保留（配置面如何呈现分支字段由作者决定，不猜）。
+ */
+function branchMergedSpec(
+  resolvedSpec: FormPresentationSpec,
+  resolution: DiscriminatorResolution & { propertyName: string },
+  branch: DiscriminatorBranch,
+): FormPresentationSpec {
+  const mergedJsonSchema = mergeBranchIntoSchema(
+    resolvedSpec.jsonSchema as JSONSchema,
+    branch,
+    resolution.propertyName,
+  );
+  const base: FormPresentationSpec = { ...resolvedSpec, jsonSchema: mergedJsonSchema };
+  const deriveOn = (schema: JSONSchema): FormPresentationSpec | null => {
+    const derived = deriveDefaultPresentationSpec(schema);
+    if (!derived.fields?.length) return null;
+    return {
+      ...base,
+      layout: base.layout ?? derived.layout,
+      fields: derived.fields,
+      groups: base.groups ?? derived.groups,
+    };
+  };
+  if (!base.fields?.length) return deriveOn(mergedJsonSchema) ?? base;
+  // fields 与「对原 schema 的派生结果」逐字节一致 → 视为 SUI-025 派生产物
+  const originalDerived = deriveDefaultPresentationSpec(resolvedSpec.jsonSchema as JSONSchema);
+  if (
+    originalDerived.fields?.length &&
+    JSON.stringify(originalDerived.fields) === JSON.stringify(resolvedSpec.fields)
+  ) {
+    return deriveOn(mergedJsonSchema) ?? base;
+  }
+  return base;
+}
+
 /** SUI-027：同页多实例字段 ID 隔离。rjsf 以 `{idPrefix}_{路径}` 生成控件
  * id/label htmlFor/aria 关联，默认前缀 `root`——同页挂载两个同 schema 表单
  * 时两实例产出相同 id，label 与错误说明跨实例串扰。这里维护存活前缀集合：
@@ -869,10 +914,58 @@ const SchemaFormRenderer = forwardRef<SchemaFormRendererHandle, SchemaFormRender
       // localeTick 不参与解析（风格名才随语言变），spec/显式 key 变才重解析
       [spec, explicitVariant],
     );
-    const seededInitial = useMemo(
-      () => applySpecDefaults(resolvedSpec, normalizeFormValues(initialValues || {})),
-      [resolvedSpec, initialValues],
+    // SUI-042：discriminator 分支层——可解析多态根按所选分支合并 schema 渲染，
+    // 不可解析组合不猜语义、交回 JSON 降级（诊断说明原因）。非多态根返回
+    // null，既有流程零变化。
+    const branchResolution = useMemo(
+      () => resolveDiscriminatorBranches(resolvedSpec.jsonSchema),
+      [resolvedSpec],
     );
+    // SUI-042：不可解析分支也走 JSON 编辑器；imperative handle 与提交路径
+    // 需与渲染形态同源，不能只看非对象根判定。
+    const branchDegraded = branchResolution?.status === 'unresolved';
+    const jsonEditor = jsonRoot || branchDegraded;
+    const [explicitBranch, setExplicitBranch] = useState<string | undefined>(undefined);
+    const branchKeys = useMemo(
+      () =>
+        branchResolution?.status === 'resolved'
+          ? branchResolution.branches.map((branch) => branch.value).join('\n')
+          : '',
+      [branchResolution],
+    );
+    useEffect(() => {
+      // 换页面/换函数（分支集变化）：显式分支复位到首个声明分支
+      setExplicitBranch(undefined);
+    }, [branchKeys]);
+    const selectedBranch = useMemo(() => {
+      if (branchResolution?.status !== 'resolved') return null;
+      const branches = branchResolution.branches;
+      const seeded = (initialValues as FormValues | undefined)?.[branchResolution.propertyName];
+      const seededBranch =
+        typeof seeded === 'string' ? branches.find((branch) => branch.value === seeded) : undefined;
+      return (
+        branches.find((branch) => branch.value === explicitBranch) ??
+        seededBranch ??
+        branches[0] ??
+        null
+      );
+    }, [branchResolution, explicitBranch, initialValues]);
+    const branchSpec = useMemo(() => {
+      if (branchResolution?.status !== 'resolved' || !selectedBranch) return resolvedSpec;
+      return branchMergedSpec(resolvedSpec, branchResolution, selectedBranch);
+    }, [branchResolution, resolvedSpec, selectedBranch]);
+    const seededInitial = useMemo(() => {
+      const values = applySpecDefaults(branchSpec, normalizeFormValues(initialValues || {}));
+      // discriminator 是合并 schema 的必填属性：显式初值/默认配置之外的分支值
+      // 由选择器补齐，保证首屏提交 payload 自带所选分支标识。
+      if (branchResolution?.status === 'resolved' && selectedBranch) {
+        const key = branchResolution.propertyName;
+        if (values[key] === undefined || values[key] !== selectedBranch.value) {
+          return { ...values, [key]: selectedBranch.value };
+        }
+      }
+      return values;
+    }, [branchSpec, branchResolution, selectedBranch, initialValues]);
     const currentValuesRef = useRef<FormValues>(seededInitial);
     const [formValues, setFormValues] = useState<FormValues>(seededInitial);
     const lastInitJsonRef = useRef<string | null>(null);
@@ -884,8 +977,31 @@ const SchemaFormRenderer = forwardRef<SchemaFormRendererHandle, SchemaFormRender
       currentValuesRef.current = seededInitial;
       setFormValues(currentValuesRef.current);
     }, [initialValuesJson, seededInitial]);
+
+    // SUI-042：切换分支——按目标分支构造合并 spec，裁剪表单值（只保留所选
+    // 分支允许的键，预置 discriminator 值），再补默认值。共享键已填值保留。
+    const handleBranchChange = useCallback(
+      (key: string) => {
+        setExplicitBranch(key);
+        if (branchResolution?.status !== 'resolved') return;
+        const branch = branchResolution.branches.find((item) => item.value === key);
+        if (!branch) return;
+        const nextSpec = branchMergedSpec(resolvedSpec, branchResolution, branch);
+        const pruned = pruneValuesToBranch(
+          currentValuesRef.current,
+          nextSpec.jsonSchema as JSONSchema,
+          branchResolution.propertyName,
+          key,
+        );
+        const next = applySpecDefaults(nextSpec, pruned);
+        currentValuesRef.current = next;
+        setFormValues(next);
+        onValuesChange?.({}, next);
+      },
+      [branchResolution, resolvedSpec, onValuesChange],
+    );
     const { schema, uiSchema, formContext } = useMemo(() => {
-      const derived = deriveRuntimeSchema(resolvedSpec, formValues);
+      const derived = deriveRuntimeSchema(branchSpec, formValues);
       if (hideSubmit || readonly) {
         derived.uiSchema['ui:submitButtonOptions'] = {
           ...(derived.uiSchema['ui:submitButtonOptions'] || {}),
@@ -895,38 +1011,38 @@ const SchemaFormRenderer = forwardRef<SchemaFormRendererHandle, SchemaFormRender
       return derived;
       // localeTick 入参：语言切换 tick 触发派生重算（currentLocale() 在纯函数内读取）
       // eslint-disable-next-line react-hooks/exhaustive-deps -- localeTick 是刻意的失效触发器
-    }, [formValues, hideSubmit, readonly, resolvedSpec, localeTick]);
+    }, [formValues, hideSubmit, readonly, branchSpec, localeTick]);
     // handler 引用稳定（见下方 rjsf 注释），spec 经 ref 读取当前值
     const specRef = useRef(resolvedSpec);
-    specRef.current = resolvedSpec;
+    specRef.current = branchSpec;
 
     useImperativeHandle(
       ref,
       () => ({
         submit: () => {
-          if (jsonRoot) {
+          if (jsonEditor) {
             jsonRootRef.current?.submit();
             return;
           }
           formRef.current?.submit();
         },
         validate: () =>
-          jsonRoot
+          jsonEditor
             ? Boolean(jsonRootRef.current?.validate())
             : Boolean(formRef.current?.validateForm()),
         getValues: () =>
-          jsonRoot
+          jsonEditor
             ? (jsonRootRef.current?.getValues() ?? {})
             : getLiveFormValues(formRef.current, currentValuesRef.current),
         getSubmitValues: () =>
-          jsonRoot
+          jsonEditor
             ? (jsonRootRef.current?.getSubmitValues() ?? {})
             : projectSubmitValues(
                 getLiveFormValues(formRef.current, currentValuesRef.current),
                 specRef.current,
               ),
       }),
-      [jsonRoot],
+      [jsonEditor],
     );
 
     // rjsf Form 在任意 props 变化时会把内部 state 重置回 props.formData；
@@ -998,8 +1114,56 @@ const SchemaFormRenderer = forwardRef<SchemaFormRendererHandle, SchemaFormRender
       );
     }
 
+    if (branchDegraded) {
+      // SUI-042：discriminator 已声明但分支无法明确解析——结构化表单不猜
+      // 语义，降级为完整请求 JSON 编辑（同一执行与校验链），诊断给出原因。
+      const degradeReason = getIntl().formatMessage(
+        {
+          id: 'component.schemaFormRenderer.branch.degraded',
+          defaultMessage:
+            '多态分支无法明确解析：{reason}；结构化表单不猜测语义，请编辑完整请求 JSON——提交仍经本页面绑定的同一执行与 schema 校验链。',
+        },
+        { reason: branchResolution.reason },
+      );
+      return (
+        <JsonRootEditor
+          ref={jsonRootRef}
+          spec={resolvedSpec}
+          initialValues={initialValues}
+          onFinish={onFinish}
+          onValuesChange={onValuesChange}
+          readonly={readonly}
+          disabled={disabled}
+          hideSubmit={hideSubmit}
+          reasonOverride={degradeReason}
+        />
+      );
+    }
+
+    const showBranchSelector =
+      branchResolution?.status === 'resolved' && branchResolution.branches.length > 1;
+
     return (
       <SchemaFormErrorBoundary key={boundaryKey}>
+        {showBranchSelector && selectedBranch && (
+          // SUI-042：分支切换器——选中分支决定合并后的 schema（结构化渲染
+          // 与校验都只面向所选分支）；切换经 handleBranchChange 裁剪表单值。
+          <Select
+            size="small"
+            data-testid="branch-select"
+            style={{ marginBottom: 12, minWidth: 200 }}
+            value={selectedBranch.value}
+            options={branchResolution.branches.map((branch) => ({
+              value: branch.value,
+              label: branch.label,
+            }))}
+            onChange={handleBranchChange}
+            aria-label={getIntl().formatMessage({
+              id: 'component.schemaFormRenderer.branchLabel',
+              defaultMessage: 'Branch',
+            })}
+          />
+        )}
         {variantOptions.length > 1 && (
           // SUI-036：风格切换器（发布默认 + 会话内显式选择，同一解析链）。
           // 切换只重派 uiSchema，表单实例不重挂载——输入与错误态保留。

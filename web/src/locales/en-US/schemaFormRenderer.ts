@@ -1,5 +1,8 @@
 // 公共 SchemaFormRenderer
 export default {
+  'component.schemaFormRenderer.branch.degraded':
+    'Polymorphic branches cannot be resolved: {reason}. Structured forms do not guess semantics — edit the full request JSON below; submission still goes through this page binding execution and schema validation.',
+  'component.schemaFormRenderer.branchLabel': 'Branch',
   'component.schemaFormRenderer.jsonRoot.invalidJson': 'Invalid JSON: {message}',
   'component.schemaFormRenderer.jsonRoot.reason':
     'This request is a {type}; structured form controls cannot represent it. Edit the full request JSON below — submission still goes through this page binding execution and schema validation.',

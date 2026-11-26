@@ -314,6 +314,18 @@ interface FormVariantFieldSpec {
 
 **校验规则（SUI-033 已实现）。** `ValidateFormPresentations` 在所有校验路径（保存/预览、发布、accept-and-publish、提案、版本化回滚预检）上按既有 `{field, message}` details 契约执行变体检查：变体 key 非空（`form_variant_key_missing`）且表单内唯一（`form_variant_key_conflict`）；`defaultVariant` 解析如上（`form_variant_default_unknown`）；变体字段 key 非空（`form_variant_field_key_missing`）、不重复（`form_variant_field_duplicate`）且能在表单 `jsonSchema` 中解析（`form_variant_field_unknown`）；变体字段上的调用相关键即使 `encoding/json` 会静默丢弃也能定位——`FormVariantFieldSpec.UnmarshalJSON` 把展示白名单外的每个键审计进 `UnknownKeys`，校验以 `form_variant_illegal_override` 报出并点名违规键；`widget` 合法性/类型兼容与 `width` 范围沿用基础字段的 SUI-020/SUI-021/SUI-028 规则，变体分组规则与基础对齐（`form_group_key_missing`/`form_group_key_duplicate`/`form_group_field_unknown`/`form_group_field_duplicate`/`form_group_field_conflict`，变体分组字段允许声明在基础 fields 或本变体 fields）。Web 端在 `web/src/utils/formValidation.ts` 镜像同一规则（`unknownVariantOverrideKeys` 承担 Go `UnmarshalJSON` 审计的角色），草稿保存前即被拦截。
 
+### 多态输入分支（SUI-042）
+
+OpenAPI 多态请求 schema（`oneOf`/`anyOf` + `discriminator`）在渲染结构化表单前必须选定分支：只有知道 discriminator 值，分支字段与 required 集合才有意义。SUI-042 在 `SchemaFormRenderer` 渲染期解决该问题——PageSpec 无新字段、wire 无变更：表单 `jsonSchema` 仍携带原始多态声明，已发布呈现、Binding 与调用治理不动。
+
+**解析为三态**（`web/src/components/SchemaFormRenderer/branchSelection.ts`）：根无 `discriminator` 返回 `null` 并走既有路径（无 discriminator 的普通 `oneOf`/`anyOf` 也在此列，rjsf 保持原生行为）；可解析声明（分支值来自 `discriminator.mapping` 引用或分支单一 `const`/`enum` 值，支持 `#/` 本地 `$ref` 解析）产出分支列表；`propertyName` 缺失、无变体、分支无法定值（缺声明、悬空引用）、分支值冲突则产出带具体原因的 `unresolved`。
+
+**可解析分支。** `SchemaFormRenderer` 在表单上方渲染分支选择器。所选分支的 subschema 合并进基础 schema（分支 properties 覆盖基础、required 取并集并加入 discriminator 属性，渲染/校验 schema 移除 `oneOf`/`anyOf`/`discriminator`），无配置呈现按合并后 schema 重新派生字段元数据，使分支独有字段享有 SUI-025 标签/控件地板；显式配置的 `fields` 原样保留。切换分支保留共享键值、预置 discriminator 值，但丢弃目标分支未声明的键。payload 只含所选分支允许的键与 discriminator——校验与提交使用合并 schema（单一投影源 `specRef`）；分支专属必填字段未填则拦截提交。`initialValues` 携带已声明 discriminator 值时首屏选中对应分支。选择仅为会话态：换页面/换函数（分支键集变化）复位到首个声明分支，重挂载则依次跟随 `initialValues` 与声明顺序。崩溃边界仍以基础 spec 为键（SUI-036 规则），分支切换不重挂表单。
+
+**不可解析分支。** 渲染器不猜语义：降级到共享 `JsonRootEditor`（与 SUI-026 非对象根同一 handle 契约、同一 AJV 校验器、同一 Binding 执行链），并以说明解析失败原因的提示告知操作者。客户端仍按原始多态 schema 校验完整请求 JSON，提交路径与其它表单一致。
+
+**已知边界。** 本层只覆盖带显式 `discriminator` 的对象根；嵌套 discriminator 与普通组合式 `oneOf`/`anyOf` 保持既有行为。分支标签取分支 `title` 或 discriminator 值（wire 未提供 i18n 映射）。编辑器（Page Studio）无分支编写 UI——分支来自发布函数契约的 schema，呈现配置不得改动 discriminator 或分支选择规则。
+
 ### Descriptor 呈现 hints（x-ui-\*）
 
 SDK/游戏方可在 `input_schema` 的字段 schema 上声明 `x-ui-*` 扩展字段（widget/label/

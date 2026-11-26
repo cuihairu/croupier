@@ -8,7 +8,14 @@
  * SUI-017 往返语义）。界面同时给出不能渲染结构化表单的具体原因（根类型）
  * 与实际可用入口（本编辑器）。
  */
-import React, { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { Alert, Button, Input } from 'antd';
 import { getIntl } from '@umijs/max';
 import validator from '@rjsf/validator-ajv8';
@@ -26,6 +33,8 @@ interface JsonRootEditorProps {
   readonly?: boolean;
   disabled?: boolean;
   hideSubmit?: boolean;
+  /** 覆盖默认的根类型说明文案（SUI-042 分支降级给出更具体的原因）。 */
+  reasonOverride?: string;
 }
 
 /** schema 节点本身是否为对象形态（可读 type 等关键字）。 */
@@ -54,7 +63,19 @@ function fmt(id: string, defaultMessage: string, values?: Record<string, string 
 }
 
 const JsonRootEditor = React.forwardRef<SchemaFormRendererHandle, JsonRootEditorProps>(
-  ({ spec, initialValues, onFinish, onValuesChange, readonly = false, disabled = false, hideSubmit = false }, ref) => {
+  (
+    {
+      spec,
+      initialValues,
+      onFinish,
+      onValuesChange,
+      readonly = false,
+      disabled = false,
+      hideSubmit = false,
+      reasonOverride,
+    },
+    ref,
+  ) => {
     const schema = spec.jsonSchema;
     // 种子：显式 initialValues 优先；否则 SUI-018 默认值层（含根类型骨架，
     // SUI-017：根数组 `[]`/items 骨架、标量类型占位）。调用方常用 `|| {}`
@@ -104,13 +125,9 @@ const JsonRootEditor = React.forwardRef<SchemaFormRendererHandle, JsonRootEditor
         return parsed;
       } catch (err) {
         setParseError(
-          fmt(
-            'component.schemaFormRenderer.jsonRoot.invalidJson',
-            'JSON 解析失败：{message}',
-            {
-              message: err instanceof Error ? err.message : String(err),
-            },
-          ),
+          fmt('component.schemaFormRenderer.jsonRoot.invalidJson', 'JSON 解析失败：{message}', {
+            message: err instanceof Error ? err.message : String(err),
+          }),
         );
         return null;
       }
@@ -150,11 +167,11 @@ const JsonRootEditor = React.forwardRef<SchemaFormRendererHandle, JsonRootEditor
       void onFinish?.(getSubmitValues());
     }, [validate, onFinish, getSubmitValues]);
 
-    useImperativeHandle(ref, () => ({ submit, validate, getValues: getSubmitValues, getSubmitValues }), [
-      submit,
-      validate,
-      getSubmitValues,
-    ]);
+    useImperativeHandle(
+      ref,
+      () => ({ submit, validate, getValues: getSubmitValues, getSubmitValues }),
+      [submit, validate, getSubmitValues],
+    );
 
     const handleChange = useCallback(
       (event: React.ChangeEvent<HTMLTextAreaElement>): void => {
@@ -172,13 +189,15 @@ const JsonRootEditor = React.forwardRef<SchemaFormRendererHandle, JsonRootEditor
       [onValuesChange],
     );
 
-    const reason = fmt(
-      'component.schemaFormRenderer.jsonRoot.reason',
-      '该请求是 {type} 类型，结构化表单无法表达；请编辑完整请求 JSON——提交仍经本页面绑定的同一执行与 schema 校验链。',
-      {
-        type: isSchemaNode(schema) ? jsonRootTypeName(schema) : 'unknown',
-      },
-    );
+    const reason =
+      reasonOverride ??
+      fmt(
+        'component.schemaFormRenderer.jsonRoot.reason',
+        '该请求是 {type} 类型，结构化表单无法表达；请编辑完整请求 JSON——提交仍经本页面绑定的同一执行与 schema 校验链。',
+        {
+          type: isSchemaNode(schema) ? jsonRootTypeName(schema) : 'unknown',
+        },
+      );
     const title = fmt('component.schemaFormRenderer.jsonRoot.title', '请求 JSON');
 
     return (
@@ -200,9 +219,7 @@ const JsonRootEditor = React.forwardRef<SchemaFormRendererHandle, JsonRootEditor
           style={{ fontFamily: 'monospace' }}
           data-testid="json-root-editor"
         />
-        {parseError && (
-          <Alert type="error" showIcon style={{ marginTop: 12 }} title={parseError} />
-        )}
+        {parseError && <Alert type="error" showIcon style={{ marginTop: 12 }} title={parseError} />}
         {schemaErrors.length > 0 && (
           <Alert
             type="error"

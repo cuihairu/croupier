@@ -570,6 +570,8 @@ FormPresentationEditor（操作/任务/报表/资源页的表单页签与组合�
 
 **已知边界。** 编辑器管理 key/标题/布局/列宽/控件覆盖子集与默认项；按钮覆盖（`submitButton`/`cancelButton`）、变体分组、label/placeholder/description 覆盖、变体独有字段在 wire 上合法（SUI-031）但尚无编辑器 UI——可通过 API 编写，在这里保持可见、可预览。组合页编辑器的区块表单配置仍是仅 schema，不提供风格卡片，但经 API 编写了变体的区块表单在运行时同样获得切换器。默认解析（SUI-035）与运行时风格切换（SUI-036）均已落地。
 
+**多态分支（SUI-042）。** 已发布表单 schema 在根上以 `discriminator` 声明 `oneOf`/`anyOf` 分支时，运行时表单在字段上方渲染分支选择器。选择分支即把渲染与校验字段切换为该分支，保留共享键值、预置 discriminator 值、丢弃新分支未声明的键，因此请求 payload 只含该分支允许的字段。`initialValues` 带已声明 discriminator 值时首屏选中对应分支；分支无法定值（缺 mapping/const/enum、悬空引用、重复值）则降级为完整请求 JSON 编辑器并说明原因，不猜语义。无 discriminator 的普通 `oneOf`/`anyOf` 与嵌套 discriminator 保持不变。编辑器无分支编写 UI——分支来自函数契约 schema。
+
 ## 9. 已知边界
 
 - SUI-020 未新增任何 widget 实现：`DateRange` 与 `RichText` 仍仅声明、未实现，静默回退到类型默认控件；`Code`/`JSON` 仍是普通 textarea 字符串，不解析也不校验内容。能力提示仅为提示信息，不改变提交值。
