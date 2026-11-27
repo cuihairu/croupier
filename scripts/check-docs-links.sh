@@ -2,8 +2,8 @@
 # Check internal markdown links for dead targets.
 #
 # VitePress already fails the build on dead links *inside* docs/. This script
-# extends coverage to the repo-root README and sdks/*/README.md and runs
-# locally (pre-commit friendly) without a full VitePress build.
+# extends coverage to the repo-root READMEs (EN + zh) and sdks/*/README.md and
+# runs locally (pre-commit friendly) without a full VitePress build.
 #
 # What counts as an internal link: the target of `[text](target)` or
 # `![alt](target)`, excluding http(s)/mailto/tel and anchor-only (`#...`).
@@ -26,8 +26,8 @@ set -u
 cd "$(dirname "$0")/.." || exit 2
 
 DOCS_DIR="docs"
-# Files to scan: docs markdown (no archive/node_modules/dist), root README,
-# and SDK READMEs.
+# Files to scan: docs markdown (no archive/node_modules/dist), root README
+# (EN and zh), and SDK READMEs.
 mapfile -t FILES < <(
   {
     find "$DOCS_DIR" -name "*.md" \
@@ -35,6 +35,7 @@ mapfile -t FILES < <(
       -not -path "*/.vitepress/dist/*" \
       -not -path "*/archive/*" 2>/dev/null
     [ -f README.md ] && echo "README.md"
+    [ -f README.zh.md ] && echo "README.zh.md"
     find sdks -name "README.md" \
       -not -path "*/node_modules/*" \
       -not -path "*/vcpkg/*" 2>/dev/null
