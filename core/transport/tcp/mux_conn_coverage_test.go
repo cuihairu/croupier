@@ -43,10 +43,11 @@ func TestMuxConnDispatch_BusyWriteErrorMigration(t *testing.T) {
 		t.Fatalf("close conn: %v", err)
 	}
 	mc := &MuxConn{
-		ctrlInbox: make(chan muxTask),
-		bizInbox:  make(chan muxTask, 1),
-		closed:    make(chan struct{}),
-		conn:      conn,
+		ctrlInbox:   make(chan muxTask),
+		bizInbox:    make(chan muxTask, 1),
+		closed:      make(chan struct{}),
+		conn:        conn,
+		negotiation: protocol.NewNegotiation(),
 	}
 	mc.bizInbox <- muxTask{}
 	if err := mc.dispatchInbound(context.Background(), protocol.MsgInvokeRequest, 1, []byte(`{}`)); err == nil {

@@ -122,32 +122,57 @@ the same moment.
   and keeps the session alive. It does **not** disconnect the whole connection.
 - Only request frames (`IsRequest`) get a rejection response; unsupported
   response/event frames are skipped because there is no request to answer.
-- `protocol.IsSupportedVersion` / `protocol.SupportedVersions` expose the
-  window to both `internal/transport/tcp` (Agent/Server inbound) and the Go SDK
-  transport, keeping both sides on the same rule.
+- The accepted window is enforced per connection via
+  `protocol.Negotiation.Accepts` in both `internal/transport/tcp` and
+  `core/transport/tcp` (Agent/Server inbound) and the Go SDK transport,
+  keeping all sides on the same rule.
+
+### Per-connection version negotiation (AUD-101)
+
+The header `Version` doubles as the negotiation carrier — v1 defines no
+explicit handshake frame, so negotiation needs no new frame type and a
+version-ignorant peer keeps working unchanged. Each connection owns a
+`protocol.Negotiation` state with these rules:
+
+- **Offer**: before the first supported inbound frame, outbound frames are
+  stamped with the local maximum (today `0x01`) — the initiator's natural
+  offer.
+- **Lock**: the first _supported_ inbound frame locks the connection's
+  negotiated version. Every later frame on that connection — requests,
+  responses, and proactive events — carries the negotiated version, so the
+  responder answers in the initiator's version, not its own maximum.
+- **Sticky**: an in-window frame that deviates from the locked version is
+  rejected per-request (`protocol.ErrVersionConflict`, payload
+  `{"error":"conflicting frame version N (negotiated M)",...}`); the lock and
+  the session stay intact.
+- **Fresh**: a new TCP connection negotiates from scratch — no lock is
+  inherited across reconnects.
+
+Rejection responses (unsupported or conflicting version) are stamped with the
+_offered_ version rather than the local maximum, so a peer capped below the
+local max can still parse them.
+
+**Boundary — negotiation is sticky per connection, not renegotiable.** Once
+locked, a connection speaks exactly one version until it dies; there is no
+renegotiation and no automatic downgrade-retry on rejection. Non-negotiating
+peers (SDKs that stamp a fixed version) behave exactly as before; under the
+default window `[1,1]` the wire is byte-identical to the historical v1
+behavior.
 
 ### N-1 compatibility and deprecation schedule
 
 The compatibility window is deliberately narrow but real: a peer running the
-previous wire version (N-1) keeps working while the platform deploys N.
+previous wire version (N-1) keeps working while the platform deploys N. With
+per-connection negotiation a mixed session now works bidirectionally: the
+N-side locks down to N-1 on the peer's first frame and answers — responses
+and events included — in N-1.
 
-**Boundary — the window is inbound-only.** Each side writes outbound frames
-with its own current version (`protocol.Version1`), and the v1 wire has no
-handshake to negotiate a common version. A mixed session therefore works in
-one direction only: the N-side accepts and answers N-1 requests, but its
-responses (written as N) fall outside the N-1 peer's window and are dropped
-there — including rejection responses, which are also written with the local
-current version. Until a negotiation handshake exists, bumping the wire
-version requires game-side SDKs to roll at least in step with the server; the
-window buys graceful per-request rejection with `supportedVersions`
-diagnostics on the inbound path, not transparent mixed-version operation.
-
-| Transition                  | Policy                                                                                                                                                                                                                                                                           |
-| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Version1` bump to `N`      | Set `MinSupportedVersion = N-1`; keep the old version accepted for one release cycle                                                                                                                                                                                             |
-| During the N-1 window       | Inbound: unsupported frames are rejected per-request and the session stays alive (`supportedVersions` tells the peer the exact window). Outbound: frames are always written with the local current version, so an N-1 peer cannot read N-side responses — see the boundary above |
-| Deprecation (end of window) | Remove the old version from the window; peers on it then receive per-request rejections                                                                                                                                                                                          |
-| Deprecation schedule        | Current: no deprecation yet (`MinSupportedVersion == Version1`); N-1 policy applies to the next version bump and is documented here at that time                                                                                                                                 |
+| Transition                  | Policy                                                                                                                                                                                           |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `Version1` bump to `N`      | Set `MinSupportedVersion = N-1`; keep the old version accepted for one release cycle                                                                                                             |
+| During the N-1 window       | Mixed sessions negotiate down to N-1 and operate fully at N-1 (both directions). Unsupported frames are still rejected per-request with `supportedVersions` diagnostics; the session stays alive |
+| Deprecation (end of window) | Remove the old version from the window; peers on it then receive per-request rejections                                                                                                          |
+| Deprecation schedule        | Current: no deprecation yet (`MinSupportedVersion == Version1`); N-1 policy applies to the next version bump and is documented here at that time                                                 |
 
 ## Request-response rules
 

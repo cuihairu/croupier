@@ -64,7 +64,9 @@ func TestServer_UnsupportedVersionRejectsRequestAndKeepsSession(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse rejection: %v", err)
 	}
-	if version != protocol.Version1 || msgID != protocol.MsgInvokeResponse || reqID != 0x11111111 {
+	// AUD-101: pre-negotiation rejections echo the offered version so a
+	// peer capped below the local max can still parse the rejection.
+	if version != protocol.Version1+1 || msgID != protocol.MsgInvokeResponse || reqID != 0x11111111 {
 		t.Fatalf("rejection header = version %d, msg %s, req %d", version, protocol.MsgIDString(msgID), reqID)
 	}
 	var rejection sdkv1.InvokeResponse

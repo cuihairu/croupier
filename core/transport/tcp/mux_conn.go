@@ -61,6 +61,9 @@ type MuxConn struct {
 	pendingMu sync.Mutex
 	pending   map[uint32]chan muxResponse
 	nextReqID atomic.Uint32
+	// negotiation locks the per-connection frame version (AUD-101): the
+	// first supported inbound frame wins, all outbound frames carry it.
+	negotiation *protocol.Negotiation
 
 	closeOnce sync.Once
 	closed    chan struct{}
@@ -94,6 +97,7 @@ func NewMuxConn(conn net.Conn, config *Config, handler transportcore.Handler) *M
 	m := &MuxConn{
 		conn:        conn,
 		handler:     handler,
+		negotiation: protocol.NewNegotiation(),
 		recvTimeout: config.RecvTimeout,
 		sendTimeout: config.SendTimeout,
 		ctrlInbox:   make(chan muxTask, ctrlQLen),
@@ -216,19 +220,36 @@ func (c *MuxConn) Run(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		if !protocol.IsSupportedVersion(version) {
+		if !c.negotiation.Accepts(version) {
 			// Reject the request with an explicit error frame and keep the
 			// session alive: a peer running an unsupported wire version must
 			// not silently kill the whole connection (N-1 compatibility).
 			if protocol.IsRequest(msgID) {
 				// 统一编码（AUD-002）：版本拒绝文档经标准编码器生成，沿用
 				// InvokeResponse 载体（SDK 读取 payload 并报告范围）。
+				// 拒绝帧以对端提供的版本回写（AUD-101）：对端只认自己的
+				// 版本，以本端默认版本回写会被旧对端静默丢弃。
 				respBody := InvokeVersionRejectedBody(int(version), protocol.SupportedVersions())
-				if err := c.writeFrame(reqID, protocol.GetResponseMsgID(msgID), respBody); err != nil {
+				if err := c.writeFrameVersion(reqID, protocol.GetResponseMsgID(msgID), respBody, version); err != nil {
 					return err
 				}
 			}
 			slog.Warn("rejected unsupported protocol version", "version", version, "msg_id", protocol.MsgIDString(msgID))
+			continue
+		}
+
+		// AUD-101：首条受支持帧锁定本连接的协商版本；此后偏离已锁版本的
+		// 帧一律按不支持处理（粘滞）——会话中途换版本会破坏 reqID 配对
+		// 与"响应必须用请求的版本"语义。
+		if _, err := c.negotiation.Offer(version); err != nil {
+			if protocol.IsRequest(msgID) {
+				respBody := InvokeVersionRejectedBody(int(version), protocol.SupportedVersions())
+				if err := c.writeFrameVersion(reqID, protocol.GetResponseMsgID(msgID), respBody, version); err != nil {
+					return err
+				}
+			}
+			slog.Warn("rejected conflicting frame version", "version", version,
+				"negotiated", c.negotiation.Version(), "msg_id", protocol.MsgIDString(msgID))
 			continue
 		}
 
@@ -373,7 +394,14 @@ func (c *MuxConn) handleInboundRequest(ctx context.Context, msgID uint32, reqID 
 }
 
 func (c *MuxConn) writeFrame(reqID uint32, msgID uint32, body []byte) error {
-	payload := protocol.NewMessageBody(msgID, reqID, body)
+	return c.writeFrameVersion(reqID, msgID, body, c.negotiation.Version())
+}
+
+// writeFrameVersion stamps an explicit frame version (AUD-101): normal
+// traffic carries the negotiated version; pre-lock rejection replies carry
+// the peer's own offered version so an older peer can still read them.
+func (c *MuxConn) writeFrameVersion(reqID uint32, msgID uint32, body []byte, version uint8) error {
+	payload := protocol.NewMessageBodyWithVersion(version, msgID, reqID, body)
 
 	c.writeMu.Lock()
 	defer c.writeMu.Unlock()

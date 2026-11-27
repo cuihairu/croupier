@@ -46,11 +46,12 @@ func (c *errorConn) SetWriteDeadline(t time.Time) error { return nil }
 // 手工构造的 TCPClient（不启动读循环）验证 Call 的发送失败分支。
 func TestCallWriteFailureReturnsSendError(t *testing.T) {
 	c := &TCPClient{
-		conn:      newErrorConn(),
-		config:    &Config{},
-		pending:   make(map[uint32]chan responseTuple),
-		nextReqID: 1,
-		closing:   make(chan struct{}),
+		conn:        newErrorConn(),
+		config:      &Config{},
+		pending:     make(map[uint32]chan responseTuple),
+		nextReqID:   1,
+		closing:     make(chan struct{}),
+		negotiation: protocol.NewNegotiation(),
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -69,11 +70,12 @@ func TestCallWriteFailureReturnsSendError(t *testing.T) {
 func TestWriteResponseFrameFailureFailsPending(t *testing.T) {
 	respCh := make(chan responseTuple, 1)
 	c := &TCPClient{
-		conn:      newErrorConn(),
-		config:    &Config{},
-		pending:   map[uint32]chan responseTuple{42: respCh},
-		nextReqID: 1,
-		closing:   make(chan struct{}),
+		conn:        newErrorConn(),
+		config:      &Config{},
+		pending:     map[uint32]chan responseTuple{42: respCh},
+		nextReqID:   1,
+		closing:     make(chan struct{}),
+		negotiation: protocol.NewNegotiation(),
 	}
 
 	err := c.writeResponseFrame(protocol.MsgInvokeRequest, 42, []byte(`{}`))
@@ -153,11 +155,12 @@ func TestReceiveLoopDropsUndeliverableResponseAndContinues(t *testing.T) {
 	// reqID=8：存活中的等待方。
 	live := make(chan responseTuple, 1)
 	c := &TCPClient{
-		conn:      clientSide,
-		config:    &Config{},
-		pending:   map[uint32]chan responseTuple{7: stale, 8: live},
-		nextReqID: 9,
-		closing:   make(chan struct{}),
+		conn:        clientSide,
+		config:      &Config{},
+		pending:     map[uint32]chan responseTuple{7: stale, 8: live},
+		nextReqID:   9,
+		closing:     make(chan struct{}),
+		negotiation: protocol.NewNegotiation(),
 	}
 	c.readLoopWg.Add(1)
 	go c.receiveLoop()

@@ -5,6 +5,8 @@ import (
 	"net"
 	"testing"
 	"time"
+
+	"github.com/cuihairu/croupier/sdks/go/pkg/croupier/protocol"
 )
 
 // receiveLoop 收到超过 maxFrameBytes 的帧长度头时应立即退出并触发 onClose，
@@ -14,11 +16,12 @@ func TestReceiveLoopOversizedFrameClosesConnection(t *testing.T) {
 	defer func() { _ = serverSide.Close() }()
 
 	c := &TCPClient{
-		conn:      clientSide,
-		config:    &Config{},
-		pending:   make(map[uint32]chan responseTuple),
-		nextReqID: 1,
-		closing:   make(chan struct{}),
+		conn:        clientSide,
+		config:      &Config{},
+		pending:     make(map[uint32]chan responseTuple),
+		nextReqID:   1,
+		closing:     make(chan struct{}),
+		negotiation: protocol.NewNegotiation(),
 	}
 
 	closed := make(chan struct{}, 1)

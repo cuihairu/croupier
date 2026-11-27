@@ -36,6 +36,11 @@ type Server struct {
 	// （互联 RecvTimeout 90s 时优雅停机会拖满整个超时）。
 	mu    sync.Mutex
 	conns map[net.Conn]struct{}
+
+	// negotiationWindow, when set (tests only), overrides the per-connection
+	// accepted version window so N/N-1 mixes can be rehearsed before
+	// Version1 moves (AUD-101). nil in production.
+	negotiationWindow func() (uint8, uint8)
 }
 
 type connectionSessionContextKey struct{}
@@ -209,15 +214,29 @@ type inboundTask struct {
 }
 
 // connWriter 串行化单连接上的响应帧写（读循环 busy 内联回帧 + 执行
-// worker 并发回帧共用一把连接级写锁）。
+// worker 并发回帧共用一把连接级写锁）。响应帧携带连接协商版本（AUD-101）。
 type connWriter struct {
-	mu      sync.Mutex
-	conn    net.Conn
-	timeout time.Duration
+	mu          sync.Mutex
+	conn        net.Conn
+	timeout     time.Duration
+	negotiation *protocol.Negotiation
 }
 
 func (w *connWriter) writeResponse(msgID uint32, reqID uint32, body []byte) error {
-	frame := protocol.NewMessageBody(protocol.GetResponseMsgID(msgID), reqID, body)
+	frame := protocol.NewMessageBodyWithVersion(w.negotiation.Version(), protocol.GetResponseMsgID(msgID), reqID, body)
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.timeout > 0 {
+		_ = w.conn.SetWriteDeadline(time.Now().Add(w.timeout))
+	}
+	return writeFrame(w.conn, frame)
+}
+
+// writeResponseVersion stamps an explicit frame version (AUD-101): pre-lock
+// rejection replies carry the peer's own offered version so an older peer
+// can still read them.
+func (w *connWriter) writeResponseVersion(msgID uint32, reqID uint32, body []byte, version uint8) error {
+	frame := protocol.NewMessageBodyWithVersion(version, protocol.GetResponseMsgID(msgID), reqID, body)
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	if w.timeout > 0 {
@@ -262,7 +281,14 @@ func (s *Server) serveConn(ctx context.Context, conn net.Conn) {
 	session := &ConnectionSession{}
 	connCtx, cancelConn := context.WithCancel(context.WithValue(ctx, connectionSessionContextKey{}, session))
 
-	writer := &connWriter{conn: conn, timeout: s.config.SendTimeout}
+	// AUD-101：每条连接独立协商帧版本；测试可用 negotiationWindow 注入
+	// 未来窗口（N/N-1 混跑演练），生产用包默认窗口。
+	negotiation := protocol.NewNegotiation()
+	if s.negotiationWindow != nil {
+		minV, maxV := s.negotiationWindow()
+		negotiation = protocol.NewNegotiationWindow(minV, maxV)
+	}
+	writer := &connWriter{conn: conn, timeout: s.config.SendTimeout, negotiation: negotiation}
 	workers, queueLen := s.dispatchLanes()
 	business := make(chan inboundTask, queueLen)
 	control := make(chan inboundTask, controlQueueLen)
@@ -315,16 +341,29 @@ func (s *Server) serveConn(ctx context.Context, conn net.Conn) {
 		if err != nil {
 			return
 		}
-		if !protocol.IsSupportedVersion(version) {
+		if !negotiation.Accepts(version) {
 			// 仅拒绝请求帧（与 core mux/sdks 客户端同规则）：对响应帧回写会
 			// 伪造对端从未发出的请求响应，对单向事件回写则可能形成响应循环。
 			if protocol.IsRequest(msgID) {
 				// 统一编码（AUD-002）：版本拒绝文档经标准编码器生成，
 				// 沿用 InvokeResponse 载体（SDK 读取 payload 并报告范围）。
+				// 拒绝帧以对端提供的版本回写（AUD-101），旧对端才读得到。
 				rejection := tcptr.InvokeVersionRejectedBody(int(version), protocol.SupportedVersions())
-				_ = writer.writeResponse(msgID, reqID, rejection)
+				_ = writer.writeResponseVersion(msgID, reqID, rejection, version)
 			}
 			slog.Warn("rejected unsupported protocol version", "version", version, "msg_id", protocol.MsgIDString(msgID))
+			continue
+		}
+
+		// AUD-101：首条受支持帧锁定连接协商版本；其后偏离已锁版本的帧按
+		// 不支持同规则处理（粘滞），防止会话中途换版本破坏响应配对。
+		if _, err := negotiation.Offer(version); err != nil {
+			if protocol.IsRequest(msgID) {
+				rejection := tcptr.InvokeVersionRejectedBody(int(version), protocol.SupportedVersions())
+				_ = writer.writeResponseVersion(msgID, reqID, rejection, version)
+			}
+			slog.Warn("rejected conflicting frame version", "version", version,
+				"negotiated", negotiation.Version(), "msg_id", protocol.MsgIDString(msgID))
 			continue
 		}
 

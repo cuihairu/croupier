@@ -732,7 +732,9 @@ func TestTCPClient_RejectsUnsupportedVersionAndKeepsSession(t *testing.T) {
 			serverErr <- err
 			return
 		}
-		if version != protocol.Version1 || msgID != protocol.MsgInvokeResponse || reqID != 0x11111111 {
+		// AUD-101: pre-negotiation rejections echo the offered version so a
+		// peer capped below the local max can still parse the rejection.
+		if version != protocol.Version1+1 || msgID != protocol.MsgInvokeResponse || reqID != 0x11111111 {
 			serverErr <- fmt.Errorf("rejection = version %d msg %s req %d", version, protocol.MsgIDString(msgID), reqID)
 			return
 		}

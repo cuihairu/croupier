@@ -38,6 +38,9 @@ type TCPClient struct {
 	onClose    func(err error)
 	inbound    InboundHandler
 	writeMu    sync.Mutex
+	// negotiation locks the per-connection frame version (AUD-101): the
+	// first supported inbound frame wins, outbound frames carry it.
+	negotiation *protocol.Negotiation
 	// dead 在 receiveLoop 退出（连接死亡）后置位；晚于 failAllPending
 	// 到达的 Call 依赖它立即失败，否则只能等 ctx/deadline。
 	dead bool
@@ -118,12 +121,13 @@ func NewTCPClient(config *Config) (*TCPClient, error) {
 	}
 
 	client := &TCPClient{
-		conn:      conn,
-		config:    config,
-		pending:   make(map[uint32]chan responseTuple),
-		nextReqID: 1,
-		closing:   make(chan struct{}),
-		inbound:   config.InboundHandler,
+		conn:        conn,
+		config:      config,
+		pending:     make(map[uint32]chan responseTuple),
+		nextReqID:   1,
+		closing:     make(chan struct{}),
+		inbound:     config.InboundHandler,
+		negotiation: protocol.NewNegotiation(),
 	}
 
 	// 入站 worker 池：读循环只投递，业务处理由固定 worker 并发执行。
@@ -193,7 +197,14 @@ func (c *TCPClient) inboundWorker() {
 // 令在途 Call 以 errConnectionClosed 失败（读循环侧迟早也会触发，此处提前），
 // 并把错误回传调用方记录。
 func (c *TCPClient) writeResponseFrame(msgID uint32, reqID uint32, respBody []byte) error {
-	frameBody := protocol.NewMessageBody(protocol.GetResponseMsgID(msgID), reqID, respBody)
+	return c.writeResponseFrameVersion(msgID, reqID, respBody, c.negotiation.Version())
+}
+
+// writeResponseFrameVersion stamps an explicit frame version (AUD-101):
+// normal responses carry the negotiated version; pre-lock rejection replies
+// carry the peer's own offered version so an older peer can still read them.
+func (c *TCPClient) writeResponseFrameVersion(msgID uint32, reqID uint32, respBody []byte, version uint8) error {
+	frameBody := protocol.NewMessageBodyWithVersion(version, protocol.GetResponseMsgID(msgID), reqID, respBody)
 	frame := make([]byte, frameHeaderBytes+len(frameBody))
 	binary.BigEndian.PutUint32(frame[:frameHeaderBytes], uint32(len(frameBody)))
 	copy(frame[frameHeaderBytes:], frameBody)
@@ -281,8 +292,9 @@ func (c *TCPClient) Call(ctx context.Context, msgID uint32, reqBody []byte) (res
 	// Frame length prefix (big-endian)
 	binary.BigEndian.PutUint32(frame[0:4], uint32(payloadSize))
 
-	// Protocol header
-	frame[4] = protocol.Version1
+	// Protocol header — negotiated connection version (AUD-101); unlocked
+	// connections stamp the local maximum (the initiator's offer).
+	frame[4] = c.negotiation.Version()
 	protocol.PutMsgID(frame[5:8], msgID)
 	binary.BigEndian.PutUint32(frame[8:12], reqID)
 
@@ -368,7 +380,7 @@ func (c *TCPClient) receiveLoop() {
 		}
 
 		version := payload[0]
-		if !protocol.IsSupportedVersion(version) {
+		if !c.negotiation.Accepts(version) {
 			// N-1 兼容：不兼容版本拒绝该请求并保留会话，而非硬断开。
 			// 只有请求帧回错误响应；响应/事件帧无法回。
 			msgID := protocol.GetMsgID(payload[1:4])
@@ -378,7 +390,8 @@ func (c *TCPClient) receiveLoop() {
 					Payload: []byte(fmt.Sprintf(`{"error":"unsupported protocol version: %d","supportedVersions":%s}`, version, supportedVersionsJSON())),
 				}
 				if marshaled, marshalErr := proto.Marshal(errResp); marshalErr == nil {
-					if werr := c.writeResponseFrame(msgID, reqID, marshaled); werr != nil {
+					// 拒绝帧以对端提供的版本回写（AUD-101），旧对端才读得到。
+					if werr := c.writeResponseFrameVersion(msgID, reqID, marshaled, version); werr != nil {
 						slog.Warn("write unsupported-version rejection failed", "version", version, "msg_id", protocol.MsgIDString(msgID), "error", werr)
 					}
 				}
@@ -402,6 +415,41 @@ func (c *TCPClient) receiveLoop() {
 				}
 			}
 			slog.Warn("rejected unsupported protocol version", "version", version, "msg_id", protocol.MsgIDString(msgID))
+			continue
+		}
+
+		// AUD-101：首条受支持帧锁定连接协商版本；此后偏离已锁版本的帧按
+		// 不支持同规则处理（粘滞）——中途换版本会破坏 reqID 配对语义。
+		if _, nerr := c.negotiation.Offer(version); nerr != nil {
+			msgID := protocol.GetMsgID(payload[1:4])
+			reqID := binary.BigEndian.Uint32(payload[4:8])
+			if protocol.IsRequest(msgID) {
+				errResp := &sdkv1.InvokeResponse{
+					Payload: []byte(fmt.Sprintf(`{"error":"conflicting frame version %d (negotiated %d)","supportedVersions":%s}`, version, c.negotiation.Version(), supportedVersionsJSON())),
+				}
+				if marshaled, marshalErr := proto.Marshal(errResp); marshalErr == nil {
+					if werr := c.writeResponseFrameVersion(msgID, reqID, marshaled, version); werr != nil {
+						slog.Warn("write conflicting-version rejection failed", "version", version, "msg_id", protocol.MsgIDString(msgID), "error", werr)
+					}
+				}
+			} else if protocol.IsResponse(msgID) {
+				// 与 unsupported 分支对称：偏离协商版本的响应帧显式唤醒
+				// 等待方报版本冲突，而非让调用方干等上下文超时。
+				c.mu.RLock()
+				ch, ok := c.pending[reqID]
+				c.mu.RUnlock()
+				if ok {
+					vErr := fmt.Errorf("peer sent conflicting frame version %d (negotiated %d)", version, c.negotiation.Version())
+					select {
+					case ch <- responseTuple{err: vErr}:
+					case <-c.closing:
+						return
+					default:
+					}
+				}
+			}
+			slog.Warn("rejected conflicting frame version", "version", version,
+				"negotiated", c.negotiation.Version(), "msg_id", protocol.MsgIDString(msgID))
 			continue
 		}
 

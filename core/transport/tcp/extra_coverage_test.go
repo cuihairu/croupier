@@ -266,7 +266,7 @@ func TestMuxConnHandleInboundRequestProtocolError(t *testing.T) {
 	mc := &MuxConn{handler: transportcore.HandlerFunc(
 		func(ctx context.Context, msgID, reqID uint32, body []byte) ([]byte, error) {
 			return nil, NewProtocolError(errors.New("boom"))
-		})}
+		}), negotiation: protocol.NewNegotiation()}
 	err := mc.handleInboundRequest(context.Background(), protocol.MsgInvokeRequest, 1, []byte(`{}`))
 	require.True(t, isProtocolError(err))
 }

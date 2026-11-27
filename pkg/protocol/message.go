@@ -18,6 +18,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
+	"sync"
 )
 
 const (
@@ -53,6 +54,91 @@ func SupportedVersions() []int {
 // accepted window [MinSupportedVersion, Version1].
 func IsSupportedVersion(version uint8) bool {
 	return version >= MinSupportedVersion && version <= Version1
+}
+
+// ErrVersionConflict reports an in-window frame version that deviates from
+// the version already locked for the connection (AUD-101 sticky negotiation).
+type ErrVersionConflict struct{ Locked, Got uint8 }
+
+func (e *ErrVersionConflict) Error() string {
+	return fmt.Sprintf("frame version %d deviates from negotiated version %d", e.Got, e.Locked)
+}
+
+// Negotiation owns the per-connection negotiated frame version (AUD-101).
+//
+// The header version doubles as the negotiation carrier — v1 defines no
+// explicit handshake. The initiator stamps its maximum supported version on
+// the first frame; the receiver locks the connection to the first supported
+// inbound version, and every later frame on that connection (requests,
+// responses, proactive events) carries the negotiated version. A fresh TCP
+// connection negotiates from scratch.
+//
+// Before the first supported frame the negotiated version reports the local
+// maximum, which is exactly what pre-negotiation writes (unversioned
+// rejections) stamped historically (Version1).
+type Negotiation struct {
+	mu      sync.Mutex
+	locked  bool
+	version uint8
+	min     uint8
+	max     uint8
+}
+
+// NewNegotiation builds a Negotiation over the package default accepted
+// window [MinSupportedVersion, Version1].
+func NewNegotiation() *Negotiation {
+	return NewNegotiationWindow(MinSupportedVersion, Version1)
+}
+
+// NewNegotiationWindow builds a Negotiation over an explicit accepted
+// window. Production callers use NewNegotiation; the explicit window exists
+// so tests can rehearse the next version bump (N/N-1 mixes) before Version1
+// moves.
+func NewNegotiationWindow(min, max uint8) *Negotiation {
+	if min == 0 || max < min {
+		panic(fmt.Sprintf("protocol: invalid version window [%d,%d]", min, max))
+	}
+	return &Negotiation{version: max, min: min, max: max}
+}
+
+// Offer records the peer's frame version. When unlocked it locks the
+// negotiated version to peer (peer must be inside the accepted window) and
+// returns it; when already locked it returns the negotiated version, or an
+// ErrVersionConflict when the peer deviates from the locked version.
+func (n *Negotiation) Offer(peer uint8) (uint8, error) {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	if n.locked {
+		if peer != n.version {
+			return n.version, &ErrVersionConflict{Locked: n.version, Got: peer}
+		}
+		return n.version, nil
+	}
+	if peer < n.min || peer > n.max {
+		return n.version, fmt.Errorf("version %d outside supported window [%d,%d]", peer, n.min, n.max)
+	}
+	n.locked = true
+	n.version = peer
+	return n.version, nil
+}
+
+// Version returns the frame version outbound writes must use: the negotiated
+// version once locked, otherwise the local maximum (the initiator's natural
+// offer). Thread-safe.
+func (n *Negotiation) Version() uint8 {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	return n.version
+}
+
+// Accepts reports whether a frame version is inside this connection's
+// accepted window. With the default window it mirrors IsSupportedVersion;
+// an injected window (tests rehearsing the next bump) widens it per
+// connection only.
+func (n *Negotiation) Accepts(version uint8) bool {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	return version >= n.min && version <= n.max
 }
 
 // Message type constants (24 bits).
@@ -269,13 +355,24 @@ func ParseMessageFromBody(body []byte) (version uint8, msgID uint32, reqID uint3
 
 // NewMessageBody creates a body with protocol header prefix and data.
 func NewMessageBody(msgID uint32, reqID uint32, data []byte) []byte {
+	return NewMessageBodyWithVersion(Version1, msgID, reqID, data)
+}
+
+// NewMessageBodyWithVersion creates a body stamped with an explicit frame
+// version — the per-connection negotiated version (AUD-101). Version 0 is
+// not a valid wire version and is treated as Version1 to keep the historical
+// single-version callers safe.
+func NewMessageBodyWithVersion(version uint8, msgID uint32, reqID uint32, data []byte) []byte {
 	totalLen := HeaderSize + len(data)
 	if totalLen < HeaderSize || totalLen < len(data) || totalLen > math.MaxInt {
 		// 溢出，返回 nil
 		return nil
 	}
+	if version == 0 {
+		version = Version1
+	}
 	body := make([]byte, totalLen)
-	body[0] = Version1
+	body[0] = version
 	PutMsgID(body[1:4], msgID)
 	binary.BigEndian.PutUint32(body[4:8], reqID)
 	copy(body[HeaderSize:], data)
