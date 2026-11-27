@@ -586,3 +586,29 @@ func migrateBackupIdempotencyKey(ctx context.Context, sqlDB *sql.DB) error {
 	}
 	return nil
 }
+
+// migrateBusinessOperationCredentials 为 0069：business_operation_credentials
+// 表（GAME-009 批准协议 D2，高风险业务操作的游戏侧执行凭据）。新建表无存量
+// 数据、无存量约束名漂移（0028/0030 同模式），HasTable 检查后 CreateTable，
+// 索引随建表一次建出；重复运行幂等；缺表跳过（fanout 重放到无该表的库不报错、
+// 不建空壳）。
+func migrateBusinessOperationCredentials(ctx context.Context, sqlDB *sql.DB) error {
+	db, err := wrapGorm(sqlDB)
+	if err != nil {
+		return err
+	}
+	m := db.Migrator()
+	if !m.HasTable(&model.BusinessOperationCredential{}) {
+		if err := m.CreateTable(&model.BusinessOperationCredential{}); err != nil {
+			return fmt.Errorf("migrate: 0069 create business_operation_credentials: %w", err)
+		}
+	}
+	return nil
+}
+
+func businessOperationCredentialsTableMigration() *goose.Migration {
+	return goose.NewGoMigration(69,
+		&goose.GoFunc{RunDB: migrateBusinessOperationCredentials},
+		nil,
+	)
+}

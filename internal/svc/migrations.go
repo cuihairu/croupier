@@ -178,6 +178,10 @@ import (
 //   0068 (Go)   backups.idempotency_key 列 + 唯一索引（AUD-053 备份创建幂等
 //               键：同键 pending/succeeded 只建一次，并发双写冲突方回落到
 //               已存在行；指针列 NULL 不冲突；缺表跳过）
+//   0069 (Go)   business_operation_credentials 表（GAME-009 批准协议 D2，
+//               GAME-010 平台半边：高风险业务操作的游戏侧执行凭据——
+//               operationId 复合标识唯一作用域 + 参数指纹 + outcome 状态机 +
+//               D4 查询/重试计量列；新建表 CreateTable 无存量漂移；缺表跳过）
 
 func init() {
 	registerSvcMigrations()
@@ -256,6 +260,7 @@ func registerSvcMigrations() {
 		externalTokenScopeColumnsMigration(),
 		adminRefreshTokenTableMigration(),
 		backupIdempotencyKeyMigration(),
+		businessOperationCredentialsTableMigration(),
 	); err != nil {
 		// panic-ok: init 期迁移注册表组装失败属开发期错误（迁移函数
 		// 引用漂移），进程不可安全启动（CR-FIX-22 豁免清单）。

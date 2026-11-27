@@ -189,6 +189,7 @@ func GameModels() []interface{} {
 		&PageProposal{},
 		&PageProposalVersion{},
 		&PageExecuteIdempotency{},
+		&BusinessOperationCredential{},
 		&BlockedProposalIssue{},
 		&PageSpec{},
 		&PublishedPageSpec{},
