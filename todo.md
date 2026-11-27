@@ -2457,9 +2457,13 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 依赖：AUD-006。交付与验收：在 macOS runner 验证 iOS 工程及插件注册，使用无签名构建阻止编译回归。记录首次 iOS 实机登录与作用域请求结果，发布签名验证按发布流程单独执行。证据：`mobile/ios/Runner.xcodeproj/project.pbxproj` 已跟踪原生工程，`.github/workflows/ci-mobile.yml:24,69,77` 当前构建门禁只验证 Android，仓内未找到 iOS 构建工作流。
   - 状态／条件：未开始。
 
-- [ ] **AUD-098 · P1 · 修复 · 为迁移会话解锁设置独立清理预算**
+- [x] **AUD-098 · P1 · 修复 · 为迁移会话解锁设置独立清理预算**
   - 依赖：—。交付与验收：解锁使用有界清理上下文，保留原迁移错误并报告解锁失败，无法确认锁已释放时弃用相应物理连接。覆盖迁移取消、解锁延迟及非连接级解锁错误。证据：`internal/db/migrate/migrate.go:130` 使用无 deadline 的后台上下文并丢弃解锁错误，随后关闭逻辑连接。MySQL 替身观察到清理超过原调用预算、连接回到空闲池且解锁错误未透出。
-  - 状态／条件：未开始。
+  - 状态／条件：已完成，LOCAL VERIFIED（`9deeb0e4a` — `fix: bound migration session lock cleanup`；`internal/db/migrate/migrate.go` +90/−17、`release_session_lock_test.go` 新 195 行）。`releaseSessionLock(conn, dialect, budget)` 用全新 `context.WithTimeout(context.Background(), 5s)` 执行方言解锁（生产 5s，测试可缩预算）——不受已取消/过期的迁移 ctx 影响但绝不清算无限；`acquireSessionLock` 返回 `func() error` 透出解锁错误，`ensureUpToDate` 用命名返回 + defer `errors.Join(原迁移错误, 解锁错误)`（保留不替换）；任何解锁错误（含预算超时）都经 `conn.Raw` 返回 `driver.ErrBadConn` 使 stdlib putConn 关闭物理连接而非回池（happy path 仍 `conn.Close()` 正常回池）。错误分类边界：`database/sql` 无法区分连接级与 SQL 级解锁错误，统一按「释放未确认」保守弃用连接（最坏多一次按需重连）。
+  - 测试：`go vet ./internal/db/migrate/` 干净；`go test ./internal/db/... -count=1` 四包全绿（migrate 45 PASS / 0 fail / 0 skip，61s，含既有 60s deadline 测试）。6 个新用例：happy path 回池、解锁超预算→停于预算+错误上报+连接弃用、MySQL/Postgres 非连接级错误上报+弃用、迁移取消仍尝试解锁且原错误保留（ErrorIs + 消息无清理错误）、集成 join 双错误+弃用。
+  - 变异自证：agent 侧注入原缺陷（无 deadline Background + `_ = unlockErr` + 普通 Close）→ 4 用例红（超预算等待 3s、错误丢失、连接回池 OpenConnections=2）。本席复做独立变异（把 `if unlockErr == nil` 改成 `if true` 吞掉解锁错误）→ `TestEnsureUpToDate_UnlockFailureJoinedWithMigrationError` 等红（actual 2 个连接未弃用），恢复后定向组绿；MUTATION 残留 0、`gofmt -l` 空。
+  - 完成证据：`9deeb0e4a` 提交清单含 `internal/db/migrate/migrate.go`、`internal/db/migrate/release_session_lock_test.go`（`git show --stat` 核对），已推 origin/main；db 四包 count=1 与变异红→绿均为本席独立复跑。
+  - 已知边界：`discardConn` 用 `sql.Conn.Raw` 返回 `driver.ErrBadConn`——database/sql 唯一可用的弃用原语；go-sqlmock 在物理连接全关时删除 DSN 注册表，无法断言「弃用后重连成功」，弃用证据用 `sqlDB.Stats()`（0 open/0 idle）；解锁延迟用例 3s 停滞对 100ms 测试预算（生产 5s）20 倍裕度；弃用后是否仍残留服务端会话锁未做端到端数据库验证。
 
 - [ ] **AUD-099 · P2 · 修复 · Nightly 签名发布成功后再更新滚动入口**
   - 依赖：—。交付与验收：保留现有 `nightly` 安装入口和最新构建保留策略。版本标识、提交与签名清单指向同一发布，签名或上传失败时滚动入口继续对应上一次完整产物，重跑可以恢复未完成构建。证据：`.github/workflows/nightly.yml:42,1017,1020,1048` 使用滚动标签，先强移远端 tag，再创建草稿、签名及公开。本轮仅复核 workflow 源码。
