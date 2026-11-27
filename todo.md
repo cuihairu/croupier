@@ -2410,9 +2410,13 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 依赖：—。交付与验收：明确接口游标语义，为旧调用方保留兼容路径。连续轮询时把服务端续读游标直接传回，验证新到达的一条事件刚好读到一次，并覆盖无增量的轮询。证据：`internal/api/task/service.go:207` 返回最大事件序号加一，`internal/model/task_model.go:298` 使用严格大于过滤。若读到 1、服务端返回 2，使用返回值续读会跳过序号 2。现有测试固定了旧 `nextSeq` 语义。SQLite 续读探针确认，回传该值时漏掉序号 2，回传最后已读序号时能读到。
   - 状态／条件：未开始。
 
-- [ ] **AUD-090 · P1 · 修复 · 将迁移上下文传入 baseline**
+- [x] **AUD-090 · P1 · 修复 · 将迁移上下文传入 baseline**
   - 依赖：—。交付与验收：首次建库及遗留库升级的 baseline SQL 继承迁移调用的取消和 deadline，失败后能按现有重试策略收敛。验证已过期上下文、baseline 执行中取消及正常续跑。证据：`internal/db/migrate/migrate.go:225,232,241` 版本探测和 goose Up 使用 ctx，baseline 使用原始 GORM 句柄。SQLite 探针验证 baseline 回调看不到调用方 deadline。
-  - 状态／条件：未开始。
+  - 状态／条件：已完成，LOCAL VERIFIED（`df280f6b9` — `fix: pass migration context into baseline`；`internal/db/migrate/migrate.go` +14/−1、`migrate_test.go` +118）。`ensureUpToDate` 的 baseline 桥接：先 `ctx.Err()` 快速失败（已过期 ctx 在任何 AutoMigrate 语句前返回，baseline 作用域错误包装），再 `baseline(db.WithContext(ctx))` 使执行中取消/截止经语句本身显现——与版本探测、goose Up 一致。两条路径都在 goose 记录版本前返回，版本表保持缺失，下次启动按既有重试策略（启动失败、重启重试）重探无版本表并幂等重跑桥接。
+  - 测试：`go test ./internal/db/... -count=1` 四包全绿（migrate 60.9s，39 测试 = 36 既有 + 3 新增；既有版本守卫断言未动）。新用例：`TestEnsureUpToDate_ExpiredContextFailsBeforeBaseline`（立即过期 ctx 快速失败且 baseline 从未被调）、`TestEnsureUpToDate_CancelMidBaselinePropagates`（baseline 句柄执行时以 context.Canceled 失败、错误 baseline 作用域包装、无版本记录）、`TestEnsureUpToDate_CancelledBaselineConvergesOnRetry`（失败后换活 ctx 重启收敛至 MinimumRequiredVersion）；`probeFSThrough(n)` 程序化生成 0001..n 探测迁移集。
+  - 变异自证：agent 侧还原 `baseline(db)` 原始句柄 → 中途取消用例红。本席复做同型变异（删 `ctx.Err()` 守卫与 `WithContext`）→ `TestEnsureUpToDate_CancelMidBaselinePropagates` 红（`baseline handle ignored the caller context: statement succeeded after cancellation`），恢复后定向组与全包绿；MUTATION 残留 0、`gofmt -l` 空。
+  - 完成证据：`df280f6b9` 提交清单含 `internal/db/migrate/migrate.go`、`internal/db/migrate/migrate_test.go`（`git show --stat` 核对），已推 origin/main；db 四包 count=1 与变异红→绿均为本席独立复跑。
+  - 已知边界：baseline 中途取消可能残留部分执行语句（已建表）；未加事务包装（会改生产 AutoMigrate 桥接语义，超范围），收敛依赖「失败的 baseline 不记版本 + 生产 baseline 回调幂等」既有不变性；本驱动上已过期 ctx 的快速失败先由 ctx 绑定的版本探测观察到（测试 (a) 接受快败即可），`ctx.Err()` 守卫是探测可能放行的驱动上的确定性兜底。
 
 - [ ] **AUD-091 · P2 · 修复 · 迁移会话锁适配单连接池**
   - 依赖：—。交付与验收：使用会话锁的驱动在池上限为 1 时能完成迁移，或在等待前给出明确的配置错误。验收池上限为 1 和正常池大小以及多进程锁互斥。证据：`internal/db/migrate/migrate.go:98,219,225` 先独占池中的连接作为锁会话，再从同一池借连接探测版本表。MySQL 替身验证上限为 1 时等到调用 deadline，版本查询未发出。
