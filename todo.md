@@ -2457,9 +2457,12 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 完成证据：`15a2fb198` 提交清单含 `core/register/loops.go`、`core/register/registration.go`、`core/register/register.go`、`core/register/register_stop_lifecycle_test.go`（`git show --stat` 核对，6 文件全在 `core/register/`），已推 origin/main；vet/test/-race/-count=200/变异红→绿均为本席独立复跑。
   - 已知边界：范围为 `core/register`，未跑 agent 侧端到端双探针（register-client 级确定性复现了原运行时场景，dialer 不感知取消）；`SetConn` 注入面为显式「已确认」测试/装配面，不经 stopGuard（非拨号/注册路径）；收尾断言用拨号计数冻结+50ms 观察窗而非 goroutine profile 计数。
 
-- [ ] **AUD-094 · P1 · 修复 · 串行化 Agent 配置拉取与版本提交**
+- [x] **AUD-094 · P1 · 修复 · 串行化 Agent 配置拉取与版本提交**
   - 依赖：—。交付与验收：定时拉取与手动拉取同时发生时，配置落地结果和版本游标一致，较早请求的迟到响应无法覆盖已经应用的更新。用不要求可排序的版本值测试两种完成顺序，以及 apply 失败后的重试。证据：`core/configsync/loop.go:16` 分开读版本、拉取、应用和写版本，`internal/app/agent/app_extension.go:69` 暴露直接拉取入口。探针观察到较新配置先应用，随后被较早请求的迟到响应覆盖。
-  - 状态／条件：未开始。
+  - 状态／条件：已完成，LOCAL VERIFIED（`ab38acae1` — `fix: serialize config sync pulls and apply order`；3 文件 +426/−14，含 `core/configsync/loop_serialization_test.go` 新 355 行）。`PullOnce` 入口先用 `ctx.Err()` 拒绝已取消调用，再分配单调 `seq`，随后 select 获取容量 1 的 `pullSlot`（等待时不持 `mu`、ctx 取消可退出），defer 释放；`pullOnceLocked(ctx, seq)` 在槽内串完「读版本 → fetch → apply → 提交游标」，回调在槽外触发。提交前增加 `appliedSeq.Load() > seq` 纪元检查：若本次在途期间已有更晚发起的拉取成功生效，跳过本轮且不推进游标，迟到响应无法覆盖新配置；apply 失败仍不推进 `lastVersion`，下轮重试。定时 `Start` 与 `internal/app/agent/app_extension.go` 暴露的直接拉取入口共用同一 `PullOnce` 串行区。
+  - 验证：`go build ./core/configsync/` OK；`go test ./core/configsync/ -count=1` 15 PASS / 0 FAIL（含新增 7 例：两种完成顺序、迟到响应不覆盖、内容与游标一致、apply 失败重试、排队中 ctx 取消、回调重入无死锁）；`-race -count=1` PASS；`gofmt -l core/configsync/` 空。变异自证：agent 侧单独去掉纪元守卫仍绿（串行槽已挡住测试交错），本席复做联合变异（同时去掉 `pullSlot` 获取/释放与 `appliedSeq` 检查）→ `TestOverlappingPulls_LateResponseCannotOverwrite` 红（期望 fresh/zulu，实得 stale/alpha），两层同时恢复后 `-race` 再次 PASS、diff 归零。
+  - 完成证据：`ab38acae1` 提交清单含 `core/configsync/configsync.go`、`core/configsync/loop.go`、`core/configsync/loop_serialization_test.go`（`git show --stat` 核对），已推 origin/main；build/-race/变异红→绿均为本席独立复跑。
+  - 已知边界：串行槽被长 fetch 占用时后续 `PullOnce` 会排队直到前轮完成或调用方 ctx 取消；被跳过的迟到轮次不重放其内容（下一轮按最新版本拉取即可）；`appliedSeq` 为进程内纪元，重启后从零开始（版本游标仍在持久化层）。
 
 - [x] **AUD-095 · P1 · 修复 · 自托管部署保留实例环境变量**
   - 依赖：—。交付与验收：明确 workflow 管理键与实例配置键，构建配置后原子落盘。以临时目录验证自定义端口、采集配置和 demo scope 两次部署后仍在，目标镜像 tag 正常更新。证据：`.github/workflows/deploy-self-hosted.yml:121,125,144` 先覆盖 `.env` 再从新文件读取旧端口。抽取脚本验证 demo scope 保留，数据库端口、采集端口和采集凭据配置键丢失。
