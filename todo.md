@@ -2322,9 +2322,11 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 依赖：—。交付与验收：插件保持健康超过两个宽限期并仍能处理调用；收到 Shutdown 或信号后才开启有界退出，异步清理回调有明确等待预算。证据：`sdks/plugins/js/src/serve.ts:224,259` 在启动阶段注册 `process.exit`，替身定时器在从未请求停机时即观察到该回调被设置。
   - 状态／条件：未开始。
 
-- [ ] **AUD-076 · P2 · 修复 · Python SyncInvoker 保留调用方事件循环**
+- [x] **AUD-076 · P2 · 修复 · Python SyncInvoker 保留调用方事件循环**
   - 依赖：—。交付与验收：运行中的 asyncio 循环内调用同步接口时直接给出明确错误，不分配替代循环或创建未等待协程；普通同步调用可复用并关闭所属循环。证据：`sdks/python/croupier/invoker.py:397` 自行抛出的错误被同一 try 捕获，从而创建并设置新循环。
-  - 状态／条件：未开始。
+  - 状态／条件：已完成，LOCAL VERIFIED。新增专用异常 `SyncInvokerLoopError(RuntimeError)`（并入 `__all__`）；`_get_loop` 重写——运行循环检测经 `asyncio.get_running_loop()`（try/except/else 结构，专用异常从 `else` 分支抛出、结构性位于任何可吞 handler 之外），命中即明确报错，不分配替代循环、不留未等待协程；普通同步调用路径保留 `get_event_loop()`→`new_event_loop()+set_event_loop()` 兜底（3.14+ 无当前循环抛 RuntimeError 语义已适配），并新增 `self._loop` 缓存复用（`is_closed` 守卫）；`close()` 补上所属循环关闭（此前从不关闭=泄漏），`finally` 中置空缓存并 `loop.close()`。变异自证（本人独立复核重做）：把专用 raise 挪回会被 `except RuntimeError: pass` 吞掉的 try 内（原缺陷形态）→ `test_sync_invoker_rejects_running_loop` 精确转红（异常被吞、次生 "This event loop is already running" 从 `run_until_complete` 冒出）；还原后 3 passed。原测试接受任意 RuntimeError 属空转通过，已强化为断言专用异常类型+运行循环身份保持+`_loop` 为 None。
+  - 完成证据：`f01150fca`（`sdks/python/croupier/invoker.py` +50/-8、`sdks/python/tests/test_invoker_coverage.py` 强化在环拒绝用例+新增 `test_sync_invoker_reuses_and_closes_owned_loop`（MockServer 端到端、两次 invoke 复用同循环、close 后 `loop.is_closed()`）。本地全绿：`/usr/bin/python3 -m pytest tests/ -q` 566 passed/17 skipped（61s）；invoker 三文件 `-W error::ResourceWarning` 90 passed、零 unclosed-event-loop 告警（6 条既有 urllib GC 噪声）；变异红→还原绿全程留痕。
+  - 已知边界：`close()` 会关闭它用过的循环——若该循环是线程既有 current loop（通常由 `get_event_loop` 发放），同线程外部代码裸调 `get_event_loop()` 会见到已关闭循环（既有暴露方向，此前是从不关闭的泄漏）；`SyncInvokerLoopError` 仅从 `croupier.invoker` 导出、未在顶层重导出（同既有惯例，`ServerHTTPError`/`UnknownResultError` 亦如此）；未等待协程的消除依赖 `run_until_complete` 求值顺序（先 `_get_loop()` 后协程实参）与 `stream_task` 先调 `_get_loop()`，经读码验证无专门告警捕获断言；`stream_task` 迭代中途弃离仍会留底层异步生成器打开（既有问题，超本项范围）。
 
 - [ ] **AUD-077 · P1 · 修复 · DB Router 关闭后拒绝发布迟到连接池**
   - 依赖：—。交付与验收：Close 与数据库发布共享生命周期检查。挂起最后迁移步骤、关闭后让迁移成功返回，迟到池被关闭、调用返回已关闭错误、池计数为零。证据：`internal/db/router/router.go:251,267,406` 在打开与缓存发布间缺少关闭检查，SQLite 探针复现关闭后池数回到 1。
