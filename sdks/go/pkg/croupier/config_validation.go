@@ -344,6 +344,33 @@ func CalculateRetryDelay(config *RetryConfig, attempt int) time.Duration {
 	return delay
 }
 
+// resolveInsecureMode reconciles the legacy Insecure bool with the explicit
+// InsecureMode selector. An explicit mode always wins; otherwise an explicit
+// true keeps the historical insecure behavior, and an explicit false combined
+// with any TLS material (CA/client cert/SNI/skip-verify) is treated as a
+// secure request rather than an omitted value. Only a wholly empty struct
+// falls back to defaultConfig.Insecure.
+func resolveInsecureMode(insecure bool, mode string, tlsConfigured bool, fallback bool) bool {
+	switch mode {
+	case InsecureModeSecure:
+		return false
+	case InsecureModeInsecure:
+		return true
+	}
+	if insecure {
+		return true
+	}
+	if tlsConfigured {
+		return false
+	}
+	return fallback
+}
+
+func tlsConfigPresent(c *ClientConfig) bool {
+	return c.CAFile != "" || c.CertFile != "" || c.KeyFile != "" ||
+		c.ServerName != "" || c.InsecureSkipVerify
+}
+
 // MergeWithDefaults merges a partial config with defaults
 func MergeWithDefaults(partial *ClientConfig) *ClientConfig {
 	defaultConfig := DefaultClientConfig()
@@ -353,6 +380,8 @@ func MergeWithDefaults(partial *ClientConfig) *ClientConfig {
 	}
 
 	result := *defaultConfig
+	result.Insecure = resolveInsecureMode(partial.Insecure, partial.InsecureMode,
+		tlsConfigPresent(partial), defaultConfig.Insecure)
 
 	// Override with provided values
 	if partial.ServiceID != "" {
@@ -379,9 +408,6 @@ func MergeWithDefaults(partial *ClientConfig) *ClientConfig {
 	if partial.HeartbeatInterval > 0 {
 		result.HeartbeatInterval = partial.HeartbeatInterval
 	}
-	if partial.Insecure {
-		result.Insecure = true
-	}
 	if partial.CAFile != "" {
 		result.CAFile = partial.CAFile
 	}
@@ -393,6 +419,14 @@ func MergeWithDefaults(partial *ClientConfig) *ClientConfig {
 	}
 	if partial.ServerName != "" {
 		result.ServerName = partial.ServerName
+	}
+	result.InsecureMode = partial.InsecureMode
+	if result.InsecureMode == InsecureModeUnset {
+		if result.Insecure {
+			result.InsecureMode = InsecureModeInsecure
+		} else if tlsConfigPresent(&result) {
+			result.InsecureMode = InsecureModeSecure
+		}
 	}
 	if partial.InsecureSkipVerify {
 		result.InsecureSkipVerify = true

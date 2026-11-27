@@ -143,6 +143,15 @@ type ClientConfig struct {
 	// TLS verification settings (when not insecure)
 	InsecureSkipVerify bool `json:"insecureSkipVerify"` // skip TLS verification (not recommended)
 
+	// InsecureMode pins the security posture of the SDK gateway connection.
+	// InsecureModeUnset means the flag was omitted and MergeWithDefaults /
+	// NewClient resolve it from the surrounding fields (see
+	// resolveInsecureMode); InsecureModeInsecure / InsecureModeSecure force
+	// the posture regardless. The legacy Insecure bool keeps its meaning:
+	// an explicitly-set Insecure: true still wins over this field for
+	// backward compatibility with callers that predate the mode selector.
+	InsecureMode string `json:"insecureMode,omitempty"`
+
 	// Authentication settings
 	AuthToken string            `json:"authToken"` // Bearer token for authentication
 	Headers   map[string]string `json:"headers"`   // additional headers
@@ -177,6 +186,16 @@ func generateUUID() string {
 	return fmt.Sprintf("%x-%x-%x-%x-%x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:])
 }
 
+// InsecureMode selects whether the SDK gateway connection uses plaintext.
+// It makes an explicit secure choice distinguishable from an omitted one:
+// a bare bool cannot express "explicitly false" without also meaning
+// "not provided" when a config comes from JSON or a zero-value struct.
+const (
+	InsecureModeUnset    = ""
+	InsecureModeInsecure = "insecure"
+	InsecureModeSecure   = "secure"
+)
+
 // DefaultClientConfig returns a default client configuration
 func DefaultClientConfig() *ClientConfig {
 	return &ClientConfig{
@@ -187,6 +206,7 @@ func DefaultClientConfig() *ClientConfig {
 		TimeoutSeconds:     30,
 		HeartbeatInterval:  60,
 		Insecure:           true, // Default to insecure for development
+		InsecureMode:       InsecureModeInsecure,
 		Headers:            map[string]string{},
 		ProviderLang:       "go",
 		ProviderSDK:        "croupier-go-sdk",

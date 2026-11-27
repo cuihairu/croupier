@@ -33,6 +33,27 @@ func main() {
 }
 ```
 
+## Security mode
+
+`Insecure: true` keeps plaintext for local development. For a production
+connection, set `InsecureMode: croupier.InsecureModeSecure` together with
+`CAFile` (and optionally `CertFile`, `KeyFile`, `ServerName`). The mode
+selector is authoritative: an explicit secure mode wins even if a legacy
+`Insecure: true` remains in the same config. Omitting the mode but providing
+TLS material also resolves to secure; with no security fields at all the
+development default (`Insecure: true`) is kept.
+
+```go
+client := croupier.NewClient(&croupier.ClientConfig{
+    AgentAddr:    "agent.example:19091",
+    GameID:       "demo-game",
+    Env:          "production",
+    InsecureMode: croupier.InsecureModeSecure,
+    CAFile:       "/etc/croupier/ca.pem",
+    ServerName:   "agent.example",
+})
+```
+
 ## Instance Metadata (Provider Self-Description)
 
 At registration you can attach **user-defined multi-KV instance metadata** (e.g. `serverId`, `pod`). It is reported via `ProviderConnectRequest.metadata` and is used by the console's "SDK Version Distribution" page to show instance information and support metadata-based search (REST `GET /api/v1/providers/sdk-stats?metaKey=&metaValue=`):

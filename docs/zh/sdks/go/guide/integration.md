@@ -33,6 +33,26 @@ func main() {
 }
 ```
 
+## 安全模式
+
+`Insecure: true` 保持本地开发的明文连接。生产连接请设置
+`InsecureMode: croupier.InsecureModeSecure` 并提供 `CAFile`（可选
+`CertFile`、`KeyFile`、`ServerName`）；模式选择器优先于旧字段——即使同一
+配置里仍留有 `Insecure: true`，显式安全模式也会生效。未提供模式但配置了
+TLS 材料时同样按安全连接处理；安全字段全部省略时沿用开发默认值
+（`Insecure: true`）。
+
+```go
+client := croupier.NewClient(&croupier.ClientConfig{
+    AgentAddr:    "agent.example:19091",
+    GameID:       "demo-game",
+    Env:          "production",
+    InsecureMode: croupier.InsecureModeSecure,
+    CAFile:       "/etc/croupier/ca.pem",
+    ServerName:   "agent.example",
+})
+```
+
 ## 实例元数据（Provider 自描述）
 
 注册时可以附加**用户自定义的多 KV 实例元数据**（如 `serverId`、`pod`）。它通过 `ProviderConnectRequest.metadata` 上报，控制台的 “SDK Version Distribution” 页面用它展示实例信息，并支持基于元数据的检索（REST `GET /api/v1/providers/sdk-stats?metaKey=&metaValue=`）：

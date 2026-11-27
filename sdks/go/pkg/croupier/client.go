@@ -98,6 +98,20 @@ func NewClient(config *ClientConfig) Client {
 		config.Reconnect = DefaultReconnectConfig()
 	}
 
+	// AUD-102: resolve the security posture once here so the merged
+	// TLS options actually reach the connection layer. A direct
+	// ClientConfig literal used to be trusted as-is; with Insecure unset and
+	// a CA file present the transport previously ignored the TLS settings.
+	config.Insecure = resolveInsecureMode(config.Insecure, config.InsecureMode,
+		tlsConfigPresent(config), true)
+	if config.InsecureMode == InsecureModeUnset {
+		if config.Insecure {
+			config.InsecureMode = InsecureModeInsecure
+		} else if tlsConfigPresent(config) {
+			config.InsecureMode = InsecureModeSecure
+		}
+	}
+
 	// Set up logger based on config
 	var l Logger
 	if config.DisableLogging {
