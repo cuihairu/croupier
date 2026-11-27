@@ -26,6 +26,11 @@ func (c *Client) Start(ctx context.Context) {
 
 		loopWG := sync.WaitGroup{}
 		if err := c.DialAndRegister(startCtx); err != nil {
+			// AUD-093：Stop 已收尾（或首拨因停机被拒）时不重启重连/心跳循环——
+			// 停止后的客户端不得自愈复活。
+			if c.isStopped() || errors.Is(err, ErrClientStopped) {
+				return
+			}
 			c.log.Warn("failed to connect to upstream server, will keep retrying in background...", "error", err)
 			loopWG.Add(1)
 			go func() {
@@ -34,6 +39,11 @@ func (c *Client) Start(ctx context.Context) {
 			}()
 		} else {
 			c.log.Info("upstream connected and registered successfully")
+		}
+		// AUD-093：停机收尾期间成功注册的连接也不启动心跳循环（Stop 已关闭该
+		// 连接并撤销发布，心跳无对象可服务）。
+		if c.isStopped() {
+			return
 		}
 		loopWG.Add(1)
 		go func() {
@@ -69,7 +79,14 @@ func (c *Client) DialAndRegister(ctx context.Context) error {
 		c.setConn(nil)
 		return err
 	}
-	c.setConn(conn)
+	// AUD-093：拨号可能晚于 Stop 返回（dialer 不感知取消，或直接拨号不受生命
+	// 周期 ctx 管辖）。落位前在同一停机闸下复核，且复核与落位在 mu 临界区内
+	// 原子——覆盖「拨号前检查之后、落位之前」Stop 完成的窗口：已停机则关闭
+	// 该连接并拒绝落位，禁止复活已停止的客户端。
+	if !c.installDialedConn(conn) {
+		_ = conn.Close()
+		return ErrClientStopped
+	}
 	// AUD-092：此处只落内部工作连接（重连/心跳循环用），不发布业务侧可见
 	// 快照——业务侧的连接与就绪状态待注册确认后由 registerOnce 发布。
 	// ARCH-022：注册调用也应用 requestTimeout 边界（与 SyncAttempts 一致），

@@ -40,6 +40,11 @@ func (c *Client) registerOnce(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	// AUD-093：ack 可能晚于 Stop 返回——消费 ack 的任何副作用（ownerInstance
+	// 记录、业务侧发布、OnConnected）前先复核停机闸，ack 不复活已停止的客户端。
+	if c.stopGuard.Load() {
+		return ErrClientStopped
+	}
 	if v := resp.GetInstanceId(); v != "" {
 		c.setOwnerInstance(v)
 		c.log.Info("upstream owner instance reported", "instance_id", v)
@@ -50,7 +55,11 @@ func (c *Client) registerOnce(ctx context.Context) error {
 	c.log.Info("synced with upstream server")
 	// AUD-092：注册确认（server ack）后才发布业务侧可见连接——发布先于
 	// OnConnected，回调里业务侧已能观察到 ready 状态与已确认连接。
-	c.publishRegistered(conn)
+	// AUD-093：publishRegistered 在 mu 临界区内复核停机闸（覆盖上一次复核与
+	// 落锁之间 Stop 完成的窗口）；被拒绝时不触发 OnConnected。
+	if !c.publishRegistered(conn) {
+		return ErrClientStopped
+	}
 	if c.cfg.OnConnected != nil {
 		c.cfg.OnConnected()
 	}
@@ -180,6 +189,9 @@ func (c *Client) Stop() {
 		return
 	}
 	c.stopOnce.Do(func() {
+		// AUD-093：停机闸先于一切收尾置位——晚于 Stop 的拨号返回/注册 ack 在
+		// 连接落位与业务侧发布的 mu 临界区内据此拒绝，不得复活已停止的客户端。
+		c.stopGuard.Store(true)
 		c.lifecycleCancel()
 		if conn := c.current(); conn != nil {
 			_ = conn.Close()
@@ -225,12 +237,30 @@ func (c *Client) publishedConn() Conn {
 	return c.published
 }
 
-// publishRegistered 把注册确认的连接发布为业务侧可见快照（仅 registerOnce
-// 成功后与 SetConn 注入面调用）。
-func (c *Client) publishRegistered(conn Conn) {
+// installDialedConn 落位拨号返回的内部工作连接；已停机（AUD-093 停机闸置位）
+// 时拒绝并返回 false，由调用方关闭该连接。复核与落位在 mu 临界区内原子完成，
+// 覆盖「拨号前检查之后、落位之前」Stop 完成的复活窗口。
+func (c *Client) installDialedConn(conn Conn) bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	if c.stopGuard.Load() {
+		return false
+	}
+	c.conn = conn
+	return true
+}
+
+// publishRegistered 把注册确认的连接发布为业务侧可见快照；已停机（AUD-093
+// 停机闸置位）时拒绝发布并返回 false——检查在 mu 临界区内与落位原子，晚于
+// Stop 的 ack 无法复活业务侧可见状态。
+func (c *Client) publishRegistered(conn Conn) bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.stopGuard.Load() {
+		return false
+	}
 	c.published = conn
+	return true
 }
 
 // clearPublishedIf 撤销业务侧可见快照——仅当仍指向 target（代际守卫：

@@ -73,6 +73,12 @@ type Client struct {
 	lifecycleWG     sync.WaitGroup
 	stopOnce        sync.Once
 	dialInflight    atomic.Bool
+	// stopGuard Stop 收尾前置位的一次性停机闸（AUD-093，先于 lifecycleCancel）：
+	// 在飞拨号的连接落位与注册 ack 的业务侧发布在 mu 临界区内据此拒绝——晚于
+	// Stop 返回的拨号/ack 只能关闭连接退出，不得复活已停止的客户端（不落内部
+	// 工作连接、不发布快照、不触发 OnConnected、不重启循环）。atomic 读写与
+	// Stop 的收尾序列、业务侧观察之间保持顺序一致。
+	stopGuard atomic.Bool
 }
 
 var ErrClientStopped = errors.New("register client stopped")

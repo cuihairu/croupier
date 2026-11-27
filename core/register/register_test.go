@@ -26,6 +26,10 @@ type fakeConn struct {
 	instanceID       string
 	registerRelease  chan struct{}
 	closed           atomic.Bool
+	// acked 在 Register 返回成功 ack 的瞬间置位（先于 registerOnce 的发布），
+	// 供 AUD-092 发布顺序探针做无竞态标记：发布（mu 临界区内） happens-after
+	// ack，采样方持同一把锁读快照后读 acked 必见 true。
+	acked atomic.Bool
 }
 
 func newFakeConn() *fakeConn { return &fakeConn{connected: true} }
@@ -60,6 +64,7 @@ func (f *fakeConn) Register(ctx context.Context, _ *agentv1.RegisterRequest) (*a
 	if fail {
 		return nil, errors.New("register rejected")
 	}
+	f.acked.Store(true)
 	return &agentv1.RegisterResponse{InstanceId: f.instanceID, Warnings: f.warnings}, nil
 }
 

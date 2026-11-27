@@ -136,7 +136,6 @@ func TestReplacementSwapsExposedStateExactlyOnce(t *testing.T) {
 
 	var pubMu sync.Mutex
 	readySeen := map[Conn]bool{}
-	var gen2Acked atomic.Bool
 	var violation atomic.Bool
 	stop := make(chan struct{})
 	samplerDone := make(chan struct{})
@@ -152,7 +151,12 @@ func TestReplacementSwapsExposedStateExactlyOnce(t *testing.T) {
 				pubMu.Lock()
 				readySeen[cur] = true
 				pubMu.Unlock()
-				if cur == Conn(gen2) && !gen2Acked.Load() {
+				// AUD-092 修正（顺带 AUD-093）：acked 由 fakeConn.Register 在
+				// 产生 ack 的瞬间置位——先于发布，且经 c.mu 与快照读配对，采样
+				// 观察到 gen2 ready 时必见 acked；不再用测试 goroutine 在
+				// <-dialErr 之后才落位的迟到标记（存在发布先于标记的窗口，
+				// 曾致 ~1/200 次假阳性红）。
+				if cur == Conn(gen2) && !gen2.acked.Load() {
 					violation.Store(true) // 未确认的 gen2 不得以 ready 形态暴露
 				}
 			}
@@ -179,7 +183,6 @@ func TestReplacementSwapsExposedStateExactlyOnce(t *testing.T) {
 
 	close(gen2Release)
 	require.NoError(t, <-dialErr)
-	gen2Acked.Store(true)
 	assert.Equal(t, Conn(gen2), c.Conn())
 	assert.True(t, c.Connected())
 	assert.True(t, gen1.closed.Load())
