@@ -2410,9 +2410,13 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 依赖：—。交付与验收：使用会话锁的驱动在池上限为 1 时能完成迁移，或在等待前给出明确的配置错误。验收池上限为 1 和正常池大小以及多进程锁互斥。证据：`internal/db/migrate/migrate.go:98,219,225` 先独占池中的连接作为锁会话，再从同一池借连接探测版本表。MySQL 替身验证上限为 1 时等到调用 deadline，版本查询未发出。
   - 状态／条件：未开始。
 
-- [ ] **AUD-092 · P1 · 修复 · Agent 只向业务暴露注册已确认的连接**
+- [x] **AUD-092 · P1 · 修复 · Agent 只向业务暴露注册已确认的连接**
   - 依赖：—。交付与验收：业务侧的连接和就绪状态在注册成功后一起发布，注册失败、超时、替换或断线时同步撤销。验证重连期间任务事件及指标发送看到明确的未就绪状态。证据：`core/register/loops.go:64,69,74` 在 Register 前发布连接，`core/register/registration.go:112,117` 直接对外返回连接与 socket 状态，`internal/app/agent/upstream.go:575` 使用该接口。阻塞注册前置步骤的探针观测到连接已暴露。
-  - 状态／条件：未开始。
+  - 状态／条件：已完成，LOCAL VERIFIED（`55cfb2d7e` — `fix: publish agent conn only after register ack`；`core/register/` 4 文件 +301/−10，含 `register_publication_test.go` 新 235 行）。设计：`Client` 增加 `published` 业务侧可见快照（复用既有 `mu`，无新锁、无锁序变化），`Conn()`/`Connected()` 改读快照；`registerOnce` 在 server ack 后、`OnConnected` 之前发布；`DialAndRegister` 入口置换时 `clearPublishedIf(old)` 代际守卫撤销、注册失败路径防御性撤销；`Stop` 在 `lifecycleWG.Wait()` 后无条件撤销（覆盖在飞注册残尾）。内部工作连接 `conn` 仍供重连/心跳循环使用，wire 协议不动。
+  - 测试：`go vet ./core/register/` 干净；`go test ./core/register/... -count=1` 26 PASS / 0 FAIL（含 6 个新用例：ack 前 not-ready、ack 后 ready 且发布先于 OnConnected、注册失败/超时撤销、置换恰一次交换且并发采样只见已确认代、死 socket not-ready 且自愈拨号失败不复活过期 ready）；`-count=5`（3.8s）与 `-race`（1.8s）稳定；消费方编译 `go build ./agents/{synthetics,devops,capture}/... ./internal/app/agent/...` OK（消费面零改动）。
+  - 变异自证：agent 侧把 `Conn()`/`Connected()` 回退为读工作连接（字节级还原原缺陷面）→ 6 个新用例中 3 个红（ack 前 nil 断言、重连窗口无过期 ready、置换窗口不暴露任何一代）。本席复做独立变异（抑制 `publishRegistered` 发布）→ `TestReplacementSwapsExposedStateExactlyOnce` 等 3 用例红，恢复后全包绿；MUTATION 残留 0、`gofmt -l` 空。
+  - 完成证据：`55cfb2d7e` 提交清单 `core/register/register.go`、`loops.go`、`registration.go`、`register_publication_test.go`（`git show --stat` 核对），已推 origin/main；vet/count=1/-race/消费方编译/变异红→绿均为本席独立复跑。
+  - 已知边界：`SetConn` 注入面（测试/高级装配）注入即视为已确认并同步发布（无注册握手可等，代码内注明）；TCP 层死亡到下一自愈 tick 之间 `Connected()` 已为 false 但 `Conn()` 仍短暂返回旧对象引用（仓内消费方均复检 `Connected()`，无过期 ready 可观察）；包级 fake 验证+消费方编译，无 live server 端到端（任务范围外）。
 
 - [ ] **AUD-093 · P1 · 修复 · Stop 纳入 Agent 直接拨号与注册的生命周期**
   - 依赖：—。交付与验收：启动路径和直接拨号在 Stop 时统一取消并收尾。拨号晚返回时关闭该连接，禁止复活已停止的客户端或触发连接成功回调。证据：`core/register/loops.go:52,64,69` 只在拨号前判断停机，`core/register/registration.go:174` 未收束直接拨号。替身探针在 Stop 返回后放行拨号，客户端重新变成 Connected。
