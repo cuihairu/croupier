@@ -48,6 +48,14 @@ type CreateScheduleInput struct {
 	// Kind 触发形态（ScheduleKindFunction/ScheduleKindIncidentReport）；
 	// 空 = function（默认派发链）。
 	Kind string
+	// FirstNext 首次触发时间（AUD-088）。Create 恒产出 active 行，而 ListDue
+	// 只扫 next_triggered_at IS NOT NULL——首触时间为 NULL 的 active 行是
+	// 永不触发的死行。该值由调用方按 cron 预计算（model 不 import scheduler，
+	// 防环，先例：SeedIncidentReportSchedules 的 nextAfter 回调），并与行同
+	// 一次 INSERT 落库：拆成 insert+update 会在 update 失败时留下死行且接口
+	// 仍报成功。nil = 旧形态（行落库后首触时间为 NULL，由调用方自行回填；
+	// 存量死行用 RepairMissingNextTrigger 盘点收敛）。
+	FirstNext *time.Time
 }
 
 func (m *TaskScheduleModel) Create(ctx context.Context, in CreateScheduleInput) (*TaskSchedule, error) {
@@ -70,6 +78,8 @@ func (m *TaskScheduleModel) Create(ctx context.Context, in CreateScheduleInput) 
 		Kind:          kind,
 		MaxFailedRuns: in.MaxFailed,
 		Actor:         in.Actor,
+		// AUD-088：首触时间与行同一次 INSERT 落库，create 不再依赖后续 update。
+		NextTriggeredAt: in.FirstNext,
 	}
 	if s.MaxFailedRuns <= 0 {
 		s.MaxFailedRuns = 5
@@ -138,7 +148,11 @@ func (m *TaskScheduleModel) Delete(ctx context.Context, id uint) error {
 	return m.db.WithContext(ctx).Delete(&TaskSchedule{}, id).Error
 }
 
-// ListDue 返回到期的 active 计划（调度循环扫描条件）。
+// ListDue 返回到期的 active 计划（调度循环扫描条件）。next_triggered_at
+// IS NOT NULL 是扫描条件的一部分：active 且首触时间为 NULL 的行扫不出来
+// （AUD-088）。该形态自创建起即被 Create 的 FirstNext 阻断；存量死行由
+// RepairMissingNextTrigger 盘点收敛——这里不得放宽成 IS NULL 也触发，否则
+// 一次性收敛会把积压死行集中派发。
 func (m *TaskScheduleModel) ListDue(ctx context.Context, now time.Time, limit int) ([]TaskSchedule, error) {
 	var out []TaskSchedule
 	q := m.db.WithContext(ctx).
@@ -148,6 +162,58 @@ func (m *TaskScheduleModel) ListDue(ctx context.Context, now time.Time, limit in
 	}
 	err := q.Find(&out).Error
 	return out, err
+}
+
+// RepairMissingNextTriggerResult 是存量死行（active 且 next_triggered_at 为
+// NULL——ListDue 扫不出来，永不触发）的盘点结果。
+type RepairMissingNextTriggerResult struct {
+	// Repaired 已回填首次触发时间的行。
+	Repaired []TaskSchedule
+	// Unrepairable 无法回填的行（cron 非法或回调放弃），保持原样待人工处置。
+	Unrepairable []TaskSchedule
+}
+
+// RepairMissingNextTrigger 盘点并收敛存量死行：active 且 next_triggered_at
+// 为 NULL 的行 ListDue 永远扫不出（AUD-088）。逐行经 nextAfter 按 cron 重算
+// 首触时间后回填；回填 UPDATE 带 status=active AND next_triggered_at IS NULL
+// 再校验（窗口内被并发暂停/回填的行 RowsAffected=0，按竞争丢弃不算 repaired）。
+// paused（暂停态清空首触时间是设计行为）与 dead_letter（恢复走 SetStatus 重算）
+// 不在扫描范围。nextAfter 由调用方注入（svc 侧经 scheduler.ParseCron 实现——
+// model 不 import scheduler，防环，先例 SeedIncidentReportSchedules）。
+// 幂等：收敛完成后再次调用两个清单均为空（除仍非法的 cron 行）。
+func (m *TaskScheduleModel) RepairMissingNextTrigger(ctx context.Context, nextAfter func(cronExpr string) (time.Time, bool)) (*RepairMissingNextTriggerResult, error) {
+	var dead []TaskSchedule
+	if err := m.db.WithContext(ctx).
+		Where("status = ? AND next_triggered_at IS NULL", ScheduleStatusActive).
+		Order("id ASC").
+		Find(&dead).Error; err != nil {
+		return nil, err
+	}
+	res := &RepairMissingNextTriggerResult{}
+	for i := range dead {
+		row := dead[i]
+		if nextAfter == nil {
+			res.Unrepairable = append(res.Unrepairable, row)
+			continue
+		}
+		next, ok := nextAfter(row.CronExpr)
+		if !ok {
+			res.Unrepairable = append(res.Unrepairable, row)
+			continue
+		}
+		tx := m.db.WithContext(ctx).Model(&TaskSchedule{}).
+			Where("id = ? AND status = ? AND next_triggered_at IS NULL", row.ID, ScheduleStatusActive).
+			Update("next_triggered_at", next)
+		if tx.Error != nil {
+			return res, tx.Error
+		}
+		if tx.RowsAffected == 0 {
+			continue // 竞争：并发已暂停或已被他实例回填
+		}
+		row.NextTriggeredAt = &next
+		res.Repaired = append(res.Repaired, row)
+	}
+	return res, nil
 }
 
 // HasRunLog 判断触发槽是否已记录。

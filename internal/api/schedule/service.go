@@ -137,8 +137,10 @@ func (s *Service) Create(ctx context.Context, req *CreateRequest) (*CreateRespon
 	if m == nil {
 		return nil, errorx.NewBadRequest("调度模型未初始化")
 	}
-	// Up-front cron validity check (fail fast).
-	if _, err := scheduler.ParseCron(req.CronExpr); err != nil {
+	// Up-front cron validity check (fail fast). The parsed spec is reused below:
+	// its first trigger time is persisted atomically with the schedule row.
+	spec, err := scheduler.ParseCron(req.CronExpr)
+	if err != nil {
 		return nil, errorx.NewBadRequest("cron 表达式无效: " + err.Error())
 	}
 	scope, err := resolveScheduleScope(ctx, req.GameID, req.Env)
@@ -161,6 +163,13 @@ func (s *Service) Create(ctx context.Context, req *CreateRequest) (*CreateRespon
 		return nil, err
 	}
 	actor := currentActor(ctx)
+	// AUD-088: the first trigger time is persisted atomically in the SAME insert
+	// as the schedule row. ListDue only scans next_triggered_at IS NOT NULL, so
+	// the old insert-then-update shape produced an active row that would never
+	// fire whenever the follow-up update failed -- while the API still reported
+	// success. Now a failed insert (the only write) surfaces as an API error and
+	// leaves no row behind.
+	next := spec.Next(time.Now())
 	created, err := m.Create(ctx, model.CreateScheduleInput{
 		Name:       req.Name,
 		CronExpr:   req.CronExpr,
@@ -170,16 +179,10 @@ func (s *Service) Create(ctx context.Context, req *CreateRequest) (*CreateRespon
 		Payload:    model.JSON(req.Payload),
 		MaxFailed:  req.MaxFailedRuns,
 		Actor:      actor,
+		FirstNext:  &next,
 	})
 	if err != nil {
 		return nil, err
-	}
-	// Compute the next trigger time immediately.
-	if spec, err := scheduler.ParseCron(created.CronExpr); err == nil {
-		next := spec.Next(time.Now())
-		if err := m.UpdateSchedule(ctx, created.ID, map[string]interface{}{"next_triggered_at": next}); err == nil {
-			created.NextTriggeredAt = &next
-		}
 	}
 	return &CreateResponse{Item: buildItem(created)}, nil
 }

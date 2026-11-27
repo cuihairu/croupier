@@ -34,6 +34,7 @@ func (ctx *ServiceContext) StartScheduler() *scheduler.Manager {
 		return ctx.Scheduler
 	}
 	ctx.seedIncidentReportSchedules()
+	ctx.repairMissingNextTriggers()
 	mgr := scheduler.NewManager(ctx.TaskScheduleModel, dispatcherAdapter{d: ctx.Dispatcher})
 	if ctx.ReportRunner != nil {
 		mgr.SetLocalRunner(ctx.ReportRunner)
@@ -61,6 +62,31 @@ func (ctx *ServiceContext) seedIncidentReportSchedules() {
 	}
 	if n > 0 {
 		slog.Default().Info("seeded incident report schedules", "count", n)
+	}
+}
+
+// repairMissingNextTriggers 盘点收敛存量死行（active 且 next_triggered_at 为
+// NULL，ListDue 永远扫不出，AUD-088）。启动时运行一次，幂等；cron 非法的行
+// 逐条报出来留人工处置。svc 侧经 scheduler.ParseCron 注入 nextAfter（model
+// 不 import scheduler，防环，与 seedIncidentReportSchedules 同型）。
+func (ctx *ServiceContext) repairMissingNextTriggers() {
+	res, err := ctx.TaskScheduleModel.RepairMissingNextTrigger(context.Background(),
+		func(cronExpr string) (time.Time, bool) {
+			spec, err := scheduler.ParseCron(cronExpr)
+			if err != nil {
+				return time.Time{}, false
+			}
+			return spec.Next(time.Now()), true
+		})
+	if err != nil {
+		slog.Default().Warn("repair missing next_triggered_at failed", "error", err)
+		return
+	}
+	if len(res.Repaired) > 0 {
+		slog.Default().Info("repaired schedules missing next_triggered_at", "count", len(res.Repaired))
+	}
+	for _, row := range res.Unrepairable {
+		slog.Default().Warn("schedule has invalid cron, next_triggered_at left NULL", "schedule", row.ID, "cron", row.CronExpr)
 	}
 }
 
