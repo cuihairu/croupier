@@ -14,6 +14,25 @@ title: Java SDK 指南
 
 Java SDK 适合作为长驻服务组件使用；线程池、超时与重试策略应由业务方显式控制。
 
+## Spring Boot Starter
+
+`io.github.cuihairu.croupier:croupier-spring-boot-starter` 把同一个手写 SDK 以自动装配 bean 的形式暴露出来。连接配置在 `croupier.*` 属性前缀下（`game-id`、`service-id`、`agent-address`、`env`、`timeout-seconds`、`insecure`、`ca-file` 等）：
+
+```yaml
+croupier:
+  game-id: my-game
+  service-id: my-service
+  agent-address: 127.0.0.1:19091
+  # provider 握手 token（Bearer）。绑定到 ClientConfig.authToken，并以保留的
+  # authToken metadata key 随 ProviderConnectRequest 上送；agent 校验该值，
+  # 不会把它持久化进 session metadata。
+  auth-token: Bearer my-token
+```
+
+- 不配置 `croupier.auth-token` 时 `ClientConfig.authToken` 保持默认空值，握手 metadata 不会出现 `authToken` key。
+- 用户自定义 `ClientConfig` bean 优先：自动装配让位（`@ConditionalOnMissingBean`）。
+- 已知边界：只有 `CroupierProperties` 声明的字段能从 Spring 侧配置；其余 `ClientConfig` 字段（如 headers、心跳间隔）仍需手写配置。
+
 ## OpenAPI 导入（Descriptor v2）
 
 `OpenAPIImporter.registerFromOpenAPI(client, spec, options, resolver)` 在本地解析 OpenAPI 3 JSON，把每个 operation 转成 `FunctionDescriptor` 并注册。handler 按函数 ID（即 operationId，缺失时回退到由 path 推导的 `a.b.c`）查找：

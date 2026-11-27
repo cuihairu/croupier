@@ -53,6 +53,10 @@ public class CroupierAutoConfiguration {
         config.setControlAddr(properties.getControlAddr());
         config.setTimeoutSeconds(properties.getTimeoutSeconds());
         config.setInsecure(properties.isInsecure());
+        // AUD-105: bind the provider handshake token so the Spring entry point
+        // reaches the same ClientConfig field the hand-written SDK uses (the
+        // agent verifies it as the reserved authToken metadata key, CR-FIX-11).
+        config.setAuthToken(properties.getAuthToken());
         config.setCaFile(properties.getCaFile());
         config.setCertFile(properties.getCertFile());
         config.setKeyFile(properties.getKeyFile());

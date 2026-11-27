@@ -14,6 +14,25 @@ title: Java SDK Guide
 
 The Java SDK works best as a long-lived service component. Thread pools, timeouts, and retry policies should be controlled explicitly by the business side.
 
+## Spring Boot Starter
+
+`io.github.cuihairu.croupier:croupier-spring-boot-starter` exposes the same hand-written SDK as auto-configured beans. Connection settings live under the `croupier.*` property prefix (`game-id`, `service-id`, `agent-address`, `env`, `timeout-seconds`, `insecure`, `ca-file`, ...):
+
+```yaml
+croupier:
+  game-id: my-game
+  service-id: my-service
+  agent-address: 127.0.0.1:19091
+  # Provider handshake token (Bearer). Bound onto ClientConfig.authToken and
+  # sent as the reserved authToken metadata key on ProviderConnectRequest;
+  # the agent verifies it and never persists it into session metadata.
+  auth-token: Bearer my-token
+```
+
+- Omitting `croupier.auth-token` leaves `ClientConfig.authToken` unset, and no `authToken` key is added to the handshake metadata.
+- A user-defined `ClientConfig` bean wins: the auto-configuration backs off (`@ConditionalOnMissingBean`).
+- Known boundary: only the fields declared in `CroupierProperties` are reachable from Spring; other `ClientConfig` fields (e.g. headers, heartbeat intervals) still require hand-written configuration.
+
 ## OpenAPI Import (Descriptor v2)
 
 `OpenAPIImporter.registerFromOpenAPI(client, spec, options, resolver)` parses the OpenAPI 3 JSON locally, converts each operation into a `FunctionDescriptor`, and registers it. Handlers are looked up by function ID (i.e. the operationId, falling back to a path-derived `a.b.c` when missing):

@@ -66,6 +66,13 @@ public class CroupierProperties {
     private boolean insecure = true;
 
     /**
+     * Provider handshake auth token (Bearer). Sent as the reserved
+     * {@code authToken} metadata key on ProviderConnectRequest (CR-FIX-11);
+     * the agent verifies it and never persists it into session metadata.
+     */
+    private String authToken;
+
+    /**
      * CA certificate file path (when not insecure).
      */
     private String caFile;
@@ -160,6 +167,14 @@ public class CroupierProperties {
 
     public void setInsecure(boolean insecure) {
         this.insecure = insecure;
+    }
+
+    public String getAuthToken() {
+        return authToken;
+    }
+
+    public void setAuthToken(String authToken) {
+        this.authToken = authToken;
     }
 
     public String getCaFile() {

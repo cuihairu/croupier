@@ -30,6 +30,12 @@ java {
     withSourcesJar()
 }
 
+// AUD-105: JUnit 5 platform for starter tests (root configureEach does not
+// reach subprojects; without this the test task silently ran zero tests).
+tasks.named('test') {
+    useJUnitPlatform()
+}
+
 tasks.withType(JavaCompile).configureEach {
     options.release = 17
 }
