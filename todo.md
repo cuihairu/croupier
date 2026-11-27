@@ -2354,9 +2354,13 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 完成证据：`befb333a9` 提交文件清单为 `sdks/js/src/invoker.ts`、`sdks/js/src/invoker.stream_poll.test.ts`（`git show --stat` 核对）；已推 origin/main；全量 jest 与双 tsconfig 检查均为本席独立复跑。
   - 已知边界：jest 全量存在既有的 "worker process has failed to exit gracefully" 警告（指向 `src/index.ts:438` mock Client task stream），变更前后均存在；2 suites / 7 tests 的 skip 亦为既有状态。
 
-- [ ] **AUD-081 · P2 · 修复 · TLS 互联监听响应 Serve 上下文取消**
+- [x] **AUD-081 · P2 · 修复 · TLS 互联监听响应 Serve 上下文取消**
   - 依赖：—。交付与验收：同一 Serve 生命周期在明文或 TLS、空闲或连接在途时均可取消，监听和 worker 有界收尾。证据：`internal/transport/tcp/server.go:135,143,412` 只有裸 TCP listener 设置 Accept 截止时间。包装后的 TLS listener 在空闲时保持阻塞，替身探针核对必须额外 Close 才退出。
-  - 状态／条件：未开始。
+  - 状态／条件：已完成，LOCAL VERIFIED（`169785393` — `fix: tls interconnect serve honors context cancel`；`internal/transport/tcp/server.go` +103/−24、`internal/transport/tcp/server_shutdown_test.go` 新 230 行）。根因有二：① accept deadline 只在 `s.listener.(*net.TCPListener)` 断言后设置，crypto/tls 包装层不透传 SetDeadline，TLS 空闲时 Accept 永久阻塞；② ctx 取消从不断开在途连接，阻塞在 readFrame 的 serveConn 连同 per-conn worker 停不住。修复：`listen()` 自建 TCP listener 后再 `tls.NewListener` 包装并结构化返回底层 `*net.TCPListener`（`Server.tcpListener`，TLS 配置失败时关闭裸监听），Serve 把 ≤1s accept deadline 设在 unwrap 结果上（直构 Server 回退明文断言）；Serve 作用域 ctx watcher（`serveDone` 随 Serve 退出，不留常驻 goroutine）取消时 `closeConns()` 关闭全部在途连接，serveConn 的 defer 收尾关闭派发队列并 join worker，`Close()` 复用同一 `closeConns()`。帧协议与已建连接行为不变。
+  - 测试：`go vet ./internal/transport/tcp/` 干净；`go test ./internal/transport/... -count=1` 两包全绿（tcp 42 顶层 +2 子测试、transport 7）；新增 4 个定时用例 `-count=3` 稳定（12.3s）；全包 `-race` 绿（20.2s）；下游 `go build ./cmd/... ./internal/cluster/... ./agents/...` 干净、`go test ./internal/cluster/...` 绿。用例覆盖 TLS 空闲取消 ≤2s 返回、TLS 在途取消有界停机+conn 被服务端关闭+goroutine 回落基线、明文回归、`listen` 结构化布线。
+  - 变异自证（本席独立）：①agent 侧把 Serve 回退为只做明文断言（重建原缺陷）→ TLS 空闲/在途两用例红、明文与结构用例仍绿；②watcher 不再调 `closeConns` → 两个在途用例红（conn 未被服务端关闭）。本席复做变异 ①（`deadlineListener := s.tcpListener` → nil）→ `TestServer_Serve_TLSInFlightCancelBoundedShutdown` 红（5.1s 未有界返回），恢复后 Serve 组全绿；文件 MUTATION 计数 0、`gofmt -l` 空。
+  - 完成证据：`169785393` 提交清单 `internal/transport/tcp/server.go`、`internal/transport/tcp/server_shutdown_test.go`（`git show --stat` 核对），已推 origin/main；vet/count=1/-race/变异均为本席独立复跑。
+  - 已知边界：goroutine 泄漏断言为「本测试未新增 goroutine」的实用判定（容差 +2、5s 预算）非绝对；忽略 ctx 的 handler 仍由 serveConn defer join 等待（Close 的既有性质不变）；Serve 返回本身不 join conn goroutine（Close 仍 wg.Wait）。
 
 - [ ] **AUD-082 · P1 · 修复 · 备份创建在执行器不可用时返回明确状态**
   - 依赖：—。交付与验收：对象存储缺失、驱动不支持时，在创建前拒绝或进入有清晰原因的不可执行状态。覆盖正常执行、缺配置和旧 pending 数据收敛。证据：`internal/api/backup/service.go:94,106,130` 写 pending 后才查看执行器，执行器缺失时仍返回 pending 且无人推进。这是通用备份入口，数据面 ops 路径已有单独校验。
