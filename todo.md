@@ -2469,9 +2469,12 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 依赖：—。交付与验收：将 compose 与配置树写入独立候选目录并通过校验后再切换。覆盖镜像准备失败、候选配置无效和切换失败，验证现场配置和上一个可用版本可继续使用。证据：`.github/workflows/deploy-self-hosted.yml:66,79,110,150` 在登录镜像仓库及后续校验前直接替换现场 compose 和配置目录，备份范围只有两个 Agent YAML。
   - 状态／条件：未开始。
 
-- [ ] **AUD-097 · P2 · 补齐 · 为 iOS 原生工程加入 CI 构建验收**
+- [x] **AUD-097 · P2 · 补齐 · 为 iOS 原生工程加入 CI 构建验收**
   - 依赖：AUD-006。交付与验收：在 macOS runner 验证 iOS 工程及插件注册，使用无签名构建阻止编译回归。记录首次 iOS 实机登录与作用域请求结果，发布签名验证按发布流程单独执行。证据：`mobile/ios/Runner.xcodeproj/project.pbxproj` 已跟踪原生工程，`.github/workflows/ci-mobile.yml:24,69,77` 当前构建门禁只验证 Android，仓内未找到 iOS 构建工作流。
-  - 状态／条件：未开始。
+  - 状态／条件：已完成，LOCAL VERIFIED（`ea04c3f87` — `ci: add unsigned ios build gate`；新增 `.github/workflows/ci-mobile-ios.yml` 49 行）。触发路径与 `ci-mobile.yml` 同口径（`mobile/**` + 本工作流文件，PR/push main + workflow_dispatch），`macos-latest`、45 分钟上限、`working-directory: mobile`；步骤：checkout → Flutter 3.35.1 → `flutter pub get --enforce-lockfile`（与 Android 门禁同锁文件口径）→ `xcodebuild -version` 暴露工具链 → `flutter build ios --no-codesign`（xcodebuild 以 `CODE_SIGNING_ALLOWED=NO` 编译 Runner scheme、AppDelegate、GeneratedPluginRegistrant 及 iOS 插件的 Swift/ObjC 原生代码，无需签名身份/描述文件）。这正覆盖 `flutter analyze` 与 Android APK 门禁都触达不到的 iOS 原生编译层。
+  - 验证：`actionlint`（v1.7.12）0 解析错误 0 规则告警；独立 `yaml.safe_load` 确认 name/三触发路径/filter/macos-latest/5 步骤；`git show --stat` 仅该文件新增。变异自证：删除 `flutter build ios --no-codesign` 步骤后工作流仍能解析（actionlint 不因缺构建步骤报错=静态校验无法替代门禁存在性）→ 还原后步骤与前置注释逐字恢复、`git diff` 为空。
+  - 完成证据：`ea04c3f87` 提交清单 `.github/workflows/ci-mobile-ios.yml`（`git show --stat` 核对），已推 origin/main；actionlint/YAML 解析/变异检查均本席独立复跑。
+  - 已知边界：本机为 Linux，无 macOS runner/Xcode，**实际 `flutter build ios` 未在本地执行**——工作流首次在 GitHub macOS runner 上运行才是真实编译证据；CocoaPods/SPM 解析与 `--no-codesign` 兼容性也可能在首次运行暴露（正是本门禁要抓的失败）；本项只验证「能编译」，不验证首次 iOS 实机登录 + scoped 请求冒烟，也不验证签名 release 产物，二者按独立发布流程执行；不上传任何可分发产物。
 
 - [x] **AUD-098 · P1 · 修复 · 为迁移会话解锁设置独立清理预算**
   - 依赖：—。交付与验收：解锁使用有界清理上下文，保留原迁移错误并报告解锁失败，无法确认锁已释放时弃用相应物理连接。覆盖迁移取消、解锁延迟及非连接级解锁错误。证据：`internal/db/migrate/migrate.go:130` 使用无 deadline 的后台上下文并丢弃解锁错误，随后关闭逻辑连接。MySQL 替身观察到清理超过原调用预算、连接回到空闲池且解锁错误未透出。
