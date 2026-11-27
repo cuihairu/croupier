@@ -13,6 +13,7 @@ package router
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -27,6 +28,10 @@ import (
 // DatabaseOpener opens a *gorm.DB for a given driver+DSN. Production wires
 // this to the shared open logic in internal/svc; tests can inject fakes.
 type DatabaseOpener func(driver, dsn string) (*gorm.DB, error)
+
+// ErrClosed is returned by GameDB/Resolve once Router.Close has run: the
+// router no longer serves cached pools and never opens new ones (AUD-077).
+var ErrClosed = errors.New("router: closed")
 
 // gameDBInflightHook is the test seam at the GameDB singleflight callback entry;
 // product code always leaves it nil. Its only purpose is to let tests
@@ -130,6 +135,17 @@ type Router struct {
 	cache    map[string]*gorm.DB // keyed by physical database name
 	gameOfDB map[string]scopeKey // dbName → scope (for Forget/ForgetGame)
 
+	// closed is the lifecycle gate shared by Close and every cache publish
+	// (AUD-077). A first-open that races shutdown must never publish its pool
+	// into the cache Close has just drained: the publish re-checks this flag
+	// while holding the cache mutex (the same mutex Close drains under), so
+	// either the publish wins the race and Close closes the pool afterwards,
+	// or Close wins and the late pool is rejected and closed immediately. If
+	// it were checked only against the cancelled lifecycle context, a
+	// migration that completes after Close would still publish a pool nobody
+	// owns (pool count back to 1 after Close returned).
+	closed atomic.Bool
+
 	// inflight deduplicates concurrent first-open attempts per physical
 	// database name so that expensive I/O (create/migrate) runs once per db
 	// while different dbs open in parallel. I/O happens OUTSIDE the cache
@@ -207,6 +223,11 @@ func (r *Router) resolveName(ctx context.Context, gameID, env string) (string, e
 // (create/migrate/open) runs OUTSIDE the cache mutex so a slow first-open for
 // one game never blocks reads on another game's cached connection.
 func (r *Router) GameDB(ctx context.Context, gameID, env string) (*gorm.DB, error) {
+	// AUD-077: a closed router serves nothing — no cached pool (the cache was
+	// drained) and no new first-open.
+	if r.closed.Load() {
+		return nil, fmt.Errorf("router: game db %q env %q after close: %w", gameID, env, ErrClosed)
+	}
 	// ARCH-009: a caller that arrives already-cancelled must not trigger any
 	// first-open I/O at all.
 	if err := ctx.Err(); err != nil {
@@ -261,6 +282,16 @@ func (r *Router) GameDB(ctx context.Context, gameID, env string) (*gorm.DB, erro
 
 		// Publish under a brief write lock. Only map writes happen here, no I/O.
 		r.mu.Lock()
+		// AUD-077: Close shares this mutex and sets the closed flag before
+		// draining, so a first-open that finished while Close ran must NOT
+		// republish into the drained cache. The migration itself is allowed to
+		// complete successfully (its result is simply discarded); the late pool
+		// is closed right here and every waiter gets ErrClosed.
+		if r.closed.Load() {
+			r.mu.Unlock()
+			_ = closeQuietly(db)
+			return nil, fmt.Errorf("router: game db %q publish after close: %w", dbName, ErrClosed)
+		}
 		// Another opener for the same db could have raced ahead (e.g. after a
 		// Forget); prefer the existing one and close ours to avoid a leak.
 		if existing, ok := r.cache[dbName]; ok {
@@ -407,7 +438,13 @@ func (r *Router) OpenScopes() []Scope {
 // Close cancels the router lifecycle (aborting any in-flight first-open)
 // and closes every cached game DB. The meta DB is owned by the caller and
 // is NOT closed here.
+//
+// Close and the cache publish share a lifecycle check (AUD-077): the closed
+// flag is stored BEFORE the drain so any open completing concurrently is
+// rejected at its publish critical section (under the same mutex) and its
+// late pool is closed there — the pool count stays zero after Close returns.
 func (r *Router) Close() error {
+	r.closed.Store(true)
 	if r.lifecycleCancel != nil {
 		r.lifecycleCancel()
 	}
