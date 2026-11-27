@@ -19,6 +19,11 @@ on:
       - "mobile/**"
       - ".github/workflows/ci-mobile.yml"
   workflow_dispatch:
+    inputs:
+      rehearsal:
+        description: "Debug-signed rehearsal artifact (false requires signing secrets)"
+        type: boolean
+        default: true
 
 jobs:
   flutter:
@@ -79,8 +84,10 @@ jobs:
 
   # APK 产物流水线（设计稿 §7/§8 M4）：workflow_dispatch 手动触发，门禁
   # job 绿后产 release APK 并上传为可下载产物（retention 14 天）。
-  # release 走 android/app/build.gradle.kts 模板默认的 debug keystore 签名
-  # （仓库暂无正式发布签名配置），产物定位为内部分发/侧载测试。
+  # AUD-085 签名分离：默认（rehearsal=true）产出 debug 签名的演练包，
+  # artifact 名 croupier-mobile-rehearsal-debugsigned-apk 明确标识签名来源；
+  # rehearsal=false 走 secrets 受管签名（MOBILE_RELEASE_KEYSTORE_B64 等），
+  # 缺 secrets 直接报错退出，产物 croupier-mobile-release-apk。
   apk:
     if: github.event_name == 'workflow_dispatch'
     needs: flutter
@@ -89,6 +96,10 @@ jobs:
     defaults:
       run:
         working-directory: mobile
+    env:
+      # AUD-085: the debug-signed artifact only ships when the dispatch
+      # explicitly declares itself a rehearsal.
+      CROUPIER_REHEARSAL_BUILD: ${{ inputs.rehearsal == true && '1' || '0' }}
     steps:
       - uses: actions/checkout@v7.0.1
       - uses: subosito/flutter-action@v2.23.0
@@ -97,10 +108,44 @@ jobs:
           flutter-version: 3.35.1
           cache: true
       - run: flutter pub get --enforce-lockfile
+      # AUD-085: production artifacts are signed with the managed keystore
+      # from repository secrets; dispatching a non-rehearsal build without
+      # them fails here (the gradle task-graph guard would also abort).
+      - name: Restore managed keystore
+        if: ${{ inputs.rehearsal != true }}
+        env:
+          CROUPIER_KEYSTORE_B64: ${{ secrets.MOBILE_RELEASE_KEYSTORE_B64 }}
+          CROUPIER_KEYSTORE_PASSWORD: ${{ secrets.MOBILE_RELEASE_KEYSTORE_PASSWORD }}
+          CROUPIER_KEY_ALIAS: ${{ secrets.MOBILE_RELEASE_KEY_ALIAS }}
+          CROUPIER_KEY_PASSWORD: ${{ secrets.MOBILE_RELEASE_KEY_PASSWORD }}
+        run: |
+          if [ -z "$CROUPIER_KEYSTORE_B64" ]; then
+            echo "::error::non-rehearsal release requires MOBILE_RELEASE_KEYSTORE_B64 (plus MOBILE_RELEASE_KEYSTORE_PASSWORD / MOBILE_RELEASE_KEY_ALIAS / MOBILE_RELEASE_KEY_PASSWORD); dispatch with rehearsal=true for the debug-signed rehearsal artifact"
+            exit 1
+          fi
+          echo "$CROUPIER_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/croupier-release.jks"
+          echo "CROUPIER_RELEASE_KEYSTORE=$RUNNER_TEMP/croupier-release.jks" >> "$GITHUB_ENV"
+          echo "CROUPIER_RELEASE_KEYSTORE_PASSWORD=$CROUPIER_KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
+          echo "CROUPIER_RELEASE_KEY_ALIAS=$CROUPIER_KEY_ALIAS" >> "$GITHUB_ENV"
+          echo "CROUPIER_RELEASE_KEY_PASSWORD=$CROUPIER_KEY_PASSWORD" >> "$GITHUB_ENV"
       - run: flutter build apk --release
+      # AUD-085: print the signing certificate fingerprint so the artifact
+      # page records exactly which key signed this build.
+      - name: Print signing certificate fingerprint
+        run: |
+          APK=build/app/outputs/flutter-apk/app-release.apk
+          APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
+          "$APKSIGNER" verify --print-certs "$APK"
+      - name: Name artifact by signing source
+        run: |
+          if [ "$CROUPIER_REHEARSAL_BUILD" = "1" ]; then
+            cp build/app/outputs/flutter-apk/app-release.apk /tmp/croupier-mobile-rehearsal-debugsigned.apk
+          else
+            cp build/app/outputs/flutter-apk/app-release.apk /tmp/croupier-mobile-release.apk
+          fi
       - uses: actions/upload-artifact@v7.0.2
         with:
-          name: croupier-mobile-release-apk
-          path: mobile/build/app/outputs/flutter-apk/app-release.apk
+          name: ${{ inputs.rehearsal == true && 'croupier-mobile-rehearsal-debugsigned-apk' || 'croupier-mobile-release-apk' }}
+          path: /tmp/croupier-mobile-*.apk
           retention-days: 14
           if-no-files-found: error
