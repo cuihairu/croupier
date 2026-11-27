@@ -124,27 +124,48 @@ func asRetryCount(m map[string]any) int {
 	return 0
 }
 
-// normalizeTimestamp coerces common wire formats into the ClickHouse
-// datetime layout "2006-01-02 15:04:05" expected by appendEventRow:
-// RFC3339 (bridge/E2E producers), unix seconds, and the layout itself.
-func normalizeTimestamp(raw string) string {
+// parseEventTime is the single event-time contract for the analytics worker
+// (DATA-054): the detail insert (normalizeTimestamp) and the aggregate touch
+// (touchAgg) must derive the same instant from the same payload, so one old
+// or replayed event always produces a historical raw row AND the matching
+// historical bucket instead of a processing-time bucket that drifts on every
+// replay. Accepted wire formats: RFC3339 with any offset (normalized to UTC,
+// which is what business-timezone producers send), the ClickHouse datetime
+// layout itself (assumed UTC, matching the flush-side parse), and unix epoch
+// seconds/milliseconds. ok=false is the explicit invalid disposition: empty
+// or unrecognized input reaches neither path — the raw insert passes the raw
+// value through (ClickHouse Append errors and the message retries into the
+// dead letter) and the aggregation skips the event.
+func parseEventTime(raw string) (time.Time, bool) {
 	trimmed := strings.TrimSpace(raw)
 	if trimmed == "" {
-		return time.Now().Format("2006-01-02 15:04:05")
+		return time.Time{}, false
 	}
 	if t, err := time.Parse(time.RFC3339, trimmed); err == nil {
-		return t.UTC().Format("2006-01-02 15:04:05")
+		return t.UTC(), true
 	}
-	if _, err := time.Parse("2006-01-02 15:04:05", trimmed); err == nil {
-		return trimmed
+	if t, err := time.Parse("2006-01-02 15:04:05", trimmed); err == nil {
+		return t.UTC(), true
 	}
 	if secs, err := strconv.ParseInt(trimmed, 10, 64); err == nil && secs > 0 {
 		if secs > 1e12 { // 13+ digits: milliseconds (quick-start producers)
 			secs /= 1000
 		}
-		return time.Unix(secs, 0).UTC().Format("2006-01-02 15:04:05")
+		return time.Unix(secs, 0).UTC(), true
 	}
-	// Unrecognized: fall through with the raw value; ClickHouse Append will
-	// surface a parse error (and the message retries into the dead letter).
-	return trimmed
+	return time.Time{}, false
+}
+
+// normalizeTimestamp coerces the wire formats parseEventTime accepts into the
+// ClickHouse datetime layout "2006-01-02 15:04:05" expected by appendEventRow.
+func normalizeTimestamp(raw string) string {
+	if t, ok := parseEventTime(raw); ok {
+		return t.UTC().Format("2006-01-02 15:04:05")
+	}
+	// Invalid (DATA-054 explicit disposition): pass the raw value through;
+	// ClickHouse Append will surface a parse error (and the message retries
+	// into the dead letter). Empty input previously fell back to time.Now(),
+	// which stamped a different event_time on every replay — that fallback
+	// is gone.
+	return strings.TrimSpace(raw)
 }

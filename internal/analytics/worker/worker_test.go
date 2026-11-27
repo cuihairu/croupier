@@ -673,8 +673,11 @@ func TestTouchAgg_EmptyTimestamp(t *testing.T) {
 		"game_id": "g1", "env": "prod", "user_id": "u1", "event": "heartbeat",
 	})
 
-	if len(w.touchedMinutes) == 0 {
-		t.Error("expected touchedMinutes even with empty ts")
+	// DATA-054: an empty ts has no event time — the raw insert rejects the
+	// same input (dead letter), so the event must not land in any
+	// processing-time bucket (the old now() fallback drifted on replay).
+	if len(w.touchedMinutes) != 0 {
+		t.Errorf("expected no touchedMinutes with empty ts, got %v", w.touchedMinutes)
 	}
 }
 
@@ -685,8 +688,9 @@ func TestTouchAgg_InvalidTimestamp(t *testing.T) {
 		"user_id": "u1", "event": "login",
 	})
 
-	if len(w.touchedDays) == 0 {
-		t.Error("expected touchedDays even with invalid ts")
+	// DATA-054: unparsable ts aggregates nowhere — the raw row dead-letters.
+	if len(w.touchedDays) != 0 {
+		t.Errorf("expected no touchedDays with invalid ts, got %v", w.touchedDays)
 	}
 }
 

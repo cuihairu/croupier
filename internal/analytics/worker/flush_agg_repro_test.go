@@ -42,9 +42,8 @@ func TestFlushDailyAggregatesAttempted(t *testing.T) {
 }
 
 func TestNormalizeTimestamp(t *testing.T) {
-	now := time.Now().Format("2006-01-02 15:04:05")
 	cases := []struct{ in, want string }{
-		{"", now}, // empty -> current time (only the layout is compared)
+		{"", ""}, // DATA-054: empty no longer stamps processing time; passthrough -> CH parse error -> dead letter
 		{"2026-08-24T03:02:55Z", "2026-08-24 03:02:55"},
 		{"2026-08-24T11:02:55+08:00", "2026-08-24 03:02:55"},
 		{"2026-08-24 03:02:55", "2026-08-24 03:02:55"}, // already in the target layout

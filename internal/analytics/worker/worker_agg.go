@@ -42,10 +42,19 @@ func normalizeAggEvent(raw string) string {
 func (w *Worker) touchAgg(ctx context.Context, m map[string]any) {
 	w.aggMu.Lock()
 	defer w.aggMu.Unlock()
-	ts := asString(m, "ts")
-	t, _ := time.Parse(time.RFC3339, ts)
-	if ts == "" || t.IsZero() {
-		t = time.Now()
+	// DATA-054: the aggregation side uses the same parser as the detail
+	// insert (normalizeTimestamp). The previous inline RFC3339-only parse
+	// with a time.Now() fallback put epoch-ts and old events into the
+	// processing-time bucket (drifting on every replay) while their raw
+	// rows landed at the correct historical event_time.
+	t, ok := parseEventTime(asString(m, "ts"))
+	if !ok {
+		// Explicit invalid disposition: the raw insert rejects the same
+		// input (ClickHouse Append parse error -> dead letter), so the
+		// event must not aggregate into time-keyed buckets either — a
+		// bucket member without an underlying raw row would also break
+		// the rebuild-from-raw invariant.
+		return
 	}
 	// Always normalize buckets to UTC: the flush side parses the wall-clock strings in the
 	// hll key with time.Parse assuming UTC. If we rendered keys here using the event's own
