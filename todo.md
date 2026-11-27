@@ -2275,9 +2275,11 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
 
 相邻运行链补查：数据库路由与迁移定向回归通过，SQLite 和替身 TLS listener 分别复现迟到连接池和取消等待问题。发布编排及备份为源码复核。
 
-- [ ] **AUD-068 · P1 · 修复 · SDK 写调用只在具有幂等保证时自动重试**
+- [x] **AUD-068 · P1 · 修复 · SDK 写调用只在具有幂等保证时自动重试**
   - 依赖：—。交付与验收：明确六语言 Invoker 的读、写和结果未知策略，为调用方保留可识别的未知结果。记录服务端哪些入口真正消费幂等键，仅在能去重或明确声明可重放时重试写请求。用同一替身服务让首个 POST 完成副作用后丢失响应，断言默认不会重复执行；读请求仍可退避重试。证据：`sdks/go/pkg/croupier/http_invoker.go:109,147,404`、`sdks/python/croupier/invoker.py:50,301`、`sdks/js/src/invoker.ts:66,395`。普通函数和任务启动 handler 目前未读取该键，页面执行已有独立的幂等实现。
-  - 状态／条件：未开始。
+  - 状态／条件：已完成，LOCAL VERIFIED。六语言统一 `RetryConfig.retryWrites`（Go `RetryWrites`、C# `RetryWrites`、C++ `retry_writes`）默认 false：非 GET 单次执行；显式开启后读/写均退避重试；最终失败为传输丢失/超时/408/429/≥500 时包装结果未知错误（Go `UnknownResultError` / Python `UnknownResultError` / JS `InvokerError.resultUnknown` / Java `ErrorCode.RESULT_UNKNOWN` / C++ `ResultUnknownError` / C# `ResultUnknownException`），明确 4xx 和有效 2xx 响应不包装。首个 POST 完成副作用后丢失响应默认不重放（含 C++ 原始 ServerSocket 丢响应替身、Java DropServer、C# CountingHandler），GET 仍重试；删除门禁/包装的变异自测均让新增用例转红并恢复。
+  - 完成证据：`83c6f31c6`（Go/Python/JS/Java 实现+用例：`sdks/go/pkg/croupier/http_invoker_write_retry_test.go`、`sdks/python/croupier/tests/test_invoker.py`、`sdks/js/src/invoker.write_retry.test.ts`、`sdks/java/src/test/java/io/github/cuihairu/croupier/sdk/ServerHttpInvokerWriteRetryTest.java`）、`d6670f5ed`（C++：`sdks/cpp/tests/test_invoker_retry.cpp`）、`5422081a4`（C#：`sdks/csharp/src/Croupier.Sdk.Tests/WriteRetryTests.cs`）、`4f92d3ca8`（双语契约文档 `docs/architecture/sdk-wire-protocol.md`、`docs/zh/architecture/sdk-wire-protocol.md`、`docs/sdks/csharp/guide/error-handling.md`、`docs/zh/sdks/csharp/guide/error-handling.md` 与 `sdks/SDK_FEATURE_MATRIX.md`）。本地全绿：Go 新增用例通过；Python 18 passed；JS 455 passed；Java 1008 tests / 0 failures；C++ 773 passed / 1 skipped（既有真服务用例）；C# 938 passed / 9 skipped；`bash scripts/dashboard_vnext_guard.sh` PASSED；`cd docs && CI=true pnpm build` 通过。
+  - 已知边界：C# `GetTaskStatusAsync`/`StreamTaskAsync` 走裸 `SendAsync`，本就不重试（本次未改变）；Java 旧 TCP helper `InvokerImpl` 仅补 `RESULT_UNKNOWN` 状态码映射、未纳入 HTTP 写门禁；JS `cancelTask` 本无重试；服务端函数 invoke 与任务 start 未消费 Idempotency-Key，故写请求默认不重试，页面执行保留独立幂等实现。
 
 - [ ] **AUD-069 · P1 · 修复 · SDK 保留待审批的调用结果**
   - 依赖：—。交付与验收：为函数执行和任务启动保留可识别的待审批状态、approvalId 和工作流，兼容原有同步结果与任务 ID API。六语言对照普通结果、待审批、传输失败和真实缺字段。证据：`internal/api/task/service.go:134` 正常返回待审批且无任务 ID，JS 替身响应中被判为 `no_task_id`；其他 SDK 的解码路径同样要求任务 ID 或执行结果。
