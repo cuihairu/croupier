@@ -156,7 +156,7 @@ public sealed class CoverageBoost6MiscTests
     {
         var path = Path.Combine(Path.GetTempFileName());
         File.WriteAllText(path, """
-            {"AgentAddr": "file-host:2000", "ServiceId": "file-svc", "TimeoutSeconds": "15", "Insecure": "true"}
+            {"AgentAddr": "file-host:2000", "ServiceId": "file-svc", "TimeoutSeconds": 15, "Insecure": true}
             """);
         try
         {
@@ -191,17 +191,21 @@ public sealed class CoverageBoost6MiscTests
     }
 
     [Fact]
-    public void JsonFileConfigProvider_InvalidNumericAndBoolValues_Normalize()
+    public void JsonFileConfigProvider_TypeErrorsGiveLocatableDiagnostics()
     {
+        // AUD-104: 类型错误不再是静默归一（旧正则路径把 "not-a-number" 归一成 0），
+        // 而是带文件路径与行列定位的 FormatException（STJ 行号从 0 计数）。
         var path = Path.GetTempFileName();
         File.WriteAllText(path, """
-            {"TimeoutSeconds": "not-a-number", "Insecure": "yes"}
+            {"AgentAddr": "file-host:2000",
+             "TimeoutSeconds": "not-a-number"}
             """);
         try
         {
-            var config = new JsonFileConfigProvider(path).GetConfig();
-            config.TimeoutSeconds.Should().Be(0);
-            config.Insecure.Should().BeFalse();
+            var action = () => new JsonFileConfigProvider(path).GetConfig();
+
+            action.Should().Throw<FormatException>().Which.Message.Should()
+                .Contain(path).And.Contain("TimeoutSeconds").And.Contain("line");
         }
         finally
         {

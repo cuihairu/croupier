@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using System.Text.Json;
 using Croupier.Sdk.Models;
 
 namespace Croupier.Sdk.Configuration;
@@ -129,37 +130,27 @@ public class JsonFileConfigProvider : ICroupierConfigProvider
 
         var json = File.ReadAllText(_filePath);
 
-        // 简单 JSON 解析（生产环境应使用 System.Text.Json 或 Newtonsoft.Json）
-        var config = new ClientConfig();
-
-        // 解析 JSON 字符串
-        var properties = typeof(ClientConfig).GetProperties();
-        foreach (var prop in properties)
+        // AUD-104: 标准JSON解析（System.Text.Json）。原先用逐属性正则截取，
+        // 含逗号的字符串值会被截断、Headers 这类嵌套对象会因反射赋值失败抛
+        // ArgumentException、转义序列不处理，且语法错误没有可定位诊断。
+        var options = new JsonSerializerOptions
         {
-            var pattern = $"\"{prop.Name}\"\\s*:\\s*\"?([^,}}\n\"]+)\"?";
-            var match = System.Text.RegularExpressions.Regex.Match(json, pattern);
-            if (match.Success)
-            {
-                var value = match.Groups[1].Value.Trim('"');
-                prop.SetValue(config, ConvertValue(value, prop.PropertyType));
-            }
+            PropertyNameCaseInsensitive = true,
+            ReadCommentHandling = JsonCommentHandling.Skip,
+            AllowTrailingCommas = true
+        };
+
+        try
+        {
+            return JsonSerializer.Deserialize<ClientConfig>(json, options) ?? new ClientConfig();
         }
-
-        return config;
-    }
-
-    private static object? ConvertValue(string value, Type targetType)
-    {
-        if (targetType == typeof(string))
-            return value;
-
-        if (targetType == typeof(int))
-            return int.TryParse(value, out var i) ? i : 0;
-
-        if (targetType == typeof(bool))
-            return bool.TryParse(value, out var b) && b;
-
-        return value;
+        catch (JsonException ex)
+        {
+            // 语法与类型错误都带文件路径和行列定位，便于直接指向配置文件问题。
+            throw new FormatException(
+                $"Invalid configuration JSON in {_filePath} (line {ex.LineNumber}, position {ex.BytePositionInLine}): {ex.Message}",
+                ex);
+        }
     }
 }
 

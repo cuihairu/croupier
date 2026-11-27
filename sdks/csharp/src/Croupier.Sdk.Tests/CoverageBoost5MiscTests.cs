@@ -307,7 +307,7 @@ public sealed class CoverageBoost5ExtensionsAndConfigTests : IDisposable
     public void JsonFileConfigProvider_ParsesBoolAndStringProperties()
     {
         var path = WriteTempConfig(
-            "{\"ServiceId\": \"file-service\", \"AutoReconnect\": \"true\", \"Insecure\": \"false\", \"TimeoutSeconds\": \"12\"}");
+            "{\"ServiceId\": \"file-service\", \"AutoReconnect\": true, \"Insecure\": false, \"TimeoutSeconds\": 12}");
         try
         {
             var provider = new JsonFileConfigProvider(path);
@@ -328,8 +328,8 @@ public sealed class CoverageBoost5ExtensionsAndConfigTests : IDisposable
     [Fact]
     public void JsonFileConfigProvider_UnconvertibleProperty_Throws()
     {
-        // Headers 是 Dictionary<string,string>：ConvertValue 走默认分支返回原始字符串，
-        // SetValue 对不兼容类型抛 ArgumentException。
+        // AUD-104: Headers 是 Dictionary<string,string>；字符串值属于类型错误，
+        // 由标准 JSON 解析器带行列定位抛出，而不是旧正则路径的 ArgumentException。
         var path = WriteTempConfig("{\"Headers\": \"not-a-dictionary\"}");
         try
         {
@@ -337,7 +337,7 @@ public sealed class CoverageBoost5ExtensionsAndConfigTests : IDisposable
 
             var action = () => provider.GetConfig();
 
-            action.Should().Throw<ArgumentException>();
+            action.Should().Throw<FormatException>().WithMessage("*Headers*");
         }
         finally
         {
