@@ -2294,9 +2294,11 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 完成证据：`6cfd60e9e`（`sdks/go/pkg/croupier/client.go`、`sdks/go/pkg/croupier/client_shutdown_race_test.go`：3 个新增用例分别覆盖 32 组并发 Stop/Close、16 组 Stop/Register/Reconnect 与顺序重复停止）。本地全绿：`gofmt -l` 无输出；`go vet ./pkg/croupier/...` clean；`go build ./...` 通过；`go test -race ./pkg/croupier/... -count=1` 三包全绿（EXIT=0，零 race）；新增用例 `-race -count=3` 通过。
   - 已知边界：`sdks/go` 的 integration tag 下既有 `TestInvoker_Close` 重复定义（`invoker_test.go:203` 与 `invoker_unit_test.go:515`，HEAD 既存），与本变更无关，故顺序重复停止由新无标签用例与原无标签 `client_test.go` 覆盖；其他语言 SDK 的 Stop/Close 幂等归各自任务。
 
-- [ ] **AUD-071 · P1 · 修复 · Java SDK 拒绝停止后的迟到建连**
+- [x] **AUD-071 · P1 · 修复 · Java SDK 拒绝停止后的迟到建连**
   - 依赖：—。交付与验收：并发 connect 共用一次有效握手，stop 和 close 能中止在途操作或拒绝其结果。锁住建连回包后先停机，断言迟到 transport 被释放、connected 为 false、心跳和 manifest 后台动作不启动。证据：`sdks/java/src/main/java/io/github/cuihairu/croupier/sdk/CroupierClientImpl.java:112,137,208` 在异步任务中发布 transport，stop 清理时只访问已发布连接。
-  - 状态／条件：未开始。
+  - 状态／条件：已完成，LOCAL VERIFIED。引入 `lifecycleLock`（ReentrantLock）+ `lifecycleEpoch`（AtomicLong 停机代际）+ `inFlightConnect`（单飞握手）：`connect()` 并发调用经 CAS 单飞共用同一次握手；transport/connected/心跳的唯一发布点 `publishConnection` 持锁校验代际，stop/close 持同一把锁递增代际、清理状态、异常完结在途握手——「回包已到、transport 未发布」窗口消失，迟到 transport 在发布点被关闭、`connected` 保持 false、心跳线程与 manifest 上传不启动；`recoverConnection`/`reconnectOnce` 同样捕获并复核代际（重连迟到结果同样拒绝）；`sessionId` 改 volatile。变异自证：握手门控在途→stop→放行回包的关键用例（`stopDuringHandshakeRejectsLateTransportAndKeepsClientDown`）断言候选未发布时 stop 不触碰（closes==0）、放行后迟到 transport 关闭、心跳线程 null、control 地址零拨号；另有 close 同路径、8 并发共用同 future 单拨号、拒绝后不楔死后续 connect、stop 后再 connect 正常共 5 用例。
+  - 完成证据：`95bf22dae`（`sdks/java/src/main/java/io/github/cuihairu/croupier/sdk/CroupierClientImpl.java` +143/-26、`CroupierClientImplConnectLifecycleTest.java` 新增 313 行 5 用例）。本地全绿：`./gradlew test --rerun-tasks` BUILD SUCCESSFUL，XML 汇总 tests=1016 failures=0 errors=0 skipped=8；新用例类连续两次 `--rerun-tasks` 聚焦重跑均 BUILD SUCCESSFUL。
+  - 已知边界：`recoverConnection()` 拨号前的清理（停心跳/关旧 transport）仍无锁，并发 stop 可对同一 transport 双关（幂等 socket close，发布点有代际守卫无复活风险，未收紧是为避免与心跳 join 的锁序耦合）；stop 不中断拨号线程的阻塞 I/O，走「拒绝迟到结果」验收路径，socket 由 transport 超时兜底；stop 落在成功发布之后则客户端真实连接过片刻，manifest 线程可能已启动（不在在途握手窗口内）；被中止的在途 connect 现以 `CompletionException("Client stopped during connect")` 快速失败而非等待握手。
 
 - [ ] **AUD-072 · P1 · 修复 · C++ SDK 读循环退出后立即更新连接状态**
   - 依赖：—。交付与验收：对端正常 EOF 或网络错误可立即唤醒本连接的 pending 请求并清除连接状态；从读线程触发的回收不自 join，后续重连不复用旧线程与队列。证据：`sdks/cpp/src/tcp_transport.cpp:496,581` 读循环退出不发布断开。
