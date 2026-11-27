@@ -2511,9 +2511,10 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 完成证据：`7319e0a92` 提交清单含 `internal/svc/cache_layer.go`、`internal/svc/cache_layer_aud100_test.go`、`internal/api/auth/aud100_cache_login_test.go`（`git show --stat` 核对），已推 origin/main；测试/变异红→绿均为本席独立复跑。
   - 已知边界：`InvalidateAdminCache` 的并发失效未单独测（删键本身幂等）；旧格式记录仅在读到时被清理，未读的残留条目随缓存 TTL 自然过期；未做端到端 Redis 实盘（使用仓内 Redis 替身）；DTO 为显式结构，未来给 `model.Admin` 加字段时若需要缓存需同步加入 DTO（故意为之，避免意外字段再入缓存）。
 
-- [ ] **AUD-101 · P2 · 实现 · 在下次线协议升版前完成双向版本协商**
+- [x] **AUD-101 · P2 · 实现 · 在下次线协议升版前完成双向版本协商** — d8f20965e
   - 依赖：CR-FIX-07。交付与验收：在存在两个受支持版本时确定每条连接共用的帧版本，按协商版本处理请求、响应和主动事件。用 N/N-1 的服务端、Agent 与 SDK 双向混合测试覆盖成功、无交集与重连。证据：`pkg/protocol/message.go:31,55,278` 仅实现入站版本窗口，出站固定使用本端版本。历史记录已明确 v1 无协商，本条落实下一次升版前的交付。
-  - 状态／条件：未开始。
+  - 状态／条件：已完成 — LOCAL VERIFIED。`protocol.Negotiation`（`pkg/protocol/message.go`，窗口 [MinSupportedVersion, Version1]）按连接粘滞协商：出站帧盖协商版本（未锁定时盖本端最高，即发起方自然报价），首个受支持入站帧锁定，其后请求/响应/主动事件一律携带协商版本；偏离已锁版本逐请求拒绝（`ErrVersionConflict`，会话与锁保持）；新连接从头协商。三处落地：`internal/transport/tcp/server.go`（Server 入站+应答）、`core/transport/tcp/mux_conn.go`（Agent/控制会话 MuxConn）、Go SDK `sdks/go/pkg/croupier/{protocol,transport}`（TCPClient Call/应答/读循环）；不兼容/冲突拒绝帧盖对端报出版本，旧对端可解析。N/N-1 混合矩阵经注入窗口（`NewNegotiationWindow(1,2)`，测试专用）覆盖成功/无交集/重连：`pkg/protocol/negotiation_test.go`、`internal/transport/tcp/server_version_negotiation_test.go`、`core/transport/tcp/mux_conn_version_test.go`、`sdks/go/pkg/croupier/transport/tcp_client_version_test.go`。变异自证：主仓 `n.locked = false` 去粘滞 → matrix/server/mux 红，SDK `Version()` 固定返回 → WidenedWindow/ReconnectFresh 红，均复原后回绿、diff 干净。测试：`go test ./pkg/protocol/ ./core/transport/... ./internal/transport/... ./internal/app/agent/ -count=1` 全绿 + `cd sdks/go && go test ./... -count=1` 全绿；`go build ./...` 通过；docs（EN+zh `sdk-wire-protocol.md` 版本策略章节改写为协商语义）`CI=true pnpm build` 通过。完成证据：`pkg/protocol/message.go:59`、`core/transport/tcp/mux_conn.go:readLoop`、`internal/transport/tcp/server.go:serveConn`、`sdks/go/pkg/croupier/transport/tcp_client.go:Call`、`docs/architecture/sdk-wire-protocol.md`。
+  - 已知边界：协商为 sticky-first-frame，不可重协商、被拒后无自动降级重试；默认窗口 `[1,1]` 下线上字节行为与历史 v1 相同（不识别版本的对端不受影响）；显式窗口 `NewNegotiationWindow` 仅供测试演练下次升版，生产路径恒为默认窗口；Agent 侧经 MuxConn 覆盖（含控制/业务双车道），未单独新增 Agent 进程级 e2e；其余语言 SDK（Java 等）不实现协商，按固定 v1 盖章，行为不变。
 
 #### 历史高优先级问题复核
 
