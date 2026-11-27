@@ -2433,9 +2433,13 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 完成证据：`55cfb2d7e` 提交清单 `core/register/register.go`、`loops.go`、`registration.go`、`register_publication_test.go`（`git show --stat` 核对），已推 origin/main；vet/count=1/-race/消费方编译/变异红→绿均为本席独立复跑。
   - 已知边界：`SetConn` 注入面（测试/高级装配）注入即视为已确认并同步发布（无注册握手可等，代码内注明）；TCP 层死亡到下一自愈 tick 之间 `Connected()` 已为 false 但 `Conn()` 仍短暂返回旧对象引用（仓内消费方均复检 `Connected()`，无过期 ready 可观察）；包级 fake 验证+消费方编译，无 live server 端到端（任务范围外）。
 
-- [ ] **AUD-093 · P1 · 修复 · Stop 纳入 Agent 直接拨号与注册的生命周期**
+- [x] **AUD-093 · P1 · 修复 · Stop 纳入 Agent 直接拨号与注册的生命周期**
   - 依赖：—。交付与验收：启动路径和直接拨号在 Stop 时统一取消并收尾。拨号晚返回时关闭该连接，禁止复活已停止的客户端或触发连接成功回调。证据：`core/register/loops.go:52,64,69` 只在拨号前判断停机，`core/register/registration.go:174` 未收束直接拨号。替身探针在 Stop 返回后放行拨号，客户端重新变成 Connected。
-  - 状态／条件：未开始。
+  - 状态／条件：已完成，LOCAL VERIFIED（`15a2fb198` — `fix: stop covers late dial and register ack`；`core/register/` 6 文件 +278/−8，含 `register_stop_lifecycle_test.go` 新 209 行）。设计：新增 `stopGuard atomic.Bool` 停机闸，`Stop()` 在 stopOnce 内最先置位（严格先于 lifecycleCancel 与快照撤销）；`installDialedConn` 在 `mu` 临界区内复核闸后落内部工作连接（拒绝→调用方关闭连接、返回 `ErrClientStopped`），覆盖「拨号前检查之后、落位之前」Stop 完成的窗口；`registerOnce` 在 ack 后消费任何副作用（ownerInstance/发布/OnConnected）前复核，`publishRegistered` 在 `mu` 内复核且返回 bool 拒绝发布；`Start` 在首拨失败因停机、或注册期间停机落地时不再启动重连/心跳循环。AUD-092 语义完整保留（发布仍在 ack 后、先于 OnConnected）。顺带修复 AUD-092 用例 `TestReplacementSwapsExposedStateExactlyOnce` 的 ~1/200 假阳性竞态（gen2Acked 标记晚于发布；改为 fakeConn.Register 在 ack 瞬间置位，已在 pristine HEAD 隔离 worktree `-count=200` 复现验证）。
+  - 测试：`go vet` 干净；`go test ./core/register/... -count=1` 31 PASS / 0 FAIL；`-race -count=1` 与 `-count=2` 绿；`TestReplacementSwapsExposedStateExactlyOnce -count=200` 全绿（本席独立复跑）；`go build ./internal/app/agent/...` 消费方编译 OK。新用例 5 个：Stop 后放行拨号（conn 关闭、Connected false、无 OnConnected）、Start 路径晚拨号在 Stop 等待期内收束、注册 ack 与 Stop 竞速不复活、循环有界收尾且 Start-after-Stop no-op、正常启停不变。
+  - 变异自证：agent 侧移除三处 post-dial/post-ack 复核 → 3 用例红；本席复做独立变异（删 `c.stopGuard.Store(true)`）→ `TestRegisterAckRacingStopDoesNotResurrect` 等红（post-stop ack must be rejected），恢复后全包绿；MUTATION 残留 0、`gofmt -l` 空。
+  - 完成证据：`15a2fb198` 提交清单含 `core/register/loops.go`、`core/register/registration.go`、`core/register/register.go`、`core/register/register_stop_lifecycle_test.go`（`git show --stat` 核对，6 文件全在 `core/register/`），已推 origin/main；vet/test/-race/-count=200/变异红→绿均为本席独立复跑。
+  - 已知边界：范围为 `core/register`，未跑 agent 侧端到端双探针（register-client 级确定性复现了原运行时场景，dialer 不感知取消）；`SetConn` 注入面为显式「已确认」测试/装配面，不经 stopGuard（非拨号/注册路径）；收尾断言用拨号计数冻结+50ms 观察窗而非 goroutine profile 计数。
 
 - [ ] **AUD-094 · P1 · 修复 · 串行化 Agent 配置拉取与版本提交**
   - 依赖：—。交付与验收：定时拉取与手动拉取同时发生时，配置落地结果和版本游标一致，较早请求的迟到响应无法覆盖已经应用的更新。用不要求可排序的版本值测试两种完成顺序，以及 apply 失败后的重试。证据：`core/configsync/loop.go:16` 分开读版本、拉取、应用和写版本，`internal/app/agent/app_extension.go:69` 暴露直接拉取入口。探针观察到较新配置先应用，随后被较早请求的迟到响应覆盖。
