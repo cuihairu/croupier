@@ -3,6 +3,8 @@ name: Release SDK — JS
 # JS SDK 发布到 npm。入口：release-sdk-matrix.yml（workflow_call，正式 tag
 # 发布链）或手动 dispatch；本文件自身绝不因 push/tag 自动触发。
 # 版本：留空 = 最新 release tag；可显式指定（v0.2.0 或 0.2.0 等价）。
+# 源提交（AUD-078）：统一 checkout release-sdk-resolve.yml 解析出的 commit，
+# 不再取触发 ref——触发分支领先 tag 时构建产物也只来自 tag 的源码。
 # dry_run：演练模式——照常装依赖构建，但绝不执行 npm publish。
 on:
   workflow_dispatch:
@@ -16,6 +18,10 @@ on:
         required: false
         type: boolean
         default: false
+      sha:
+        description: "源提交 SHA（留空=按 version 解析）"
+        required: false
+        default: ""
   workflow_call:
     inputs:
       version:
@@ -27,34 +33,33 @@ on:
         required: false
         type: boolean
         default: false
+      sha:
+        description: "源提交 SHA（留空=按 version 解析）"
+        required: false
+        type: string
+        default: ""
 
 jobs:
+  resolve:
+    name: Resolve version & pin source commit
+    uses: ./.github/workflows/release-sdk-resolve.yml
+    with:
+      version: ${{ inputs.version }}
+      sha: ${{ inputs.sha }}
+    secrets: inherit
+
   release:
+    needs: resolve
     runs-on: ubuntu-latest
     permissions: {}
     steps:
       - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ needs.resolve.outputs.sha }}
       - uses: actions/setup-node@v7.1.0
         with:
           node-version: "24"
           registry-url: https://registry.npmjs.org
-      - name: Resolve version
-        id: ver
-        run: |
-          if [ -n "${{ inputs.version }}" ]; then
-            V='${{ inputs.version }}'
-          else
-            V=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName -q .tagName)
-          fi
-          case "$V" in
-            v*) TAG="$V"; NUM="${V#v}" ;;
-            *)   TAG="v$V"; NUM="$V" ;;
-          esac
-          echo "version=$NUM" >> "$GITHUB_OUTPUT"
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          echo "Resolved: tag=$TAG version=$NUM"
-        env:
-          GH_TOKEN: ${{ github.token }}
       - name: Require NPM_TOKEN
         run: test -n "$NPM_TOKEN" || { echo "::error::缺少 secret NPM_TOKEN"; exit 1; }
         env:
@@ -62,8 +67,8 @@ jobs:
       - name: Set version & build
         run: |
           cd sdks/js
-          npm version "${{ steps.ver.outputs.version }}" --no-git-tag-version
-          sed -i 's/^export const SDK_VERSION = ".*";/export const SDK_VERSION = "${{ steps.ver.outputs.version }}";/' src/version.ts
+          npm version "${{ needs.resolve.outputs.version }}" --no-git-tag-version
+          sed -i 's/^export const SDK_VERSION = ".*";/export const SDK_VERSION = "${{ needs.resolve.outputs.version }}";/' src/version.ts
           npm ci || npm install
           npm run build --if-present
       - name: Publish to npm

@@ -1,0 +1,108 @@
+name: Release SDK — Resolve Version
+
+# SDK 六车道统一的源提交解析（AUD-078）：把 version 输入规范化为 tag
+# （vX.Y.Z），再解引用为 origin 上该 tag 指向的唯一 commit SHA。所有
+# release-sdk-*.yml 车道只经由本 workflow 确定源提交，禁止各自再取触发
+# ref / 各自解析，否则"触发分支领先 tag"时发布物会各打各的 commit。
+#
+# 解析顺序：
+# 1. sha 输入非空（矩阵已统一解析后透传）→ 校验该 commit 在 origin 可达，
+#    直接采用；若与 version 对应的 tag 不一致则判失败（fail-closed）；
+# 2. 否则按 version 解析出 tag，从 origin 抓取该 tag 并解引用为 commit；
+# 3. tag 不存在（新版本手动 dispatch 的演练路径）→ 回退到触发 ref 的
+#    checkout HEAD，并显式告警。
+# 三条路径都只输出一个 sha；下游 job 一律用它 checkout / 打包 / 打子模块
+# tag。本文件绝不发布任何东西。
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: "发布版本（留空=最新 release tag）"
+        required: false
+        type: string
+      sha:
+        description: "调用方已统一解析的源提交（传入则跳过 tag 抓取）"
+        required: false
+        type: string
+        default: ""
+    outputs:
+      version:
+        description: "规范化版本号（不含前导 v）"
+        value: ${{ jobs.resolve.outputs.version }}
+      tag:
+        description: "规范化 tag（vX.Y.Z）"
+        value: ${{ jobs.resolve.outputs.tag }}
+      sha:
+        description: "六车道共同使用的源提交 SHA"
+        value: ${{ jobs.resolve.outputs.sha }}
+
+permissions:
+  contents: read
+
+jobs:
+  resolve:
+    name: Resolve version & pin source commit
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
+      tag: ${{ steps.ver.outputs.tag }}
+      sha: ${{ steps.ver.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - name: Resolve version and pin source commit
+        id: ver
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_SHA: ${{ inputs.sha }}
+        run: |
+          set -euo pipefail
+          if [ -n "$INPUT_VERSION" ]; then
+            V="$INPUT_VERSION"
+          else
+            V=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName -q .tagName)
+          fi
+          case "$V" in
+            v*) TAG="$V"; NUM="${V#v}" ;;
+            *)   TAG="v$V"; NUM="$V" ;;
+          esac
+
+          # runner 检出默认是浅克隆：git 拒绝在浅仓库里更新/新建指向新
+          # shallow root 的本地 ref——连显式 fetch "refs/tags/X"（无目的
+          # ref）都会 Opportunistic 地写 refs/tags/X。因此 tag→commit 的
+          # 解引用用 ls-remote 的远端 peel（^{）完成，全程不落本地 ref；
+          # sha 存在性校验用 --no-tags fetch 到 FETCH_HEAD，同样不写 ref。
+          tag_commit() {
+            # annotated tag 输出 tag+peel 两行，lightweight tag 只有一行——取末行
+            git ls-remote origin "refs/tags/$1" "refs/tags/$1^{}" | tail -n 1 | cut -f1
+          }
+          if [ -n "$INPUT_SHA" ]; then
+            # 调用方已统一解析：校验 commit 在 origin 可达后采用
+            # （--depth=1 只取该 commit 本身，做存在性校验足够且快）
+            git fetch --force --no-tags --depth=1 origin "$INPUT_SHA"
+            SHA=$(git rev-parse --verify "$INPUT_SHA^{commit}")
+            if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
+              TAG_SHA=$(tag_commit "$TAG")
+              if [ "$SHA" != "$TAG_SHA" ]; then
+                echo "::error::pinned sha $SHA does not match tag $TAG ($TAG_SHA); refusing mixed sources"
+                exit 1
+              fi
+            fi
+            echo "Using caller-pinned source commit: $SHA"
+          elif git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
+            # tag 已存在：以 origin 上的 tag 为准解引用 commit（不取触发 ref）
+            SHA=$(tag_commit "$TAG")
+            echo "Resolved $TAG to source commit: $SHA"
+          else
+            # tag 尚不存在：回退触发 ref，显式告警
+            SHA=$(git rev-parse HEAD)
+            echo "::warning::tag $TAG not on origin; pinning source to trigger checkout HEAD $SHA"
+          fi
+
+          {
+            echo "version=$NUM"
+            echo "tag=$TAG"
+            echo "sha=$SHA"
+          } >> "$GITHUB_OUTPUT"
+          echo "Resolved: tag=$TAG version=$NUM sha=$SHA"

@@ -49,51 +49,74 @@ on:
         default: false
 
 jobs:
+  # AUD-078：整矩阵只解析一次源提交，六车道共享同一 tag→commit。此前各车道
+  # 各自 checkout 触发 ref（或各自解析 tag），触发分支领先 tag 时发布物
+  # 会各打各的源码。lane 侧继续调用 release-sdk-resolve.yml 做二次校验：
+  # 传入的 sha 与 version 对应 tag 不一致即 fail-closed。
+  resolve:
+    name: Resolve version & pin source commit
+    uses: ./.github/workflows/release-sdk-resolve.yml
+    with:
+      version: ${{ inputs.version }}
+    secrets: inherit
+
   js:
     name: npm
+    needs: resolve
     uses: ./.github/workflows/release-sdk-js.yml
     with:
       version: ${{ inputs.version }}
+      sha: ${{ needs.resolve.outputs.sha }}
       dry_run: ${{ inputs.fail_inject || inputs.dry_run }}
     secrets: inherit
 
   python:
     name: PyPI
+    needs: resolve
     uses: ./.github/workflows/release-sdk-python.yml
     with:
       version: ${{ inputs.version }}
+      sha: ${{ needs.resolve.outputs.sha }}
       dry_run: ${{ inputs.fail_inject || inputs.dry_run }}
     secrets: inherit
 
   java:
     name: Maven (GitHub Packages)
+    needs: resolve
     uses: ./.github/workflows/release-sdk-java.yml
     with:
       version: ${{ inputs.version }}
+      sha: ${{ needs.resolve.outputs.sha }}
       dry_run: ${{ inputs.fail_inject || inputs.dry_run }}
     secrets: inherit
 
   csharp:
     name: NuGet
+    needs: resolve
     uses: ./.github/workflows/release-sdk-csharp.yml
     with:
       version: ${{ inputs.version }}
+      sha: ${{ needs.resolve.outputs.sha }}
       dry_run: ${{ inputs.fail_inject || inputs.dry_run }}
     secrets: inherit
 
   go:
     name: Go proxy (submodule tag)
+    needs: resolve
     uses: ./.github/workflows/release-sdk-go.yml
     with:
       version: ${{ inputs.version }}
+      sha: ${{ needs.resolve.outputs.sha }}
       dry_run: ${{ inputs.fail_inject || inputs.dry_run }}
     secrets: inherit
 
   cpp:
     name: vcpkg / prebuilt (GitHub Release)
+    needs: resolve
     uses: ./.github/workflows/release-sdk-cpp.yml
     with:
       version: ${{ inputs.version }}
+      sha: ${{ needs.resolve.outputs.sha }}
       dry_run: ${{ inputs.fail_inject || inputs.dry_run }}
     secrets: inherit
 

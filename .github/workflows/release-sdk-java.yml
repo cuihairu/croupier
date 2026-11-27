@@ -4,6 +4,8 @@ name: Release SDK — Java
 # release-sdk-matrix.yml（workflow_call，正式 tag 发布链）或手动 dispatch；
 # 本文件自身绝不因 push/tag 自动触发。
 # 版本：留空 = 最新 release tag；可显式指定（v0.2.0 或 0.2.0 等价）。
+# 源提交（AUD-078）：统一 checkout release-sdk-resolve.yml 解析出的 commit，
+# 不再取触发 ref——触发分支领先 tag 时构建产物也只来自 tag 的源码。
 # dry_run：演练模式——照常注入版本号并构建，但绝不 publish。
 on:
   workflow_dispatch:
@@ -17,6 +19,10 @@ on:
         required: false
         type: boolean
         default: false
+      sha:
+        description: "源提交 SHA（留空=按 version 解析）"
+        required: false
+        default: ""
   workflow_call:
     inputs:
       version:
@@ -28,39 +34,38 @@ on:
         required: false
         type: boolean
         default: false
+      sha:
+        description: "源提交 SHA（留空=按 version 解析）"
+        required: false
+        type: string
+        default: ""
 
 jobs:
+  resolve:
+    name: Resolve version & pin source commit
+    uses: ./.github/workflows/release-sdk-resolve.yml
+    with:
+      version: ${{ inputs.version }}
+      sha: ${{ inputs.sha }}
+    secrets: inherit
+
   release:
+    needs: resolve
     runs-on: ubuntu-latest
     permissions:
       packages: write
     steps:
       - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ needs.resolve.outputs.sha }}
       - uses: actions/setup-java@v6.1.0
         with:
           distribution: temurin
           java-version: "21"
-      - name: Resolve version
-        id: ver
-        run: |
-          if [ -n "${{ inputs.version }}" ]; then
-            V='${{ inputs.version }}'
-          else
-            V=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName -q .tagName)
-          fi
-          case "$V" in
-            v*) TAG="$V"; NUM="${V#v}" ;;
-            *)   TAG="v$V"; NUM="$V" ;;
-          esac
-          echo "version=$NUM" >> "$GITHUB_OUTPUT"
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          echo "Resolved: tag=$TAG version=$NUM"
-        env:
-          GH_TOKEN: ${{ github.token }}
       - name: Stamp version
         run: |
           cd sdks/java
-          sed -i 's/^    public static final String VERSION = ".*";/    public static final String VERSION = "${{ steps.ver.outputs.version }}";/' \
+          sed -i 's/^    public static final String VERSION = ".*";/    public static final String VERSION = "${{ needs.resolve.outputs.version }}";/' \
             src/main/java/io/github/cuihairu/croupier/sdk/SdkInfo.java
       - name: Publish (GitHub Packages；可选同步 Maven Central)
         if: ${{ ! inputs.dry_run }}
@@ -72,7 +77,7 @@ jobs:
             echo "已配置 Maven Central 凭据，同步发布 Central"
           fi
           # shellcheck disable=SC2086
-          ./gradlew publish -PoverrideVersion=${{ steps.ver.outputs.version }} $EXTRA
+          ./gradlew publish -PoverrideVersion=${{ needs.resolve.outputs.version }} $EXTRA
         env:
           GITHUB_PACKAGES_URL: https://maven.pkg.github.com/${{ github.repository }}
           GITHUB_ACTOR: ${{ github.actor }}
