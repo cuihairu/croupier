@@ -73,6 +73,10 @@ type client struct {
 	connected atomic.Bool
 	running   atomic.Bool
 	stopCh    chan struct{}
+	// stopOnce is the single lifecycle shutdown signal: Stop/Close race to
+	// close stopCh exactly once, so a select-then-close check can never be
+	// invalidated by a concurrent caller.
+	stopOnce sync.Once
 
 	// Reconnection
 	disconnectCh chan struct{}
@@ -140,6 +144,19 @@ func (c *client) RegisterFunction(desc FunctionDescriptor, handler FunctionHandl
 	return nil
 }
 
+// snapshotHandlersLocked copies the handler map so a Manager never aliases the
+// client's mutable registration map. Callers must hold c.mu (read or write).
+// Without the copy, a Manager goroutine dispatching a call would read the same
+// map that RegisterFunction mutates under the lock — a data race the race
+// detector flags on concurrent start/register.
+func (c *client) snapshotHandlersLocked() map[string]FunctionHandler {
+	snapshot := make(map[string]FunctionHandler, len(c.handlers))
+	for id, handler := range c.handlers {
+		snapshot[id] = handler
+	}
+	return snapshot
+}
+
 // buildManagerConfig snapshots the client config into ManagerConfig. Both the
 // initial Connect and the reconnect path MUST go through here: the reconnect
 // path once hand-rolled its own copy and silently dropped InstanceMetadata
@@ -177,7 +194,7 @@ func (c *client) Connect(ctx context.Context) error {
 	managerConfig := c.buildManagerConfig()
 
 	var err error
-	c.manager, err = NewManager(managerConfig, c.handlers)
+	c.manager, err = NewManager(managerConfig, c.snapshotHandlersLocked())
 	if err != nil {
 		return fmt.Errorf("failed to create manager: %w", err)
 	}
@@ -195,7 +212,7 @@ func (c *client) Connect(ctx context.Context) error {
 		return fmt.Errorf("failed to register with agent: %w", err)
 	}
 
-	c.sessionID = sessionID
+	c.sessionID = sessionID // c.mu already held by Connect
 	c.connected.Store(true)
 
 	// Set up disconnect notification for automatic reconnection
@@ -208,7 +225,7 @@ func (c *client) Connect(ctx context.Context) error {
 	})
 
 	c.logger.Infof("Successfully connected and registered with Agent")
-	c.logger.Infof("Session ID: %s", c.sessionID)
+	c.logger.Infof("Session ID: %s", sessionID)
 
 	return nil
 }
@@ -222,8 +239,11 @@ func (c *client) Serve(ctx context.Context) error {
 	}
 
 	c.running.Store(true)
+	c.mu.RLock()
+	functionCount := len(c.handlers)
+	c.mu.RUnlock()
 	c.logger.Infof("Croupier client service started")
-	c.logger.Infof("Registered functions: %d", len(c.handlers))
+	c.logger.Infof("Registered functions: %d", functionCount)
 	c.logger.Infof("Use Stop() to stop the service")
 	c.logger.Infof("===============================================")
 
@@ -292,7 +312,10 @@ func (c *client) reconnectWithBackoff(ctx context.Context) error {
 		managerConfig := c.buildManagerConfig()
 
 		var err error
-		nextManager, err := NewManager(managerConfig, c.handlers)
+		c.mu.RLock()
+		handlerSnapshot := c.snapshotHandlersLocked()
+		c.mu.RUnlock()
+		nextManager, err := NewManager(managerConfig, handlerSnapshot)
 		if err != nil {
 			c.logger.Warnf("Reconnect create manager failed: %v", err)
 			delay = c.nextBackoffDelay(delay, maxDelay, rc)
@@ -308,8 +331,12 @@ func (c *client) reconnectWithBackoff(ctx context.Context) error {
 			continue
 		}
 
-		// Re-register functions
+		// Re-register functions. convertToLocalFunctions reads the handler
+		// map, so it must be under the read lock — a concurrent
+		// RegisterFunction/Close would otherwise race the map read.
+		c.mu.RLock()
 		localFunctions := c.convertToLocalFunctions()
+		c.mu.RUnlock()
 		registerCtx, registerCancel := context.WithTimeout(ctx, 30*time.Second)
 		sessionID, err := nextManager.RegisterWithAgent(registerCtx, c.config.ServiceID, c.config.ServiceVersion, localFunctions)
 		registerCancel()
@@ -320,7 +347,9 @@ func (c *client) reconnectWithBackoff(ctx context.Context) error {
 			continue
 		}
 
+		c.mu.Lock()
 		c.sessionID = sessionID
+		c.mu.Unlock()
 		c.connected.Store(true)
 
 		// Publish the new manager under the write lock — Stop() takes a
@@ -377,13 +406,11 @@ func (c *client) Stop() error {
 		manager.Disconnect()
 	}
 
-	// Safely close stopCh (only close if not already closed)
-	select {
-	case <-c.stopCh:
-		// Channel already closed
-	default:
-		close(c.stopCh)
-	}
+	// A single guarded close: concurrent Stop/Close callers all observe the
+	// same closed channel without racing two close() statements. disconnectCh
+	// must NOT be closed here — onDisconnect callbacks still send on it with a
+	// non-blocking select, and sending to a closed channel panics.
+	c.stopOnce.Do(func() { close(c.stopCh) })
 
 	c.logger.Infof("Client stopped successfully")
 	return nil
@@ -392,7 +419,9 @@ func (c *client) Stop() error {
 // Close implements Client.Close
 func (c *client) Close() error {
 	c.Stop()
+	c.mu.Lock()
 	c.handlers = nil
+	c.mu.Unlock()
 	return nil
 }
 
