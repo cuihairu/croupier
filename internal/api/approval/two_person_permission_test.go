@@ -2,9 +2,11 @@ package approval
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/cuihairu/croupier/internal/cache"
+	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/config"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/platform/approvals"
@@ -218,4 +220,63 @@ func TestApproveDifferentPrincipalUnderTwoPersonSucceeds(t *testing.T) {
 	current, gErr := store.Get("ap-tp-3")
 	require.NoError(t, gErr)
 	assert.Equal(t, "bob", current.Approver)
+}
+
+// TestApproveSecondApprovalBySameOperatorRejected AUD-038 (2026-11-26
+// supplement ③): under two_person, the SAME operator's second approval must be
+// rejected — the record carries exactly one terminal decision, so a second
+// approval by the same subject counts as one person, not two. The pinned
+// semantics (see rejectSelfApproval in service.go): self-approval forbidden and
+// duplicate second approval rejected coexist; distinctness holds between the
+// requester and the single authorized approver. The case also pins:
+//   - a second approval by yet another subject (carol) is likewise rejected —
+//     one record never carries two decisions;
+//   - the requester's late attempt keeps hitting the self-approval guard,
+//     which runs before the duplicate check (permission -> self-approval ->
+//     step-up -> duplicate CAS).
+func TestApproveSecondApprovalBySameOperatorRejected(t *testing.T) {
+	store := approvals.NewMemStore()
+	seedPendingNoFunction(t, store, "ap-tp-4", "alice", map[string]string{
+		approvals.ApprovalPolicyMetaKey: "two_person",
+	})
+	s := NewService(&svc.ServiceContext{
+		ApprovalsStore: store,
+		Config:         config.Config{Approval: config.ApprovalConfig{AllowSelfApprove: true}},
+	})
+
+	// First approval by a distinct subject lands (requester alice != bob).
+	first, err := s.Approve(approvalCtx("bob"), &ApprovalApproveRequest{ID: "ap-tp-4"})
+	require.NoError(t, err)
+	require.Equal(t, "approved", first.State)
+
+	// Same operator approves again: rejected as a duplicate, not counted as a
+	// second person; state and approver stay the first decision's.
+	_, err = s.Approve(approvalCtx("bob"), &ApprovalApproveRequest{ID: "ap-tp-4"})
+	require.Error(t, err)
+	var ce *errorx.CodeError
+	require.True(t, errors.As(err, &ce), "期望 errorx.CodeError，得到 %T", err)
+	assert.Equal(t, 409, ce.Code)
+	assert.Equal(t, "approval_already_reviewed", ce.ErrorCode())
+
+	current, gErr := store.Get("ap-tp-4")
+	require.NoError(t, gErr)
+	assert.Equal(t, "approved", current.State)
+	assert.Equal(t, "bob", current.Approver)
+
+	// A different operator's second approval is rejected the same way.
+	_, err = s.Approve(approvalCtx("carol"), &ApprovalApproveRequest{ID: "ap-tp-4"})
+	require.Error(t, err)
+	require.True(t, errors.As(err, &ce), "期望 errorx.CodeError，得到 %T", err)
+	assert.Equal(t, 409, ce.Code)
+	assert.Equal(t, "approval_already_reviewed", ce.ErrorCode())
+
+	// The requester's late attempt keeps hitting the self-approval guard
+	// (403 self_approval_forbidden), which runs before the duplicate check.
+	_, err = s.Approve(approvalCtx("alice"), &ApprovalApproveRequest{ID: "ap-tp-4"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "self_approval_forbidden")
+
+	current, gErr = store.Get("ap-tp-4")
+	require.NoError(t, gErr)
+	assert.Equal(t, "bob", current.Approver, "二次批准不得改写首次决策的审批人")
 }

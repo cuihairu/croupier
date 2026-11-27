@@ -140,6 +140,19 @@ func currentApprovalActor(ctx context.Context) string {
 // even with allowSelfApprove=true, requests for two_person functions still
 // forbid the same subject from approving/rejecting, otherwise the "two-person
 // rule" would be merely descriptive data.
+//
+// Semantics chosen for the two-person rule (2026-11-26 supplement ③): the two
+// halves coexist (并存), not either/or:
+//   - the requester (record.Actor) may never review their own request; under
+//     two_person this holds regardless of the global allowSelfApprove switch;
+//   - the approval record holds exactly one terminal decision (the store
+//     performs an atomic pending -> approved/rejected CAS). A second approval
+//     by the SAME operator is rejected as a duplicate (409
+//     approval_already_reviewed) and never counts as a second person. The same
+//     duplicate rule applies to a different operator: one record cannot carry
+//     two terminal decisions. Distinctness is therefore enforced between the
+//     requester and the single authorized approver (two different subjects),
+//     not as a two-approval counter on one record.
 func (s *Service) rejectSelfApproval(ctx context.Context, operator string, record *approvals.Approval, action string) error {
 	if s == nil || record == nil {
 		return nil
