@@ -2564,9 +2564,12 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 完成证据：`9df018953` 含 `CroupierProperties.java`、`CroupierAutoConfiguration.java`、`spring-boot-starter/build.gradle`、新测试 `CroupierAuthTokenBindingTest.java` + `ClientAuthTokenHandshakeTest.java`、`docs/sdks/java/guide/index.md`、`docs/zh/sdks/java/guide/index.md`（`git show --stat` 核对 7 files 182 insertions），已推 origin/main；构建、全量测试与变异红→绿为本席独立复跑。
   - 已知边界：starter 仅暴露 `CroupierProperties` 声明的字段——headers、heartbeat 间隔等其余 `ClientConfig` 字段仍需手写配置（文档已列）；token 仅在非空时进握手 metadata；用户 bean 覆盖依赖 `@ConditionalOnMissingBean` 顺序（同典型 Spring Boot 语义）；starter 测试依赖（junit-jupiter/spring-boot-starter-test）需在线解析，`--offline` 构建会因无缓存失败。
 
-- [ ] **AUD-106 · P2 · 修复 · Java starter 与核心 SDK 使用同一发布仓库配置**
+- [x] **AUD-106 · P2 · 修复 · Java starter 与核心 SDK 使用同一发布仓库配置**
   - 依赖：AUD-078、AUD-079。交付与验收：在 Maven 本地演练中核对核心包和 starter 的仓库选择、版本及 POM 依赖均对应同一次发布。证据：`.github/workflows/release-sdk-java.yml:75,77` 传入统一 GitHub Packages URL，`sdks/java/build.gradle:170` 遵循该输入，`sdks/java/spring-boot-starter/build.gradle:95` 仍将目标固定为旧独立 SDK 仓库。当前为源码确认。
-  - 状态／条件：未开始。
+  - 状态／条件：LOCAL VERIFIED（2026-11-27）。starter `build.gradle` 的 GitHubPackages 仓库改为与根项目同一模式 `System.getenv('GITHUB_PACKAGES_URL') ?: 'https://maven.pkg.github.com/cuihairu/croupier-sdk-java'`——release-sdk-java workflow 注入 `GITHUB_PACKAGES_URL=https://maven.pkg.github.com/${{ github.repository }}` 后，starter 与核心 SDK 发布到同一主仓库；无 env 的树外构建保留旧独立仓库默认值。
+  - 验证：仓库选择探针（init script 打印两项目 `publishing.repositories`，`GITHUB_PACKAGES_URL=https://maven.pkg.github.com/cuihairu/croupier`）修复后两项目均解析到主仓库 URL。变异自证：把 starter 文件临时还原为 HEAD 旧实现 → 探针显示 starter 回到 `croupier-sdk-java` 独立仓库而根项目仍指主仓库（即 AUD-106 标记的漂移复现），恢复修复后 diff 与修复版一致。Maven 本地演练：`./gradlew publishToMavenLocal -PoverrideVersion=0.0.0-aud106rehearsal` 成功，`~/.m2` 中 `io.github.cuihairu.croupier:croupier-java-sdk` 与 `:croupier-spring-boot-starter` 同版本 artifact（jar/pom/module/sources）齐备，starter POM `<dependency>` 锁定 `croupier-java-sdk:0.0.0-aud106rehearsal` 同一次发布版本；演练产物已清理。
+  - 完成证据：`ad1c4a9fb` 含 `sdks/java/spring-boot-starter/build.gradle`（`git show --stat` 核对 1 file 4+/1-），已推 origin/main；探针、变异红、演练发布为本席独立复跑。
+  - 已知边界：Maven Central 分支（`isRelease` 的 Sonatype 仓库与签名）两项目本就同 URL，本次未改；真实 GitHub Packages 推送需 CI 凭据，本席仅做 `publishToMavenLocal` 演练不触网；Gradle 发布配置无单元测试面，验证依赖探针 + 本地演练。
 
 - [ ] **AUD-107 · P1 · 修复 · 将 Java Provider 安全配置接入默认 TCP transport**
   - 依赖：—。交付与验收：显式安全模式下为首连和重连启用已有的 TLS factory 与主机名验证，读取 CA、客户端证书、私钥和 server name。Spring 入口映射同一套字段。验收证书正确时注册成功，主机名或 CA 错误时拒绝连接，开发模式行为按原配置工作。证据：`sdks/java/src/main/java/io/github/cuihairu/croupier/sdk/CroupierClientImpl.java:65,69,75` 的默认工厂忽略 ClientConfig 中安全设置，直接使用明文构造函数，`transport/TCPTransport.java:116` 的 TLS 构造入口没有从该工厂调用。使用现有 Java 构建产物实例化 Provider，检查到 insecure=false 下默认 transport 的 TLS factory 仍为空。
