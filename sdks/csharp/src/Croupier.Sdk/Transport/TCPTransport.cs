@@ -45,6 +45,12 @@ public sealed class TCPTransport : IClientTransport
     private NetworkStream? _stream;
     private bool _connected;
     private int _requestId;
+
+    // 请求 ID 分配 + _pending 登记的互斥锁（纯同步临界区，锁内绝不 await，
+    // 与帧写锁 _writeLock 分离）。没有它，两个并发调用可读到同一个计数器
+    // 值、领到同一个 reqId 并互相覆盖在途等待者（AUD-073）。
+    private readonly object _requestIdLock = new();
+
     private bool _isDisposed;
 
     // Pending request tracking: request_id -> TaskCompletionSource
@@ -236,16 +242,30 @@ public sealed class TCPTransport : IClientTransport
 
         ThrowIfDisposed();
 
-        // Generate request ID
-        _requestId = (_requestId + 1) & 0x7FFFFFFF;
-        var reqId = _requestId;
+        // Allocate the request ID and register the waiter as one atomic step
+        // (AUD-073): the previous plain read-modify-write let two concurrent
+        // callers observe the same counter value, hand out the same ID and
+        // overwrite each other's in-flight waiter. Near the 0x7FFFFFFF
+        // wraparound a recycled ID can also collide with a request that is
+        // still pending, so TryAdd fails for any ID whose waiter is still
+        // registered and allocation skips it instead of replacing the waiter.
+        // The loop terminates as long as fewer than 2^31 requests are in
+        // flight (bounded far below by memory), because each spin advances
+        // the counter and only in-flight waiters occupy IDs.
+        var tcs = new TaskCompletionSource<(int msgType, byte[] data)>(TaskCreationOptions.RunContinuationsAsynchronously);
+        int reqId;
+        lock (_requestIdLock)
+        {
+            do
+            {
+                _requestId = (_requestId + 1) & 0x7FFFFFFF;
+                reqId = _requestId;
+            }
+            while (!_pending.TryAdd(reqId, tcs));
+        }
 
         // Create message
         var message = Protocol.NewMessage(msgType, reqId, data);
-
-        // Register pending request
-        var tcs = new TaskCompletionSource<(int msgType, byte[] data)>(TaskCreationOptions.RunContinuationsAsynchronously);
-        _pending[reqId] = tcs;
 
         try
         {
@@ -262,7 +282,11 @@ public sealed class TCPTransport : IClientTransport
         }
         finally
         {
-            _pending.TryRemove(reqId, out _);
+            // 只移除本调用自己的 waiter（按 (id, tcs) 对移除）：读到响应时
+            // 读循环可能已把条目取走；理论上整整 2^31 次回绕后本调用仍未
+            // 返回时该 ID 可能已被复用给新的等待者，按键移除会误删它。
+            ((ICollection<KeyValuePair<int, TaskCompletionSource<(int msgType, byte[] data)>>>)_pending)
+                .Remove(new KeyValuePair<int, TaskCompletionSource<(int msgType, byte[] data)>>(reqId, tcs));
         }
     }
 
