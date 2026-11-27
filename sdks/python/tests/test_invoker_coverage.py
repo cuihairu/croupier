@@ -17,6 +17,7 @@ from croupier.invoker import (
     InvokeOptions,
     RetryConfig,
     ServerHTTPError,
+    UnknownResultError,
     SyncInvoker,
     TaskEventInfo,
     _calculate_reconnect_delay,
@@ -232,8 +233,13 @@ def test_invoke_invalid_json_response_raises():
     try:
 
         async def run():
-            with pytest.raises(ValueError, match="invalid JSON"):
+            # The non-JSON body is still rejected as an invalid response shape;
+            # on a write that rejection lands inside the result-unknown
+            # classification (AUD-068) with the shape error kept on the chain.
+            with pytest.raises(UnknownResultError) as excinfo:
                 await invoker.invoke("f", "{}")
+            assert isinstance(excinfo.value.__cause__, ValueError)
+            assert "invalid JSON" in str(excinfo.value.__cause__)
 
         asyncio.run(run())
     finally:
@@ -444,7 +450,16 @@ def test_retry_uses_request_level_retry_config():
             result = await invoker.invoke(
                 "fn",
                 "{}",
-                InvokeOptions(retry=RetryConfig(max_attempts=3, initial_delay_ms=1, jitter_factor=0.0)),
+                InvokeOptions(
+                    # Writes are single-shot by default (AUD-068); opt this
+                    # replay-safe request back into retries explicitly.
+                    retry=RetryConfig(
+                        max_attempts=3,
+                        initial_delay_ms=1,
+                        jitter_factor=0.0,
+                        retry_writes=True,
+                    )
+                ),
             )
             assert json.loads(result) == {"ok": True}
 

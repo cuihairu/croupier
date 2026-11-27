@@ -461,7 +461,7 @@ func TestHTTPInvoker_RetryAbortedByContextCancellation(t *testing.T) {
 
 	impl := NewHTTPInvoker(&InvokerConfig{Address: server.URL}).(*httpInvoker)
 	_, err := impl.Invoke(ctx, "health.check", `{}`, InvokeOptions{
-		Retry: &RetryConfig{Enabled: true, MaxAttempts: 5, InitialDelayMs: 400},
+		Retry: &RetryConfig{Enabled: true, MaxAttempts: 5, InitialDelayMs: 400, RetryWrites: true},
 	})
 	if err == nil || !strings.Contains(err.Error(), "context canceled") {
 		t.Fatalf("Invoke() error = %v, want context cancellation during backoff", err)
