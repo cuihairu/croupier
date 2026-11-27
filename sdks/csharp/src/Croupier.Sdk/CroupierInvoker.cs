@@ -87,13 +87,18 @@ public sealed class CroupierInvoker : IDisposable
                 return request;
             }
 
-            var (_, content) = await SendWithRetryAsync(RequestFactory, options, cancellationToken).ConfigureAwait(false);
+            var (_, content) = await SendWithRetryAsync(RequestFactory, options, cancellationToken, isWrite: true).ConfigureAwait(false);
 
             return InvokeResult.Succeeded(ExtractResult(content), ElapsedMilliseconds(startedAt));
         }
         catch (OperationCanceledException)
         {
             return InvokeResult.Failed("Operation canceled", "CANCELED", ElapsedMilliseconds(startedAt));
+        }
+        catch (ResultUnknownException ex)
+        {
+            _logger.LogError("CroupierInvoker", $"Invoke {functionId} result unknown: {ex.Message}", ex);
+            return InvokeResult.Failed(ex.Message, "RESULT_UNKNOWN", ElapsedMilliseconds(startedAt));
         }
         catch (Exception ex)
         {
@@ -151,7 +156,7 @@ public sealed class CroupierInvoker : IDisposable
             return request;
         }
 
-        var (_, content) = await SendWithRetryAsync(RequestFactory, options, cancellationToken).ConfigureAwait(false);
+        var (_, content) = await SendWithRetryAsync(RequestFactory, options, cancellationToken, isWrite: true).ConfigureAwait(false);
 
         using var document = JsonDocument.Parse(content);
         if (!document.RootElement.TryGetProperty("taskId", out var taskId) || string.IsNullOrWhiteSpace(taskId.GetString()))
@@ -435,10 +440,13 @@ public sealed class CroupierInvoker : IDisposable
     private async Task<(int StatusCode, string Content)> SendWithRetryAsync(
         Func<HttpRequestMessage> requestFactory,
         InvokeOptions? options,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool isWrite)
     {
         var retry = (options?.Retry ?? _config.Retry)?.Normalized();
-        var attempts = retry is { Enabled: true } ? retry.MaxAttempts : 1;
+        // AUD-068: a write may have executed before its response was lost; replay it only
+        // when the caller declares the endpoint replay-safe via RetryWrites.
+        var attempts = retry is { Enabled: true } && (!isWrite || retry.RetryWrites) ? retry.MaxAttempts : 1;
 
         Exception lastError = new HttpRequestException("Server HTTP request failed");
         for (var attempt = 0; attempt < attempts; attempt++)
@@ -455,6 +463,10 @@ public sealed class CroupierInvoker : IDisposable
             {
                 throw;
             }
+            catch (ResultUnknownException)
+            {
+                throw;
+            }
             catch (Exception exception)
             {
                 lastError = exception;
@@ -464,12 +476,29 @@ public sealed class CroupierInvoker : IDisposable
                         || retry.IsRetryableStatus((int)httpRequest.StatusCode));
                 if (!retryable || attempt == attempts - 1)
                 {
-                    throw;
+                    throw AsFinalWriteError(exception, isWrite);
                 }
                 await Task.Delay(TimeSpan.FromMilliseconds(retry!.DelayMs(attempt)), cancellationToken).ConfigureAwait(false);
             }
         }
-        throw lastError;
+        throw AsFinalWriteError(lastError, isWrite);
+    }
+
+    /// <summary>
+    /// A final write failure with no response (transport), a 408/429 or a 5xx is a lost
+    /// outcome; explicit 4xx and other known failures are surfaced unchanged.
+    /// </summary>
+    private static Exception AsFinalWriteError(Exception error, bool isWrite)
+    {
+        if (!isWrite) return error;
+        if (error is ResultUnknownException) return error;
+        if (error is HttpRequestException httpError)
+        {
+            var status = (int?)httpError.StatusCode;
+            if (status is not null && status is not (408 or 429 or >= 500)) return error;
+        }
+        return new ResultUnknownException(error.Message, error,
+            (error as HttpRequestException)?.StatusCode);
     }
 
     private static string ExtractResult(string content)

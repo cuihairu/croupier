@@ -267,7 +267,7 @@ public sealed class OpenApiSchemaRetryDrainTests
         using var invoker = CreateInvoker(handler, new InvokerConfig
         {
             ServerBaseUrl = "http://server.test/api/v1",
-            Retry = new RetryConfig { MaxAttempts = 3, InitialDelayMs = 1, JitterFactor = 0 },
+            Retry = new RetryConfig { MaxAttempts = 3, InitialDelayMs = 1, JitterFactor = 0, RetryWrites = true },
         });
 
         var result = await invoker.InvokeAsync("fn", "{}");
@@ -334,7 +334,7 @@ public sealed class OpenApiSchemaRetryDrainTests
         using var invoker = CreateInvoker(handler, new InvokerConfig
         {
             ServerBaseUrl = "http://server.test/api/v1",
-            Retry = new RetryConfig { MaxAttempts = 2, InitialDelayMs = 1, JitterFactor = 0 },
+            Retry = new RetryConfig { MaxAttempts = 2, InitialDelayMs = 1, JitterFactor = 0, RetryWrites = true },
         });
 
         var taskId = await invoker.StartTaskAsync("fn", "{}");

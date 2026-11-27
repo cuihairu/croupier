@@ -237,7 +237,9 @@ public sealed class CroupierInvokerExtendedTests
         var result = await invoker.InvokeAsync("fn.err-empty", "{}");
 
         result.Success.Should().BeFalse();
-        result.Error.Should().Be("HTTP 500");
+        // AUD-068: an exhausted 5xx write reports a lost outcome, not the bare status text.
+        result.ErrorCode.Should().Be("RESULT_UNKNOWN");
+        result.Error.Should().EndWith("HTTP 500");
     }
 
     [Fact]

@@ -40,6 +40,12 @@ public sealed class RetryConfig
     /// <summary>额外触发重试的 HTTP 状态码（默认 429 与 5xx 总是可重试）。</summary>
     public IReadOnlyList<int> RetryableStatusCodes { get; set; } = Array.Empty<int>();
 
+    /// <summary>
+    /// AUD-068：是否允许自动重试写请求（POST/PUT/DELETE）。默认 false——写请求可能已在
+    /// 响应丢失前生效，只有调用方声明端点可重放（例如服务端消费了 Idempotency-Key）时才开启。
+    /// </summary>
+    public bool RetryWrites { get; set; } = false;
+
     /// <summary>返回填充默认值后的规范化副本。</summary>
     public RetryConfig Normalized()
     {
