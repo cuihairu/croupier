@@ -2581,6 +2581,16 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 完成证据：`54139870b` 含 `CroupierClientImpl.java`、`ClientConfig.java`、`CroupierProperties.java`、`CroupierAutoConfiguration.java`、新测试 `CroupierClientTlsTransportTest.java` + `CroupierSecurityPropertiesBindingTest.java`、`docs/sdks/java/guide/index.md`、`docs/zh/sdks/java/guide/index.md`（`git show --stat` 核对 8 files 548 insertions），已推 origin/main；全量测试与变异红→绿为本席独立复跑。
   - 已知边界：`InvokerConfig` 自建工厂路径（`CroupierSDK.createInvoker` 直用）不读 TLS 字段——经 `CroupierClientImpl` 持有的 invoker 已继承本修复的 TLS 工厂，独立 InvokerImpl 直连场景仍为明文（原样保留，验收范围是 Provider 连接）；无控制面（controlAddr）时验收不覆盖 manifest 上传链路；keytool 需在 PATH（CI ubuntu/本地均满足）；心跳/重连长稳行为未在本用例内做时序压测，重连安全性由工厂分支共享保证（同一代码路径）。
 
+- [ ] **AUD-108 · P2 · 修复 · zh README 传输权威引用纠偏与 link-check 盲区**
+  - 依赖：—。交付与验收：`README.zh.md:103` 传输取舍权威引用从归档 `docs/archive/legacy-en/architecture/transport-no-grpc.md` 改指现行 `docs/architecture/adr/0001-transport.md` zh 镜像（对齐 CR-FIX-18 已修的 `README.md:112`）；`scripts/check-docs-links.sh` 文件集补 `README.zh.md`，堵住 zh 根 README 对链接检查不可见的盲区。证据：AUD-COV-008 回归报告 R1（`docs/review/aud-cov-008-historical-regression-2026-11-28.md`）。
+  - 状态／条件：未开始。
+
+- [x] AUD-COV-008 · 汇总 · 回归历史审计并形成总报告（证据 commit 本行所在提交）
+  - 进度（2026-11-21）：已复核 11 月 4 日外部审核的 5 个 P0 与 P1-6～10、P1-12，见下方「历史高优先级问题复核」。其他历史条目仍待逐条对照。
+  - 状态／条件：已完成 — LOCAL VERIFIED（2026-11-28，HEAD `d11dd4beb`）。11-01…10 七份历史审计/交付记录的剩余条目全部按 HEAD 逐条回归：外部深审剩余 24 条（P1-11、P1-13..20、P2-21..30、P3-31..35）判 已修 19 / 部分修复 4（P1-18、P2-21、P2-22、P2-28）/ 仍存在 1（P2-24，且实证阈值纯配色不失败）；AGENT-001 矩阵 4/4 在位；C-list 29 修复 commit 全部 `merge-base --is-ancestor` 通过 + 6 处代码抽样在位（C-008 搬迁 `ops_server_exec.go` 逻辑未变；C-005 缓期维持）；wip-audit 4 commit 在主链；OPS-001/010/002 交付物全部在位（增量迁移 0054/0059/0061 属追加非漂移）。每条 file:line 证据落总报告。合并重复：P1-18 残留立 AUD-108；P2-24/28 维持 CR-FIX-24/28 开放项；nightly 非阻断与 admins.json 归档残留为勾行内既有边界，不新立。未覆盖区域（动态运行面、11-12/11-13 窗口外深审、C-list 未抽样 24 条的逐文件复跑）在报告 §5 明确标注，不以静态在位冒充运行验证。
+  - 完成证据：`docs/review/aud-cov-008-historical-regression-2026-11-28.md`（24 条逐条判定表 + 四份 11-01/02 记录回归 + 新发现 R1-R7 + 诚实未覆盖清单）；机械证据：29+4 commit 祖先链验证、`README.zh.md:103` 与 `scripts/check-docs-links.sh:37` 盲区主审亲核。
+  - 已知边界：本报告为静态源码回归，运行验证面（真实 provider apply、真机/iOS、部署恢复演练、Redis/ClickHouse 对账）归 AUD-COV-002/003/004/006/007 剩余范围；PGP 指纹未配置维持 CR-FIX-16 勾行 user-blocked 边界。
+
 ## Codex 深审发现（2026-11-13，luna profile 近5 commit 审核，6C/22M/5m，待修）
 
 > 本节保留导入原文及其来源；已对照到 AUD/PWR 的条目不重复设复选框。未映射条目仍待逐项审核。原始分级不是本轮代码核验结论。
