@@ -101,6 +101,20 @@ const (
 func acquireSessionLock(ctx context.Context, sqlDB *sql.DB, gooseDialect string) (func() error, error) {
 	switch gooseDialect {
 	case "mysql", "postgres", "mssql":
+		// AUD-091: the lock holds one pooled connection for the ENTIRE migration
+		// pass (version probe + baseline + goose catch-up), and every one of
+		// those steps borrows a further connection from this SAME pool. A pool
+		// capped at MaxOpenConns(1) therefore deadlocks: the lock connection is
+		// checked out for the whole pass, so the version-table probe can never
+		// borrow a second connection and blocks until the caller deadline (the
+		// exact hang AUD-091 observed against a MySQL surrogate). Detect the
+		// misconfiguration up front and fail with a clear configuration error
+		// instead of waiting out the deadline. (SQLite is single-writer and
+		// takes no session lock, so it is unaffected — and is normally run with
+		// MaxOpenConns(1) anyway.)
+		if max := sqlDB.Stats().MaxOpenConnections; max == 1 {
+			return nil, fmt.Errorf("migrate: session lock requires a connection pool with at least 2 connections (MaxOpenConns=%d): the lock holds one connection for the whole migration pass while the version probe and goose migrations borrow another — raise the pool limit (db.SetMaxOpenConns >= 2) before migrating", max)
+		}
 	default:
 		return func() error { return nil }, nil
 	}
