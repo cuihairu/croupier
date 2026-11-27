@@ -60,28 +60,30 @@ jobs:
         timeout-minutes: 1
         run: mkdir -p "${{ inputs.deploy_dir }}"
 
-      - name: Prepare compose, configs and env
-        timeout-minutes: 2
+      # AUD-096: 现场 compose/配置目录不再被直接覆写。本步骤只把「这次部署应该
+      # 长什么样」写进独立候选目录（${RUNNER_TEMP}，与 deploy_dir 隔离），现场
+      # 的 agent*.yaml / .env 环境事实仅以只读方式读取，现场目录在整个候选期
+      # （staging → 校验 → 镜像准备）保持字节级不变。
+      - name: Stage candidate compose, configs and env
+        timeout-minutes: 3
         run: |
-          cp docker/docker-compose.deploy.yml "${{ inputs.deploy_dir }}/docker-compose.yml"
-          cp docker/docker-compose.telemetry.yaml "${{ inputs.deploy_dir }}/docker-compose.telemetry.yaml"
-          # 备份线上 agent 配置（scope 是环境事实，rm -rf configs 前抢救）
+          CANDIDATE_DIR="${RUNNER_TEMP}/croupier-deploy-candidate"
+          echo "CANDIDATE_DIR=${CANDIDATE_DIR}" >> "${GITHUB_ENV}"
+          rm -rf "${CANDIDATE_DIR}"
+          mkdir -p "${CANDIDATE_DIR}/configs/clickhouse/initdb"
+          cp docker/docker-compose.deploy.yml "${CANDIDATE_DIR}/docker-compose.yml"
+          cp docker/docker-compose.telemetry.yaml "${CANDIDATE_DIR}/docker-compose.telemetry.yaml"
+          cp docker/configs/server.yaml docker/configs/agent.yaml docker/configs/agent2.yaml docker/configs/haproxy.cfg "${CANDIDATE_DIR}/configs/"
+          cp configs/prometheus.yml "${CANDIDATE_DIR}/configs/prometheus.yml"
+          cp configs/otel-collector-config.yaml "${CANDIDATE_DIR}/configs/otel-collector.yaml"
+          cp configs/clickhouse/initdb/*.sql "${CANDIDATE_DIR}/configs/clickhouse/initdb/"
+          # 备份线上 agent 配置（scope 是环境事实；只读读取现场，改写落在候选副本）
           PREV_DIR="$(mktemp -d)"
           for cfg in agent.yaml agent2.yaml; do
             if [ -f "${{ inputs.deploy_dir }}/configs/${cfg}" ]; then
               cp "${{ inputs.deploy_dir }}/configs/${cfg}" "${PREV_DIR}/${cfg}"
             fi
           done
-          # Server/agent bind-mount ./configs/{server,agent,agent2}.yaml read-only
-          # (see docker-compose.deploy.yml). Recreate the dir each run: a prior
-          # failed `up` leaves Docker auto-created empty same-name *directories*
-          # in place of the missing files, which then fail with "not a directory".
-          rm -rf "${{ inputs.deploy_dir }}/configs"
-          mkdir -p "${{ inputs.deploy_dir }}/configs"
-          cp docker/configs/server.yaml docker/configs/agent.yaml docker/configs/agent2.yaml docker/configs/haproxy.cfg "${{ inputs.deploy_dir }}/configs/"
-          # telemetry 栈（prometheus/grafana/jaeger/otel）配置随部署分发——
-          # prometheus.yml 含 haproxy exporter 抓取目标（LB 监控管道）
-          cp configs/prometheus.yml "${{ inputs.deploy_dir }}/configs/prometheus.yml"
           # agent*.yaml 的 game/env scope 是环境事实（生产 demo-game/development，
           # 全新安装 bootstrap 为 default/dev），部署覆盖会静默改写 scope 导致
           # 函数注册进不可见的游戏。策略：线上已有文件原样保留（scope 不动），
@@ -89,31 +91,32 @@ jobs:
           # 直连单个 server 实例（旧直连/旧 nginx stream 入口地址均不保留）。
           for cfg in agent.yaml agent2.yaml; do
             if [ -f "${PREV_DIR}/${cfg}" ]; then
-              cp "${PREV_DIR}/${cfg}" "${{ inputs.deploy_dir }}/configs/${cfg}"
+              cp "${PREV_DIR}/${cfg}" "${CANDIDATE_DIR}/configs/${cfg}"
             fi
             sed -i 's|^  addr: "[^"]*"$|  addr: "haproxy:19090"|' \
-              "${{ inputs.deploy_dir }}/configs/${cfg}"
+              "${CANDIDATE_DIR}/configs/${cfg}"
           done
           # agent2 是同一环境的第二个接入实例：gameId/env 必须与 agent1
           # 一致（否则注册进另一 scope，在 demo-game 视角下"消失"）。
           # 以线上 agent.yaml 的 scope 为准同步给 agent2。
-          AGENT1_GAME="$(grep -oP '^  gameId: "\K[^"]*' "${{ inputs.deploy_dir }}/configs/agent.yaml" || true)"
-          AGENT1_ENV="$(grep -oP '^  env: "\K[^"]*' "${{ inputs.deploy_dir }}/configs/agent.yaml" || true)"
+          AGENT1_GAME="$(grep -oP '^  gameId: "\K[^"]*' "${CANDIDATE_DIR}/configs/agent.yaml" || true)"
+          AGENT1_ENV="$(grep -oP '^  env: "\K[^"]*' "${CANDIDATE_DIR}/configs/agent.yaml" || true)"
           if [ -n "${AGENT1_GAME}" ]; then
             sed -i "s|^  gameId: \"[^\"]*\"|  gameId: \"${AGENT1_GAME}\"|" \
-              "${{ inputs.deploy_dir }}/configs/agent2.yaml"
+              "${CANDIDATE_DIR}/configs/agent2.yaml"
           fi
           if [ -n "${AGENT1_ENV}" ]; then
             sed -i "s|^  env: \"[^\"]*\"|  env: \"${AGENT1_ENV}\"|" \
-              "${{ inputs.deploy_dir }}/configs/agent2.yaml"
+              "${CANDIDATE_DIR}/configs/agent2.yaml"
           fi
           rm -rf "${PREV_DIR}"
-          # OTel collector 配置随部署分发（trace 栈由 deploy compose 固化）
-          cp configs/otel-collector-config.yaml "${{ inputs.deploy_dir }}/configs/otel-collector.yaml"
+          # OTel collector 配置随部署分发（trace 栈由 deploy compose 固化）；
+          # AUD-096：落候选目录（部署前现场目录只读，除 agent*.yaml 环境事实外）。
+          cp configs/otel-collector-config.yaml "${CANDIDATE_DIR}/configs/otel-collector.yaml"
           # ClickHouse bootstrap DDL for the analytics profile (fresh volumes
           # get the worker-compatible schema automatically).
-          mkdir -p "${{ inputs.deploy_dir }}/configs/clickhouse/initdb"
-          cp configs/clickhouse/initdb/*.sql "${{ inputs.deploy_dir }}/configs/clickhouse/initdb/"
+          mkdir -p "${CANDIDATE_DIR}/configs/clickhouse/initdb"
+          cp configs/clickhouse/initdb/*.sql "${CANDIDATE_DIR}/configs/clickhouse/initdb/"
           # AUD-095: .env has two explicit owners.
           # MANAGED_KEYS are rebuilt from workflow inputs on every deploy
           # (image tags, registry, feature switches). Every other key is
@@ -147,11 +150,13 @@ jobs:
             POSTGRES_IMAGE REDIS_IMAGE CLICKHOUSE_IMAGE OTEL_IMAGE JAEGER_IMAGE
             HAPROXY_IMAGE
           )
-          ENV_FILE="${DEPLOY_DIR}/.env"
+          # AUD-096: 现场 .env 是环境事实来源（只读）；合并结果落候选 .env。
+          LIVE_ENV_FILE="${DEPLOY_DIR}/.env"
+          ENV_FILE="${CANDIDATE_DIR}/.env"
           # Snapshot before writing: the old flow truncated .env, then tried
           # to grep the previous ports from the newly written file.
           declare -A PRESERVED=()
-          if [ -f "${ENV_FILE}" ]; then
+          if [ -f "${LIVE_ENV_FILE}" ]; then
             while IFS= read -r line || [ -n "${line}" ]; do
               case "${line}" in ''|'#'*) continue ;; esac
               key="${line%%=*}"
@@ -169,7 +174,7 @@ jobs:
               # This covers future *_PORT / *_IMAGE / collection config keys
               # that are not yet in the explicit INSTANCE_KEYS list.
               PRESERVED["${key}"]="${line}"
-            done < "${ENV_FILE}"
+            done < "${LIVE_ENV_FILE}"
           fi
           # Older installers set these on the runner before .env existed.
           for pair in \
@@ -186,7 +191,7 @@ jobs:
           # never observes a half-written .env. Scoped subshell owns cleanup.
           (
             set -e
-            TMP_ENV="$(mktemp "${DEPLOY_DIR}/.env.XXXXXX")"
+            TMP_ENV="$(mktemp "${CANDIDATE_DIR}/.env.XXXXXX")"
             trap 'rm -f "${TMP_ENV}"' EXIT
             {
               printf 'GHCR_OWNER=%s\n' "${{ inputs.ghcr_owner }}"
@@ -230,10 +235,12 @@ jobs:
           done
           exit 1
 
-      - name: Pull latest images
+      # AUD-096: 镜像准备改指向候选目录——pull 在候选 compose/.env 上执行，
+      # 现场目录在 pull 失败时保持原样（镜像准备失败不再破坏现场）。
+      - name: Pull latest images (candidate)
         timeout-minutes: 40
         run: |
-          COMPOSE_ARGS=(--project-name "${CROUPIER_COMPOSE_PROJECT}" --env-file "${{ inputs.deploy_dir }}/.env" -f "${{ inputs.deploy_dir }}/docker-compose.yml")
+          COMPOSE_ARGS=(--project-name "${CROUPIER_COMPOSE_PROJECT}" --env-file "${CANDIDATE_DIR}/.env" -f "${CANDIDATE_DIR}/docker-compose.yml")
           # analytics profile（ingestion/analytics-worker）随每次部署一起拉新；
           # 不带 profile 时 compose up 不会碰这些服务，镜像会滞留旧版本。
           PULL_ARGS=(--profile analytics)
@@ -256,6 +263,52 @@ jobs:
             fi
             sleep $((i * 15))
           done
+
+      # AUD-096 校验门：候选 compose 解析、变量插值、bind-mount 源文件、YAML 语法
+      # 与 .env 必需键全部通过后才允许进入切换。此步骤失败时现场目录未被触碰，
+      # 上一个可用版本（现场现物 + 本地镜像）继续服务。
+      - name: Validate candidate config tree
+        timeout-minutes: 3
+        run: |
+          set -euo pipefail
+          fail() { echo "::error::${1}"; exit 1; }
+          DEPLOY_COMPOSE_ARGS=(--project-name "${CROUPIER_COMPOSE_PROJECT}" --env-file "${CANDIDATE_DIR}/.env" -f "${CANDIDATE_DIR}/docker-compose.yml")
+          # 1) deploy 栈 compose 解析 + 变量插值 + schema 校验
+          docker compose "${DEPLOY_COMPOSE_ARGS[@]}" config -q || fail "候选 docker-compose.yml 校验失败（解析/插值/schema）"
+          # 2) telemetry 栈（同一候选目录：../configs/ 相对候选根目录解析）
+          docker compose --project-name croupier-telemetry -f "${CANDIDATE_DIR}/docker-compose.telemetry.yaml" config -q \
+            || fail "候选 docker-compose.telemetry.yaml 校验失败"
+          # 3) bind-mount 源文件齐备且非空（compose config 不校验源文件存在性；
+          #    docker auto-create 同名目录会伪装成文件，2026-09 已踩过"not a directory"）
+          for f in \
+            configs/server.yaml configs/agent.yaml configs/agent2.yaml \
+            configs/haproxy.cfg configs/prometheus.yml configs/otel-collector.yaml \
+          ; do
+            [ -s "${CANDIDATE_DIR}/${f}" ] || fail "候选配置缺失或为空: ${f}"
+          done
+          for sql in "${CANDIDATE_DIR}"/configs/clickhouse/initdb/*.sql; do
+            [ -s "${sql}" ] || fail "候选 clickhouse initdb 脚本缺失或为空: ${sql}"
+          done
+          # 4) 应用配置 YAML 语法（python3 是 runner 预装；PyYAML 不可用时仅告警跳过）
+          if command -v python3 >/dev/null 2>&1 && python3 -c 'import yaml' >/dev/null 2>&1; then
+            python3 -c 'import sys, yaml; yaml.safe_load(open(sys.argv[1]))' \
+              "${CANDIDATE_DIR}/configs/server.yaml" \
+              || fail "候选 server.yaml 语法错误"
+            python3 -c 'import sys, yaml; yaml.safe_load(open(sys.argv[1]))' \
+              "${CANDIDATE_DIR}/configs/agent.yaml" \
+              || fail "候选 agent.yaml 语法错误"
+            python3 -c 'import sys, yaml; yaml.safe_load(open(sys.argv[1]))' \
+              "${CANDIDATE_DIR}/configs/agent2.yaml" \
+              || fail "候选 agent2.yaml 语法错误"
+          else
+            echo "::warn::python3/PyYAML 不可用，跳过应用配置 YAML 语法校验"
+          fi
+          # 5) .env 必需键（本次部署管理的键）
+          for key in GHCR_OWNER CROUPIER_SERVER_TAG CROUPIER_AGENT_TAG CROUPIER_DASHBOARD_TAG \
+                     CROUPIER_SDK_EXAMPLE_TAG ENABLE_SDK_EXAMPLES ANALYTICS_BRIDGE_ENABLED; do
+            grep -q "^${key}=" "${CANDIDATE_DIR}/.env" || fail "候选 .env 缺少必需键: ${key}"
+          done
+          echo "候选配置树校验通过: ${CANDIDATE_DIR}"
 
       - name: Validate compose ownership
         timeout-minutes: 1
@@ -295,6 +348,44 @@ jobs:
             echo "===== ${c}: panic tail ====="
             docker logs --tail 2000 "${c}" 2>&1 | grep -B 5 -A 40 -E "panic:|CreateCompositeProposal panic|recovered" | tail -60 || echo "(no panic evidence)"
           done
+
+      # AUD-096 切换：先整目录备份现场（compose+配置+.env），再逐件候选→现场。
+      # 任何一件复制失败即 trap 回滚：从备份逐件还原现场，保证「上一个可用版本
+      # 可继续使用」——切换失败后现场目录与切换前逐字节一致。
+      - name: Switch candidate into deploy dir (backup + rollback)
+        timeout-minutes: 2
+        run: |
+          set -euo pipefail
+          DEPLOY_DIR="${{ inputs.deploy_dir }}"
+          BACKUP_DIR="${DEPLOY_DIR}/.deploy-backup-$(date +%Y%m%d%H%M%S)"
+          MANAGED_ITEMS=(docker-compose.yml docker-compose.telemetry.yaml .env configs)
+          mkdir -p "${BACKUP_DIR}"
+          for item in "${MANAGED_ITEMS[@]}"; do
+            if [ -e "${DEPLOY_DIR}/${item}" ]; then
+              cp -a "${DEPLOY_DIR}/${item}" "${BACKUP_DIR}/"
+            fi
+          done
+          rollback() {
+            echo "::warning::切换失败，从 ${BACKUP_DIR} 回滚现场目录"
+            for item in "${MANAGED_ITEMS[@]}"; do
+              rm -rf "${DEPLOY_DIR}/${item}"
+              if [ -e "${BACKUP_DIR}/${item}" ]; then
+                cp -a "${BACKUP_DIR}/${item}" "${DEPLOY_DIR}/"
+              fi
+            done
+            echo "::error::部署已中止，现场目录已恢复为上一个可用版本"
+            exit 1
+          }
+          trap rollback ERR
+          for item in "${MANAGED_ITEMS[@]}"; do
+            if [ -e "${CANDIDATE_DIR}/${item}" ]; then
+              # 现场若残留 Docker 自动创建的同名目录（历史踩坑），先清掉再落文件
+              rm -rf "${DEPLOY_DIR}/${item}"
+              cp -a "${CANDIDATE_DIR}/${item}" "${DEPLOY_DIR}/"
+            fi
+          done
+          trap - ERR
+          echo "切换完成（备份: ${BACKUP_DIR}）"
 
       - name: Deploy containers
         timeout-minutes: 10
@@ -353,6 +444,17 @@ jobs:
             PS_ARGS+=(--profile sdk-examples)
           fi
           docker compose "${COMPOSE_ARGS[@]}" "${PS_ARGS[@]}" ps
+
+      # AUD-096: 候选目录是临时物，部署结束后（无论成败）清理；现场切换
+      # 已完成或已回滚，清理候选不影响现场。
+      - name: Cleanup candidate directory (always)
+        if: always()
+        timeout-minutes: 1
+        run: |
+          if [ -n "${CANDIDATE_DIR:-}" ] && [ -d "${CANDIDATE_DIR}" ]; then
+            rm -rf "${CANDIDATE_DIR}"
+            echo "候选目录已清理: ${CANDIDATE_DIR}"
+          fi
 
       - name: Cleanup dangling images
         timeout-minutes: 2

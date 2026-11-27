@@ -45,7 +45,10 @@ PY
 # Atomicity is a structural property: the merged file must be built in a
 # sibling temp file and published with one rename. A runtime temp-dir test
 # cannot observe a torn write, so assert the workflow block itself.
-grep -q 'mktemp "${DEPLOY_DIR}/.env.XXXXXX"' "${merge_script}" \
+# AUD-096 rebase: ENV_FILE may target the candidate dir (${CANDIDATE_DIR}/.env)
+# instead of the live ${DEPLOY_DIR}/.env; atomicity only requires the merged
+# file to be built beside the publish target (same directory, single rename).
+grep -qE 'mktemp "\$\{(CANDIDATE_DIR|DEPLOY_DIR)\}/\.env\.XXXXXX"' "${merge_script}" \
   || fail "workflow does not build env in a sibling temp file"
 grep -q 'mv -f "${TMP_ENV}" "${ENV_FILE}"' "${merge_script}" \
   || fail "workflow does not publish env with a single rename"
@@ -63,8 +66,17 @@ enable_sdk_examples="true"
 analytics_bridge="true"
 deploy_dir="${work_dir}/deploy"
 mkdir -p "${deploy_dir}"
+# AUD-096: the merge publishes into the staged candidate dir; the switch step
+# copies it into the live dir. Simulate both phases here.
+CANDIDATE_DIR="${work_dir}/candidate"
+mkdir -p "${CANDIDATE_DIR}"
 export ghcr_owner server_tag agent_tag dashboard_tag sdk_example_tag
-export enable_sdk_examples analytics_bridge deploy_dir
+export enable_sdk_examples analytics_bridge deploy_dir CANDIDATE_DIR
+
+run_merge() {
+  bash "${merge_script}"
+  cp "${CANDIDATE_DIR}/.env" "${deploy_dir}/.env"
+}
 
 write_seed_env() {
   cat > "${deploy_dir}/.env" <<'EOF'
@@ -115,7 +127,7 @@ assert_no_orphan_temp() {
 
 write_seed_env
 echo "=== deploy 1 (seed: custom instance config, stale image tags) ==="
-bash "${merge_script}"
+run_merge
 assert_env DATABASE_URL "postgres://custom:secret@postgres:5432/custom"
 assert_env CROUPIER_SERVER_TAG v1
 
@@ -125,7 +137,7 @@ dashboard_tag="v2"
 sdk_example_tag="v2"
 export server_tag agent_tag dashboard_tag sdk_example_tag
 echo "=== deploy 2 (new image tags, preserve instance config) ==="
-bash "${merge_script}"
+run_merge
 
 echo "=== assertions ==="
 # Target image tag and managed switches must update normally.
@@ -170,7 +182,7 @@ cp "${deploy_dir}/.env" "${deploy_dir}/.env.preextra"
 printf '%s\n' "${extra}" >> "${deploy_dir}/.env"
 rm -f "${deploy_dir}/.env.extra"
 echo "=== deploy 3 (future *_PORT key) ==="
-bash "${merge_script}"
+run_merge
 assert_env MY_CUSTOM_PORT 19999
 assert_no_duplicates MY_CUSTOM_PORT
 
@@ -182,10 +194,12 @@ cat "${deploy_dir}/.env"
 fresh_dir="${work_dir}/fresh"
 mkdir -p "${fresh_dir}"
 echo "=== deploy fresh (no prior .env, legacy scope fallback) ==="
-deploy_dir="${fresh_dir}" \
+mkdir -p "${fresh_dir}/candidate"
+deploy_dir="${fresh_dir}" CANDIDATE_DIR="${fresh_dir}/candidate" \
   CROUPIER_SDK_EXAMPLE_GAME_ID_PERSIST=fresh-game \
   CROUPIER_SDK_EXAMPLE_ENV_PERSIST=staging \
   bash "${merge_script}"
+cp "${fresh_dir}/candidate/.env" "${fresh_dir}/.env"
 for expected in \
   "CROUPIER_SERVER_TAG=v2" \
   "CROUPIER_SDK_EXAMPLE_GAME_ID=fresh-game" \
