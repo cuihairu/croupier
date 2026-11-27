@@ -2437,9 +2437,12 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 完成证据：`df280f6b9` 提交清单含 `internal/db/migrate/migrate.go`、`internal/db/migrate/migrate_test.go`（`git show --stat` 核对），已推 origin/main；db 四包 count=1 与变异红→绿均为本席独立复跑。
   - 已知边界：baseline 中途取消可能残留部分执行语句（已建表）；未加事务包装（会改生产 AutoMigrate 桥接语义，超范围），收敛依赖「失败的 baseline 不记版本 + 生产 baseline 回调幂等」既有不变性；本驱动上已过期 ctx 的快速失败先由 ctx 绑定的版本探测观察到（测试 (a) 接受快败即可），`ctx.Err()` 守卫是探测可能放行的驱动上的确定性兜底。
 
-- [ ] **AUD-091 · P2 · 修复 · 迁移会话锁适配单连接池**
+- [x] **AUD-091 · P2 · 修复 · 迁移会话锁适配单连接池**
   - 依赖：—。交付与验收：使用会话锁的驱动在池上限为 1 时能完成迁移，或在等待前给出明确的配置错误。验收池上限为 1 和正常池大小以及多进程锁互斥。证据：`internal/db/migrate/migrate.go:98,219,225` 先独占池中的连接作为锁会话，再从同一池借连接探测版本表。MySQL 替身验证上限为 1 时等到调用 deadline，版本查询未发出。
-  - 状态／条件：未开始。
+  - 状态／条件：已完成，LOCAL VERIFIED（`4be1f83d4` — `fix: reject single-connection pool before migration session lock`；`internal/db/migrate/migrate.go` +14、`internal/db/migrate/single_conn_pool_test.go` 新 288 行）。取「明确配置错误」交付路径：`acquireSessionLock` 在 mysql/postgres/mssql 分支借连接之前检查 `sqlDB.Stats().MaxOpenConnections == 1`，立即返回清晰配置错误（含 MaxOpenConns、需要 ≥2 与 `SetMaxOpenConns` 修法），不发出 GET_LOCK/版本探测、不等待调用方 deadline；SQLite 单写者不走会话锁且通常就是池上限 1，保持原行为。AUD-098 的解锁释放闭包/错误上报与 AUD-090 的锁语义不变。
+  - 验证：`go build ./internal/db/migrate/` OK；`go test ./internal/db/migrate/ -count=1` 49 PASS / 0 FAIL（61.9s，含既有 deadline 用例）；新增 4 例：池=1 在借连接前拒绝（<500ms、零 GET_LOCK/零 WaitCount）、`ensureUpToDate` 端到端池=1 快速失败（无版本探测）、正常池在持锁期间由另一连接探测并正常释放、跨 DB 句柄会话锁互斥。`gofmt -l` 空。变异自证：agent 侧删除守卫→两例红（等满 2s deadline、发出 GET_LOCK/版本探测、WaitCount=1）；本席复做独立变异（删掉守卫条件体）→ `TestAUD091_SingleConnectionPoolRejectedBeforeLock` 与 `TestAUD091_EnsureUpToDateSingleConnectionPoolFailsFast` 红（`should be zero, but was 1`、耗时 2.011s），逐字恢复守卫后定向组绿、diff 精确回到 +14 行。
+  - 完成证据：`4be1f83d4` 提交清单含 `internal/db/migrate/migrate.go`、`internal/db/migrate/single_conn_pool_test.go`（`git show --stat` 核对），已推 origin/main；build/49 例/变异红→绿均为本席独立复跑。
+  - 已知边界：选择 fail-fast 而非让池=1 也能迁移（会话锁整轮独占一连接、版本探测与 goose 迁移需要第二连接，语义上无法在单连接上并行）；未接真实 MySQL/Postgres/MSSQL 实例，验证使用仓内 MySQL-like driver 替身；运行时若通过其他途径把池改为 1，`MaxOpenConnections` 快照只反映检查瞬间（之后缩池仍可能等待，属配置竞态）。
 
 - [x] **AUD-092 · P1 · 修复 · Agent 只向业务暴露注册已确认的连接**
   - 依赖：—。交付与验收：业务侧的连接和就绪状态在注册成功后一起发布，注册失败、超时、替换或断线时同步撤销。验证重连期间任务事件及指标发送看到明确的未就绪状态。证据：`core/register/loops.go:64,69,74` 在 Register 前发布连接，`core/register/registration.go:112,117` 直接对外返回连接与 socket 状态，`internal/app/agent/upstream.go:575` 使用该接口。阻塞注册前置步骤的探针观测到连接已暴露。
