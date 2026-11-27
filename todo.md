@@ -2550,9 +2550,12 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 完成证据：`092a82f2b` 提交清单含 `sdks/cpp/src/config/client_config_loader.cpp`、`sdks/cpp/tests/test_config_generation.cpp`、`docs/sdks/cpp/configuration/client-config.md`、`docs/zh/sdks/cpp/configuration/client-config.md`（`git show --stat` 核对），已推 origin/main；cmake 构建、786 用例全量与变异红→绿为本席独立复跑。
   - 已知边界：仅 `LoadProfile` 具备按字段出现合并语义，`MergeConfigs` 公共 API 仍按旧规则（布尔总覆盖、数值 0 不覆盖）；无 `CROUPIER_SDK_ENABLE_JSON` 的 SimpleJson 回退解析器只能识别有限字段，嵌套 `security.*` 在该模式下不可见（nlohmann 构建路径已覆盖并测试）；未做真实部署机 profile 文件联调。
 
-- [ ] **AUD-104 · P2 · 修复 · C# SDK 文件配置按标准 JSON 结构解析**
+- [x] **AUD-104 · P2 · 修复 · C# SDK 文件配置按标准 JSON 结构解析**
   - 依赖：—。交付与验收：保留已支持的字段命名方式，正确解析嵌套对象、转义、空字符串和显式 false，语法及类型错误返回可定位诊断。证据：`sdks/csharp/src/Croupier.Sdk/Configuration/ClientConfigProvider.cs:125,139,151` 用正则截取后反射赋值。独立 .NET 探针复现含逗号的服务名被截断，合法 Headers 对象抛出 ArgumentException。
-  - 状态／条件：未开始。
+  - 状态／条件：已完成，LOCAL VERIFIED（`993952e4c` + `5d5c63074` — `fix: parse csharp sdk file config as standard json`；`ClientConfigProvider.cs` +14/−33、新增 `JsonFileConfigProviderAud104Tests.cs` 161 行、`CoverageBoost5MiscTests.cs` 与 `CoverageBoost6MiscTests.cs` 旧 lenient 断言更新、EN/zh `guide/configuration.md` 各 +24）。`GetConfig` 弃用逐属性正则截取+反射赋值，改用 `System.Text.Json`（`PropertyNameCaseInsensitive`、容忍注释与尾逗号）：PascalCase 命名方式保留且 camelCase 亦可；`Headers` 嵌套对象正常解析进 `Dictionary<string,string>`；含逗号字符串、转义序列、空字符串保真；显式 `false` 与 `ReconnectMaxAttempts: 0` 按书写值应用；语法/类型错误抛 `FormatException`，消息含文件路径+行列定位+JSON path（旧路径把 `\"not-a-number\"` 静默归一成 0）。
+  - 验证：`dotnet build src/Croupier.Sdk.Tests/... -v q` 0 错；`dotnet test --filter JsonFileConfigProvider` 17 用例全绿（新增 7 条 AUD-104 用例：逗号字符串、Headers 对象、转义+空串、显式 false、显式 0、camelCase、语法错误定位）；`dotnet test`（Croupier.Sdk.Tests 全量）952 过 0 败 9 skip（既有 skip）；`cd docs && CI=true pnpm build` 0 错（35.86s，EN/zh 双树）。变异自证：把 `JsonFileConfigProvider` 整块从 git HEAD 拼回旧正则实现 → 7 条用例红（逗号截断/Headers/转义/camelCase/语法/类型定位），逐字恢复后全量 952 绿、源文件 diff 为空。
+  - 完成证据：`5d5c63074` 含新测试文件、`993952e4c` 含 `sdks/csharp/src/Croupier.Sdk/Configuration/ClientConfigProvider.cs`、两个既有测试文件、`docs/sdks/csharp/guide/configuration.md`、`docs/zh/sdks/csharp/guide/configuration.md`（`git show --stat` 核对），已推 origin/main；构建、定向/全量测试与变异红→绿为本席独立复跑。
+  - 已知边界：字符串形态的数值/布尔（旧路径容忍的 `\"15\"`/`\"true\"`）现在属类型错误抛 `FormatException`——按验收要求「类型错误返回可定位诊断」处理，不保留静默归一兼容；未知字段仍被 `System.Text.Json` 默认忽略（与旧行为一致）；`FormatException` 包装不携带堆栈内 JSON 文本（InnerException 为原 `JsonException` 可取细节）。
 
 - [ ] **AUD-105 · P2 · 修复 · Java Spring Boot starter 暴露 Provider 鉴权配置**
   - 依赖：AUD-005。交付与验收：Spring 配置可绑定 Provider token，并映射到手写 Java ClientConfig 的同一属性。测试省略、显式设置和用户自定义 ClientConfig，验证连接握手使用该配置。证据：`sdks/java/spring-boot-starter/src/main/java/io/github/cuihairu/croupier/spring/boot/autoconfigure/CroupierAutoConfiguration.java:44` 的工厂与 CroupierProperties 缺 token 字段，核心 `ClientConfig.java:115` 已具备相应属性。
