@@ -474,7 +474,10 @@ private:
             throw std::runtime_error("invoker is closed");
         }
         const RetryConfig retry = options.retry.has_value() ? *options.retry : retry_config_;
-        const int attempts = retry.enabled ? std::max(1, retry.max_attempts) : 1;
+        // AUD-068: writes are single-shot unless the caller declares replay-safety;
+        // a final unknown-class write failure is reported as ResultUnknownError.
+        const bool is_write = method != "GET" && method != "HEAD";
+        const int attempts = (!is_write || retry.retry_writes) && retry.enabled ? std::max(1, retry.max_attempts) : 1;
         std::exception_ptr last_error;
         for (int attempt = 0; attempt < attempts; ++attempt) {
             try {
@@ -503,6 +506,24 @@ private:
                 if (attempt + 1 == attempts) break;
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(RetryDelay(attempt, retry)));
+        }
+        if (is_write && last_error) {
+            try {
+                std::rethrow_exception(last_error);
+            } catch (const HTTPStatusError& error) {
+                const long status = error.status_code();
+                if (status == 408 || status == 429 || status >= 500) {
+                    throw ResultUnknownError(status, error.what());
+                }
+                throw;  // explicit rejection: the outcome is known
+            } catch (const std::invalid_argument&) {
+                throw;  // local input validation failed before any request was sent
+            } catch (const std::exception& error) {
+                // Transport failure (no response) may follow a successful side effect.
+                throw ResultUnknownError(0, error.what());
+            } catch (...) {
+                throw ResultUnknownError(0, "non-standard write failure");
+            }
         }
         std::rethrow_exception(last_error);
     }

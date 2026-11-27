@@ -1456,6 +1456,7 @@ TEST(InvokerBoost4Test, RetryWithJitterRetriesServerErrors) {
     config.retry.max_attempts = 2;
     config.retry.initial_delay_ms = 1;
     config.retry.jitter_factor = 0.5;
+    config.retry.retry_writes = true;  // AUD-068: opt into write retries
     CroupierInvoker invoker(config);
     try {
         invoker.Invoke("fn.retry", "{}");

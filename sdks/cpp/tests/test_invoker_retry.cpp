@@ -55,6 +55,7 @@ TEST(InvokerRetryTest, RetriesRetryableStatusThenSucceeds) {
     InvokerConfig config = FastConfig(transport);
     config.retry.enabled = true;
     config.retry.max_attempts = 5;
+    config.retry.retry_writes = true;  // AUD-068: opt into write retries
     CroupierInvoker invoker(config);
 
     const std::string result = invoker.Invoke("fn.retry", "{}");
@@ -73,6 +74,7 @@ TEST(InvokerRetryTest, RetriesRateLimitAndCustomCodes) {
     InvokerConfig config = FastConfig(transport);
     config.retry.enabled = true;
     config.retry.max_attempts = 3;
+    config.retry.retry_writes = true;  // AUD-068: opt into write retries
     config.retry.retryable_status_codes = {418};
     CroupierInvoker invoker(config);
 
@@ -89,6 +91,7 @@ TEST(InvokerRetryTest, NonRetryableStatusFailsImmediately) {
     InvokerConfig config = FastConfig(transport);
     config.retry.enabled = true;
     config.retry.max_attempts = 5;
+    config.retry.retry_writes = true;  // AUD-068: opt into write retries
     CroupierInvoker invoker(config);
 
     EXPECT_THROW(invoker.Invoke("fn.missing", "{}"), std::runtime_error);
@@ -104,12 +107,14 @@ TEST(InvokerRetryTest, ExhaustedRetriesRethrowLastError) {
     InvokerConfig config = FastConfig(transport);
     config.retry.enabled = true;
     config.retry.max_attempts = 2;
+    config.retry.retry_writes = true;  // AUD-068: opt into write retries
     CroupierInvoker invoker(config);
 
     try {
         (void)invoker.Invoke("fn.down", "{}");
         FAIL() << "expected the final 503 to propagate";
-    } catch (const std::runtime_error& error) {
+    } catch (const ResultUnknownError& error) {
+        EXPECT_EQ(503L, error.status_code());
         EXPECT_NE(std::string(error.what()).find("503"), std::string::npos);
         EXPECT_NE(std::string(error.what()).find("down"), std::string::npos);
     }
@@ -126,10 +131,111 @@ TEST(InvokerRetryTest, TransportExceptionsAreRetried) {
     InvokerConfig config = FastConfig(transport);
     config.retry.enabled = true;
     config.retry.max_attempts = 3;
+    config.retry.retry_writes = true;  // AUD-068: opt into write retries
     CroupierInvoker invoker(config);
 
     EXPECT_EQ(R"("recovered")", invoker.Invoke("fn.flaky", "{}"));
     EXPECT_EQ(2, calls);
+}
+
+// AUD-068: a write may have executed before its response was lost. Default: single shot +
+// ResultUnknownError; retry_writes=true restores replay only for caller-declared replay-safe
+// endpoints; reads keep their previous retry behavior and never report ResultUnknownError.
+TEST(InvokerWriteRetryTest, WriteIsNotRetriedByDefaultAndMarkedResultUnknown) {
+    int calls = 0;
+    auto transport = std::make_shared<MockHTTPTransport>([&calls](const HTTPRequest&) -> HTTPResponse {
+        ++calls;
+        throw std::runtime_error("connection dropped after side effect");
+    });
+    InvokerConfig retry_config = FastConfig(transport);
+    retry_config.retry.enabled = true;
+    retry_config.retry.max_attempts = 3;
+    CroupierInvoker retrying(retry_config);
+
+    try {
+        (void)retrying.Invoke("fn.write", "{}");
+        FAIL() << "expected ResultUnknownError";
+    } catch (const ResultUnknownError& error) {
+        EXPECT_EQ(0L, error.status_code());
+        EXPECT_NE(std::string(error.what()).find("result unknown after write"), std::string::npos);
+    }
+    EXPECT_EQ(1, calls);  // no replay after the transport failure
+}
+
+TEST(InvokerWriteRetryTest, Retryable503WriteIsSingleShotAndMarkedUnknown) {
+    int calls = 0;
+    auto transport = std::make_shared<MockHTTPTransport>([&calls](const HTTPRequest&) {
+        ++calls;
+        return HTTPResponse{503, R"({"message":"unavailable"})"};
+    });
+    InvokerConfig config = FastConfig(transport);
+    config.retry.enabled = true;
+    config.retry.max_attempts = 3;
+    CroupierInvoker invoker(config);
+
+    try {
+        (void)invoker.Invoke("fn.write", "{}");
+        FAIL() << "expected ResultUnknownError";
+    } catch (const ResultUnknownError& error) {
+        EXPECT_EQ(503L, error.status_code());
+    }
+    EXPECT_EQ(1, calls);
+}
+
+TEST(InvokerWriteRetryTest, RetryWritesOptsInAndExhaustionIsUnknown) {
+    int calls = 0;
+    auto transport = std::make_shared<MockHTTPTransport>([&calls](const HTTPRequest&) {
+        ++calls;
+        return HTTPResponse{503, R"({"message":"unavailable"})"};
+    });
+    InvokerConfig config = FastConfig(transport);
+    config.retry.enabled = true;
+    config.retry.max_attempts = 3;
+    config.retry.retry_writes = true;
+    CroupierInvoker invoker(config);
+
+    EXPECT_THROW((void)invoker.Invoke("fn.write", "{}"), ResultUnknownError);
+    EXPECT_EQ(3, calls);
+}
+
+TEST(InvokerWriteRetryTest, ExplicitRejectionIsNotMarkedUnknown) {
+    int calls = 0;
+    auto transport = std::make_shared<MockHTTPTransport>([&calls](const HTTPRequest&) {
+        ++calls;
+        return HTTPResponse{403, R"({"message":"forbidden"})"};
+    });
+    InvokerConfig config = FastConfig(transport);
+    config.retry.enabled = true;
+    config.retry.max_attempts = 3;
+    config.retry.retry_writes = true;
+    CroupierInvoker invoker(config);
+
+    try {
+        (void)invoker.Invoke("fn.write", "{}");
+        FAIL() << "expected the explicit rejection";
+    } catch (const ResultUnknownError&) {
+        FAIL() << "an explicit 403 must not be marked result-unknown";
+    } catch (const std::runtime_error& error) {
+        EXPECT_NE(std::string(error.what()).find("403"), std::string::npos);
+    }
+    EXPECT_EQ(1, calls);
+}
+
+TEST(InvokerWriteRetryTest, GetStillRetriesAndIsNotMarkedUnknown) {
+    int calls = 0;
+    auto transport = std::make_shared<MockHTTPTransport>([&calls](const HTTPRequest&) {
+        ++calls;
+        return HTTPResponse{calls < 3 ? 503 : 200,
+                            calls < 3 ? R"({"message":"unavailable"})"
+                                      : R"({"id":"t1","status":"running"})"};
+    });
+    InvokerConfig config = FastConfig(transport);
+    config.retry.enabled = true;
+    config.retry.max_attempts = 3;
+    CroupierInvoker invoker(config);
+
+    EXPECT_EQ("running", invoker.GetTaskStatus("t1").status);
+    EXPECT_EQ(3, calls);
 }
 
 TEST(InvokerCloseTest, ClosedInvokerRejectsRequestsAndConnect) {

@@ -7,6 +7,7 @@
 #include <map>
 #include <memory>
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -144,6 +145,22 @@ struct RetryConfig {
     double backoff_multiplier = 2.0;                               // Exponential backoff multiplier
     double jitter_factor = 0.1;                                    // Jitter factor (0-1) to add randomness
     std::vector<int> retryable_status_codes = {14, 13, 2, 10, 4};  // gRPC status codes
+    bool retry_writes = false;                                     // AUD-068: allow automatic retries of writes
+};
+
+// AUD-068: thrown when a write's final failure leaves the outcome unknown
+// (the request may have executed before the failure). The original error is
+// preserved by deriving from std::runtime_error with the original message.
+class ResultUnknownError : public std::runtime_error {
+public:
+    ResultUnknownError(long status_code, const std::string& message)
+        : std::runtime_error("result unknown after write: " + message), status_code_(status_code) {}
+
+    // 0 means no HTTP response arrived (transport failure); otherwise the final status code.
+    long status_code() const { return status_code_; }
+
+private:
+    long status_code_;
 };
 
 // Invoker configuration
