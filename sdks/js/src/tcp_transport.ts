@@ -14,12 +14,19 @@
  */
 
 import os from "os";
-import { Socket, createConnection, TcpSocketConnectOpts } from "net";
+import { readFileSync } from "fs";
+import { Socket, createConnection, isIP, TcpSocketConnectOpts } from "net";
+import { connect as tlsConnect, ConnectionOptions, TLSSocket } from "tls";
 import { getResponseMsgId, isControlRequest } from "./protocol";
 
 /** Frame constants */
 const FRAME_HEADER_BYTES = 4; // 4-byte big-endian length prefix
 const MAX_FRAME_BYTES = 32 * 1024 * 1024; // 32 MB
+
+/** Extract a message from an unknown thrown value */
+function errMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
 
 /**
  * Read exactly n bytes from socket.
@@ -229,7 +236,10 @@ export class TCPTransport {
         clearTimeout(timeout);
         timeout = null;
       }
-      socket?.removeListener("connect", onConnect);
+      socket?.removeListener(
+        this.tlsEnabled ? "secureConnect" : "connect",
+        onConnect,
+      );
       socket?.removeListener("error", onError);
     };
     const onConnect = () => {
@@ -237,6 +247,20 @@ export class TCPTransport {
       // istanbul ignore next -- connect 事件触发时闭包 socket 必已赋值
       if (!socket) {
         return;
+      }
+      // TLS 模式等的是 secureConnect（握手完成后才允许会话建立）。
+      // 兜底核验：rejectUnauthorized=false 放行时 authorized 可为 false，
+      // 显式跳过校验才允许建立会话（AUD-074）。
+      if (socket instanceof TLSSocket && !this.tlsInsecureSkipVerify) {
+        if (!socket.authorized) {
+          socket.destroy();
+          rejectConnect?.(
+            new Error(
+              `Failed to connect to ${this.address}: TLS certificate validation failed: ${socket.authorizationError}`,
+            ),
+          );
+          return;
+        }
       }
       if (gen !== this.nextEpoch) {
         // 代次过期：拨号在途期间发生过 close() 或更新拨号——迟到的会话
@@ -256,25 +280,18 @@ export class TCPTransport {
     const onError = (err: Error) => {
       cleanup();
       socket?.destroy();
+      // TLS 握手/证书校验失败必须有明确错误（AUD-074）：阻断会话建立。
+      const reason = this.tlsEnabled
+        ? `TLS handshake failed: ${err.message}`
+        : err.message;
       rejectConnect?.(
-        new Error(`Failed to connect to ${this.address}: ${err.message}`),
+        new Error(`Failed to connect to ${this.address}: ${reason}`),
       );
     };
     let resolveConnect: (() => void) | null = null;
     let rejectConnect: ((reason?: Error) => void) | null = null;
-    const connectionPromise = new Promise<void>((resolve, reject) => {
-      resolveConnect = resolve;
-      rejectConnect = reject;
-      socket = createConnection({
-        host,
-        port,
-        family: 4,
-      } as TcpSocketConnectOpts);
-      socket.once("connect", onConnect);
-      socket.once("error", onError);
-      socket.setTimeout(this.timeoutMs);
-    });
-
+    // 拨号超时先建：同步拨号失败（如证书文件读不到）也能清掉计时器，
+    // 不给事件循环留 5s 悬挂 handle。
     const timeoutPromise = new Promise<void>((_, reject) => {
       timeout = setTimeout(() => {
         cleanup();
@@ -287,7 +304,73 @@ export class TCPTransport {
       }, this.connectTimeoutMs);
     });
 
+    const connectionPromise = new Promise<void>((resolve, reject) => {
+      resolveConnect = resolve;
+      rejectConnect = reject;
+      try {
+        socket = this.dialSocket(host, port);
+      } catch (err) {
+        cleanup();
+        rejectConnect?.(
+          new Error(
+            `Failed to connect to ${this.address}: ${errMessage(err)}`,
+          ),
+        );
+        return;
+      }
+      // TLS：等 secureConnect（握手完成）；明文：等 connect。
+      socket.once(this.tlsEnabled ? "secureConnect" : "connect", onConnect);
+      socket.once("error", onError);
+      socket.setTimeout(this.timeoutMs);
+    });
+
     await Promise.race([connectionPromise, timeoutPromise]);
+  }
+
+  /**
+   * 按配置拨号（AUD-074）：tlsEnabled=true 走真 TLS 拨号（此前 TLS 选项
+   * 只被存下、拨号恒普通 TCP），否则普通 TCP。
+   * 语义对齐 Go SDK transport（sdks/go/pkg/croupier/transport/config.go
+   * createTLSConfig）：CA / 客户端证书+私钥从文件读入；serverName 显式
+   * 优先，缺省时非 IP 主机名默认 SNI=host，IP 直连不发 SNI；证书校验
+   * 失败在握手阶段报错，阻断会话建立。
+   */
+  private dialSocket(host: string, port: number): Socket {
+    if (!this.tlsEnabled) {
+      return createConnection({ host, port, family: 4 } as TcpSocketConnectOpts);
+    }
+
+    // family 走 net.connect 透传（tls.ConnectionOptions 类型未列，运行时支持）。
+    const opts: ConnectionOptions & { family?: number } = {
+      host,
+      port,
+      family: 4,
+      rejectUnauthorized: !this.tlsInsecureSkipVerify,
+    };
+    const servername = this.tlsServerName || (isIP(host) ? "" : host);
+    if (servername) {
+      opts.servername = servername;
+    }
+    if (this.tlsCaFile) {
+      try {
+        opts.ca = readFileSync(this.tlsCaFile);
+      } catch (err) {
+        throw new Error(
+          `failed to read TLS CA file "${this.tlsCaFile}": ${errMessage(err)}`,
+        );
+      }
+    }
+    if (this.tlsCertFile && this.tlsKeyFile) {
+      try {
+        opts.cert = readFileSync(this.tlsCertFile);
+        opts.key = readFileSync(this.tlsKeyFile);
+      } catch (err) {
+        throw new Error(
+          `failed to read TLS client certificate/key "${this.tlsCertFile}", "${this.tlsKeyFile}": ${errMessage(err)}`,
+        );
+      }
+    }
+    return tlsConnect(opts);
   }
 
   /** Close the connection and release resources */
