@@ -2401,9 +2401,13 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 完成证据：`204fdadd3` 提交清单 `internal/tasks/scheduler/manager.go` 与 `internal/tasks/scheduler/aud086_test.go`（`git show --stat` 核对），已推 origin/main；本席独立复跑 build/vet/test 与变异红→绿。
   - 已知边界：死信发生在计数达阈值的下一到期触发（阈值判定仍为既有派发前网关，达限 tick 本身已派发）；`LastRunStatus` 存储错误路径与 `err == nil && resp == nil` 边缘未测且语义未改；dispatch 失败路径清空 `last_run_id` 为既有行为，可能丢失上一待定运行的终态，未在本项范围内修改。
 
-- [ ] **AUD-087 · P1 · 修复 · 从调度任务所属游戏库回读上一次运行终态**
+- [x] **AUD-087 · P1 · 修复 · 从调度任务所属游戏库回读上一次运行终态**
   - 依赖：—。交付与验收：根据 schedule 的 game/env 路由运行状态查询，将找不到记录、运行未终结和查库失败区分开。用 meta 与两个 game 库验收，各 scope 的失败和成功只影响本 schedule。证据：`internal/svc/service_context.go:313` 以 meta 连接构造调度模型，`internal/model/task_schedule_model.go:239` 直接查该连接，`internal/model/migration.go:202` 将 TaskRun 列为 game 模型，`internal/tasks/scheduler/manager.go:333` 忽略查库错误。
-  - 状态／条件：未开始。
+  - 状态／条件：已完成，LOCAL VERIFIED（`7b0a2d71d` — `fix: route schedule run status by game scope`；11 文件 +513/−22）。`TaskScheduleModel.LastRunStatus(ctx, gameID, env, taskRunID)` 经窄接口 `ScheduleScopeResolver`（消费方定义、svc 注入 router 适配，model 不 import router）按作用域路由：`routerScheduleScopes.ScopeContext` → `dbctx.Resolve` 取 per-game 连接；无解析器（单库模式）/gameID 为空回退模型自身连接。三态可区分：记录不存在与未终态均 `("", nil)`（计数保持的中性语义），作用域解析失败/查库错误返回 error。scheduler 把 `s.GameID/s.Env` 传入回查，错误不再静默吞掉——slog.Warn 带 schedule/game/env/run 并保持原计数（不猜），继续派发不阻塞循环。`internal/svc/scheduler.go` 仅在 `ctx.Router != nil` 时注入适配器（单库模式行为不变）。
+  - 测试：`go build ./internal/tasks/... ./internal/model/... ./internal/svc/...` 干净；`go test ./internal/tasks/... ./internal/model/... ./internal/svc/... -count=1` 四包全绿（model 50.4s / svc 47.7s；全量 verbose 1483 PASS / 0 FAIL / 0 SKIP）；scheduler+model 3 轮 shuffle 稳定。新用例：meta+两 game 库隔离（同 task_id 在两 scope 终态相反）、三态区分、单库兼容、scheduler 层路由参数与 warn-vs-中性断言、真实 store meta+两 game 端到端。
+  - 变异自证：agent 侧 M1 模型强制 `return m.db`（原 meta 直读缺陷）→ `no such table: task_runs` + scheduler E2E 计数断言红；M2 manager 恢复静默吞错 → warn 断言红。本席复做 M1 同型变异（`if true { return m.db }`）→ `TestTaskScheduleModel_AUD087_LastRunStatusRoutesByScope` 红，恢复后绿；MUTATION 残留 0、`gofmt -l` 空。
+  - 完成证据：`7b0a2d71d` 提交清单含 `internal/model/task_schedule_model.go`、`internal/model/task_schedule_model_multigame_test.go`、`internal/svc/scheduler.go`、`internal/tasks/scheduler/manager.go`、`internal/tasks/scheduler/aud087_test.go`（`git show --stat` 核对），已推 origin/main；build/四包测试/变异红→绿均为本席独立复跑。
+  - 已知边界：仅修复调度器终态**读路径**；`(schedule_id, slot)` 领取仲裁与 `task_schedule_run_logs` 仍与调度定义同库（multiGame 下 meta），跨实例仲裁在 multiGame 的边界不变，ARCH-023 关注面仍开放；调度定义本身仍在 `TaskScheduleModel` 绑定的连接（multiGame=meta），incident-report 播种在无该表时跳过（既有边界不变）；回查出错时调度器有意不猜终态——计数保持不变、当拍不重试、错误已记日志。
 
 - [x] **AUD-088 · P1 · 修复 · 定时任务创建时原子保存首次触发时间**
   - 依赖：—。交付与验收：创建 active schedule 与首次 `next_triggered_at` 在同一次提交完成，持久化失败时接口返回错误。盘点存量 active 且触发时间为空的任务并提供明确处置结果。证据：`internal/api/schedule/service.go:162,178` 先插入再尝试更新，更新失败仍返回创建成功，`internal/model/task_schedule_model.go:145` 永远不会捞到空触发时间的 active 行。
