@@ -2543,9 +2543,12 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 完成证据：`8bc1ed8b0` 提交清单含 `sdks/go/pkg/croupier/types.go`、`config_validation.go`、`client.go`、`aud102_insecure_mode_test.go`、`docs/sdks/go/guide/integration.md`、`docs/zh/sdks/go/guide/integration.md`（`git show --stat` 核对），已推 origin/main；定向/全量测试与变异红→绿为本席独立复跑。
   - 已知边界：旧 `Insecure: true` 与 `InsecureMode: "secure"` 同存时 secure 胜（有意：显式模式优先）；未配置 TLS 材料而显式 `Insecure: false` 仍按 development 默认回退（与旧行为一致，显式安全必须配 CA）；`insecureMode` 为新增 wire 键，旧版本 SDK 不认识它（未知键忽略）；未做端到端 TLS 握手验证（用 buildManagerConfig 断言 TLS 选项到达传输层边界）。
 
-- [ ] **AUD-103 · P1 · 修复 · C++ SDK profile 只覆盖文件显式配置**
+- [x] **AUD-103 · P1 · 修复 · C++ SDK profile 只覆盖文件显式配置**
   - 依赖：—。交付与验收：先保留字段是否出现的信息，再合并配置并应用默认值。覆盖只改环境、布尔 false、重试次数 0 与基础配置安全设置。证据：`sdks/cpp/src/config/client_config_loader.cpp:109,271,277,462` 先将 profile 加载为带默认值的配置，再覆盖基础配置。探针用仅有 env 的 profile 观察到基础 `insecure=false`、禁用自动重连和 17 秒超时被改写成 true、true、30 秒。
-  - 状态／条件：未开始。
+  - 状态／条件：已完成，LOCAL VERIFIED（`092a82f2b` — `fix: make cpp sdk profile overlay apply only explicit fields`；`client_config_loader.cpp` +167/−2、`test_config_generation.cpp` +147/−2、EN/zh `client-config.md` 各 +11）。`LoadProfile` 不再把 profile 经 `LoadFromFile`/`LoadFromJson` 加载（那条路径会补齐解析默认值），而是直接解析 profile JSON，由 `HasExplicitField`（nlohmann 与 SimpleJson 双实现）保留字段出现信息，再由 `ApplyExplicitProfileFields` 只覆盖文件中显式出现的字段，未出现的字段保留 base（无 base 时取 `CreateDefaultConfig()`）；布尔 false 与 `reconnect_max_attempts: 0` 按出现与否判定而非零值判定。兼容平铺与 `security.*` / `auth.*` 嵌套安全与鉴权字段（嵌套优先）、headers 叠加；profile JSON 非法时抛带路径的 `std::runtime_error`。`LoadFromFile`/`LoadFromJson` 独立入口的默认值行为保持不变。
+  - 验证：`cmake --build build/linux-x64-debug-tests-vcpkg --target croupier-sdk-tests`（vcpkg/nlohmann 配置，-Wall -Wextra -Werror）0 错；`croupier-sdk-tests` 全量 786 用例全绿（含 6 条新增 AUD-103 用例：只改 env 保留基础安全/重连/超时、显式 false 与 0、嵌套安全+headers+service_id、非法 profile 抛错、显式 `cpp-service` 覆盖）；原有 `LoadProfileMergesBaseAndProfile` 中记录的 bug 断言改为 base game_id 保留。`cd docs && CI=true pnpm build` 0 错（28.20s，EN/zh 双树）。变异自证：M1（把 profile 处理恢复成 `LoadFromFile` + `MergeConfigs`，删掉出现信息辅助函数）→ 5 条 AUD-103/合并用例红（含 env-only 与显式 0）；逐字恢复后全量 786 绿、源文件 diff 为空。另试只替换 Apply 调用而不删辅助函数会触发 -Werror unused-function 编译红，不计为行为变异。
+  - 完成证据：`092a82f2b` 提交清单含 `sdks/cpp/src/config/client_config_loader.cpp`、`sdks/cpp/tests/test_config_generation.cpp`、`docs/sdks/cpp/configuration/client-config.md`、`docs/zh/sdks/cpp/configuration/client-config.md`（`git show --stat` 核对），已推 origin/main；cmake 构建、786 用例全量与变异红→绿为本席独立复跑。
+  - 已知边界：仅 `LoadProfile` 具备按字段出现合并语义，`MergeConfigs` 公共 API 仍按旧规则（布尔总覆盖、数值 0 不覆盖）；无 `CROUPIER_SDK_ENABLE_JSON` 的 SimpleJson 回退解析器只能识别有限字段，嵌套 `security.*` 在该模式下不可见（nlohmann 构建路径已覆盖并测试）；未做真实部署机 profile 文件联调。
 
 - [ ] **AUD-104 · P2 · 修复 · C# SDK 文件配置按标准 JSON 结构解析**
   - 依赖：—。交付与验收：保留已支持的字段命名方式，正确解析嵌套对象、转义、空字符串和显式 false，语法及类型错误返回可定位诊断。证据：`sdks/csharp/src/Croupier.Sdk/Configuration/ClientConfigProvider.cs:125,139,151` 用正则截取后反射赋值。独立 .NET 探针复现含逗号的服务名被截断，合法 Headers 对象抛出 ArgumentException。
