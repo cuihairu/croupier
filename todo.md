@@ -2346,9 +2346,13 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 依赖：AUD-078。交付与验收：演练执行与正式发布一致的构建打包检查，凭据和外部写入仅在实际发布步骤需要。验证无凭据演练可跑六车道、产物对应目标提交且没有发布。证据：`.github/workflows/release-sdk-js.yml:58` 演练仍要求发布 token，`.github/workflows/release-sdk-cpp.yml:74` 演练跳过编译任务。
   - 状态／条件：未开始。
 
-- [ ] **AUD-080 · P2 · 修复 · JS SDK 任务事件轮询可取消并限制响应体等待**
+- [x] **AUD-080 · P2 · 修复 · JS SDK 任务事件轮询可取消并限制响应体等待**
   - 依赖：—。交付与验收：任务轮询使用调用方 timeout 和取消信号，预算覆盖响应体解析与轮询间隔。验证正常逐序读完、响应头已到但 body 停滞、取消后不再发送请求。证据：`sdks/js/src/invoker.ts:485,504` 在读取响应体前取消超时计时，轮询间隔无调用方取消路径。
-  - 状态／条件：未开始。
+  - 状态／条件：已完成，LOCAL VERIFIED（`befb333a9` — `fix: js task polling honors timeout and cancel`；`sdks/js/src/invoker.ts` +100/−18、`sdks/js/src/invoker.stream_poll.test.ts` 新 196 行）。`withTimeout(ms, external)` 合并调用方 signal；`cancel()` 在 `res.json()` 完成后才调用，超时预算覆盖响应体读取与解析；`sleepAbortable` 让轮询间隔随取消立即醒来并拒绝；`InvokerEventSource.cancel()` 通过内部 AbortController 传入同一信号，取消后不再发请求、不再误报 error。每轮 timeout 为单轮预算（fetch+body+parse），非跨整条流的总预算；轮询间隔由 signal 而非 timeout 控制，因此 `pollIntervalMs > timeout` 仍是有效配置。调用方取消按原生 AbortSignal.reason 抛出（默认 DOMException AbortError），不包装 InvokerError、不触发重试；`streamTask` 取消只停止本地轮询，不调用服务端 `cancelTask`。
+  - 测试：`cd sdks/js && npx tsc --noEmit -p tsconfig.json` 与 `-p tsconfig.test.json` 均 0 错误；`npx jest` 全量 39 suites passed / 2 skipped（41 total），470 passed / 7 skipped / 0 failed。新增 5 用例覆盖逐序读完+after_seq 递增、headers 到但 body 停滞超时、间隔中取消不发下一请求、首轮前取消零请求、EventSource.cancel 唤醒轮询无 error。
+  - 变异自证：①把 `cancel()` 提前到 headers 之后、body 读取之前 → 停滞 body 用例 1 failed / 4 passed（jest 超时，abort 永不触发），恢复后全绿；②把 `sleepAbortable` 换回裸 setTimeout → 取消用例 2 failed / 3 passed（实测间隔跑满 1530ms / 502ms），恢复后 5/5 绿、文件 MUTATION 标记计数 0。两次变异恢复均经字节比对。
+  - 完成证据：`befb333a9` 提交文件清单为 `sdks/js/src/invoker.ts`、`sdks/js/src/invoker.stream_poll.test.ts`（`git show --stat` 核对）；已推 origin/main；全量 jest 与双 tsconfig 检查均为本席独立复跑。
+  - 已知边界：jest 全量存在既有的 "worker process has failed to exit gracefully" 警告（指向 `src/index.ts:438` mock Client task stream），变更前后均存在；2 suites / 7 tests 的 skip 亦为既有状态。
 
 - [ ] **AUD-081 · P2 · 修复 · TLS 互联监听响应 Serve 上下文取消**
   - 依赖：—。交付与验收：同一 Serve 生命周期在明文或 TLS、空闲或连接在途时均可取消，监听和 worker 有界收尾。证据：`internal/transport/tcp/server.go:135,143,412` 只有裸 TCP listener 设置 Accept 截止时间。包装后的 TLS listener 在空闲时保持阻塞，替身探针核对必须额外 Close 才退出。
