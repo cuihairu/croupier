@@ -1,0 +1,49 @@
+name: CI - Mobile iOS
+
+# AUD-097：iOS 原生工程编译回归门禁。ci-mobile.yml 只在 ubuntu-latest 上
+# 验证 Flutter 分析与 Android APK，本机 tracked 的 mobile/ios/Runner.xcodeproj
+# 与插件注册此前没有任何 CI 编译证据。本工作流在 macOS runner 上执行无签名
+# 构建（flutter build ios --no-codesign），让 Dart 侧与 Runner.xcodeproj、
+# AppDelegate、GeneratedPluginRegistrant 及 iOS 插件的 Swift/ObjC 编译回归
+# 在合并前暴露，不依赖签名证书或 provisioning profile。
+#
+# 已知边界（AUD-097）：本门禁只验证「能编译」，不验证首次 iOS 实机登录 +
+# 作用域请求冒烟，也不验证签名 release 产物；这两项按独立发布流程执行。
+# 本工作流不上传可分发/可安装产物。
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "mobile/**"
+      - ".github/workflows/ci-mobile-ios.yml"
+  push:
+    branches: [main]
+    paths:
+      - "mobile/**"
+      - ".github/workflows/ci-mobile-ios.yml"
+  workflow_dispatch:
+
+jobs:
+  ios-build:
+    runs-on: macos-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: subosito/flutter-action@v2.23.0
+        with:
+          channel: stable
+          flutter-version: 3.35.1
+          cache: true
+      # 与 ci-mobile.yml 同口径：锁文件必须与 Flutter 3.35.1 / Dart 3.9
+      # 工具链一致，漂移即失败，不允许静默重解析。
+      - run: flutter pub get --enforce-lockfile
+      - name: Show Xcode toolchain
+        run: xcodebuild -version
+      # --no-codesign 让 xcodebuild 以 CODE_SIGNING_ALLOWED=NO 完成编译，
+      # 覆盖 Runner scheme 与全部 iOS 插件的原生编译，但不需要签名身份。
+      - name: Unsigned iOS build (compile regression gate)
+        run: flutter build ios --no-codesign
