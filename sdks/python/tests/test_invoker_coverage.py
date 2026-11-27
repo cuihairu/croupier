@@ -19,6 +19,7 @@ from croupier.invoker import (
     ServerHTTPError,
     UnknownResultError,
     SyncInvoker,
+    SyncInvokerLoopError,
     TaskEventInfo,
     _calculate_reconnect_delay,
     _endpoint_url,
@@ -378,12 +379,48 @@ def test_sync_invoker_full_lifecycle():
 
 def test_sync_invoker_rejects_running_loop():
     sync_invoker = SyncInvoker()
-    with pytest.raises(RuntimeError):
-        asyncio.run(_invoke_from_running_loop(sync_invoker))
+    # The dedicated error is asserted inside the coroutine: the caller keeps
+    # its running loop afterwards (assertions below). If the wrapper instead
+    # falls back to a replacement loop, the secondary "cannot run the event
+    # loop while another loop is running" RuntimeError propagates here.
+    asyncio.run(_invoke_from_running_loop(sync_invoker))
 
 
 async def _invoke_from_running_loop(sync_invoker: SyncInvoker):
-    sync_invoker.invoke("f", "{}")
+    running = asyncio.get_running_loop()
+    with pytest.raises(SyncInvokerLoopError):
+        sync_invoker.invoke("f", "{}")
+    # AUD-076: the caller's loop state must be untouched — the wrapper must
+    # not install a replacement loop behind the running loop's back, must not
+    # keep a loop of its own, and the failure must surface as the dedicated
+    # error instead of a secondary "cannot run the event loop while another
+    # loop is running" RuntimeError.
+    assert asyncio.get_running_loop() is running
+    assert asyncio.get_event_loop() is running
+    assert sync_invoker._loop is None
+
+
+def test_sync_invoker_reuses_and_closes_owned_loop():
+    # AUD-076: the plain synchronous path still works end to end, reuses the
+    # same loop across calls and closes it on close() so no loop is leaked.
+    def responder(method, path, headers, payload):
+        if path.split("?")[0].endswith("/invoke"):
+            return 200, {"result": {"ok": True}}
+        return 200, {}
+
+    with MockServer(responder) as server:
+        asyncio.set_event_loop(None)
+        sync_invoker = SyncInvoker(InvokerConfig(address=server.address))
+        try:
+            assert json.loads(sync_invoker.invoke("fn", '{"a":1}')) == {"ok": True}
+            loop = sync_invoker._loop
+            assert loop is not None and not loop.is_closed()
+            assert json.loads(sync_invoker.invoke("fn", '{"a":2}')) == {"ok": True}
+            assert sync_invoker._loop is loop
+        finally:
+            sync_invoker.close()
+            asyncio.set_event_loop(None)
+        assert loop.is_closed()
 
 
 # ---------------------------------------------------------------------------

@@ -459,6 +459,16 @@ def create_invoker(config: Optional[InvokerConfig] = None) -> Invoker:
     return Invoker(config)
 
 
+class SyncInvokerLoopError(RuntimeError):
+    """Raised when the blocking SyncInvoker is called inside a running loop.
+
+    The blocking wrapper cannot borrow the caller's already-running loop:
+    a thread cannot run two loops at once. Async callers must use the
+    asynchronous ``Invoker`` directly, or push this blocking wrapper onto a
+    worker thread (``asyncio.to_thread``). (AUD-076)
+    """
+
+
 class SyncInvoker:
     """Blocking wrapper around the asynchronous Server HTTP invoker."""
 
@@ -467,15 +477,34 @@ class SyncInvoker:
         self._loop: Optional[asyncio.AbstractEventLoop] = None
 
     def _get_loop(self) -> asyncio.AbstractEventLoop:
+        # AUD-076: the running-loop detection must happen before, and outside,
+        # any fallback handling. Raising it from inside a ``try`` whose
+        # ``except RuntimeError`` branch installs a replacement loop would be
+        # swallowed there: the caller's loop state would be silently mangled
+        # (``set_event_loop`` behind its back) and the business coroutine
+        # would be left un-awaited. ``asyncio.get_running_loop`` raises
+        # RuntimeError only when *no* loop is running in this thread, so the
+        # ``else`` branch fires exactly for the misuse case.
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            pass  # Plain synchronous caller: nothing is running in this thread.
+        else:
+            raise SyncInvokerLoopError(
+                "SyncInvoker cannot be used from inside a running asyncio event "
+                "loop; use the asynchronous Invoker instead"
+            )
+        if self._loop is not None and not self._loop.is_closed():
+            return self._loop
         try:
             loop = asyncio.get_event_loop()
-            if loop.is_running():
-                raise RuntimeError("running event loop detected; use the asynchronous Invoker")
-            return loop
         except RuntimeError:
+            loop = None  # No current loop for this thread (3.14+ semantics).
+        if loop is None or loop.is_closed():
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-            return loop
+        self._loop = loop
+        return loop
 
     def connect(self) -> None:
         self._get_loop().run_until_complete(self._async_invoker.connect())
@@ -520,7 +549,17 @@ class SyncInvoker:
         self._async_invoker._schemas[function_id] = schema
 
     def close(self) -> None:
-        self._get_loop().run_until_complete(self._async_invoker.close())
+        loop = self._get_loop()
+        try:
+            loop.run_until_complete(self._async_invoker.close())
+        finally:
+            # AUD-076: release the loop this wrapper used so repeated
+            # blocking calls never leak an unclosed event loop. A later
+            # ``_get_loop`` recovers transparently if the caller keeps using
+            # this wrapper after ``close``.
+            self._loop = None
+            if not loop.is_closed():
+                loop.close()
 
 
 def create_sync_invoker(config: Optional[InvokerConfig] = None) -> SyncInvoker:
@@ -693,6 +732,7 @@ __all__ = [
     "TaskEventInfo",
     "TaskStatus",
     "ServerHTTPError",
+    "SyncInvokerLoopError",
     "Invoker",
     "SyncInvoker",
     "default_invoker_config",
