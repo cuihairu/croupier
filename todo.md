@@ -2468,9 +2468,12 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 完成证据：`b4df551d4` 提交清单含 `internal` 无关的 `.github/workflows/deploy-self-hosted.yml`、`scripts/deploy_env_preservation_test.sh`（`git show --stat` 核对），已推 origin/main；脚本输出/YAML 解析/变异红→绿为本席复核。
   - 已知边界：验证仅模拟抽取出的 workflow shell，未跑真实 GitHub run 或 docker compose；原子性以结构断言（临时文件 + 单次 mv、无直接写现场）验证，临时目录无法观测撕裂写；`chmod 600` 改变 `.env` 权限（compose 以 runner 用户读取，不变）；实例持有的键若被人工删除不会被自动补回（定义上归实例所有），需主机侧手工删除。
 
-- [ ] **AUD-096 · P1 · 修复 · 自托管发布在切换前完整验证候选配置**
+- [x] **AUD-096 · P1 · 修复 · 自托管发布在切换前完整验证候选配置**
   - 依赖：—。交付与验收：将 compose 与配置树写入独立候选目录并通过校验后再切换。覆盖镜像准备失败、候选配置无效和切换失败，验证现场配置和上一个可用版本可继续使用。证据：`.github/workflows/deploy-self-hosted.yml:66,79,110,150` 在登录镜像仓库及后续校验前直接替换现场 compose 和配置目录，备份范围只有两个 Agent YAML。
-  - 状态／条件：未开始。
+  - 状态／条件：已完成，LOCAL VERIFIED（`8e3739fbe` — `fix: validate deploy candidate before switching`；3 文件 +451/−37）。部署拆成「候选→校验→切换」三段，现场目录在候选期（staging→镜像准备→校验）保持字节级不变：compose/配置/.env 全部先写入 `${RUNNER_TEMP}/croupier-deploy-candidate`；agent*.yaml 与 `.env` 的环境事实只以只读方式从现场读取；otlp 配置与 clickhouse initdb 亦落候选（修正了 rebase 后仍写现场的两处残留）。镜像准备改在候选 compose/.env 上执行。新增校验门 `Validate candidate config tree`：候选 deploy/telemetry 两栈 `docker compose config -q`（解析/插值/schema）、bind-mount 源文件齐备且非空、关键 YAML 语法与 .env 必需键——全部通过才允许切换。切换步骤先整目录备份现场（compose×2/.env/configs）再逐件候选→现场，任一件复制失败即 `trap rollback ERR` 逐件还原、现场恢复到切换前；切换后 `Cleanup candidate directory (always)`。`CANDIDATE_DIR` 经 GITHUB_ENV 传递。
+  - 验证：新增 `scripts/deploy_candidate_gate_test.sh`（298 行，fake docker compose + 临时目录），四场景全绿：happy path（校验通过→切换）、镜像准备失败（现场字节级不变）、候选配置无效（校验门拒绝、不切换）、切换失败（rollback 还原现场+上一可用版本）。另跑 mutation：去掉校验门后无效候选会到达现场（脚本检测）。AUD-095 的抽取式脚本在 rebase 后适配（merge 落候选目录 + 模拟切换拷贝）同样 PASS。`bash -n` + YAML 解析通过，两脚本 exit 0。本席另对真实 workflow 做变异复核（删除 `Validate candidate config tree` 步→YAML 仍可解析，说明静态校验不替代门禁存在性，已还原、diff 为空）。无真实 workflow/docker/部署触发。
+  - 完成证据：`8e3739fbe` 提交清单含 `.github/workflows/deploy-self-hosted.yml`、`scripts/deploy_candidate_gate_test.sh`、`scripts/deploy_env_preservation_test.sh`（`git show --stat` 核对），已推 origin/main；脚本四场景输出/YAML 解析/变异红→绿为本席独立复跑。
+  - 已知边界：验证用 fake docker compose 与临时目录模拟，未跑真实 GHCR 登录/pull/compose up 或现场主机；切换回滚覆盖逐件复制的 shell 层失败，runner 硬断电中途损坏超出 `trap ERR` 窗口（但现场留有备份目录可手工恢复）；校验门用 `docker compose config -q` 覆盖 compose 树，应用配置 YAML 语法校验为结构检查（缺 python3/PyYAML 时跳过该子项并告警）。
 
 - [x] **AUD-097 · P2 · 补齐 · 为 iOS 原生工程加入 CI 构建验收**
   - 依赖：AUD-006。交付与验收：在 macOS runner 验证 iOS 工程及插件注册，使用无签名构建阻止编译回归。记录首次 iOS 实机登录与作用域请求结果，发布签名验证按发布流程单独执行。证据：`mobile/ios/Runner.xcodeproj/project.pbxproj` 已跟踪原生工程，`.github/workflows/ci-mobile.yml:24,69,77` 当前构建门禁只验证 Android，仓内未找到 iOS 构建工作流。
