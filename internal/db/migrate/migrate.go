@@ -232,7 +232,19 @@ func ensureUpToDate(ctx context.Context, db *gorm.DB, fsys fs.FS, scope Scope, b
 	if !hasVersions && baseline != nil {
 		// One-time bridge: fresh database or pre-versioning legacy database.
 		// This is the only sanctioned AutoMigrate path (see strategy doc).
-		if err := baseline(db); err != nil {
+		// AUD-090: the bridge inherits the caller's context so cancellation
+		// and deadlines bound it exactly like the version probe and the
+		// catch-up run already do. An already-expired context fails fast
+		// here, before any legacy AutoMigrate statement executes; a context
+		// cancelled mid-baseline surfaces through the statements themselves.
+		// Both paths return before goose records any version, so the version
+		// table stays absent and the next boot (the existing retry policy:
+		// fail startup, retry on restart) re-probes no-version-table and
+		// re-runs the idempotent bridge from scratch.
+		if err := ctx.Err(); err != nil {
+			return 0, fmt.Errorf("migrate: %s baseline: %w", scope, err)
+		}
+		if err := baseline(db.WithContext(ctx)); err != nil {
 			return 0, fmt.Errorf("migrate: %s baseline: %w", scope, err)
 		}
 	}

@@ -2,8 +2,11 @@ package migrate
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"io/fs"
 	"path/filepath"
+	"strings"
 	"testing"
 	"testing/fstest"
 
@@ -26,6 +29,21 @@ func mapFS(files map[string]string) fs.FS {
 		out[name] = &fstest.MapFile{Data: []byte(content)}
 	}
 	return out
+}
+
+// probeFSThrough builds the same synthetic migration set the literal mapFS
+// fixtures below spell out: 0001 is the baseline marker and 0002..n each
+// create one probe table. Generated programmatically so the context tests can
+// reach MinimumRequiredVersion without a fourth 70-entry literal.
+func probeFSThrough(n int64) fs.FS {
+	files := map[string]string{
+		"0001_baseline.sql": "-- +goose Up\nSELECT 1;\n\n-- +goose Down\nSELECT 1;\n",
+	}
+	for i := int64(2); i <= n; i++ {
+		body := fmt.Sprintf("-- +goose Up\nCREATE TABLE probe%d (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe%d;\n", i, i)
+		files[fmt.Sprintf("%04d_add_probe%d.sql", i, i)] = body
+	}
+	return mapFS(files)
 }
 
 // baselineProbe creates a probe table so tests can verify the baseline bridge
@@ -478,4 +496,104 @@ func versionTableExistsFor(t *testing.T, db *gorm.DB) bool {
 	_ = sqlDB
 
 	return exists
+}
+
+// AUD-090: the baseline bridge must inherit the caller's migration context —
+// the version probe and the goose Up run already do.
+
+func TestEnsureUpToDate_ExpiredContextFailsBeforeBaseline(t *testing.T) {
+	db := openTestDB(t)
+	fsys := probeFSThrough(MinimumRequiredVersion)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // expire before the migration pass starts
+
+	calls := 0
+	baseline := func(*gorm.DB) error {
+		calls++
+		return nil
+	}
+	_, err := ensureUpToDate(ctx, db, fsys, ScopeMeta, baseline)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("err = %v, want context.Canceled", err)
+	}
+	// Fail fast: whichever guard observes the expiry first (usually the
+	// context-bound version probe, otherwise the pre-baseline ctx check) must
+	// stop the pass with a context error before any bridge statement runs.
+	if !strings.Contains(err.Error(), "context canceled") {
+		t.Fatalf("err = %v, want a context-canceled message", err)
+	}
+	if calls != 0 {
+		t.Fatalf("baseline ran %d times with an expired context, want 0", calls)
+	}
+	if versionTableExistsFor(t, db) {
+		t.Fatal("version table recorded despite cancelled baseline pass; a retry would skip the bridge")
+	}
+}
+
+func TestEnsureUpToDate_CancelMidBaselinePropagates(t *testing.T) {
+	db := openTestDB(t)
+	fsys := mapFS(map[string]string{
+		"0001_baseline.sql":   "-- +goose Up\nSELECT 1;\n\n-- +goose Down\nSELECT 1;\n",
+		"0002_add_probe2.sql": "-- +goose Up\nCREATE TABLE probe2 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe2;\n",
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	var inner error
+	baseline := func(handle *gorm.DB) error {
+		// Simulate cancellation arriving mid-baseline, then prove the handle
+		// handed to the bridge honors it: the statement must fail instead of
+		// silently succeeding like the pre-AUD-090 context-free handle.
+		cancel()
+		inner = handle.Exec("SELECT 1").Error
+		return inner
+	}
+	_, err := ensureUpToDate(ctx, db, fsys, ScopeMeta, baseline)
+	if inner == nil {
+		t.Fatal("baseline handle ignored the caller context: statement succeeded after cancellation")
+	}
+	if !errors.Is(inner, context.Canceled) {
+		t.Fatalf("baseline statement error = %v, want context.Canceled", inner)
+	}
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("ensureUpToDate error = %v, want wrapped context.Canceled", err)
+	}
+	if !strings.Contains(err.Error(), "baseline") {
+		t.Fatalf("err = %v, want a baseline-scoped message", err)
+	}
+	// Baseline failed → goose Up never ran → no version recorded, so the
+	// existing restart-retry policy re-runs the bridge on the next boot.
+	if versionTableExistsFor(t, db) {
+		t.Fatal("version table recorded despite mid-baseline cancellation")
+	}
+}
+
+func TestEnsureUpToDate_CancelledBaselineConvergesOnRetry(t *testing.T) {
+	db := openTestDB(t)
+	fsys := probeFSThrough(MinimumRequiredVersion)
+
+	// First boot: context expires before the bridge → fail fast, nothing recorded.
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := ensureUpToDate(ctx, db, fsys, ScopeMeta, baselineProbe); !errors.Is(err, context.Canceled) {
+		t.Fatalf("first boot err = %v, want context.Canceled", err)
+	}
+
+	// Second boot (the existing retry policy): fresh context, the bridge
+	// re-runs and catch-up advances the version to the required floor.
+	version, err := ensureUpToDate(context.Background(), db, fsys, ScopeMeta, baselineProbe)
+	if err != nil {
+		t.Fatalf("retry boot: %v", err)
+	}
+	if version != MinimumRequiredVersion {
+		t.Fatalf("version = %d, want %d", version, MinimumRequiredVersion)
+	}
+	if !probeExists(t, db) {
+		t.Fatal("baseline did not run on retry boot")
+	}
+	if !tableExists(t, db, fmt.Sprintf("probe%d", MinimumRequiredVersion)) {
+		t.Fatalf("catch-up migration probe%d missing on retry boot", MinimumRequiredVersion)
+	}
 }
