@@ -2581,9 +2581,10 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 完成证据：`54139870b` 含 `CroupierClientImpl.java`、`ClientConfig.java`、`CroupierProperties.java`、`CroupierAutoConfiguration.java`、新测试 `CroupierClientTlsTransportTest.java` + `CroupierSecurityPropertiesBindingTest.java`、`docs/sdks/java/guide/index.md`、`docs/zh/sdks/java/guide/index.md`（`git show --stat` 核对 8 files 548 insertions），已推 origin/main；全量测试与变异红→绿为本席独立复跑。
   - 已知边界：`InvokerConfig` 自建工厂路径（`CroupierSDK.createInvoker` 直用）不读 TLS 字段——经 `CroupierClientImpl` 持有的 invoker 已继承本修复的 TLS 工厂，独立 InvokerImpl 直连场景仍为明文（原样保留，验收范围是 Provider 连接）；无控制面（controlAddr）时验收不覆盖 manifest 上传链路；keytool 需在 PATH（CI ubuntu/本地均满足）；心跳/重连长稳行为未在本用例内做时序压测，重连安全性由工厂分支共享保证（同一代码路径）。
 
-- [ ] **AUD-108 · P2 · 修复 · zh README 传输权威引用纠偏与 link-check 盲区**
+- [x] **AUD-108 · P2 · 修复 · zh README 传输权威引用纠偏与 link-check 盲区** — 8f8572930
   - 依赖：—。交付与验收：`README.zh.md:103` 传输取舍权威引用从归档 `docs/archive/legacy-en/architecture/transport-no-grpc.md` 改指现行 `docs/architecture/adr/0001-transport.md` zh 镜像（对齐 CR-FIX-18 已修的 `README.md:112`）；`scripts/check-docs-links.sh` 文件集补 `README.zh.md`，堵住 zh 根 README 对链接检查不可见的盲区。证据：AUD-COV-008 回归报告 R1（`docs/review/aud-cov-008-historical-regression-2026-11-28.md`）。
-  - 状态／条件：未开始。
+  - 状态／条件：已完成 — LOCAL VERIFIED（2026-11-28）。`README.zh.md:103` 改指 `docs/zh/architecture/adr/0001-transport.md`（链接可解析，与 zh README 其余 docs/zh 链接同口径）；`scripts/check-docs-links.sh` 文件集加 `README.zh.md`（含头部注释同步）。绿跑：939 链接/534 文件全可解析 exit 0（README.zh.md 已入扫描集）。变异自证：向 README.zh.md 注入死链探针 → `DEAD LINK: README.zh.md -> docs/no-such-page.md` exit 1（证明新扫描项真实生效且死链点名 zh README），移除探针复绿 exit 0。完成证据：commit `8f8572930`（`README.zh.md` 2/1 + `scripts/check-docs-links.sh` 9/4）、本行所在提交；回归源起 `docs/review/aud-cov-008-historical-regression-2026-11-28.md` R1。
+  - 已知边界：`check-docs-links.sh` 扫描的是仓库根 README 双语 + sdks README + docs 树（排除 archive）；zh 页面正文内的翻译陈旧（非死链）仍归 locale parity 与 doc review 范围。
 
 - [x] AUD-COV-008 · 汇总 · 回归历史审计并形成总报告（证据 commit 本行所在提交）
   - 进度（2026-11-21）：已复核 11 月 4 日外部审核的 5 个 P0 与 P1-6～10、P1-12，见下方「历史高优先级问题复核」。其他历史条目仍待逐条对照。
