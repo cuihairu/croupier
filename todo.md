@@ -2461,9 +2461,12 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 依赖：—。交付与验收：定时拉取与手动拉取同时发生时，配置落地结果和版本游标一致，较早请求的迟到响应无法覆盖已经应用的更新。用不要求可排序的版本值测试两种完成顺序，以及 apply 失败后的重试。证据：`core/configsync/loop.go:16` 分开读版本、拉取、应用和写版本，`internal/app/agent/app_extension.go:69` 暴露直接拉取入口。探针观察到较新配置先应用，随后被较早请求的迟到响应覆盖。
   - 状态／条件：未开始。
 
-- [ ] **AUD-095 · P1 · 修复 · 自托管部署保留实例环境变量**
+- [x] **AUD-095 · P1 · 修复 · 自托管部署保留实例环境变量**
   - 依赖：—。交付与验收：明确 workflow 管理键与实例配置键，构建配置后原子落盘。以临时目录验证自定义端口、采集配置和 demo scope 两次部署后仍在，目标镜像 tag 正常更新。证据：`.github/workflows/deploy-self-hosted.yml:121,125,144` 先覆盖 `.env` 再从新文件读取旧端口。抽取脚本验证 demo scope 保留，数据库端口、采集端口和采集凭据配置键丢失。
-  - 状态／条件：未开始。
+  - 状态／条件：已完成，LOCAL VERIFIED（`b4df551d4` — `fix: preserve instance env keys on self-hosted deploy`；2 文件 +297/−30）。`.env` 改为显式双属主合并：workflow 管理 `GHCR_OWNER`、四镜像 tag、`ENABLE_SDK_EXAMPLES`、`ANALYTICS_BRIDGE_ENABLED`（每次由 inputs 重建、保留阶段跳过旧值，杜绝重复/陈旧值）；实例持有全部端口（数据库/Redis/ClickHouse HTTP+native/Jaeger/server/agent/dashboard/haproxy/ingest）、ClickHouse 与采集配置/凭据（`CLICKHOUSE_*`、`ANALYTICS_*`、`DATABASE_URL`、`REDIS_URL`、`POSTGRES_*`、secrets、endpoints）、demo game/env scope、镜像覆盖以及未来新增的任何未列举键（catch-all 保留）。旧 `.env` 在写入前快照，新内容先写同目录临时文件、`chmod 600`、单次 `mv -f` 原子发布；修复了「先截断再从新文件 grep 旧端口」的根因；全新安装的 legacy runner-level demo-scope 兜底保留。
+  - 验证：新增 `scripts/deploy_env_preservation_test.sh` 直接从 workflow 的 AUD-095 标记区间抽取真实 shell 块、替换 GitHub inputs 变量后对临时目录执行三次模拟部署 + 一次全新安装，断言 v2 tag/owner/开关更新而自定义端口 15432/16379/18123/18000、`CLICKHOUSE_*`、`ANALYTICS_*`、demo-game/production scope、`DATABASE_URL`、`MY_CUSTOM_PORT=19999` 全部恰好一行存活、无残留临时文件；实测 `PASS: AUD-095 env preservation verified across three simulated deploys plus fresh install`（exit 0）；`bash -n` + YAML 解析通过。变异自证（agent 对真实 workflow 逐项注入→脚本→还原）：删除旧值快照读取→ `FAIL: DATABASE_URL expected custom got ''`；删除管理键排除→ `FAIL: CROUPIER_SERVER_TAG expected v1 got 'v1\nold-tag'`；原子 `mv` 改 `cp`+`rm`→ `FAIL: workflow does not publish env with a single rename`；每次还原后脚本重新 PASS。本席独立复跑脚本绿；无真实 workflow/docker/部署触发。
+  - 完成证据：`b4df551d4` 提交清单含 `internal` 无关的 `.github/workflows/deploy-self-hosted.yml`、`scripts/deploy_env_preservation_test.sh`（`git show --stat` 核对），已推 origin/main；脚本输出/YAML 解析/变异红→绿为本席复核。
+  - 已知边界：验证仅模拟抽取出的 workflow shell，未跑真实 GitHub run 或 docker compose；原子性以结构断言（临时文件 + 单次 mv、无直接写现场）验证，临时目录无法观测撕裂写；`chmod 600` 改变 `.env` 权限（compose 以 runner 用户读取，不变）；实例持有的键若被人工删除不会被自动补回（定义上归实例所有），需主机侧手工删除。
 
 - [ ] **AUD-096 · P1 · 修复 · 自托管发布在切换前完整验证候选配置**
   - 依赖：—。交付与验收：将 compose 与配置树写入独立候选目录并通过校验后再切换。覆盖镜像准备失败、候选配置无效和切换失败，验证现场配置和上一个可用版本可继续使用。证据：`.github/workflows/deploy-self-hosted.yml:66,79,110,150` 在登录镜像仓库及后续校验前直接替换现场 compose 和配置目录，备份范围只有两个 Agent YAML。
