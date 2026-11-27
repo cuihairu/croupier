@@ -18,7 +18,12 @@ import { loadProtos } from "./proto";
 export const CORE_PROTOCOL_VERSION = 1;
 /** Protocol versions this SDK will negotiate into (handshake field 2). */
 export const CORE_PROTOCOL_VERSIONS: readonly number[] = [1];
-/** Seconds of stop grace before the process exits regardless of open calls. */
+/**
+ * Seconds granted to the shutdown sequence once the host has actually
+ * requested it (Shutdown RPC or SIGTERM/SIGINT). The countdown does not run
+ * while the plugin is healthy: a plugin that serves past any number of
+ * grace periods without a shutdown request is never force-exited.
+ */
 export const STOP_GRACE_SECONDS = 2;
 
 /** Raised when a plugin is executed outside its magic-cookie gate. */
@@ -45,7 +50,11 @@ export interface ServeOptions {
   bindEnv: string;
   /** Register the plugin's service handlers on the server. */
   register: (server: grpc.Server) => void;
-  /** Extra stop hooks (e.g. closing a plugin's own resources). */
+  /**
+   * Extra stop hooks (e.g. closing a plugin's own resources). Started only
+   * when shutdown is requested and awaited inside STOP_GRACE_SECONDS; a
+   * hook that hangs past the budget gets the process force-exited.
+   */
   onShutdown?: () => Promise<void> | void;
   /** Injectable env for tests; defaults to process.env. */
   env?: Record<string, string | undefined>;
@@ -193,9 +202,12 @@ export function controllerHandlers(onShutdown: () => void): grpc.UntypedServiceI
 }
 
 /**
- * Serve a plugin until the host shuts it down or a signal arrives. Resolves
- * once the server has stopped; the process is expected to exit right after
- * (the unref'd grace timer force-exits if a hung session blocks otherwise).
+ * Serve a plugin until the host shuts it down or a signal arrives. While the
+ * plugin is healthy no exit timer exists: it keeps answering calls past any
+ * number of grace periods. Resolves once the server has stopped and the
+ * onShutdown hook has settled; a shutdown that outlives STOP_GRACE_SECONDS
+ * (hung session or hanging cleanup) is force-exited by the unref'd budget
+ * timer armed in stop().
  */
 export async function servePlugin(options: ServeOptions): Promise<void> {
   const env = options.env ?? process.env;
@@ -221,22 +233,44 @@ export async function servePlugin(options: ServeOptions): Promise<void> {
   });
 
   let stopping = false;
+  // The forced exit exists only while a shutdown is in flight (AUD-075):
+  // arming it at startup killed healthy plugins that served past the grace
+  // period without any shutdown request.
+  let forcedExit: NodeJS.Timeout | null = null;
+  // The plugin's own async cleanup, started by the first shutdown request
+  // and awaited at the end of servePlugin inside the same budget.
+  let cleanup: Promise<void> = Promise.resolve();
   const stop = (): void => {
     if (stopping) {
       return;
     }
     stopping = true;
-    // forceShutdown first: the parked GRPCStdio stream never ends, so a
-    // graceful tryShutdown alone would wait forever. forceShutdown kills
-    // the sessions and lets tryShutdown's completion callback fire.
+    // The bounded wait budget starts here, on the actual shutdown request —
+    // never at startup. forceShutdown first: the parked GRPCStdio stream
+    // never ends, so a graceful tryShutdown alone would wait forever.
+    // forceShutdown kills the sessions and lets tryShutdown's completion
+    // callback fire.
+    forcedExit = setTimeout(() => {
+      process.exit(0);
+    }, STOP_GRACE_SECONDS * 1000);
+    forcedExit.unref();
     server.forceShutdown();
     server.tryShutdown(() => {
       if (terminated !== null) {
         terminated();
       }
     });
-    void Promise.resolve(options.onShutdown?.()).catch(() => {
-      // stop is best-effort; the grace timer still exits the process
+    // Explicit wait budget for the plugin's own async cleanup: the forced
+    // exit above fires only if the cleanup hook (or the server teardown) is
+    // still running when the budget lapses; settling both clears it.
+    cleanup = Promise.resolve(options.onShutdown?.()).catch(() => {
+      // stop is best-effort; a rejecting hook still lets the process exit
+    });
+    void Promise.all([done, cleanup]).then(() => {
+      if (forcedExit !== null) {
+        clearTimeout(forcedExit);
+        forcedExit = null;
+      }
     });
   };
   server.addService(proto.controllerService, controllerHandlers(stop));
@@ -256,13 +290,12 @@ export async function servePlugin(options: ServeOptions): Promise<void> {
   process.on("SIGTERM", sign);
   process.on("SIGINT", sign);
 
-  const grace = setTimeout(() => {
-    process.exit(0);
-  }, STOP_GRACE_SECONDS * 1000);
-  grace.unref();
-
   await done;
-  clearTimeout(grace);
+  // Wait for the plugin's own cleanup inside the same budget: while the
+  // hook is pending the armed forced exit stays live, so a hook that hangs
+  // past STOP_GRACE_SECONDS force-exits the process instead of parking the
+  // drain forever. Settling (done + cleanup) cleared the timer in stop().
+  await cleanup;
   process.removeListener("SIGTERM", sign);
   process.removeListener("SIGINT", sign);
   for (const call of stdio.parked) {

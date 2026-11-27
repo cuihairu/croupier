@@ -102,8 +102,11 @@ A complete runnable example ships in `examples/func_echo.ts` (the
 
 - Cookie gate, `PLUGIN_PROTOCOL_VERSIONS` negotiation (v1 only),
   single stdout handshake line, GRPCStdio parked stream,
-  GRPCController.Shutdown, grpc.health.v1 SERVING, SIGTERM/SIGINT with a
-  bounded 2s stop grace. Plugin logs go to plain stderr (the host
+  GRPCController.Shutdown, grpc.health.v1 SERVING, SIGTERM/SIGINT. The
+  2s stop budget counts only from an actual shutdown request (Shutdown
+  RPC or signal): a healthy plugin serves past any number of grace
+  periods, and a shutdown whose async cleanup hook hangs past the
+  budget is force-exited. Plugin logs go to plain stderr (the host
   collects them); stdout carries only the handshake line.
 - **Bind is TCP, not a unix socket**: grpc-js has no unix domain socket
   support. The SDK binds `127.0.0.1:0` (override with
