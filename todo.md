@@ -2398,9 +2398,13 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 依赖：—。交付与验收：根据 schedule 的 game/env 路由运行状态查询，将找不到记录、运行未终结和查库失败区分开。用 meta 与两个 game 库验收，各 scope 的失败和成功只影响本 schedule。证据：`internal/svc/service_context.go:313` 以 meta 连接构造调度模型，`internal/model/task_schedule_model.go:239` 直接查该连接，`internal/model/migration.go:202` 将 TaskRun 列为 game 模型，`internal/tasks/scheduler/manager.go:333` 忽略查库错误。
   - 状态／条件：未开始。
 
-- [ ] **AUD-088 · P1 · 修复 · 定时任务创建时原子保存首次触发时间**
+- [x] **AUD-088 · P1 · 修复 · 定时任务创建时原子保存首次触发时间**
   - 依赖：—。交付与验收：创建 active schedule 与首次 `next_triggered_at` 在同一次提交完成，持久化失败时接口返回错误。盘点存量 active 且触发时间为空的任务并提供明确处置结果。证据：`internal/api/schedule/service.go:162,178` 先插入再尝试更新，更新失败仍返回创建成功，`internal/model/task_schedule_model.go:145` 永远不会捞到空触发时间的 active 行。
-  - 状态／条件：未开始。
+  - 状态／条件：已完成，LOCAL VERIFIED（`311a9e921` — `fix: persist schedule first trigger atomically`；5 文件 +374/−10）。Create 复用前置 `ParseCron` 的 spec 预算 `next`，经 `CreateScheduleInput.FirstNext` 与行同一次 INSERT 落库（原子由构造保证，无第二次写）；删除 insert-then-update 块，持久化失败现在直接以 API 错误返回且不留行。存量死行处置：`TaskScheduleModel.RepairMissingNextTrigger`（CAS 守卫回填、竞争丢弃、非法 cron 进 `Unrepairable` 逐条上报；paused/dead_letter 明确不在扫描范围）并在 `internal/svc/scheduler.go` 的 `StartScheduler` 启动时接线（`repairMissingNextTriggers`，与 seed 同型注入 `scheduler.ParseCron` 闭包防环）。`ListDue` 的 `IS NOT NULL` 保持严格并注明不得放宽（否则积压死行一次性集中派发）。
+  - 测试：`go build ./internal/svc/...`、`go vet ./internal/svc/` 过；`go test ./internal/api/schedule/... ./internal/model/... -count=1` 全绿（722 PASS 行；schedule 7.5s / model 45.7s）；`go test ./internal/tasks/... -count=1` 回归绿。新用例：`TestCreate_FirstNextSameInsert`（断言恰 1 INSERT 0 UPDATE、读回值与响应一致）、`TestCreate_InsertFailureReturnsErrorNoRow`（failpoint → 500 无残留行）、model 层单 INSERT/nil 兼容形态、Repair 修复/不可修复/paused/dead_letter/幂等矩阵、并发暂停竞争守卫、nil 回调全不可修复。
+  - 变异自证：agent 侧还原 insert-then-update 旧形态 → `TestCreate_FirstNextSameInsert` 红（写计数断言为判别器）。本席复做独立变异（`FirstNext: &next` 置为 nil 旧形态）→ 同用例红（0.32s FAIL），恢复后全包绿；MUTATION 残留 0、`gofmt -l` 空。
+  - 完成证据：`311a9e921` 提交清单含 `internal/api/schedule/service.go`、`internal/api/schedule/service_create_atomic_test.go`、`internal/model/task_schedule_model.go`、`internal/model/task_schedule_model_test.go`、`internal/svc/scheduler.go`（`git show --stat` 核对），已推 origin/main；svc 接线为本席补齐并独立复跑 build/vet/三包测试与变异红→绿。
+  - 已知边界：`internal/model/incident_report.go` 播种仍为 insert-then-update + warn-only（同族形态，文件超本项范围；其 NULL 行由启动期 Repair 收敛覆盖）；`FirstNext == nil` 在 model 层仍合法（保既有 seed 调用方与旧测试不变，注释标注为旧形态）；`SetStatus(active)` 仍为两次 UPDATE（既有行为，失败均返回错误）。
 
 - [ ] **AUD-089 · P2 · 修复 · 提供可直接续读的 Task Events 游标**
   - 依赖：—。交付与验收：明确接口游标语义，为旧调用方保留兼容路径。连续轮询时把服务端续读游标直接传回，验证新到达的一条事件刚好读到一次，并覆盖无增量的轮询。证据：`internal/api/task/service.go:207` 返回最大事件序号加一，`internal/model/task_model.go:298` 使用严格大于过滤。若读到 1、服务端返回 2，使用返回值续读会跳过序号 2。现有测试固定了旧 `nextSeq` 语义。SQLite 续读探针确认，回传该值时漏掉序号 2，回传最后已读序号时能读到。
