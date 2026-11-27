@@ -2500,9 +2500,12 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 依赖：—。交付与验收：保留现有 `nightly` 安装入口和最新构建保留策略。版本标识、提交与签名清单指向同一发布，签名或上传失败时滚动入口继续对应上一次完整产物，重跑可以恢复未完成构建。证据：`.github/workflows/nightly.yml:42,1017,1020,1048` 使用滚动标签，先强移远端 tag，再创建草稿、签名及公开。本轮仅复核 workflow 源码。
   - 状态／条件：未开始。
 
-- [ ] **AUD-100 · P1 · 修复 · 管理员资料缓存仅存业务所需字段**
+- [x] **AUD-100 · P1 · 修复 · 管理员资料缓存仅存业务所需字段**
   - 依赖：—。交付与验收：按 ID 和用户名写入同一份显式字段模型，移除缓存中的密码散列和 TOTP 密钥，并清理旧格式记录。验证本地、Redis 的主键和别名缓存均不含凭据字段，同时核对资料、角色查询和登录/二次验证流程。证据：`internal/svc/cache_layer.go:33,47,90` 直接缓存完整 Admin，`internal/cache/helper.go:115` 默认 JSON 序列化，`internal/model/admin.go:17,19` 的凭据字段参与序列化。当前为源码确认。
-  - 状态／条件：未开始。
+  - 状态／条件：已完成，LOCAL VERIFIED（`4a72e6a88` — `fix: stop caching admin credentials`；`internal/svc/cache_layer.go` +137/−14、`internal/svc/cache_layer_aud100_test.go` 新 247 行、`internal/api/auth/aud100_cache_login_test.go` 新 69 行）。新增显式 DTO `adminCacheEntry`（仅业务/资料字段：ID/Username/Nickname/Email/Phone/Avatar/Status/MustChangePassword/PasswordExpiresAt/LastLoginAt/LastGameID/LastEnv/CreatedBy/UpdatedBy/时间戳），`PasswordHash/OTPSecret/OTPEnabled/EmailVerified/FailedAttempts/LockedUntil/TokenVersion` 永不入缓存。ID 键与用户名别名键写入**同一份** DTO；读缓存时若 `schemaVersion` 缺失/不符（旧代码写入的完整 `model.Admin` JSON，含凭据）即删除该键、回源 DB 并以 DTO 覆盖两键；`toAdmin()` 重建的 `model.Admin` 凭据字段恒为零值——任何需要凭据的流程必须读 `AdminModel`。登录/刷新/2FA 校验保持读 DB 权威记录。
+  - 验证：6 个 svc 用例（本地/Redis 两键均含同 DTO、旧完整记录被忽略并覆盖、资料与角色字段保留、缓存不供凭据且 DB 为权威、重建 Admin 无内嵌凭据）+ 1 个 auth 用例（登录与 MFA 读 DB 而非缓存）全绿；`go test ./internal/svc/ ./internal/api/auth/ -count=1` 两包全绿（svc 67.4s、auth 68.5s）。`gofmt -l` 空、`go build ./internal/svc/ ./internal/api/auth/` OK。变异自证：agent 侧改 `entry := adminCacheEntryFromAdmin(admin)` → `entry := admin` 后 5 个 svc 用例红；本席独立复做同一变异 → 5 例红（两键序列化 DTO、旧记录覆盖、资料保留、缓存不供凭据均失败），逐字恢复后定向组绿、diff 精确回到 +137/−14。
+  - 完成证据：`4a72e6a88` 提交清单含 `internal/svc/cache_layer.go`、`internal/svc/cache_layer_aud100_test.go`、`internal/api/auth/aud100_cache_login_test.go`（`git show --stat` 核对），已推 origin/main；测试/变异红→绿均为本席独立复跑。
+  - 已知边界：`InvalidateAdminCache` 的并发失效未单独测（删键本身幂等）；旧格式记录仅在读到时被清理，未读的残留条目随缓存 TTL 自然过期；未做端到端 Redis 实盘（使用仓内 Redis 替身）；DTO 为显式结构，未来给 `model.Admin` 加字段时若需要缓存需同步加入 DTO（故意为之，避免意外字段再入缓存）。
 
 - [ ] **AUD-101 · P2 · 实现 · 在下次线协议升版前完成双向版本协商**
   - 依赖：CR-FIX-07。交付与验收：在存在两个受支持版本时确定每条连接共用的帧版本，按协商版本处理请求、响应和主动事件。用 N/N-1 的服务端、Agent 与 SDK 双向混合测试覆盖成功、无交集与重连。证据：`pkg/protocol/message.go:31,55,278` 仅实现入站版本窗口，出站固定使用本端版本。历史记录已明确 v1 无协商，本条落实下一次升版前的交付。

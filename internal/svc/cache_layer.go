@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"time"
 
 	"github.com/cuihairu/croupier/internal/cache"
 	"github.com/cuihairu/croupier/internal/model"
+	"gorm.io/gorm"
 )
 
 func (s *ServiceContext) cachedFetch(ctx context.Context, key string, dest interface{}, loader func() (interface{}, error)) error {
@@ -30,15 +32,128 @@ func (s *ServiceContext) cachedFetch(ctx context.Context, key string, dest inter
 
 // -------- Admin helpers --------
 
+// adminCacheSchemaVersion versions the admin cache payload. It is written into
+// every entry; records without it are legacy full-model.Admin JSON (which
+// contains PasswordHash/OTPSecret) and are dropped on read.
+const adminCacheSchemaVersion = 1
+
+// adminCacheEntry is the single explicit admin cache DTO. It deliberately
+// carries only business/profile fields: credential material (PasswordHash,
+// OTPSecret) and authentication state (OTPEnabled, EmailVerified,
+// FailedAttempts, LockedUntil, TokenVersion) are never serialized into the
+// cache. Login / refresh / 2FA read those fields from AdminModel (the
+// authoritative DB record), never from here, so a cached admin can never
+// authenticate anyone.
+//
+// Both the ID-key and the username-alias writes use this one type, so there is
+// exactly one cache payload shape to reason about.
+type adminCacheEntry struct {
+	SchemaVersion int `json:"schemaVersion"`
+
+	ID       uint   `json:"id"`
+	Username string `json:"username"`
+	Nickname string `json:"nickname"`
+	Email    string `json:"email"`
+	Phone    string `json:"phone"`
+	Avatar   string `json:"avatar"`
+	Status   int    `json:"status"`
+
+	MustChangePassword bool       `json:"mustChangePassword,omitempty"`
+	PasswordExpiresAt  *time.Time `json:"passwordExpiresAt,omitempty"`
+	LastLoginAt        *time.Time `json:"lastLoginAt,omitempty"`
+	LastGameID         string     `json:"lastGameId,omitempty"`
+	LastEnv            string     `json:"lastEnv,omitempty"`
+	CreatedBy          uint       `json:"createdBy,omitempty"`
+	UpdatedBy          uint       `json:"updatedBy,omitempty"`
+	CreatedAt          time.Time  `json:"createdAt"`
+	UpdatedAt          time.Time  `json:"updatedAt"`
+}
+
+func adminCacheEntryFromAdmin(admin *model.Admin) adminCacheEntry {
+	if admin == nil {
+		return adminCacheEntry{SchemaVersion: adminCacheSchemaVersion}
+	}
+	return adminCacheEntry{
+		SchemaVersion:      adminCacheSchemaVersion,
+		ID:                 admin.ID,
+		Username:           admin.Username,
+		Nickname:           admin.Nickname,
+		Email:              admin.Email,
+		Phone:              admin.Phone,
+		Avatar:             admin.Avatar,
+		Status:             admin.Status,
+		MustChangePassword: admin.MustChangePassword,
+		PasswordExpiresAt:  admin.PasswordExpiresAt,
+		LastLoginAt:        admin.LastLoginAt,
+		LastGameID:         admin.LastGameID,
+		LastEnv:            admin.LastEnv,
+		CreatedBy:          admin.CreatedBy,
+		UpdatedBy:          admin.UpdatedBy,
+		CreatedAt:          admin.CreatedAt,
+		UpdatedAt:          admin.UpdatedAt,
+	}
+}
+
+// toAdmin reconstructs the model.Admin callers consume. Credential fields stay
+// zero by design; any flow that needs them must load from AdminModel.
+func (e adminCacheEntry) toAdmin() *model.Admin {
+	return &model.Admin{
+		Model:              gorm.Model{ID: e.ID, CreatedAt: e.CreatedAt, UpdatedAt: e.UpdatedAt},
+		Username:           e.Username,
+		Nickname:           e.Nickname,
+		Email:              e.Email,
+		Phone:              e.Phone,
+		Avatar:             e.Avatar,
+		Status:             e.Status,
+		MustChangePassword: e.MustChangePassword,
+		PasswordExpiresAt:  e.PasswordExpiresAt,
+		LastLoginAt:        e.LastLoginAt,
+		LastGameID:         e.LastGameID,
+		LastEnv:            e.LastEnv,
+		CreatedBy:          e.CreatedBy,
+		UpdatedBy:          e.UpdatedBy,
+	}
+}
+
+// readCachedAdmin looks up key and returns a valid DTO entry.
+//
+// Legacy-format cleanup is on-read invalidation + overwrite: an entry whose
+// schemaVersion is missing/unknown was written by the old code as the full
+// model.Admin JSON (credentials included), so it is deleted here and the
+// caller reloads from DB and rewrites both ID/username keys with the DTO.
+// Unread legacy entries expire with the normal cache TTL.
+func (s *ServiceContext) readCachedAdmin(ctx context.Context, key string) (adminCacheEntry, bool) {
+	if s == nil || s.CacheHelper == nil || key == "" {
+		return adminCacheEntry{}, false
+	}
+
+	var entry adminCacheEntry
+	if err := s.CacheHelper.GetJSON(ctx, key, &entry); err != nil {
+		if !cache.IsCacheMiss(err) {
+			slog.ErrorContext(ctx, "failed to read cached admin", "key", key, "error", err)
+		}
+		return adminCacheEntry{}, false
+	}
+	if entry.SchemaVersion != adminCacheSchemaVersion {
+		s.deleteCacheKey(ctx, key)
+		return adminCacheEntry{}, false
+	}
+	return entry, true
+}
+
 func (s *ServiceContext) GetAdminCached(ctx context.Context, adminID uint) (*model.Admin, error) {
-	var admin model.Admin
-	if err := s.cachedFetch(ctx, cache.AdminIDCacheKey(adminID), &admin, func() (interface{}, error) {
-		return s.AdminModel.FindOne(ctx, adminID)
-	}); err != nil {
+	if entry, ok := s.readCachedAdmin(ctx, cache.AdminIDCacheKey(adminID)); ok {
+		admin := entry.toAdmin()
+		s.cacheAdminAliases(ctx, admin)
+		return admin, nil
+	}
+
+	admin, err := s.AdminModel.FindOne(ctx, adminID)
+	if err != nil {
 		return nil, err
 	}
-	s.cacheAdminAliases(ctx, &admin)
-	return &admin, nil
+	s.cacheAdminAliases(ctx, admin)
+	return adminCacheEntryFromAdmin(admin).toAdmin(), nil
 }
 
 // GetAdminByUsernameCached 按用户名（大小写/空白归一后）查询管理员。
@@ -50,14 +165,18 @@ func (s *ServiceContext) GetAdminByUsernameCached(ctx context.Context, username 
 		return nil, fmt.Errorf("username 不能为空")
 	}
 
-	var admin model.Admin
-	if err := s.cachedFetch(ctx, cache.AdminCacheKey(normalized), &admin, func() (interface{}, error) {
-		return s.AdminModel.FindByUsername(ctx, normalized)
-	}); err != nil {
+	if entry, ok := s.readCachedAdmin(ctx, cache.AdminCacheKey(normalized)); ok {
+		admin := entry.toAdmin()
+		s.cacheAdminAliases(ctx, admin)
+		return admin, nil
+	}
+
+	admin, err := s.AdminModel.FindByUsername(ctx, normalized)
+	if err != nil {
 		return nil, err
 	}
-	s.cacheAdminAliases(ctx, &admin)
-	return &admin, nil
+	s.cacheAdminAliases(ctx, admin)
+	return adminCacheEntryFromAdmin(admin).toAdmin(), nil
 }
 
 func (s *ServiceContext) GetAdminRolesCached(ctx context.Context, adminID uint) ([]model.Role, error) {
@@ -86,19 +205,23 @@ func (s *ServiceContext) InvalidateAdminRolesCache(ctx context.Context, adminID 
 	s.deleteCacheKey(ctx, cache.AdminRolesCacheKey(adminID))
 }
 
+// cacheAdminAliases writes ONE explicit DTO (adminCacheEntry) under both keys.
+// Never cache the full model.Admin: JSON serialization would include the
+// password hash and TOTP secret (AUD-100).
 func (s *ServiceContext) cacheAdminAliases(ctx context.Context, admin *model.Admin) {
 	if admin == nil || s == nil || s.CacheHelper == nil {
 		return
 	}
 
+	entry := adminCacheEntryFromAdmin(admin)
 	if admin.ID != 0 {
-		if err := s.CacheHelper.SetJSON(ctx, cache.AdminIDCacheKey(admin.ID), admin, 0); err != nil {
+		if err := s.CacheHelper.SetJSON(ctx, cache.AdminIDCacheKey(admin.ID), entry, 0); err != nil {
 			slog.ErrorContext(ctx, "failed to cache admin by id", "error", err)
 		}
 	}
 
 	if username := strings.ToLower(strings.TrimSpace(admin.Username)); username != "" {
-		if err := s.CacheHelper.SetJSON(ctx, cache.AdminCacheKey(username), admin, 0); err != nil {
+		if err := s.CacheHelper.SetJSON(ctx, cache.AdminCacheKey(username), entry, 0); err != nil {
 			slog.ErrorContext(ctx, "failed to cache admin by username", "error", err)
 		}
 	}
