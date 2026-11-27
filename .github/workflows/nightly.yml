@@ -23,6 +23,7 @@ jobs:
     outputs:
       sha: ${{ steps.resolve.outputs.sha }}
       tag: ${{ steps.resolve.outputs.tag }}
+      candidate_tag: ${{ steps.resolve.outputs.candidate_tag }}
     steps:
       - name: Checkout main
         timeout-minutes: 3
@@ -57,8 +58,15 @@ jobs:
               echo "::notice::reusing tag ${TAG} at ${SHA}: no release found (recovery)"
             fi
           fi
-          echo "sha=${SHA}" >> "$GITHUB_OUTPUT"
-          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          # AUD-099: 候选构建使用独立 tag（nightly-build-<short sha>）。rolling
+          # nightly tag 只在签名清单上传成功后才前移，签名/上传失败时滚动入口
+          # 继续对应上一次完整产物。
+          CANDIDATE_TAG="nightly-build-$(git rev-parse --short "$SHA")"
+          {
+            echo "sha=${SHA}"
+            echo "tag=${TAG}"
+            echo "candidate_tag=${CANDIDATE_TAG}"
+          } >> "$GITHUB_OUTPUT"
 
   quality-gate:
     # CR-FIX-04 (P0-4)：nightly 出包前强制质量门禁（全量测试 + e2e + 契约守卫）。
@@ -1006,24 +1014,23 @@ jobs:
             -print0 | xargs -0 sha256sum | awk '{ n = split($2, p, "/"); print $1 "  " p[n] }' > SHA256SUMS
           ls -la SHA256SUMS
 
-      - name: Create/Update immutable nightly tag
+      # AUD-099: 候选发布先落在独立 tag 上；只有签名清单与签名文件上传成功，
+      # 才把滚动 nightly tag/release 指向本次产物。签名或上传失败时滚动入口
+      # 不动，继续对应上一次完整产物；重跑沿用同一候选 tag 补齐未完成构建。
+      - name: Create/Update candidate nightly tag
         timeout-minutes: 5
         run: |
-          # nightly 使用单一滚动 tag。resolve-commit 已判定本次目标提交
-          # （已发布 → 新 HEAD；未完成 → 复用旧 pin 补齐），此处把 tag 强移到
-          # 该提交——复用分支下是同提交 no-op，前进分支下滚动到当日构建
-          # （G2 审计 2026-11-14 登记的从不前进缺陷，2026-11-17 修复）。
-          TAG="${{ needs.resolve-commit.outputs.tag }}"
+          TAG="${{ needs.resolve-commit.outputs.candidate_tag }}"
           git tag -f "$TAG" "${{ needs.resolve-commit.outputs.sha }}"
           git push -f origin "$TAG"
 
-      - name: Create/Update Release (draft)
+      - name: Create/Update candidate Release (draft)
         timeout-minutes: 10
         uses: softprops/action-gh-release@v3.0.3
         with:
-          tag_name: ${{ needs.resolve-commit.outputs.tag }}
+          tag_name: ${{ needs.resolve-commit.outputs.candidate_tag }}
           target_commitish: ${{ needs.resolve-commit.outputs.sha }}
-          name: Nightly ${{ needs.resolve-commit.outputs.tag }}
+          name: Nightly candidate ${{ needs.resolve-commit.outputs.candidate_tag }}
           body_path: release-notes.md
           files: |
             release-assets/*
@@ -1047,9 +1054,56 @@ jobs:
           # 路径直接报 "create bundle file: open : no such file or directory"。
           cosign sign-blob --yes --bundle SHA256SUMS.sigstore.json SHA256SUMS
           # 草稿阶段上传签名；失败即让工作流失败，不公开未签名产物。
-          gh release upload "${{ needs.resolve-commit.outputs.tag }}" SHA256SUMS SHA256SUMS.sigstore.json --clobber
-      - name: Publish signed nightly release
+          gh release upload "${{ needs.resolve-commit.outputs.candidate_tag }}" SHA256SUMS SHA256SUMS.sigstore.json --clobber
+
+      # BEGIN nightly promotion (AUD-099)
+      # 签名清单上传成功后才前移滚动入口。先把旧 nightly release 停到带日期
+      # 的备份 tag（附件与签名原样保留），再把已签名的候选 release 改名为
+      # nightly 并公开，最后强移 rolling tag 到本次提交；任何一步失败由 trap
+      # 回滚：旧 release 改回 nightly、tag 指回旧提交——滚动入口始终对应
+      # 上一次完整产物。备份 release 在成功后删除（仅保留最新构建）。
+      - name: Promote signed candidate to rolling nightly
         timeout-minutes: 5
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release edit "${{ needs.resolve-commit.outputs.tag }}" --draft=false --prerelease
+        run: |
+          set -euo pipefail
+          CANDIDATE="${{ needs.resolve-commit.outputs.candidate_tag }}"
+          ROLLING="${{ needs.resolve-commit.outputs.tag }}"
+          SHA="${{ needs.resolve-commit.outputs.sha }}"
+          # 候选 release 必须已带签名文件（草稿阶段的 gh release upload 已落地）。
+          gh release view "$CANDIDATE" --json assets --jq '.assets[].name' \
+            | grep -qx 'SHA256SUMS.sigstore.json'
+          PREV_TAG="nightly-previous-$(date -u +%Y%m%d%H%M%S)"
+          PREV_EXISTS=0
+          PREV_SHA=""
+          if gh release view "$ROLLING" --json tagName >/dev/null 2>&1; then
+            PREV_EXISTS=1
+            PREV_SHA="$(git rev-list -n 1 "refs/tags/${ROLLING}")"
+            # 旧 release 先改名停到备份 tag，释放 nightly 名称；附件不迁移。
+            gh release edit "$ROLLING" --tag "$PREV_TAG"
+          fi
+          rollback() {
+            echo "::warning::promotion failed; restoring previous nightly entry"
+            # 候选回到草稿 tag（若已改名成功则改回）。
+            if gh release view "$ROLLING" --json tagName >/dev/null 2>&1; then
+              gh release edit "$ROLLING" --tag "$CANDIDATE" >/dev/null 2>&1 || true
+            fi
+            if [ "$PREV_EXISTS" = "1" ] && [ -n "$PREV_SHA" ]; then
+              gh release edit "$PREV_TAG" --tag "$ROLLING" --draft=false --prerelease >/dev/null 2>&1 || true
+              git tag -f "$ROLLING" "$PREV_SHA" >/dev/null 2>&1 || true
+              git push -f origin "$ROLLING" >/dev/null 2>&1 || true
+            fi
+            exit 1
+          }
+          trap rollback ERR
+          gh release edit "$CANDIDATE" --tag "$ROLLING" --target "$SHA" \
+            --title "Nightly $ROLLING" --draft=false --prerelease
+          git tag -f "$ROLLING" "$SHA"
+          git push -f origin "$ROLLING"
+          trap - ERR
+          if [ "$PREV_EXISTS" = "1" ]; then
+            gh release delete "$PREV_TAG" --yes --cleanup-tag >/dev/null 2>&1 || true
+          fi
+          echo "rolling nightly now points at ${SHA}"
+      # END nightly promotion (AUD-099)
