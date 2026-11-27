@@ -8,6 +8,7 @@ package configsync
 import (
 	"context"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -37,6 +38,14 @@ type Puller[T any] struct {
 
 	mu          sync.Mutex
 	lastVersion string
+	// pullSlot 是容量 1 的拉取槽位：整轮「拉取 → 生效 → 提交游标」独占，
+	// 定时循环与手动 PullOnce 共用，避免较早请求的迟到响应覆盖新配置。
+	pullSlot chan struct{}
+	// seq 单调递增，每次 PullOnce 入口取号代表发起顺序；
+	// appliedSeq 记录最近一次成功生效的那一轮的 seq。二者构成请求纪元，
+	// 保证较早发起的迟到响应无法覆盖较晚发起的已生效更新。
+	seq        atomic.Uint64
+	appliedSeq atomic.Uint64
 }
 
 // Option 装配可选项。
@@ -58,7 +67,7 @@ func New[T any](interval time.Duration, fetch FetchFunc[T], apply ApplyFunc[T], 
 	if interval <= 0 {
 		interval = DefaultInterval
 	}
-	p := &Puller[T]{interval: interval, fetch: fetch, apply: apply}
+	p := &Puller[T]{interval: interval, fetch: fetch, apply: apply, pullSlot: make(chan struct{}, 1)}
 	for _, opt := range opts {
 		opt(p)
 	}
