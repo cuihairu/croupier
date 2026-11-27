@@ -21,14 +21,19 @@ import (
 type Server struct {
 	config   *Config
 	listener net.Listener
-	handler  transportcore.Handler
-	closing  chan struct{}
-	once     sync.Once
-	wg       sync.WaitGroup
+	// tcpListener 是 listener 的底层 TCP 监听：TLS 路径上 listener 是
+	// crypto/tls 包装层（不实现 SetDeadline），accept deadline 必须设在
+	// unwrap 结果上，否则 TLS 空闲时 Accept 永久阻塞、ctx 取消无人理会
+	// （AUD-081）。可为 nil（测试直构 Server），Serve 内回退到明文断言。
+	tcpListener *net.TCPListener
+	handler     transportcore.Handler
+	closing     chan struct{}
+	once        sync.Once
+	wg          sync.WaitGroup
 
-	// mu/conns 跟踪活跃连接：Close 时主动断开，避免 wg.Wait 被
-	// 「阻塞在读直到 RecvTimeout」的 handler 卡住（互联 RecvTimeout
-	// 90s 时优雅停机会拖满整个超时）。
+	// mu/conns 跟踪活跃连接：Close 或 Serve ctx 取消（AUD-081）时主动断开，
+	// 避免 wg.Wait / worker 被「阻塞在读直到 RecvTimeout」的 handler 卡住
+	// （互联 RecvTimeout 90s 时优雅停机会拖满整个超时）。
 	mu    sync.Mutex
 	conns map[net.Conn]struct{}
 }
@@ -113,28 +118,56 @@ func NewServer(config *Config, handler transportcore.Handler) (*Server, error) {
 		return nil, fmt.Errorf("handler is required")
 	}
 
-	ln, err := listen(config)
+	ln, tcpLn, err := listen(config)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Server{
-		config:   config,
-		listener: ln,
-		handler:  handler,
-		closing:  make(chan struct{}),
+		config:      config,
+		listener:    ln,
+		tcpListener: tcpLn,
+		handler:     handler,
+		closing:     make(chan struct{}),
 	}, nil
 }
 
 // Serve accepts and handles connections until ctx is done or the server closes.
+//
+// 取消语义（AUD-081）：明文与 TLS 一致——accept deadline 设在底层
+// *net.TCPListener 上，空闲 Accept 在 ≤1s 周期内解阻并检查 ctx；在途连接
+// 由 ctx watcher 主动关闭，阻塞在 readFrame 上的 serveConn 立即返回并在
+// 收尾 defer 中 join per-conn worker，停机有界、无 goroutine 泄漏。
 func (s *Server) Serve(ctx context.Context) error {
 	if ctx == nil {
 		ctx = context.Background()
 	}
 
-	for {
+	// deadline 须设在底层 TCP listener 上：crypto/tls 包装层不透传
+	// SetDeadline，只断言 s.listener 会漏掉 TLS 路径。
+	deadlineListener := s.tcpListener
+	if deadlineListener == nil {
 		if tcpln, ok := s.listener.(*net.TCPListener); ok {
-			_ = tcpln.SetDeadline(time.Now().Add(time.Second))
+			deadlineListener = tcpln
+		}
+	}
+
+	// ctx 取消 → 关闭全部在途连接（监听器退出仍走 Accept deadline 周期，
+	// closing/listener 的生命周期归 Close）。watcher 随 Serve 返回退出，
+	// 不给 Background ctx 留常驻 goroutine。
+	serveDone := make(chan struct{})
+	defer close(serveDone)
+	go func() {
+		select {
+		case <-ctx.Done():
+			s.closeConns()
+		case <-serveDone:
+		}
+	}()
+
+	for {
+		if deadlineListener != nil {
+			_ = deadlineListener.SetDeadline(time.Now().Add(time.Second))
 		}
 
 		conn, err := s.listener.Accept()
@@ -373,6 +406,19 @@ func (s *Server) untrackConn(conn net.Conn) {
 	s.mu.Unlock()
 }
 
+// closeConns closes all tracked in-flight connections. Blocking readFrame
+// calls fail immediately, and serveConn's deferred teardown closes both
+// dispatch queues and joins its workers — this is what bounds shutdown for
+// both ctx cancellation and Close (without it, an idle connection with no
+// RecvTimeout pins serveConn + worker goroutines until process exit).
+func (s *Server) closeConns() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for conn := range s.conns {
+		_ = conn.Close()
+	}
+}
+
 // Close stops accepting new connections and unblocks active handlers by
 // closing their connections — wg.Wait otherwise waits out the full
 // RecvTimeout on idle connections.
@@ -381,11 +427,7 @@ func (s *Server) Close() error {
 	s.once.Do(func() {
 		close(s.closing)
 		closeErr = s.listener.Close()
-		s.mu.Lock()
-		for conn := range s.conns {
-			_ = conn.Close()
-		}
-		s.mu.Unlock()
+		s.closeConns()
 		s.wg.Wait()
 	})
 	return closeErr
@@ -409,21 +451,34 @@ func (s *Server) Addr() string {
 	return s.listener.Addr().String()
 }
 
-func listen(config *Config) (net.Listener, error) {
+// listen 打开监听并返回（包装后 listener, 底层 *net.TCPListener, error）。
+// TLS 路径用 tls.NewListener 包装自建的 TCP listener，第二个返回值是未包装
+// 的底层监听——crypto/tls 包装层不透传 SetDeadline，Serve 的 accept
+// deadline 只能设在它上面；明文路径两者是同一对象。
+func listen(config *Config) (net.Listener, *net.TCPListener, error) {
 	addr := normalizeAddr(config.Address)
 	if addr == "" {
 		addr = defaultAddress()
 	}
 
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		return nil, nil, err
+	}
+	// net.Listen("tcp") 恒返回 *net.TCPListener；断言只为拿到具体类型，
+	// 失败时 tcpLn 为 nil，Serve 回退到对 listener 的明文断言。
+	tcpLn, _ := ln.(*net.TCPListener)
+
 	if config.Insecure {
-		return net.Listen("tcp", addr)
+		return ln, tcpLn, nil
 	}
 
 	tlsConfig, err := tcptr.ServerTLSConfig(config)
 	if err != nil {
-		return nil, fmt.Errorf("create tls config: %w", err)
+		_ = ln.Close()
+		return nil, nil, fmt.Errorf("create tls config: %w", err)
 	}
-	return tls.Listen("tcp", addr, tlsConfig)
+	return tls.NewListener(ln, tlsConfig), tcpLn, nil
 }
 
 // createServerTLSConfig preserves the package-local entry point for the
