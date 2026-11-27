@@ -200,6 +200,15 @@ SDK 描述符不承载 UI、菜单、页面分类、多语言标题、页面 sch
 | C++    | ✅ `CroupierInvoker`（Server HTTP API；拒绝 `tcp://`） |
 | C#     | ✅ `CroupierInvoker`（Server HTTP API）                |
 
+写重试门控与结果未知标记（AUD-068）已跨六语言对齐：
+
+| 能力                                          | Go                      | Python                  | Java                          | JS                              | C++                     | C#                                                                         |
+| --------------------------------------------- | ----------------------- | ----------------------- | ----------------------------- | ------------------------------- | ----------------------- | -------------------------------------------------------------------------- |
+| `RetryConfig.retryWrites`（默认 `false`）     | ✅                      | ✅                      | ✅                            | ✅                              | ✅                      | ✅                                                                         |
+| 写请求默认单发（非 GET）                      | ✅                      | ✅                      | ✅                            | ✅                              | ✅                      | ✅                                                                         |
+| 读请求保持退避重试                            | ✅                      | ✅                      | ✅                            | ✅                              | ✅                      | ⚠️ 读走裸 `SendAsync`，本就不重试（既有行为，本次未改变）                  |
+| 结果未知错误（含状态码/可 `IsResultUnknown`） | ✅ `UnknownResultError` | ✅ `UnknownResultError` | ✅ `ErrorCode.RESULT_UNKNOWN` | ✅ `InvokerError.resultUnknown` | ✅ `ResultUnknownError` | ✅ `ResultUnknownException` / `InvokeResult.ErrorCode == "RESULT_UNKNOWN"` |
+
 ---
 
 ## 六、L4 语言/引擎扩展（不要求跨语言对齐）

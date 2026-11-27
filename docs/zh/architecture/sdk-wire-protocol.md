@@ -239,6 +239,34 @@ busy 文案 `retry on another instance` 是给调用方的建议，不是平台�
 - busy 与 handler 错误的响应按 RPC 类型编码（AUD-002）：Invoke 在 `InvokeResponse.payload` 承载 `{"error":...}`；带失败通道的 RPC（`Success`/`Message`/`Error`/`GetTaskResult.State`）返回带错误文本的类型化失败；wire 响应类型没有失败通道的 RPC（`ListProcesses`/`ListServices`/`ListCronJobs`/`GetSupervisorLog`/`GetSystemInfo`/`StartTask`/`Heartbeat`/`Register`）无法表达错误，回空 body——传输层记真实错误日志，调用方看到的是零值。错误文本一律经标准 JSON 编码器，引号/反斜杠/换行不会破坏文档。显式 `overloaded` / `retry_after_ms` wire 字段仍未定义
 - 钉住 busy-never-fails-over 规则的回归测试：`internal/platform/dispatch/dispatcher_delivery_semantics_test.go`
 
+## SDK 重试策略（AUD-068）
+
+SDK→Server 的 HTTP invoker（invoke / 任务启动 / 取消）按请求类别应用重试策略：
+
+| 请求类别                                        | 默认重试策略                                | 最终失败归类                      |
+| ----------------------------------------------- | ------------------------------------------- | --------------------------------- |
+| 读请求（GET，如任务状态 / 事件）                | 指数退避，至多 `RetryConfig.maxAttempts` 次 | 原样透出传输 / HTTP 错误          |
+| 写请求（POST，如函数 invoke / 任务启动 / 取消） | 单发——**不自动重试**                        | 结果无法证明时归为 result-unknown |
+
+写请求失败在「请求可能已在失败前生效」时属 result-unknown：未收到任何 HTTP 响应
+（传输断连 / 超时），或最终状态码为 408 / 429 / ≥ 500。六个 SDK 以专门错误透出该判定，
+并携带最终状态码（Go `IsResultUnknown` + `UnknownResultError`；Python `UnknownResultError`；
+JS `InvokerError.resultUnknown`；Java `ErrorCode.RESULT_UNKNOWN`；C++ `ResultUnknownError`；
+C# `ResultUnknownException` / `InvokeResult.ErrorCode == "RESULT_UNKNOWN"`）。明确的 4xx 拒绝
+绝不标 result-unknown：服务端已作答，结果是已知的。调用方声明端点可安全重放（例如已携带
+服务端消费幂等键，或契约本身幂等）时，可用 `RetryConfig.retryWrites`（默认 `false`）恢复写重试。
+
+该默认对两条主要写路径安全：**function invoke 与任务启动均不在服务端消费幂等键**，因此
+重发服务端未应答的写请求可能重复业务效果。确实消费幂等键的端点仍可安全重放：
+
+| 端点                    | 服务端幂等键消费                                  |
+| ----------------------- | ------------------------------------------------- |
+| Console 草稿预览 / 执行 | 是（`internal/api/console/idempotency.go`）       |
+| Incident 外部接入       | 是（`internal/api/incident/external_handler.go`） |
+| Backup 触发             | 是（`internal/api/backup/handler.go`）            |
+| 函数 invoke             | 否                                                |
+| 任务启动                | 否                                                |
+
 ## Provider 握手鉴权
 
 SDK → Agent 的 `ProviderConnectRequest` 在 `metadata` map 中以平台保留键

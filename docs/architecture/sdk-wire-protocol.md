@@ -258,6 +258,39 @@ Known boundaries (stated, not hidden):
   the error never break the document. Explicit `overloaded` / `retry_after_ms` wire fields remain undefined
 - Regression tests pinning the busy-never-fails-over rule: `internal/platform/dispatch/dispatcher_delivery_semantics_test.go`
 
+## SDK retry policy (AUD-068)
+
+The SDK→Server HTTP invoker (invoke / start-task / cancel-task) applies retry policy
+per request class:
+
+| Request class                                             | Default retry policy                                           | Final failure classification                                    |
+| --------------------------------------------------------- | -------------------------------------------------------------- | --------------------------------------------------------------- |
+| Reads (GET, e.g. task status / events)                    | Retry with exponential backoff up to `RetryConfig.maxAttempts` | Surface the transport/HTTP error unchanged                      |
+| Writes (POST, e.g. function invoke / task start / cancel) | Single-shot — **no automatic retry**                           | Result-unknown classification when the outcome cannot be proven |
+
+A write failure is _result-unknown_ when the request may have executed before the failure:
+no HTTP response arrived (transport drop / timeout), or the final status is 408, 429 or ≥ 500.
+The six SDKs surface this as a dedicated error carrying the final status code (Go `IsResultUnknown`
+
+- `UnknownResultError`; Python `UnknownResultError`; JS `InvokerError.resultUnknown`; Java
+  `ErrorCode.RESULT_UNKNOWN`; C++ `ResultUnknownError`; C# `ResultUnknownException` /
+  `InvokeResult.ErrorCode == "RESULT_UNKNOWN"`). Explicit 4xx rejections are never marked
+  result-unknown: the server answered, so the outcome is known. A caller that declares its endpoint
+  replay-safe (for example it sends an idempotency key the server consumes, or the contract is
+  idempotent) opts writes back into retries with `RetryConfig.retryWrites` (default `false`).
+
+This default is safe for the two dominant write paths: **function invoke and task start do not
+consume any idempotency key server-side**, so replaying a write the server never answered could
+duplicate a business effect. Endpoints that do consume an idempotency key remain replay-safe:
+
+| Endpoint                        | Server-side idempotency-key consumption           |
+| ------------------------------- | ------------------------------------------------- |
+| Console draft preview / execute | Yes (`internal/api/console/idempotency.go`)       |
+| Incident external ingest        | Yes (`internal/api/incident/external_handler.go`) |
+| Backup trigger                  | Yes (`internal/api/backup/handler.go`)            |
+| Function invoke                 | No                                                |
+| Task start                      | No                                                |
+
 ## Provider handshake auth
 
 The SDK → Agent `ProviderConnectRequest` carries an auth token in its
