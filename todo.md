@@ -2314,9 +2314,11 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 完成证据：`8f981cb83`（`sdks/csharp/src/Croupier.Sdk/Transport/TCPTransport.cs`、`sdks/csharp/src/Croupier.Sdk.Tests/Transport/TCPTransportRequestIdTests.cs` 4 新用例：12 线程×40 同步起跑全 480 个 wire reqId 互异、6 调用逆序回包正确路由、临近 0x7FFFFFFF 回绕跳占、取消清册一致）。本地全绿：`dotnet test` Failed: 0, Passed: 945, Skipped: 9, Total: 954（1m51s；基线 941/9/950 → +4 全为新用例）。
   - 已知边界：2^31 个 ID 全部在途的理论自旋不终止不可达（在途 waiter 受内存约束远低于 2^31）；取消调用 ID 被复用后的迟到重复响应理论上可误完成新 waiter——需整 2^31 回绕期间仍 pending 才可能，属协议信任面；回绕用例经反射种子 waiter（同既有 `Dispose_CancelsPendingRequests` 惯例），无公开 API 可强制计数器逼近 0x7FFFFFFF。
 
-- [ ] **AUD-074 · P1 · 修复 · JS SDK 生效 Provider 和控制面 TLS 配置**
+- [x] **AUD-074 · P1 · 修复 · JS SDK 生效 Provider 和控制面 TLS 配置**
   - 依赖：—。交付与验收：两条连接使用配置指定的 TLS、CA、客户端证书与服务端名称。校验失败阻止建立会话，明确配置明文时沿用 TCP。证据：`sdks/js/src/index.ts:1035,1083` 传入 TLS 选项，`sdks/js/src/tcp_transport.ts:185,247` 存下选项后仍走普通 TCP 拨号。
-  - 状态／条件：未开始。
+  - 状态／条件：已完成，LOCAL VERIFIED。`tcp_transport.ts` 新增 `dialSocket()`：`tlsEnabled=true` 走真 TLS 拨号（此前六个 TLS 选项只被存下、拨号恒普通 TCP=死配置），CA/客户端证书+私钥从文件读入（读不到快速失败并带明确错误），`servername` 显式优先、非 IP 主机缺省 SNI=host、IP 直连不发 SNI、`rejectUnauthorized:!tlsInsecureSkipVerify`，语义对齐 Go SDK transport `createTLSConfig`（`insecure:true`→明文）；会话建立等 `secureConnect`（握手完成）而非 `connect`，`authorized` 兜底核验（显式 skip 才允许 `authorized=false` 建会话），TLS 握手/证书失败统一包装 `TLS handshake failed:` 阻断建立；拨号超时 promise 先建，同步拨号失败（证书文件读不到）也清计时器不留悬挂 handle；明文显式配置沿用 `net.createConnection`。`index.ts` 未动（两条连接本就传入选项）。变异自证（本人独立复核重做）：`dialSocket` 强制明文分支 → 6/7 红（明文用例按设计保持绿）→ 还原 7/7 绿。
+  - 完成证据：`95d6b114e`（`sdks/js/src/tcp_transport.ts` +99/−16、`sdks/js/src/tcp_transport_tls.test.ts` 新增 433 行 7 用例（真实 TLS 握手对本地 `tls.createServer`：CA pinning+SNI+authorized+帧往返、CA 不信阻断、SNI 不匹配阻断、明文显式、mTLS 客户端证书、CA 文件不可读、skip-verify 对不受信证书）、`sdks/js/src/__fixtures__/tls/` 8 个自签 PEM（双独立 CA，100 年有效期，测试专用）。本地全绿：`npx jest` 全量 Tests: 7 skipped, 465 passed, 472 total（基线 458 → +7 全新用例）；`npx tsc --noEmit` 两 tsconfig 均 0 错。
+  - 已知边界：JS SDK 用户面无「TLS+跳过校验」旋钮——`insecure:true` 是彻底禁 TLS（直用 `TCPTransport` 者才可用 `tlsInsecureSkipVerify`），属既有设计未改；全量 jest 有既有 ambient "worker process failed to exit gracefully" 告警（排除新套件复现，非本次引入，新套件单独运行干净退出）；TLS 1.3 下客户端 `secureConnect` 早于服务端 `secureConnection`，服务端侧断言用握手闩等待（测试基建细节）。
 
 - [ ] **AUD-075 · P1 · 修复 · Node 插件的强制退出计时从停机开始**
   - 依赖：—。交付与验收：插件保持健康超过两个宽限期并仍能处理调用；收到 Shutdown 或信号后才开启有界退出，异步清理回调有明确等待预算。证据：`sdks/plugins/js/src/serve.ts:224,259` 在启动阶段注册 `process.exit`，替身定时器在从未请求停机时即观察到该回调被设置。
