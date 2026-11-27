@@ -2320,9 +2320,11 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 完成证据：`95d6b114e`（`sdks/js/src/tcp_transport.ts` +99/−16、`sdks/js/src/tcp_transport_tls.test.ts` 新增 433 行 7 用例（真实 TLS 握手对本地 `tls.createServer`：CA pinning+SNI+authorized+帧往返、CA 不信阻断、SNI 不匹配阻断、明文显式、mTLS 客户端证书、CA 文件不可读、skip-verify 对不受信证书）、`sdks/js/src/__fixtures__/tls/` 8 个自签 PEM（双独立 CA，100 年有效期，测试专用）。本地全绿：`npx jest` 全量 Tests: 7 skipped, 465 passed, 472 total（基线 458 → +7 全新用例）；`npx tsc --noEmit` 两 tsconfig 均 0 错。
   - 已知边界：JS SDK 用户面无「TLS+跳过校验」旋钮——`insecure:true` 是彻底禁 TLS（直用 `TCPTransport` 者才可用 `tlsInsecureSkipVerify`），属既有设计未改；全量 jest 有既有 ambient "worker process failed to exit gracefully" 告警（排除新套件复现，非本次引入，新套件单独运行干净退出）；TLS 1.3 下客户端 `secureConnect` 早于服务端 `secureConnection`，服务端侧断言用握手闩等待（测试基建细节）。
 
-- [ ] **AUD-075 · P1 · 修复 · Node 插件的强制退出计时从停机开始**
+- [x] **AUD-075 · P1 · 修复 · Node 插件的强制退出计时从停机开始**
   - 依赖：—。交付与验收：插件保持健康超过两个宽限期并仍能处理调用；收到 Shutdown 或信号后才开启有界退出，异步清理回调有明确等待预算。证据：`sdks/plugins/js/src/serve.ts:224,259` 在启动阶段注册 `process.exit`，替身定时器在从未请求停机时即观察到该回调被设置。
-  - 状态／条件：未开始。
+  - 状态／条件：已完成，LOCAL VERIFIED。删除启动阶段注册的 `setTimeout(process.exit, 2000)`（unref 只是不占事件循环，健康服务中的插件存活时定时器照常触发=健康插件越过宽限期即被强杀）；`stop()` 在收到 Shutdown RPC/SIGTERM/SIGINT 时才装载预算定时器（`unref` 保持不阻退出），`forceShutdown`+`tryShutdown` 后启动 `onShutdown` 异步清理钩子，`Promise.all([done, cleanup])` 结算即清预算定时器；`servePlugin` 在 `await done` 后 `await cleanup`——serve() 返回即清理已结算，钩子挂死超预算则由预算定时器强退（镜像宿主强杀）。变异自证（本人独立复核重做）：复活启动期定时器 → 「健康存活两个宽限期+存活调用后优雅停机」用例红（exit spy 0 期望/1 实际）+ Shutdown/SIGTERM 两用例同红共 3 例 → 还原 65/65 绿、零残渣。
+  - 完成证据：`9b104b9f1`（`sdks/plugins/js/src/serve.ts` +49/−16、`sdks/plugins/js/test/serve_shutdown.test.ts` 4 用例（健康存活+存活中调用、Shutdown 开启有界退出并在预算内等待清理、清理钩子超预算触发强退且 serve() 停驻、SIGTERM 同路径）、README 协议条目同步「预算只从实际停机请求起算」。本地全绿：`pnpm test` 6 suites 65/65（含真 Go 宿主握手场景 integration_go_host 12 例）；`pnpm typecheck`/`pnpm build`/`pnpm verify:proto` 均 0 错。
+  - 已知边界：本文件弃用 jest 假定时器（现代假定时器卡 grpc-js 响应分发），用真钟+exit spy——更保真但新增文件约 20s 墙钟（三例等真实 2s 预算）；预算内「尚未」检查点用墙钟 sleep 留 300-700ms 裕量，判定性断言一律轮询式抗负载；`onShutdown` 挂死时进程由预算定时器以 exit 0 结束而非 serve() 返回；Python SDK 无此类启动定时器（其 `serve_plugin` 仅 `server.stop(grace)`），本项限定 Node 插件 SDK。
 
 - [x] **AUD-076 · P2 · 修复 · Python SyncInvoker 保留调用方事件循环**
   - 依赖：—。交付与验收：运行中的 asyncio 循环内调用同步接口时直接给出明确错误，不分配替代循环或创建未等待协程；普通同步调用可复用并关闭所属循环。证据：`sdks/python/croupier/invoker.py:397` 自行抛出的错误被同一 try 捕获，从而创建并设置新循环。
