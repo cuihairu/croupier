@@ -2421,9 +2421,13 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 完成证据：`311a9e921` 提交清单含 `internal/api/schedule/service.go`、`internal/api/schedule/service_create_atomic_test.go`、`internal/model/task_schedule_model.go`、`internal/model/task_schedule_model_test.go`、`internal/svc/scheduler.go`（`git show --stat` 核对），已推 origin/main；svc 接线为本席补齐并独立复跑 build/vet/三包测试与变异红→绿。
   - 已知边界：`internal/model/incident_report.go` 播种仍为 insert-then-update + warn-only（同族形态，文件超本项范围；其 NULL 行由启动期 Repair 收敛覆盖）；`FirstNext == nil` 在 model 层仍合法（保既有 seed 调用方与旧测试不变，注释标注为旧形态）；`SetStatus(active)` 仍为两次 UPDATE（既有行为，失败均返回错误）。
 
-- [ ] **AUD-089 · P2 · 修复 · 提供可直接续读的 Task Events 游标**
+- [x] **AUD-089 · P2 · 修复 · 提供可直接续读的 Task Events 游标**
   - 依赖：—。交付与验收：明确接口游标语义，为旧调用方保留兼容路径。连续轮询时把服务端续读游标直接传回，验证新到达的一条事件刚好读到一次，并覆盖无增量的轮询。证据：`internal/api/task/service.go:207` 返回最大事件序号加一，`internal/model/task_model.go:298` 使用严格大于过滤。若读到 1、服务端返回 2，使用返回值续读会跳过序号 2。现有测试固定了旧 `nextSeq` 语义。SQLite 续读探针确认，回传该值时漏掉序号 2，回传最后已读序号时能读到。
-  - 状态／条件：未开始。
+  - 状态／条件：已完成，LOCAL VERIFIED（`3b209b544` — `fix: return directly resumable task event cursor`；4 文件 +282/−7）。`EventsResponse.Cursor` 为「本页最后一个事件的序号；无新事件则保持请求游标」，`EventsRequest.Cursor *int64`（query `cursor`，指针区分显式 0 与缺省）存在时优先于 `AfterSeq/after_seq`，服务层把它作为 `seq > cursor` 的严格大于过滤回传；空响应不推进。`NextSeq` 保留 `MAX(seq)+1` 旧语义与兼容路径不变（旧调用方继续用 `afterSeq`），DTO 注释明确「NextSeq 不可直接作为新 cursor 回传」。handler 把 `cursor` 按非负整数校验，错误走统一 400。
+  - 测试：`go test ./internal/api/task/... -count=1` 全绿（7.8s；agent 侧 task+model 760 顶层 PASS +187 子测，0 FAIL）；`go build ./internal/api/task/... ./internal/model/...` 干净、`gofmt -l` 空。8 个新用例 `TestEvents_Cursor*`：读到 seq1→返回 cursor1（nextSeq 仍 2）→追加 seq2→`cursor=1` 恰好读到一次且 legacy 回传 nextSeq=2 依旧漏 seq2、空轮询游标不变、显式 cursor=0、HTTP query 往返、cursor 优先于 after_seq、负数 400、旧 nextSeq 语义回归钉、SQLite 严格大于探针。
+  - 变异自证（本席独立复核重做）：把 `cursor = events[last].Seq` 改成旧语义 `cursor = nextSeq` → `TestEvents_CursorNoIncrementPollReturnsEmptyWithUnchangedCursor` 等红（expected 3 actual 4）→ 还原后定向组全绿；agent 侧同型变异亦红。变异残留 0。
+  - 完成证据：`3b209b544` 提交清单含 `internal/api/task/dto.go`、`internal/api/task/service.go`、`internal/api/task/handler.go`、`internal/api/task/aud089_cursor_test.go`（`git show --stat` 核对），已推 origin/main；build/测试/变异红→绿均本席独立复跑。
+  - 已知边界：旧 `nextSeq` 的跳项缺陷按设计保留，旧调用方必须改用 `cursor` 才能受益；仓内 web `subscribeTaskEvents` 仍依赖 `nextSeq`，未在本项范围内修改（JS SDK `streamTask` 与 Go/C++/Java 轮询按事件体 `ev.seq` 自行取最大值，不受影响）。
 
 - [x] **AUD-090 · P1 · 修复 · 将迁移上下文传入 baseline**
   - 依赖：—。交付与验收：首次建库及遗留库升级的 baseline SQL 继承迁移调用的取消和 deadline，失败后能按现有重试策略收敛。验证已过期上下文、baseline 执行中取消及正常续跑。证据：`internal/db/migrate/migrate.go:225,232,241` 版本探测和 goose Up 使用 ctx，baseline 使用原始 GORM 句柄。SQLite 探针验证 baseline 回调看不到调用方 deadline。
