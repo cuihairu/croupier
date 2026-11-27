@@ -354,7 +354,7 @@ func TestErrorPathsV9SchedulesAndReleases(t *testing.T) {
 	assert.Error(t, err)
 	_, err = sched.CreateRunLog(ctx, &TaskScheduleRunLog{ScheduleID: 1, Slot: time.Now()})
 	assert.Error(t, err)
-	_, err = sched.LastRunStatus(ctx, "run-1")
+	_, err = sched.LastRunStatus(ctx, "g", "e", "run-1")
 	assert.Error(t, err)
 	_, _, err = sched.ListRunLogs(ctx, 1, 1, 10)
 	assert.Error(t, err)

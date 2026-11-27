@@ -4,18 +4,56 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"gorm.io/gorm"
 	"strings"
 	"time"
+
+	"github.com/cuihairu/croupier/internal/db/dbctx"
+	"gorm.io/gorm"
 )
+
+// ScheduleScopeResolver 按 (gameID, env) 解析 per-game 数据库的 ctx 覆盖
+// （与 tasks.ScopeResolver 同型：消费方定义窄接口，由 svc/cmd 侧把
+// router 适配注入，model 不 import internal/db/router）。AUD-087：task_runs
+// 是 game 模型（model.GameModels）——multiGame 模式下 live 在 schedule
+// 所属作用域的 game 库，meta 库没有该表，终态回查必须按作用域路由。
+type ScheduleScopeResolver interface {
+	// ScopeContext 返回携带该作用域 per-game DB 覆盖的 ctx（dbctx 约定）。
+	// 解析失败必须以 error 透传：终态回查的「查库失败」要与「记录不存在 /
+	// 未终态」可区分——静默回退 meta 连接会复活 AUD-087 缺陷（multiGame 下
+	// 恒判「无记录」，失败计数永不推进/清零）。
+	ScopeContext(ctx context.Context, gameID, env string) (context.Context, error)
+}
 
 // TaskScheduleModel 提供 cron 调度定义的 CRUD 与到期扫描。
 type TaskScheduleModel struct {
 	db *gorm.DB
+	// scopes 按 schedule 作用域解析 game 库（multiGame 由 svc 注入；
+	// nil = 单库模式，task_runs 与调度定义同库，无需路由）。
+	scopes ScheduleScopeResolver
 }
 
 func NewTaskScheduleModel(db *gorm.DB) *TaskScheduleModel {
 	return &TaskScheduleModel{db: db}
+}
+
+// SetScopeResolver 注入作用域解析（multiGame 模式在 svc 布线 Router 适配）。
+// nil 清除 = 单库模式行为。
+func (m *TaskScheduleModel) SetScopeResolver(r ScheduleScopeResolver) {
+	m.scopes = r
+}
+
+// runStatusDB 解析终态回查的目标连接：有作用域（gameID 非空）且已注入
+// 解析器时路由 game 库，否则回退模型自身连接。单库模式（无解析器）两者
+// 本是同一库，行为不变。
+func (m *TaskScheduleModel) runStatusDB(ctx context.Context, gameID, env string) (*gorm.DB, error) {
+	if m.scopes == nil || gameID == "" {
+		return m.db, nil
+	}
+	scoped, err := m.scopes.ScopeContext(ctx, gameID, env)
+	if err != nil {
+		return nil, fmt.Errorf("resolve schedule scope game %q env %q: %w", gameID, env, err)
+	}
+	return dbctx.Resolve(scoped, m.db), nil
 }
 
 // ValidateScheduleInput 校验并归一化创建/更新输入。
@@ -301,13 +339,21 @@ func isDuplicateKeyError(err error) bool {
 		strings.Contains(msg, "duplicate key")
 }
 
-// LastRunStatus 返回 TaskRun 终态；未终态或不存在返回 ""。
-func (m *TaskScheduleModel) LastRunStatus(ctx context.Context, taskRunID string) (string, error) {
+// LastRunStatus 返回 TaskRun 终态；未终态或不存在返回 ""。AUD-087：查询按
+// schedule 所属 (gameID, env) 路由——task_runs 在 game 库（model.GameModels），
+// multiGame 模式下 meta 库没有该表，按自身（meta）连接查会恒判「不存在」。
+// 三种结果可区分：记录不存在与未终态均返回 ("", nil)（计数保持不动的中性
+// 语义），作用域解析失败与查库错误返回 error，调用方不得吞掉。
+func (m *TaskScheduleModel) LastRunStatus(ctx context.Context, gameID, env, taskRunID string) (string, error) {
 	if taskRunID == "" {
 		return "", nil
 	}
+	db, err := m.runStatusDB(ctx, gameID, env)
+	if err != nil {
+		return "", err
+	}
 	var run TaskRun
-	err := m.db.WithContext(ctx).Where("task_id = ?", taskRunID).First(&run).Error
+	err = db.WithContext(ctx).Where("task_id = ?", taskRunID).First(&run).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return "", nil
 	}

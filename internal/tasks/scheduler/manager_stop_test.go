@@ -107,7 +107,9 @@ func (b *blockingStore) UpdateRunLog(context.Context, uint, time.Time, string, s
 func (b *blockingStore) ListStaleClaimsAfter(context.Context, time.Time, uint, int) ([]model.TaskScheduleRunLog, error) {
 	return nil, nil
 }
-func (b *blockingStore) LastRunStatus(context.Context, string) (string, error) { return "", nil }
+func (b *blockingStore) LastRunStatus(context.Context, string, string, string) (string, error) {
+	return "", nil
+}
 
 // ---- ARCH-017 / R30-07 补齐：不配合 lifecycle ctx 的卡死（硬界兜底）----
 

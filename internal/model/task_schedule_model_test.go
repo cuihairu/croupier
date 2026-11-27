@@ -121,12 +121,12 @@ func TestTaskScheduleListDueAndRunLog(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, dup) // 幂等：同槽不重复
 
-	st, err := m.LastRunStatus(ctx, "run-1")
+	st, err := m.LastRunStatus(ctx, "demo", "prod", "run-1")
 	require.NoError(t, err)
 	assert.Equal(t, "", st) // TaskRun 未创建 → NotFound → 空
 
 	// 空 taskRunID：直接空
-	st2, err := m.LastRunStatus(ctx, "")
+	st2, err := m.LastRunStatus(ctx, "demo", "prod", "")
 	require.NoError(t, err)
 	assert.Equal(t, "", st2)
 }

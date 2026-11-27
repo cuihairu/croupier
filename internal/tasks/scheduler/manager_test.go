@@ -23,6 +23,19 @@ type fakeStore struct {
 	runLogs   map[string]model.TaskScheduleRunLog // key: scheduleID|slot
 	updates   map[uint][]map[string]interface{}
 	nextID    uint // gorm 主键自增替身（游标分页依赖 id）
+	// runLookups 记录 LastRunStatus 收到的查询参数（AUD-087：断言回查按
+	// schedule 所属 (gameID, env) 路由）。
+	runLookups []runLookup
+	// failRunLookup 非 nil 时 LastRunStatus 返回该错误（AUD-087 查库失败
+	// 分支的注入点）。
+	failRunLookup error
+}
+
+// runLookup 是一次终态回查的路由参数。
+type runLookup struct {
+	gameID    string
+	env       string
+	taskRunID string
 }
 
 func newFakeStore(schedules ...model.TaskSchedule) *fakeStore {
@@ -138,7 +151,14 @@ func (f *fakeStore) ListStaleClaimsAfter(ctx context.Context, before time.Time, 
 	return out, nil
 }
 
-func (f *fakeStore) LastRunStatus(ctx context.Context, taskRunID string) (string, error) {
+func (f *fakeStore) LastRunStatus(ctx context.Context, gameID, env, taskRunID string) (string, error) {
+	f.mu.Lock()
+	f.runLookups = append(f.runLookups, runLookup{gameID: gameID, env: env, taskRunID: taskRunID})
+	fail := f.failRunLookup
+	f.mu.Unlock()
+	if fail != nil {
+		return "", fail
+	}
 	if taskRunID == "" {
 		return "", nil
 	}

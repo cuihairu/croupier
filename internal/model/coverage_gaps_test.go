@@ -187,24 +187,24 @@ func TestTaskScheduleLastRunStatusAndRunLogs(t *testing.T) {
 	ctx := context.Background()
 
 	// 空 ID → ""
-	status, err := m.LastRunStatus(ctx, "")
+	status, err := m.LastRunStatus(ctx, "demo", "prod", "")
 	require.NoError(t, err)
 	assert.Equal(t, "", status)
 
 	// 不存在 → ""
-	status, err = m.LastRunStatus(ctx, "nope")
+	status, err = m.LastRunStatus(ctx, "demo", "prod", "nope")
 	require.NoError(t, err)
 	assert.Equal(t, "", status)
 
 	// 非终态 → ""
 	require.NoError(t, db.Create(&TaskRun{TaskID: "t-run", Status: "running"}).Error)
-	status, err = m.LastRunStatus(ctx, "t-run")
+	status, err = m.LastRunStatus(ctx, "demo", "prod", "t-run")
 	require.NoError(t, err)
 	assert.Equal(t, "", status)
 
 	// 终态 → 原样
 	require.NoError(t, db.Model(&TaskRun{}).Where("task_id = ?", "t-run").Update("status", "succeeded").Error)
-	status, err = m.LastRunStatus(ctx, "t-run")
+	status, err = m.LastRunStatus(ctx, "demo", "prod", "t-run")
 	require.NoError(t, err)
 	assert.Equal(t, "succeeded", status)
 

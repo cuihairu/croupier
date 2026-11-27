@@ -64,8 +64,11 @@ type ScheduleStore interface {
 	// 因为 created_at 非唯一，同时间戳多行会让「>= cursor」反复取同页空转。
 	// cursor 为 0 = 从头。按 id ASC 排序保证全量收敛。
 	ListStaleClaimsAfter(ctx context.Context, before time.Time, cursor uint, limit int) ([]model.TaskScheduleRunLog, error)
-	// LastRunResult 取某 TaskRun 的终态（"" = 未终态/不存在）。
-	LastRunStatus(ctx context.Context, taskRunID string) (string, error)
+	// LastRunStatus 取某 TaskRun 的终态（"" = 未终态/不存在）。AUD-087：
+	// 按 schedule 所属 (gameID, env) 路由——task_runs 是 game 模型，
+	// multiGame 模式下 live 在该作用域的 game 库而非 meta 库。查库失败以
+	// error 返回（与「不存在/未终态」的 ("", nil) 可区分），调用方不得吞掉。
+	LastRunStatus(ctx context.Context, gameID, env, taskRunID string) (string, error)
 }
 
 // Manager 是调度循环。
@@ -330,12 +333,22 @@ func (m *Manager) triggerSchedule(ctx context.Context, s *model.TaskSchedule, no
 		return
 	}
 
-	// 触发前回查上一次执行的终态，推进连续失败计数。
+	// 触发前回查上一次执行的终态，推进连续失败计数。AUD-087：回查按
+	// schedule 所属 (gameID, env) 路由——task_runs 在该作用域的 game 库，
+	// multiGame 模式下按 meta 连接查会恒判「不存在」，失败计数永不推进、
+	// 成功也永不清零。查库失败（作用域解析失败/DB 错误）与「不存在/未终态」
+	// 不同：不得静默吞掉——记 warn、计数保持原值（不猜），继续派发不阻塞
+	// 调度循环。
 	failures := s.ConsecutiveFailures
 	if s.LastRunID != "" {
-		if status, err := m.store.LastRunStatus(ctx, s.LastRunID); err == nil && isFailure(status) {
+		status, err := m.store.LastRunStatus(ctx, s.GameID, s.Env, s.LastRunID)
+		switch {
+		case err != nil:
+			slog.Warn("scheduler: last run status lookup failed",
+				"schedule", s.ID, "gameId", s.GameID, "env", s.Env, "run", s.LastRunID, "error", err)
+		case isFailure(status):
 			failures++
-		} else if err == nil && isSuccess(status) {
+		case isSuccess(status):
 			failures = 0
 		}
 	}

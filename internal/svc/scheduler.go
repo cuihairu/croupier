@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/db/router"
 	"github.com/cuihairu/croupier/internal/model"
 	scheduler "github.com/cuihairu/croupier/internal/tasks/scheduler"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
@@ -32,6 +33,13 @@ func (ctx *ServiceContext) StartScheduler() *scheduler.Manager {
 	}
 	if ctx.Scheduler != nil {
 		return ctx.Scheduler
+	}
+	// AUD-087：multiGame 模式下 task_runs 是 game 模型，live 在 schedule
+	// 所属 (gameID, env) 的 per-game 库——终态回查按作用域路由到 game 库。
+	// Router 为 nil（单库模式，默认 dev/CI）不注入：模型回退自身连接，
+	// task_runs 与调度定义同库，行为不变。
+	if ctx.Router != nil {
+		ctx.TaskScheduleModel.SetScopeResolver(routerScheduleScopes{r: ctx.Router})
 	}
 	ctx.seedIncidentReportSchedules()
 	ctx.repairMissingNextTriggers()
@@ -109,4 +117,17 @@ type dispatcherAdapter struct {
 
 func (a dispatcherAdapter) StartTask(ctx context.Context, req *sdkv1.InvokeRequest) (*sdkv1.StartTaskResponse, error) {
 	return a.d.StartTaskRequest(ctx, req)
+}
+
+// routerScheduleScopes 把 per-game 路由器适配为模型的 ScheduleScopeResolver
+// （与 cmd/server 的 routerTaskScopes 同型）。解析错误必须透传：终态回查的
+// 「查库失败」要与「记录不存在 / 未终态」可区分——静默吞错回退 meta 连接
+// 会令 multiGame 下回查恒判「不存在」，正是 AUD-087 修复的缺陷形态。
+type routerScheduleScopes struct {
+	r *router.Router
+}
+
+func (a routerScheduleScopes) ScopeContext(ctx context.Context, gameID, env string) (context.Context, error) {
+	scoped, _, err := a.r.Resolve(ctx, gameID, env)
+	return scoped, err
 }

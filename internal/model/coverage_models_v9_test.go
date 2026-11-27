@@ -420,19 +420,19 @@ func TestTaskScheduleModelBranchesV9(t *testing.T) {
 	assert.False(t, isDuplicateKeyError(errDummyV9("boom")))
 
 	// LastRunStatus: empty id, missing run, terminal and non-terminal statuses.
-	st, err := m.LastRunStatus(ctx, "")
+	st, err := m.LastRunStatus(ctx, "demo", "prod", "")
 	require.NoError(t, err)
 	assert.Empty(t, st)
-	st, err = m.LastRunStatus(ctx, "nope")
+	st, err = m.LastRunStatus(ctx, "demo", "prod", "nope")
 	require.NoError(t, err)
 	assert.Empty(t, st)
 
 	require.NoError(t, db.Create(&TaskRun{TaskID: "run-done", Status: "succeeded"}).Error)
 	require.NoError(t, db.Create(&TaskRun{TaskID: "run-mid", Status: "running"}).Error)
-	st, err = m.LastRunStatus(ctx, "run-done")
+	st, err = m.LastRunStatus(ctx, "demo", "prod", "run-done")
 	require.NoError(t, err)
 	assert.Equal(t, "succeeded", st)
-	st, err = m.LastRunStatus(ctx, "run-mid")
+	st, err = m.LastRunStatus(ctx, "demo", "prod", "run-mid")
 	require.NoError(t, err)
 	assert.Empty(t, st)
 
