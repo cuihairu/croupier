@@ -29,6 +29,9 @@ type FunctionDescriptor struct {
 	Resource     string
 	Risk         string
 	Operation    string
+	// DurableIdempotency is the optional x-durable-idempotency declaration
+	// (GAME-009 D3); nil = not declared.
+	DurableIdempotency *DurableIdempotencyCapability
 }
 
 // ToOpenAPIOperation converts a FunctionDescriptor to OpenAPI Operation
@@ -63,6 +66,17 @@ func (c *ProviderConverter) ToOpenAPIOperation(desc *FunctionDescriptor) (*opena
 			op.Extensions = make(map[string]interface{})
 		}
 		op.Extensions["x-operation"] = desc.Operation
+	}
+
+	if desc.DurableIdempotency != nil && desc.DurableIdempotency.Declared() {
+		if op.Extensions == nil {
+			op.Extensions = make(map[string]interface{})
+		}
+		op.Extensions["x-durable-idempotency"] = map[string]interface{}{
+			"query":  desc.DurableIdempotency.Query,
+			"cancel": desc.DurableIdempotency.Cancel,
+			"undo":   desc.DurableIdempotency.Undo,
+		}
 	}
 
 	// Create request body

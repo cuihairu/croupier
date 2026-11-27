@@ -69,6 +69,7 @@ func (l *FunctionInvokeLogic) FunctionInvoke(req *FunctionInvokeRequest) (*Funct
 		TargetServiceID: req.TargetServiceID,
 		HashKey:         req.HashKey,
 		Metadata:        req.Metadata,
+		OperationID:     req.OperationID,
 	})
 	if err != nil {
 		return nil, err
@@ -86,6 +87,8 @@ func functionInvokeResponseFromUnified(resp *functioninvoke.Response) *FunctionI
 		ApprovalID:       resp.ApprovalID,
 		ApprovalRequired: resp.ApprovalRequired,
 		ApprovalWorkflow: resp.ApprovalWorkflow,
+		OperationID:      resp.OperationID,
+		Outcome:          resp.Outcome,
 	}
 	if resp.Broadcast != nil {
 		items := make([]BroadcastAgentItem, 0, len(resp.Broadcast.Results))

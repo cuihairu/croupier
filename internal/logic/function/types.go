@@ -222,6 +222,10 @@ type FunctionInvokeRequest struct {
 	Route           string            `json:"route"`
 	TargetServiceID string            `json:"targetServiceId"`
 	HashKey         string            `json:"hashKey"`
+	// OperationID is the GAME-009 D1 business operation identifier; only
+	// meaningful for functions declaring x-durable-idempotency. Empty =
+	// platform creates a new intent; present = replay with same fingerprint.
+	OperationID string `json:"operationId,omitempty"`
 }
 
 // FunctionInvokeResponse represents the response for function invocation
@@ -240,6 +244,10 @@ type FunctionInvokeResponse struct {
 	// Result field is also populated with the first successful response so
 	// existing callers keep working without reading Broadcast.
 	Broadcast *BroadcastResult `json:"broadcast,omitempty"`
+	// OperationID / Outcome carry the durable-idempotency credential surface
+	// (GAME-009 D3/D4); empty when the function declares no capability.
+	OperationID string `json:"operationId,omitempty"`
+	Outcome     string `json:"outcome,omitempty"`
 }
 
 // BroadcastResult aggregates per-agent outcomes from a broadcast invocation.

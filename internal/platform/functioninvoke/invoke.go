@@ -96,6 +96,23 @@ func Invoke(ctx context.Context, svcCtx *svc.ServiceContext, req *Request) (*Res
 	roleNames := governed.RoleNames
 	functionPolicy := governed.FunctionPolicy
 
+	// D1/D2/D3：durable 幂等能力声明的函数在派发前登记业务操作凭据。登记
+	// 失败 fail-closed（能力/指纹/存储故障不得让副作用裸奔）；重放命中同一
+	// 凭据继续派发（游戏侧去重由接入方按能力声明负责）。
+	var actor string
+	if admin != nil {
+		actor = admin.Username
+	}
+	operation, err := beginDurableOperation(ctx, svcCtx, req, actor)
+	if err != nil {
+		spanErr = err
+		return nil, err
+	}
+	if operation != nil {
+		// operationId 在平台生成时回写请求，供 Response/审计同一口径读取。
+		req.OperationID = operation.operationID
+	}
+
 	payload := InvokePayload(req)
 
 	metadata := map[string]string{
@@ -133,6 +150,10 @@ func Invoke(ctx context.Context, svcCtx *svc.ServiceContext, req *Request) (*Res
 	}
 	if hashKey := strings.TrimSpace(req.HashKey); hashKey != "" {
 		metadata["hashKey"] = hashKey
+	}
+	// D1：operationId 随 metadata 下发到游戏侧，游戏方据此持久去重（D3）。
+	if operation != nil {
+		metadata["operationId"] = operation.operationID
 	}
 
 	// 记录操作者
@@ -180,6 +201,24 @@ func Invoke(ctx context.Context, svcCtx *svc.ServiceContext, req *Request) (*Res
 		}
 	}
 
+	// D3/D4：派发返回后按信封/未知收敛凭据，并把凭据面透出到 Response。
+	// 收敛写库失败不改写调用结果语义（副作用由凭据行与 D4 扫描兜底），
+	// 但凭据面按 unknown 透出——绝不谎称终态。
+	var errOperationID, errOutcome string
+	if operation != nil {
+		outcome, finalizeErr := finalizeDurableOperation(ctx, operation, result, invokeErr)
+		if finalizeErr != nil {
+			outcome = model.BizOpOutcomeUnknown
+		}
+		if invokeErr != nil {
+			// 错误响应必须随行凭据面：客户端凭 operationId 重放（R3）或查询收敛（D4）。
+			errOperationID, errOutcome = operation.operationID, outcome
+		} else if result != nil {
+			result.OperationID = operation.operationID
+			result.Outcome = outcome
+		}
+	}
+
 	// Audit logging: log function invocation if policy requires audit
 	if svcCtx.AuditService != nil && functionPolicy != nil && functionPolicy.RequireAudit {
 		invokeDurationMs := time.Since(startedAt).Milliseconds()
@@ -221,9 +260,11 @@ func Invoke(ctx context.Context, svcCtx *svc.ServiceContext, req *Request) (*Res
 	if invokeErr != nil {
 		spanErr = invokeErr
 		return &Response{
-			TaskId:  "",
-			Result:  nil,
-			TraceID: telemetry.TraceIDFromContext(ctx),
+			TaskId:      "",
+			Result:      nil,
+			TraceID:     telemetry.TraceIDFromContext(ctx),
+			OperationID: errOperationID,
+			Outcome:     errOutcome,
 		}, invokeErr
 	}
 

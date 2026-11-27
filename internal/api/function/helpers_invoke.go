@@ -44,6 +44,7 @@ func functioninvokeRequestFromDTO(req *FunctionInvokeRequest) *functioninvoke.Re
 		HashKey:         req.HashKey,
 		TimeoutMs:       req.TimeoutMs,
 		Metadata:        req.Metadata,
+		OperationID:     req.OperationID,
 	}
 }
 
@@ -59,6 +60,8 @@ func functionInvokeResponseFromUnified(resp *functioninvoke.Response) *FunctionI
 		ApprovalWorkflow:  resp.ApprovalWorkflow,
 		TraceID:           resp.TraceID,
 		ExecutionMetadata: resp.ExecutionMetadata,
+		OperationID:       resp.OperationID,
+		Outcome:           resp.Outcome,
 	}
 	if resp.Broadcast != nil {
 		items := make([]BroadcastAgentItem, 0, len(resp.Broadcast.Results))

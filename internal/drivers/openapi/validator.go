@@ -4,6 +4,7 @@ package openapi
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
 )
@@ -158,6 +159,34 @@ func (v *Validator) ValidateExtensionFields(extensions map[string]interface{}) e
 	if operation, exists := extensions["x-operation"]; exists {
 		if _, ok := operation.(string); !ok {
 			return errors.New("x-operation must be a string")
+		}
+	}
+
+	// Validate x-durable-idempotency if present (GAME-009 D3): must be an
+	// object of string fields query/cancel/undo with at least one non-empty —
+	// an all-empty declaration would silently promise nothing while looking
+	// declared to the catalog.
+	if durable, exists := extensions["x-durable-idempotency"]; exists {
+		obj, ok := durable.(map[string]interface{})
+		if !ok {
+			return errors.New("x-durable-idempotency must be an object")
+		}
+		declared := false
+		for _, field := range []string{"query", "cancel", "undo"} {
+			value, exists := obj[field]
+			if !exists || value == nil {
+				continue
+			}
+			str, ok := value.(string)
+			if !ok {
+				return fmt.Errorf("x-durable-idempotency.%s must be a string", field)
+			}
+			if strings.TrimSpace(str) != "" {
+				declared = true
+			}
+		}
+		if !declared {
+			return errors.New("x-durable-idempotency must declare at least one of query, cancel, undo")
 		}
 	}
 

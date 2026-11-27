@@ -144,6 +144,23 @@ type APIKeyAuth struct {
 
 // APIMethod defines a single API method that can be called.
 // It closely follows OpenAPI 3.0 operation object structure.
+// DurableIdempotencyCapability mirrors the x-durable-idempotency operation
+// extension (GAME-009 approved protocol D3, 2026-11-27): the game adapter's
+// self-declared durable dedup surface for high-risk business operations.
+// query/cancel/undo name contract functions the platform may call to read a
+// result, confirm cancellation, or compensate — empty means not declared and
+// the platform must never invent that behavior.
+type DurableIdempotencyCapability struct {
+	Query  string `yaml:"query" json:"query"`
+	Cancel string `yaml:"cancel" json:"cancel"`
+	Undo   string `yaml:"undo" json:"undo"`
+}
+
+// Declared reports whether any durable-idempotency surface was declared.
+func (c DurableIdempotencyCapability) Declared() bool {
+	return c.Query != "" || c.Cancel != "" || c.Undo != ""
+}
+
 type APIMethod struct {
 	// Name is the method name used for calling (e.g., "get_role", "ban_user")
 	// Falls back to operationId or generated from path if not set
@@ -193,6 +210,9 @@ type APIMethod struct {
 	Enabled    bool   `yaml:"x-enabled" json:"x-enabled"`       // x-enabled: whether this function is enabled
 	Permission string `yaml:"x-permission" json:"x-permission"` // x-permission: optional permission identifier
 	Version    string `yaml:"x-version" json:"x-version"`       // x-version: per-operation semver override (falls back to batch default)
+	// DurableIdempotency is the parsed x-durable-idempotency object (GAME-009
+	// D3); zero value = not declared.
+	DurableIdempotency DurableIdempotencyCapability `yaml:"x-durable-idempotency" json:"x-durable-idempotency"`
 
 	// InputSchema is the JSON Schema (JSON text) derived from the operation's
 	// parameters and application/json request body (see extractInputSchema).

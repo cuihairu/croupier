@@ -21,6 +21,10 @@ type Request struct {
 	// clamp）。仅 sync 模式有意义；async 任务有自己的生命周期。
 	TimeoutMs int               `json:"timeoutMs,omitempty"`
 	Metadata  map[string]string `json:"metadata,omitempty"`
+	// OperationID 是 GAME-009 D1 业务操作标识：仅对声明 x-durable-idempotency
+	// 能力的函数有意义。留空 = 平台生成新意图；显式携带 = 响应丢失后的同参数
+	// 重放（指纹不一致判 409，R5）。
+	OperationID string `json:"operationId,omitempty"`
 }
 
 // Response 是统一执行链的出参。
@@ -33,6 +37,12 @@ type Response struct {
 	// TraceID identifies the OTel trace of this invocation so dashboards can
 	// jump to Jaeger/Grafana for the full request path.
 	TraceID string `json:"traceId,omitempty"`
+	// OperationID / Outcome 是 durable 幂等凭据面（GAME-009 D3/D4）：仅在函数
+	// 声明 x-durable-idempotency 时非空。Outcome 取 model.BizOpOutcome* ——
+	// pending 表示副作用未落定，unknown 表示结果未知（只许查询收敛，绝不
+	// 意味失败）；调用方必须持久保存 operationId 以支持重放与查询。
+	OperationID string `json:"operationId,omitempty"`
+	Outcome     string `json:"outcome,omitempty"`
 	// ExecutionMetadata is server-internal dispatch context for audit/tracing.
 	// It is intentionally not serialized to API clients.
 	ExecutionMetadata map[string]string `json:"-"`

@@ -179,8 +179,13 @@ type FunctionInvokeRequest struct {
 	// TimeoutMs declares the timeout budget for this synchronous call
 	// (milliseconds, clamped into [1000,60000]). Only meaningful in sync mode;
 	// async tasks have their own lifecycle.
-	TimeoutMs int               `json:"timeoutMs,omitempty"`
-	Metadata  map[string]string `json:"-"`
+	TimeoutMs int `json:"timeoutMs,omitempty"`
+	// OperationID is the GAME-009 D1 business operation identifier: optional,
+	// only meaningful for functions declaring x-durable-idempotency. Empty =
+	// platform generates a new intent; present = replay of a lost response
+	// (fingerprint mismatch rejects with 409).
+	OperationID string            `json:"operationId,omitempty"`
+	Metadata    map[string]string `json:"-"`
 }
 
 // FunctionInvokeResponse represents the response of a function invocation
@@ -193,6 +198,12 @@ type FunctionInvokeResponse struct {
 	// TraceID identifies the OTel trace of this invocation so dashboards can
 	// jump to Jaeger/Grafana for the full request path.
 	TraceID string `json:"traceId,omitempty"`
+	// OperationID / Outcome carry the durable-idempotency credential surface
+	// (GAME-009 D3/D4). Outcome=pending means the side effect is not settled;
+	// outcome=unknown means the result is unknown (query-converge only, never
+	// implies failure). Callers must persist operationId for replay/query.
+	OperationID string `json:"operationId,omitempty"`
+	Outcome     string `json:"outcome,omitempty"`
 	// ExecutionMetadata is server-internal dispatch context for audit/tracing.
 	// It is intentionally not serialized to API clients.
 	ExecutionMetadata map[string]string `json:"-"`

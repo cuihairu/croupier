@@ -192,6 +192,7 @@ func (p *Provider) parseOpenAPISpec(spec []byte) error {
 			enabled, _ := methodObj["x-enabled"].(bool)
 			permission, _ := methodObj["x-permission"].(string)
 			versionOverride, _ := methodObj["x-version"].(string)
+			durableIdempotency := extractDurableIdempotency(methodObj["x-durable-idempotency"])
 
 			// Create APIMethod
 			request := requests[requestOperation{path: apiPath, method: httpMethod}]
@@ -211,27 +212,28 @@ func (p *Provider) parseOpenAPISpec(spec []byte) error {
 				}
 			}
 			apiMethod := &APIMethod{
-				Name:         methodName,
-				OperationID:  operationID,
-				Summary:      summary,
-				Description:  desc,
-				Path:         apiPath,
-				Method:       httpMethod,
-				Tags:         tags,
-				Deprecated:   deprecated,
-				Parameters:   p.extractParameters(methodObj),
-				Request:      request,
-				Resource:     resource,
-				Risk:         risk,
-				Operation:    operation,
-				Capability:   capability,
-				Execution:    execution,
-				Enabled:      enabled,
-				Permission:   permission,
-				Version:      strings.TrimSpace(versionOverride),
-				InputSchema:  projection.Schema,
-				projection:   projection,
-				OutputSchema: extractOutputSchema(methodObj, openapi),
+				Name:               methodName,
+				OperationID:        operationID,
+				Summary:            summary,
+				Description:        desc,
+				Path:               apiPath,
+				Method:             httpMethod,
+				Tags:               tags,
+				Deprecated:         deprecated,
+				Parameters:         p.extractParameters(methodObj),
+				Request:            request,
+				Resource:           resource,
+				Risk:               risk,
+				Operation:          operation,
+				Capability:         capability,
+				Execution:          execution,
+				Enabled:            enabled,
+				Permission:         permission,
+				Version:            strings.TrimSpace(versionOverride),
+				DurableIdempotency: durableIdempotency,
+				InputSchema:        projection.Schema,
+				projection:         projection,
+				OutputSchema:       extractOutputSchema(methodObj, openapi),
 			}
 
 			p.methodMap[methodName] = apiMethod
@@ -255,6 +257,22 @@ func (p *Provider) extractTags(methodObj map[string]interface{}) []string {
 		}
 	}
 	return tags
+}
+
+// extractDurableIdempotency parses the x-durable-idempotency extension object
+// (GAME-009 D3). Non-object shapes or unknown fields degrade to a zero
+// capability (= not declared) — structural rejection lives in the validator,
+// discovery only projects what it can read.
+func extractDurableIdempotency(raw interface{}) DurableIdempotencyCapability {
+	obj, ok := raw.(map[string]interface{})
+	if !ok {
+		return DurableIdempotencyCapability{}
+	}
+	capability := DurableIdempotencyCapability{}
+	capability.Query, _ = obj["query"].(string)
+	capability.Cancel, _ = obj["cancel"].(string)
+	capability.Undo, _ = obj["undo"].(string)
+	return capability
 }
 
 // extractParameters extracts parameters from OpenAPI method definition.
