@@ -5,7 +5,9 @@ name: Release SDK — C#
 # 版本：留空 = 最新 release tag；可显式指定（v0.2.0 或 0.2.0 等价）。
 # 源提交（AUD-078）：统一 checkout release-sdk-resolve.yml 解析出的 commit，
 # 不再取触发 ref——触发分支领先 tag 时构建产物也只来自 tag 的源码。
-# dry_run：演练模式——照常 pack，但绝不 nuget push。
+# dry_run（AUD-079）：演练执行与正式发布一致的构建打包检查（dotnet pack 出
+# .nupkg，与正式发布同一命令），产物以 workflow artifact 留档；不要求任何
+# 发布凭据，绝不 nuget push。NUGET_API_KEY 只在真实 publish 步骤消费。
 on:
   workflow_dispatch:
     inputs:
@@ -46,7 +48,7 @@ jobs:
     with:
       version: ${{ inputs.version }}
       sha: ${{ inputs.sha }}
-    secrets: inherit
+    # 解析只在 version 为空时需要只读 GITHUB_TOKEN；不 inherit 仓库 secret。
 
   release:
     needs: resolve
@@ -59,14 +61,20 @@ jobs:
       - uses: actions/setup-dotnet@v6.0.0
         with:
           dotnet-version: "8.0.x"
-      - name: Require NUGET_API_KEY
-        run: test -n "$NUGET_API_KEY" || { echo "::error::缺少 secret NUGET_API_KEY"; exit 1; }
-        env:
-          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
       - name: Pack
         run: |
           cd sdks/csharp
           dotnet pack src/Croupier.Sdk/Croupier.Sdk.csproj -c Release -p:Version=${{ needs.resolve.outputs.version }} -o ./artifacts
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: sdk-csharp-${{ needs.resolve.outputs.version }}
+          path: sdks/csharp/artifacts/*.nupkg
+          if-no-files-found: error
+      - name: Require NUGET_API_KEY (real publish only; drill needs no credentials)
+        if: ${{ ! inputs.dry_run }}
+        run: test -n "$NUGET_API_KEY" || { echo "::error::缺少 secret NUGET_API_KEY"; exit 1; }
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
       - name: Push to NuGet
         if: ${{ ! inputs.dry_run }}
         run: |

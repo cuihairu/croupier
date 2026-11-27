@@ -6,7 +6,10 @@ name: Release SDK — Java
 # 版本：留空 = 最新 release tag；可显式指定（v0.2.0 或 0.2.0 等价）。
 # 源提交（AUD-078）：统一 checkout release-sdk-resolve.yml 解析出的 commit，
 # 不再取触发 ref——触发分支领先 tag 时构建产物也只来自 tag 的源码。
-# dry_run：演练模式——照常注入版本号并构建，但绝不 publish。
+# dry_run（AUD-079）：演练执行与正式发布一致的构建打包检查（gradle build +
+# publishToMavenLocal 出全套构件），不要求任何发布凭据，绝不 publish 到
+# GitHub Packages / Maven Central。packages:write 与各 secret 只存在于被
+# dry_run 跳过的 publish job。
 on:
   workflow_dispatch:
     inputs:
@@ -47,10 +50,40 @@ jobs:
     with:
       version: ${{ inputs.version }}
       sha: ${{ inputs.sha }}
-    secrets: inherit
+    # 解析只在 version 为空时需要只读 GITHUB_TOKEN；不 inherit 仓库 secret。
 
-  release:
+  build:
+    name: Build & package (Maven local; no credentials)
     needs: resolve
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ needs.resolve.outputs.sha }}
+      - uses: actions/setup-java@v6.1.0
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Stamp version
+        run: |
+          cd sdks/java
+          sed -i 's/^    public static final String VERSION = ".*";/    public static final String VERSION = "${{ needs.resolve.outputs.version }}";/' \
+            src/main/java/io/github/cuihairu/croupier/sdk/SdkInfo.java
+      - name: Build & package to local Maven repo (same checks as a real publish)
+        # 不带 -PforceRelease：非发布路径不配置 Sonatype/GitHub Packages 仓库，
+        # 不触发签名，publishToMavenLocal 全程零凭据、零外部写。
+        working-directory: sdks/java
+        run: |
+          ./gradlew build publishToMavenLocal -PoverrideVersion=${{ needs.resolve.outputs.version }}
+      - name: List packaged artifacts
+        run: |
+          find ~/.m2/repository -path '*croupier*' -type f \( -name '*.jar' -o -name '*.pom' \) -print -exec stat -c'%s bytes  %n' {} \;
+
+  publish:
+    name: Publish (GitHub Packages；可选同步 Maven Central)
+    needs: [resolve, build]
+    if: ${{ ! inputs.dry_run }}
     runs-on: ubuntu-latest
     permissions:
       packages: write
@@ -68,7 +101,6 @@ jobs:
           sed -i 's/^    public static final String VERSION = ".*";/    public static final String VERSION = "${{ needs.resolve.outputs.version }}";/' \
             src/main/java/io/github/cuihairu/croupier/sdk/SdkInfo.java
       - name: Publish (GitHub Packages；可选同步 Maven Central)
-        if: ${{ ! inputs.dry_run }}
         run: |
           cd sdks/java
           EXTRA=""

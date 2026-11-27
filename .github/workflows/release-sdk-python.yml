@@ -5,7 +5,9 @@ name: Release SDK — Python
 # 版本：留空 = 最新 release tag；可显式指定（v0.2.0 或 0.2.0 等价）。
 # 源提交（AUD-078）：统一 checkout release-sdk-resolve.yml 解析出的 commit，
 # 不再取触发 ref——触发分支领先 tag 时构建产物也只来自 tag 的源码。
-# dry_run：演练模式——照常构建 sdist/wheel，但绝不 twine upload。
+# dry_run（AUD-079）：演练执行与正式发布一致的构建打包检查（sed 版本号、
+# pipx run build 出 sdist/wheel），产物以 workflow artifact 留档；不要求任何
+# 发布凭据，绝不 twine upload。PYPI_API_TOKEN 只在真实 publish 步骤消费。
 on:
   workflow_dispatch:
     inputs:
@@ -46,7 +48,7 @@ jobs:
     with:
       version: ${{ inputs.version }}
       sha: ${{ inputs.sha }}
-    secrets: inherit
+    # 解析只在 version 为空时需要只读 GITHUB_TOKEN；不 inherit 仓库 secret。
 
   release:
     needs: resolve
@@ -59,15 +61,21 @@ jobs:
       - uses: actions/setup-python@v7.1.0
         with:
           python-version: "3.12"
-      - name: Require PYPI_API_TOKEN
-        run: test -n "$PYPI_API_TOKEN" || { echo "::error::缺少 secret PYPI_API_TOKEN"; exit 1; }
-        env:
-          PYPI_API_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
       - name: Set version & build
         run: |
           cd sdks/python
           sed -i "s/^version = .*/version = \"${{ needs.resolve.outputs.version }}\"/" pyproject.toml
           pipx run build
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: sdk-python-${{ needs.resolve.outputs.version }}
+          path: sdks/python/dist/*
+          if-no-files-found: error
+      - name: Require PYPI_API_TOKEN (real publish only; drill needs no credentials)
+        if: ${{ ! inputs.dry_run }}
+        run: test -n "$PYPI_API_TOKEN" || { echo "::error::缺少 secret PYPI_API_TOKEN"; exit 1; }
+        env:
+          PYPI_API_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
       - name: Publish to PyPI
         if: ${{ ! inputs.dry_run }}
         run: twine upload -u __token__ -p "$PYPI_API_TOKEN" sdks/python/dist/*

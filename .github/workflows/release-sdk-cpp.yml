@@ -6,8 +6,11 @@ name: Release SDK — C++
 # 版本：留空 = 最新 release tag；可显式指定（v0.2.0 或 0.2.0 等价）。
 # 源提交（AUD-078）：源码包与预编译产物统一 checkout release-sdk-resolve.yml
 # 解析出的同一 commit——此前源码包取触发 ref、编译物取目标 tag，触发分支
-# 领先 tag 时两者会各打各的源码。dry_run：演练模式——只解析版本，不建/不
-# 上传 Release，预编译 job 跳过。
+# 领先 tag 时两者会各打各的源码。
+# dry_run（AUD-079）：演练执行与正式发布一致的构建打包检查——源码包 tar 与
+# linux-x64 预编译全量编译打包照跑，产物以 workflow artifact 留档；不要求
+# 任何发布凭据，绝不创建/上传 Release。contents:write 只存在于被 dry_run
+# 跳过的 publish-* job。
 on:
   workflow_dispatch:
     inputs:
@@ -48,44 +51,70 @@ jobs:
     with:
       version: ${{ inputs.version }}
       sha: ${{ inputs.sha }}
-    secrets: inherit
+    # 解析只在 version 为空时需要只读 GITHUB_TOKEN；不 inherit 仓库 secret。
 
-  release:
+  package-source:
+    # 源码包打包——与正式发布同一 tar 命令，两种模式都跑（AUD-079：演练
+    # 必须真的打出包，而不是只解析版本）。产物经 artifact 交给 publish job
+    # （真实发布）或留档供演练核验（dry_run）。零凭据、零外部写。
+    name: Package C++ SDK source tarball
     needs: resolve
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    outputs:
-      tag: ${{ needs.resolve.outputs.tag }}
-      version: ${{ needs.resolve.outputs.version }}
-      sha: ${{ needs.resolve.outputs.sha }}
+    permissions: {}
     steps:
       - uses: actions/checkout@v7.0.1
         with:
           ref: ${{ needs.resolve.outputs.sha }}
 
-      - name: Attach C++ SDK source to release
-        if: ${{ ! inputs.dry_run }}
+      - name: Package source tarball (same command as a real release)
+        run: |
+          mkdir -p /tmp/pkg
+          tar --exclude='sdks/cpp/build' -czf "/tmp/pkg/croupier-cpp-sdk-${{ needs.resolve.outputs.version }}.tar.gz" -C sdks cpp
+          tar -tzf "/tmp/pkg/croupier-cpp-sdk-${{ needs.resolve.outputs.version }}.tar.gz" | head -5
+          stat -c'%s bytes  %n' "/tmp/pkg/croupier-cpp-sdk-${{ needs.resolve.outputs.version }}.tar.gz"
+
+      - name: Hand tarball to publish job (drill keeps it as inspectable artifact)
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: sdk-cpp-source-${{ needs.resolve.outputs.version }}
+          path: /tmp/pkg/croupier-cpp-sdk-${{ needs.resolve.outputs.version }}.tar.gz
+          if-no-files-found: error
+
+  publish-source:
+    # 真实发布：创建（或复用）draft Release 并挂源码包。dry_run 整体跳过。
+    name: Attach C++ SDK source to release
+    needs: [resolve, package-source]
+    if: ${{ ! inputs.dry_run }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8.0.2
+        with:
+          name: sdk-cpp-source-${{ needs.resolve.outputs.version }}
+          path: /tmp/pkg
+
+      - name: Attach source tarball to release
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ needs.resolve.outputs.tag }}
           SOURCE_SHA: ${{ needs.resolve.outputs.sha }}
         run: |
-          mkdir -p /tmp/pkg
-          tar --exclude='sdks/cpp/build' -czf "/tmp/pkg/croupier-cpp-sdk-${{ needs.resolve.outputs.version }}.tar.gz" -C sdks cpp
           # tag 不存在时（新版本手动路径）把 tag 锚到同一源提交，避免
           # gh 默认按远端默认分支 HEAD 建 tag 造成第二次漂移。
           gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || gh release create "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --draft --title "$RELEASE_TAG" --target "$SOURCE_SHA"
           gh release upload "$RELEASE_TAG" "/tmp/pkg/croupier-cpp-sdk-${{ needs.resolve.outputs.version }}.tar.gz" --repo "$GITHUB_REPOSITORY" --clobber
 
   build-linux-x64:
-    # F：编译产物发布——linux-x64 静态/动态库 + 头文件包。
-    # 游戏服使用方解包即可链接，无需自装 vcpkg（依赖需按 vcpkg.json
-    # 清单自备 protobuf/curl/zlib/openssl/nlohmann-json）。
-    needs: [release, resolve]
-    if: ${{ ! inputs.dry_run }}
+    # F：编译产物——linux-x64 静态/动态库 + 头文件包。游戏服使用方解包
+    # 即可链接，无需自装 vcpkg（依赖需按 vcpkg.json 清单自备
+    # protobuf/curl/zlib/openssl/nlohmann-json）。
+    # AUD-079：演练不再跳过本 job——全量编译+打包照跑，只有上传被跳过。
+    name: Build & package linux-x64 prebuilt
+    needs: resolve
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    permissions: {}
     steps:
       - uses: actions/checkout@v7.0.1
         with:
@@ -133,10 +162,33 @@ jobs:
           cp "${{ github.workspace }}/LICENSE" "/tmp/${PKG}/" 2>/dev/null || true
           tar -czf "/tmp/${PKG}.tar.gz" -C "/tmp" "${PKG}"
           echo "pkg=/tmp/${PKG}.tar.gz" >> "$GITHUB_OUTPUT"
+          stat -c'%s bytes  %n' "/tmp/${PKG}.tar.gz"
+
+      - name: Hand prebuilt tarball to publish job (drill keeps it as inspectable artifact)
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: sdk-cpp-linux-x64-${{ needs.resolve.outputs.version }}
+          path: ${{ steps.pkg.outputs.pkg }}
+          if-no-files-found: error
+
+  publish-linux-x64:
+    # 真实发布：把预编译包挂到 Release。dry_run 整体跳过；依赖
+    # publish-source 保证 Release（及锚定的源提交 tag）先于上传存在。
+    name: Upload prebuilt linux-x64 to release
+    needs: [resolve, build-linux-x64, publish-source]
+    if: ${{ ! inputs.dry_run }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8.0.2
+        with:
+          name: sdk-cpp-linux-x64-${{ needs.resolve.outputs.version }}
+          path: /tmp/pkg
 
       - name: Upload prebuilt to release
-        run: |
-          gh release upload "${{ needs.resolve.outputs.tag }}" \
-            "${{ steps.pkg.outputs.pkg }}" --repo "$GITHUB_REPOSITORY" --clobber
         env:
           GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "${{ needs.resolve.outputs.tag }}" \
+            "/tmp/pkg/croupier-cpp-sdk-${{ needs.resolve.outputs.version }}-linux-x64.tar.gz" --repo "$GITHUB_REPOSITORY" --clobber

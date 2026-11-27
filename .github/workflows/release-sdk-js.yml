@@ -5,7 +5,9 @@ name: Release SDK — JS
 # 版本：留空 = 最新 release tag；可显式指定（v0.2.0 或 0.2.0 等价）。
 # 源提交（AUD-078）：统一 checkout release-sdk-resolve.yml 解析出的 commit，
 # 不再取触发 ref——触发分支领先 tag 时构建产物也只来自 tag 的源码。
-# dry_run：演练模式——照常装依赖构建，但绝不执行 npm publish。
+# dry_run（AUD-079）：演练执行与正式发布一致的构建打包检查（装依赖、构建、
+# npm pack），产物以 workflow artifact 留档；不要求任何发布凭据，绝不执行
+# npm publish。NPM_TOKEN 只在真实 publish 步骤消费。
 on:
   workflow_dispatch:
     inputs:
@@ -46,7 +48,8 @@ jobs:
     with:
       version: ${{ inputs.version }}
       sha: ${{ inputs.sha }}
-    secrets: inherit
+    # 解析只在 version 为空时需要只读 GITHUB_TOKEN（见 resolve workflow）；
+    # 这里不再 secrets: inherit，演练不接触任何仓库 secret。
 
   release:
     needs: resolve
@@ -60,10 +63,6 @@ jobs:
         with:
           node-version: "24"
           registry-url: https://registry.npmjs.org
-      - name: Require NPM_TOKEN
-        run: test -n "$NPM_TOKEN" || { echo "::error::缺少 secret NPM_TOKEN"; exit 1; }
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
       - name: Set version & build
         run: |
           cd sdks/js
@@ -71,6 +70,21 @@ jobs:
           sed -i 's/^export const SDK_VERSION = ".*";/export const SDK_VERSION = "${{ needs.resolve.outputs.version }}";/' src/version.ts
           npm ci || npm install
           npm run build --if-present
+      - name: Pack (same checks as a real publish; no registry write)
+        run: |
+          cd sdks/js
+          PKG=$(npm pack --silent)
+          echo "packed $PKG ($(stat -c%s "$PKG") bytes) from ${{ needs.resolve.outputs.sha }}"
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: sdk-js-${{ needs.resolve.outputs.version }}
+          path: sdks/js/*.tgz
+          if-no-files-found: error
+      - name: Require NPM_TOKEN (real publish only; drill needs no credentials)
+        if: ${{ ! inputs.dry_run }}
+        run: test -n "$NPM_TOKEN" || { echo "::error::缺少 secret NPM_TOKEN"; exit 1; }
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
       - name: Publish to npm
         if: ${{ ! inputs.dry_run }}
         run: npm publish --access public

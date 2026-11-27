@@ -13,6 +13,10 @@ name: Release SDK — Resolve Version
 #    checkout HEAD，并显式告警。
 # 三条路径都只输出一个 sha；下游 job 一律用它 checkout / 打包 / 打子模块
 # tag。本文件绝不发布任何东西。
+#
+# 凭据：只有 version 为空时才需要 GH_TOKEN 查最新 release（只读）。显式
+# version/sha 的演练路径不需要任何令牌；调用方不再强制 secrets: inherit。
+# gh 失败时不会静默回退到另一个源提交——fail-closed。
 on:
   workflow_call:
     inputs:
@@ -53,7 +57,11 @@ jobs:
       - name: Resolve version and pin source commit
         id: ver
         env:
-          GH_TOKEN: ${{ github.token }}
+          # 只有 version 为空（需 gh release view 查最新 release tag，只读）
+          # 才注入自动 GITHUB_TOKEN；显式 version 时 GH_TOKEN 为空串，整条
+          # 解析链（ls-remote/fetch 走 checkout 自带凭据）不消费任何令牌，
+          # 更不读取任何仓库 secret——无凭据演练可走本 workflow。
+          GH_TOKEN: ${{ inputs.version == '' && github.token || '' }}
           INPUT_VERSION: ${{ inputs.version }}
           INPUT_SHA: ${{ inputs.sha }}
         run: |

@@ -6,7 +6,10 @@ name: Release SDK — Go
 # 版本：留空 = 最新 release tag；可显式指定（v0.2.0 或 0.2.0 等价）。
 # 源提交（AUD-078）：统一经 release-sdk-resolve.yml 解析，子模块 tag 打在
 # 与其余五条车道相同的 commit 上，不再取触发 ref 的 checkout HEAD。
-# dry_run：演练模式——只解析版本，绝不推送子模块 tag。
+# dry_run（AUD-079）：演练执行与正式发布一致的检查——在 pin 定的源提交上
+# 构建 Go SDK 并本地演练 git tag（同一 tag 命令），但绝不推送。Go 车道的
+# "发布物"就是子模块 tag，演练的可验收产物即本地 tag 指向 pin 定的 commit。
+# contents:write 只存在于被 dry_run 跳过的 publish job。
 on:
   workflow_dispatch:
     inputs:
@@ -47,24 +50,48 @@ jobs:
     with:
       version: ${{ inputs.version }}
       sha: ${{ inputs.sha }}
-    secrets: inherit
+    # 解析只在 version 为空时需要只读 GITHUB_TOKEN；不 inherit 仓库 secret。
 
-  release:
+  build:
+    name: Build SDK & rehearse submodule tag (local only, no credentials)
     needs: resolve
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ needs.resolve.outputs.sha }}
+
+      - uses: actions/setup-go@v7.0.0
+        with:
+          go-version: "1.27.4"
+
+      - name: Build Go SDK at pinned commit
+        working-directory: sdks/go
+        run: go build ./...
+
+      - name: Rehearse submodule tag locally (same command as a real publish, no push)
+        env:
+          SUBMODULE_TAG: sdks/go/${{ needs.resolve.outputs.tag }}
+          SOURCE_SHA: ${{ needs.resolve.outputs.sha }}
+        run: |
+          git tag "$SUBMODULE_TAG" "$SOURCE_SHA"
+          echo "rehearsed $SUBMODULE_TAG -> $(git rev-parse "$SUBMODULE_TAG^{commit}") (local only, not pushed)"
+          git show --no-patch --format='tagged commit: %H %s' "$SUBMODULE_TAG"
+
+  publish:
+    name: Tag Go submodule & push
+    needs: [resolve, build]
+    if: ${{ ! inputs.dry_run }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    outputs:
-      tag: ${{ needs.resolve.outputs.tag }}
-      version: ${{ needs.resolve.outputs.version }}
-      sha: ${{ needs.resolve.outputs.sha }}
     steps:
       - uses: actions/checkout@v7.0.1
         with:
           ref: ${{ needs.resolve.outputs.sha }}
 
       - name: Tag Go submodule
-        if: ${{ ! inputs.dry_run }}
         env:
           SUBMODULE_TAG: sdks/go/${{ needs.resolve.outputs.tag }}
           SOURCE_SHA: ${{ needs.resolve.outputs.sha }}
