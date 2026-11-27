@@ -188,7 +188,14 @@ func (s *Service) Events(ctx context.Context, req *EventsRequest) (*EventsRespon
 	if err := requireTaskScope(ctx, run); err != nil {
 		return nil, err
 	}
-	events, err := s.runtime.ListEvents(ctx, taskID, req.AfterSeq)
+	// AUD-089: the new `cursor` means "last sequence number already read",
+	// so translate it to the store's strictly-greater filter. Legacy callers
+	// keep sending afterSeq verbatim and keep their historical behaviour.
+	afterSeq := req.AfterSeq
+	if req.Cursor != nil {
+		afterSeq = *req.Cursor
+	}
+	events, err := s.runtime.ListEvents(ctx, taskID, afterSeq)
 	if err != nil {
 		return nil, err
 	}
@@ -208,8 +215,19 @@ func (s *Service) Events(ctx context.Context, req *EventsRequest) (*EventsRespon
 			nextSeq = events[i].Seq + 1
 		}
 	}
+	// AUD-089: continuation cursor. It is the highest sequence number actually
+	// returned, so passing it back as req.Cursor reads only strictly newer
+	// events (seq > Cursor) and can never skip an event that was appended
+	// after this response. NextSeq is deliberately NOT usable that way: when
+	// it equals MAX(seq)+1, an event appended between the read and the next
+	// poll has that very seq and would be skipped by the seq > afterSeq
+	// filter. When nothing new arrives, Cursor stays at its previous value.
+	cursor := afterSeq
+	if len(events) > 0 {
+		cursor = events[len(events)-1].Seq
+	}
 	done := run.Status == tasks.StatusSucceeded || run.Status == tasks.StatusFailed || run.Status == tasks.StatusCancelled || run.Status == tasks.StatusTimedOut
-	return &EventsResponse{Items: items, NextSeq: nextSeq, Done: done}, nil
+	return &EventsResponse{Items: items, Cursor: cursor, NextSeq: nextSeq, Done: done}, nil
 }
 
 func (s *Service) Cancel(ctx context.Context, req *CancelRequest) error {

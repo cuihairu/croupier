@@ -87,6 +87,17 @@ func (h *Handler) Events(c *gin.Context) {
 		}
 		req.AfterSeq = afterSeq
 	}
+	// AUD-089: `cursor` is the directly round-trippable continuation cursor
+	// (last read sequence number). When present it wins over after_seq /
+	// afterSeq so new callers cannot skip an event appended between polls.
+	if raw, ok := c.GetQuery("cursor"); ok {
+		cursor, err := strconv.ParseInt(raw, 10, 64)
+		if err != nil || cursor < 0 {
+			response.BadRequest(c, "cursor 必须是非负整数")
+			return
+		}
+		req.Cursor = &cursor
+	}
 	resp, err := h.service.Events(c.Request.Context(), &req)
 	if err != nil {
 		response.Error(c, err)

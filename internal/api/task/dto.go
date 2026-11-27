@@ -93,14 +93,29 @@ type DetailResponse struct {
 }
 
 type EventsRequest struct {
-	ID       string `uri:"id"`
-	AfterSeq int64  `form:"afterSeq"`
+	ID string `uri:"id"`
+	// Legacy polling cursor: the server filters with seq > AfterSeq. Callers
+	// that pass NextSeq back here keep their historical behaviour (which can
+	// skip an event appended after that response); see AUD-089.
+	AfterSeq int64 `form:"afterSeq"`
+	// Cursor is the new, directly round-trippable continuation cursor. It is
+	// the last sequence number the caller has read, so seq > Cursor is the
+	// next page. A pointer distinguishes an explicit cursor=0 from an absent
+	// cursor; when present it takes precedence over AfterSeq/after_seq.
+	Cursor *int64 `form:"cursor"`
 }
 
 type EventsResponse struct {
-	Items   []EventItem `json:"items"`
-	NextSeq int64       `json:"nextSeq"`
-	Done    bool        `json:"done"`
+	Items []EventItem `json:"items"`
+	// Cursor is the highest sequence number included in Items (or the
+	// starting cursor when Items is empty). Pass it back as `cursor` to read
+	// only strictly newer events, with no duplicates and no skipped sequence.
+	Cursor int64 `json:"cursor"`
+	// NextSeq is the legacy cursor (highest seq + 1) and is intentionally
+	// unchanged. It is NOT a drop-in value for AfterSeq when new events may
+	// have been appended; new callers should use Cursor instead.
+	NextSeq int64 `json:"nextSeq"`
+	Done    bool  `json:"done"`
 }
 
 type StartRequest struct {
