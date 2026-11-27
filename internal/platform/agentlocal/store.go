@@ -91,6 +91,10 @@ type FunctionMeta struct {
 	ApprovalPolicyKey string
 	Risk              string // x-risk extension
 	Permission        string // x-permission extension
+	// DurableIdempotency（GAME-009 D3）：游戏侧确认函数；全空 = 未声明。
+	DurableQuery  string
+	DurableCancel string
+	DurableUndo   string
 
 	// Full OpenAPI operation as JSON (optional, for advanced use cases)
 	OpenAPIOperation string // Complete OpenAPI 3.0.3 Operation object as JSON string
@@ -201,6 +205,9 @@ func (s *LocalStore) Register(providerID, serviceID, addr, version string, funcs
 			ApprovalPolicyKey: fn.GetApprovalPolicyKey(),
 			Risk:              fn.GetRisk(),
 			Permission:        fn.GetPermission(),
+			DurableQuery:      fn.GetDurableQuery(),
+			DurableCancel:     fn.GetDurableCancel(),
+			DurableUndo:       fn.GetDurableUndo(),
 		}
 		// 展示层字段空值不覆盖（防互抹加固）：多语言 SDK 共享注册同一
 		// function_id 空间时，无展示元数据的注册者不得抹掉其他 provider
@@ -433,6 +440,9 @@ func (s *LocalStore) FunctionMetadata() map[string]*FunctionMeta {
 			ApprovalPolicyKey: meta.ApprovalPolicyKey,
 			Risk:              meta.Risk,
 			Permission:        meta.Permission,
+			DurableQuery:      meta.DurableQuery,
+			DurableCancel:     meta.DurableCancel,
+			DurableUndo:       meta.DurableUndo,
 			OpenAPIOperation:  meta.OpenAPIOperation,
 		}
 		out[fid] = cp

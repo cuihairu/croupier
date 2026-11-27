@@ -28,6 +28,12 @@ type FunctionDescriptor struct {
 	Risk              string   `json:"risk"`       // "safe"|"warning"|"high"|"danger"
 	Permission        string   `json:"permission"` // optional permission identifier
 	Enabled           bool     `json:"enabled"`    // whether this function is currently enabled
+	// Durable idempotency capability (GAME-009 D3): game-side functions the
+	// platform may call for outcome convergence / cancellation confirmation.
+	// Empty strings = not declared. Wire: x-durable-idempotency.
+	DurableQuery  string `json:"durableQuery,omitempty"`
+	DurableCancel string `json:"durableCancel,omitempty"`
+	DurableUndo   string `json:"durableUndo,omitempty"`
 }
 
 // ProviderFunctionDescriptor defines a function descriptor for SDK->Agent registration
@@ -59,6 +65,10 @@ type ProviderFunctionDescriptor struct {
 	Risk              string `json:"risk"`              // x-risk: risk level ("safe", "warning", "high", "danger")
 	Enabled           bool   `json:"enabled"`           // x-enabled: whether this function is enabled
 	Permission        string `json:"permission"`        // x-permission: optional permission identifier
+	// Durable idempotency capability (GAME-009 D3). Wire: x-durable-idempotency.
+	DurableQuery  string `json:"durableQuery,omitempty"`
+	DurableCancel string `json:"durableCancel,omitempty"`
+	DurableUndo   string `json:"durableUndo,omitempty"`
 }
 
 // FunctionHandler defines the signature for game function handlers

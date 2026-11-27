@@ -309,6 +309,18 @@ func ToOpenAPIOperation(descriptor ProviderFunctionDescriptorDesc) (*openapi3.Op
 		}
 		op.Extensions["x-permission"] = descriptor.Permission
 	}
+	// Durable idempotency（GAME-009 D3）：三函数名至少一个非空才落扩展，
+	// 形态与 spec 导入路径（internal/drivers/openapi）产出的扩展一致。
+	if descriptor.DurableQuery != "" || descriptor.DurableCancel != "" || descriptor.DurableUndo != "" {
+		if op.Extensions == nil {
+			op.Extensions = make(map[string]interface{})
+		}
+		op.Extensions["x-durable-idempotency"] = map[string]interface{}{
+			"query":  descriptor.DurableQuery,
+			"cancel": descriptor.DurableCancel,
+			"undo":   descriptor.DurableUndo,
+		}
+	}
 
 	return op, nil
 }
@@ -330,6 +342,11 @@ type ProviderFunctionDescriptorDesc struct {
 	Execution    string
 	Risk         string
 	Permission   string
+	// DurableIdempotency（GAME-009 D3）：query/cancel/undo 游戏侧确认函数；
+	// 全空 = 未声明。
+	DurableQuery  string
+	DurableCancel string
+	DurableUndo   string
 }
 
 // ExtractExtension extracts an extension value without the x- prefix

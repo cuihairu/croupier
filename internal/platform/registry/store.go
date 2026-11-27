@@ -35,6 +35,10 @@ type FunctionMeta struct {
 	ApprovalPolicyKey string
 	Risk              string
 	Permission        string
+	// DurableIdempotency（GAME-009 D3）：游戏侧确认函数；全空 = 未声明。
+	DurableQuery  string
+	DurableCancel string
+	DurableUndo   string
 }
 
 // ProviderSession represents a single provider registered to an agent (via SDK->Agent local registry).

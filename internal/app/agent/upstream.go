@@ -417,6 +417,9 @@ func (c *UpstreamClient) buildRegisterPayload(_ context.Context) (*agentv1.Regis
 			desc.ApprovalRequired = meta.ApprovalRequired
 			desc.ApprovalPolicyKey = meta.ApprovalPolicyKey
 			desc.Permission = meta.Permission
+			desc.DurableQuery = meta.DurableQuery
+			desc.DurableCancel = meta.DurableCancel
+			desc.DurableUndo = meta.DurableUndo
 			desc.InputSchema = meta.InputSchema
 			desc.OutputSchema = meta.OutputSchema
 			// Ensure tags is never nil

@@ -254,6 +254,9 @@ func (m *TCPManager) RegisterWithAgent(ctx context.Context, serviceID, serviceVe
 			Risk:              f.Risk,
 			Enabled:           f.Enabled,
 			Permission:        f.Permission,
+			DurableQuery:      f.DurableQuery,
+			DurableCancel:     f.DurableCancel,
+			DurableUndo:       f.DurableUndo,
 		}
 	}
 
@@ -672,8 +675,11 @@ func (h *tcpRPCHandler) invoke(ctx context.Context, msgID uint32, reqID uint32, 
 		return nil, err
 	}
 
-	// OTel 一期传播：metadata trace 字段进 handler 上下文（零侵入，无则原 ctx）
+	// OTel 一期传播：metadata trace 字段进 handler 上下文（零侵入，无则原 ctx）；
+	// durable 幂等（GAME-009 D3）经同一 metadata 携带 operationId，游戏侧用
+	// OperationIDFromContext 取出后原样回传信封。
 	ctx = WithTraceMetadata(ctx, req.GetMetadata())
+	ctx = WithOperationID(ctx, req.GetMetadata()[MetadataOperationID])
 	result, err := handler(ctx, req.Payload)
 	if err != nil {
 		return nil, err

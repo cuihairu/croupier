@@ -24,6 +24,13 @@ message FunctionDescriptor {
   bool approval_required = 10;     // whether approval is required
   string approval_policy_key = 11; // optional policy key (e.g., "two_person")
 
+  // Durable idempotency capability (GAME-009 D3): game-side functions the
+  // platform may call to converge unknown outcomes / confirm cancellations.
+  // Empty strings = not declared (x-durable-idempotency absent).
+  string durable_query = 12;  // x-durable-idempotency.query: read-result function
+  string durable_cancel = 13; // x-durable-idempotency.cancel: cancel-confirm function
+  string durable_undo = 14;   // x-durable-idempotency.undo: compensation function
+
   // OpenAPI 3.0.3 Operation Object fields for catalog/search.
   string summary = 25;
   string description = 26;

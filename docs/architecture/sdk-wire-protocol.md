@@ -509,6 +509,68 @@ Typical JSON payload fields:
 - `guild_id`
 - `item_count`
 
+## Durable operation envelope (GAME-009 D3)
+
+High-risk business functions (risk tier `high`/`danger` via `x-risk`) that declare
+the `x-durable-idempotency` capability participate in the durable operation
+protocol. Two wire surfaces are involved:
+
+### 1. Capability declaration (registration)
+
+Declared through the OpenAPI-style function descriptor (proto `ProviderFunctionDescriptor`
+/ agent `FunctionDescriptor`, flat string fields mirroring the
+`x-durable-idempotency` OpenAPI extension):
+
+| Field            | Extension key                  | Meaning                                                                 |
+| ---------------- | ------------------------------ | ----------------------------------------------------------------------- |
+| `durable_query`  | `x-durable-idempotency.query`  | game-side read-result function used to converge `unknown` outcomes (D4) |
+| `durable_cancel` | `x-durable-idempotency.cancel` | game-side cancel-confirmation function (D5)                             |
+| `durable_undo`   | `x-durable-idempotency.undo`   | optional compensation/undo function                                     |
+
+High-risk functions must declare at least one capability (`query` or `cancel`);
+the platform fails closed at invoke time otherwise (D3). All empty = not declared.
+
+### 2. Envelope response (invocation)
+
+When the platform dispatches a function that declares the capability, it assigns
+an operation identifier (D1: `<gameId>:<env>:<domain>:<intent-UUIDv7>`) and
+carries it in `InvokeRequest.metadata` under the `operationId` key (alongside
+`gameId`/`env`/`async`/`actor`). The game function reads it via
+`OperationIDFromContext(ctx)` and must return a `GameOperationResult` envelope
+as the response payload:
+
+| JSON key             | Meaning                                                                                                                           |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `operationId`        | echoed verbatim — the identity anchor                                                                                             |
+| `requestFingerprint` | optional; platform-side parameter fingerprint, may be omitted                                                                     |
+| `outcome`            | authoritative classification: `succeeded` / `failed` / `retryable_failed` / `unknown` / `conflict` / `canceled` / `cancel_failed` |
+| `gameReceipt`        | game-side durable receipt, reference anchor for queries                                                                           |
+| `result`             | business payload snapshot                                                                                                         |
+| `retryableAfter`     | suggested retry cooldown seconds (game's own advice)                                                                              |
+| `queryHint`          | dynamic query-function override                                                                                                   |
+
+Rules:
+
+- A missing/invalid envelope is never treated as success or failure — the
+  platform records `unknown` and only the game-side query function converges it (D4).
+- Cancellation is confirmed by the game (`durable_cancel` envelope
+  `canceled`/`cancel_failed` only); the platform never fabricates a rollback (D5).
+- `cancel_failed` preserves the original business result.
+- The Go SDK ships envelope helpers (`GameOperationResult`, `NewOperationEnvelope`,
+  `SucceededWith`, `FailedWith`, `RetryableFailedWith`, `CanceledWith`,
+  `CancelFailedWith`) and the `SetDurableIdempotency` builder method; see
+  `sdks/go/pkg/croupier/durable.go`.
+
+### 3. Operations endpoints
+
+The platform exposes the credential view for operators:
+
+- `GET  /ops/business-operations/:operationId` — query the converged result
+- `POST /ops/business-operations/:operationId/cancel` — request game-confirmed cancellation
+
+Scope is taken from the `X-Game-ID`/`X-Env` headers; `operationId` is the path
+parameter (bodyless POST).
+
 ## Schema rules
 
 `inputSchema` / `outputSchema` (proto field names `input_schema` / `output_schema`) describe, on the default path, the JSON Schema of the JSON payload.

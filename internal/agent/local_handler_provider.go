@@ -98,6 +98,9 @@ func (h *LocalHandler) handleProviderConnect(ctx context.Context, data []byte) (
 				Risk:              fn.GetRisk(),
 				Enabled:           fn.GetEnabled(),
 				Permission:        fn.GetPermission(),
+				DurableQuery:      fn.GetDurableQuery(),
+				DurableCancel:     fn.GetDurableCancel(),
+				DurableUndo:       fn.GetDurableUndo(),
 			})
 		}
 		// Extract metadata (modeled on Nacos metadata): the fixed fields are

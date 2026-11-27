@@ -481,6 +481,64 @@ v1 默认规则：
 - `guild_id`
 - `item_count`
 
+## 持久操作信封（GAME-009 D3）
+
+声明了 `x-durable-idempotency` 能力的高危业务函数（`x-risk` 为 `high`/`danger`）
+参与持久操作协议。涉及两个线上面：
+
+### 1. 能力声明（注册面）
+
+经 OpenAPI 风格函数描述符声明（proto `ProviderFunctionDescriptor` / agent
+`FunctionDescriptor`，平铺字符串字段，与 `x-durable-idempotency` OpenAPI 扩展
+同源）：
+
+| 字段             | 扩展键                         | 含义                                            |
+| ---------------- | ------------------------------ | ----------------------------------------------- |
+| `durable_query`  | `x-durable-idempotency.query`  | 游戏侧读结果函数，用于收敛 `unknown` 结果（D4） |
+| `durable_cancel` | `x-durable-idempotency.cancel` | 游戏侧取消确认函数（D5）                        |
+| `durable_undo`   | `x-durable-idempotency.undo`   | 可选补偿/撤销函数                               |
+
+高危函数必须至少声明一项能力（`query` 或 `cancel`）；否则平台在调用时
+fail-closed 拒绝（D3）。全空 = 未声明。
+
+### 2. 信封响应（调用面）
+
+平台派发声明了能力的函数时，会分配操作标识（D1：`<gameId>:<env>:<domain>:<intent-UUIDv7>`），
+并经 `InvokeRequest.metadata` 的 `operationId` 键携带（与 `gameId`/`env`/`async`/
+`actor` 同层）。游戏函数用 `OperationIDFromContext(ctx)` 读取后必须以
+`GameOperationResult` 信封作为响应载荷返回：
+
+| JSON 键              | 含义                                                                                                          |
+| -------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `operationId`        | 原样回传——身份锚点                                                                                            |
+| `requestFingerprint` | 可省略；平台侧参数指纹                                                                                        |
+| `outcome`            | 权威分类：`succeeded` / `failed` / `retryable_failed` / `unknown` / `conflict` / `canceled` / `cancel_failed` |
+| `gameReceipt`        | 游戏侧持久回执，查询收敛的引用锚点                                                                            |
+| `result`             | 业务结果负载快照                                                                                              |
+| `retryableAfter`     | 建议重试冷却秒数（游戏自报建议）                                                                              |
+| `queryHint`          | 动态查询函数覆盖                                                                                              |
+
+规则：
+
+- 信封缺失/非法绝不按成功或失败处理——平台记 `unknown`，只能由游戏侧查询
+  函数收敛（D4）。
+- 取消必须由游戏确认（`durable_cancel` 信封只允许 `canceled`/`cancel_failed`）；
+  平台绝不发明回滚（D5）。
+- `cancel_failed` 保留原业务结果。
+- Go SDK 内置信封便捷构造（`GameOperationResult`、`NewOperationEnvelope`、
+  `SucceededWith`、`FailedWith`、`RetryableFailedWith`、`CanceledWith`、
+  `CancelFailedWith`）与 `SetDurableIdempotency` builder；见
+  `sdks/go/pkg/croupier/durable.go`。
+
+### 3. 运维端点
+
+平台为运维侧暴露凭据视图：
+
+- `GET  /ops/business-operations/:operationId`——查询收敛结果
+- `POST /ops/business-operations/:operationId/cancel`——请求游戏确认取消
+
+作用域取 `X-Game-ID`/`X-Env` 头；`operationId` 是路径参数（POST 无 body）。
+
 ## Schema 规则
 
 `inputSchema` / `outputSchema`（对应 proto 字段名 `input_schema` / `output_schema`）在默认路径下描述的是 JSON payload 的 JSON Schema。

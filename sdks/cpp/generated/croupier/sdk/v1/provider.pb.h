@@ -634,6 +634,9 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ProviderFunctionDescriptor final : 
     kCapabilityFieldNumber = 15,
     kExecutionFieldNumber = 16,
     kApprovalPolicyKeyFieldNumber = 18,
+    kDurableQueryFieldNumber = 19,
+    kDurableCancelFieldNumber = 20,
+    kDurableUndoFieldNumber = 21,
     kDeprecatedFieldNumber = 7,
     kEnabledFieldNumber = 13,
     kApprovalRequiredFieldNumber = 17,
@@ -873,6 +876,51 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ProviderFunctionDescriptor final : 
   ::std::string* PROTOBUF_NONNULL _internal_mutable_approval_policy_key();
 
   public:
+  // string durable_query = 19;
+  void clear_durable_query() ;
+  [[nodiscard]] const ::std::string& durable_query() const;
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_durable_query(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_durable_query();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_durable_query();
+  void set_allocated_durable_query(::std::string* PROTOBUF_NULLABLE value);
+
+  private:
+  const ::std::string& _internal_durable_query() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_durable_query(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_durable_query();
+
+  public:
+  // string durable_cancel = 20;
+  void clear_durable_cancel() ;
+  [[nodiscard]] const ::std::string& durable_cancel() const;
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_durable_cancel(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_durable_cancel();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_durable_cancel();
+  void set_allocated_durable_cancel(::std::string* PROTOBUF_NULLABLE value);
+
+  private:
+  const ::std::string& _internal_durable_cancel() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_durable_cancel(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_durable_cancel();
+
+  public:
+  // string durable_undo = 21;
+  void clear_durable_undo() ;
+  [[nodiscard]] const ::std::string& durable_undo() const;
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_durable_undo(Arg_&& arg, Args_... args);
+  ::std::string* PROTOBUF_NONNULL mutable_durable_undo();
+  [[nodiscard]] ::std::string* PROTOBUF_NULLABLE release_durable_undo();
+  void set_allocated_durable_undo(::std::string* PROTOBUF_NULLABLE value);
+
+  private:
+  const ::std::string& _internal_durable_undo() const;
+  PROTOBUF_ALWAYS_INLINE void _internal_set_durable_undo(const ::std::string& value);
+  ::std::string* PROTOBUF_NONNULL _internal_mutable_durable_undo();
+
+  public:
   // bool deprecated = 7;
   void clear_deprecated() ;
   [[nodiscard]] bool deprecated() const;
@@ -907,8 +955,8 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ProviderFunctionDescriptor final : 
  private:
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
-  static const ::google::protobuf::internal::TcParseTable<5, 18,
-                                   0, 204,
+  static const ::google::protobuf::internal::TcParseTable<5, 21,
+                                   0, 243,
                                    2>
       _table_;
 
@@ -946,6 +994,9 @@ class  PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED ProviderFunctionDescriptor final : 
     ::google::protobuf::internal::ArenaStringPtr capability_;
     ::google::protobuf::internal::ArenaStringPtr execution_;
     ::google::protobuf::internal::ArenaStringPtr approval_policy_key_;
+    ::google::protobuf::internal::ArenaStringPtr durable_query_;
+    ::google::protobuf::internal::ArenaStringPtr durable_cancel_;
+    ::google::protobuf::internal::ArenaStringPtr durable_undo_;
     bool deprecated_;
     bool enabled_;
     bool approval_required_;
@@ -2903,7 +2954,7 @@ inline void ProviderFunctionDescriptor::clear_deprecated() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.deprecated_ = false;
   ClearHasBit(_impl_._has_bits_[0],
-                  0x00008000U);
+                  0x00040000U);
 }
 inline bool ProviderFunctionDescriptor::deprecated() const {
   // @@protoc_insertion_point(field_get:croupier.sdk.v1.ProviderFunctionDescriptor.deprecated)
@@ -2911,7 +2962,7 @@ inline bool ProviderFunctionDescriptor::deprecated() const {
 }
 inline void ProviderFunctionDescriptor::set_deprecated(bool value) {
   _internal_set_deprecated(value);
-  SetHasBit(_impl_._has_bits_[0], 0x00008000U);
+  SetHasBit(_impl_._has_bits_[0], 0x00040000U);
   // @@protoc_insertion_point(field_set:croupier.sdk.v1.ProviderFunctionDescriptor.deprecated)
 }
 inline bool ProviderFunctionDescriptor::_internal_deprecated() const {
@@ -3253,7 +3304,7 @@ inline void ProviderFunctionDescriptor::clear_enabled() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.enabled_ = false;
   ClearHasBit(_impl_._has_bits_[0],
-                  0x00010000U);
+                  0x00080000U);
 }
 inline bool ProviderFunctionDescriptor::enabled() const {
   // @@protoc_insertion_point(field_get:croupier.sdk.v1.ProviderFunctionDescriptor.enabled)
@@ -3261,7 +3312,7 @@ inline bool ProviderFunctionDescriptor::enabled() const {
 }
 inline void ProviderFunctionDescriptor::set_enabled(bool value) {
   _internal_set_enabled(value);
-  SetHasBit(_impl_._has_bits_[0], 0x00010000U);
+  SetHasBit(_impl_._has_bits_[0], 0x00080000U);
   // @@protoc_insertion_point(field_set:croupier.sdk.v1.ProviderFunctionDescriptor.enabled)
 }
 inline bool ProviderFunctionDescriptor::_internal_enabled() const {
@@ -3473,7 +3524,7 @@ inline void ProviderFunctionDescriptor::clear_approval_required() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.approval_required_ = false;
   ClearHasBit(_impl_._has_bits_[0],
-                  0x00020000U);
+                  0x00100000U);
 }
 inline bool ProviderFunctionDescriptor::approval_required() const {
   // @@protoc_insertion_point(field_get:croupier.sdk.v1.ProviderFunctionDescriptor.approval_required)
@@ -3481,7 +3532,7 @@ inline bool ProviderFunctionDescriptor::approval_required() const {
 }
 inline void ProviderFunctionDescriptor::set_approval_required(bool value) {
   _internal_set_approval_required(value);
-  SetHasBit(_impl_._has_bits_[0], 0x00020000U);
+  SetHasBit(_impl_._has_bits_[0], 0x00100000U);
   // @@protoc_insertion_point(field_set:croupier.sdk.v1.ProviderFunctionDescriptor.approval_required)
 }
 inline bool ProviderFunctionDescriptor::_internal_approval_required() const {
@@ -3556,6 +3607,201 @@ inline void ProviderFunctionDescriptor::set_allocated_approval_policy_key(::std:
     _impl_.approval_policy_key_.Set("", GetArena());
   }
   // @@protoc_insertion_point(field_set_allocated:croupier.sdk.v1.ProviderFunctionDescriptor.approval_policy_key)
+}
+
+// string durable_query = 19;
+inline void ProviderFunctionDescriptor::clear_durable_query() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.durable_query_.ClearToEmpty();
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00008000U);
+}
+inline const ::std::string& ProviderFunctionDescriptor::durable_query() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:croupier.sdk.v1.ProviderFunctionDescriptor.durable_query)
+  return _internal_durable_query();
+}
+template <typename Arg_, typename... Args_>
+PROTOBUF_ALWAYS_INLINE void ProviderFunctionDescriptor::set_durable_query(Arg_&& arg, Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  SetHasBit(_impl_._has_bits_[0], 0x00008000U);
+  _impl_.durable_query_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:croupier.sdk.v1.ProviderFunctionDescriptor.durable_query)
+}
+inline ::std::string* PROTOBUF_NONNULL ProviderFunctionDescriptor::mutable_durable_query()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  SetHasBit(_impl_._has_bits_[0], 0x00008000U);
+  ::std::string* _s = _internal_mutable_durable_query();
+  // @@protoc_insertion_point(field_mutable:croupier.sdk.v1.ProviderFunctionDescriptor.durable_query)
+  return _s;
+}
+inline const ::std::string& ProviderFunctionDescriptor::_internal_durable_query() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.durable_query_.Get();
+}
+inline void ProviderFunctionDescriptor::_internal_set_durable_query(const ::std::string& value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.durable_query_.Set(value, GetArena());
+}
+inline ::std::string* PROTOBUF_NONNULL ProviderFunctionDescriptor::_internal_mutable_durable_query() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _impl_.durable_query_.Mutable( GetArena());
+}
+inline ::std::string* PROTOBUF_NULLABLE ProviderFunctionDescriptor::release_durable_query() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:croupier.sdk.v1.ProviderFunctionDescriptor.durable_query)
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00008000U)) {
+    return nullptr;
+  }
+  ClearHasBit(_impl_._has_bits_[0], 0x00008000U);
+  auto* released = _impl_.durable_query_.Release();
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
+    _impl_.durable_query_.Set("", GetArena());
+  }
+  return released;
+}
+inline void ProviderFunctionDescriptor::set_allocated_durable_query(::std::string* PROTOBUF_NULLABLE value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (value != nullptr) {
+    SetHasBit(_impl_._has_bits_[0], 0x00008000U);
+  } else {
+    ClearHasBit(_impl_._has_bits_[0], 0x00008000U);
+  }
+  _impl_.durable_query_.SetAllocated(value, GetArena());
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.durable_query_.IsDefault()) {
+    _impl_.durable_query_.Set("", GetArena());
+  }
+  // @@protoc_insertion_point(field_set_allocated:croupier.sdk.v1.ProviderFunctionDescriptor.durable_query)
+}
+
+// string durable_cancel = 20;
+inline void ProviderFunctionDescriptor::clear_durable_cancel() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.durable_cancel_.ClearToEmpty();
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00010000U);
+}
+inline const ::std::string& ProviderFunctionDescriptor::durable_cancel() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:croupier.sdk.v1.ProviderFunctionDescriptor.durable_cancel)
+  return _internal_durable_cancel();
+}
+template <typename Arg_, typename... Args_>
+PROTOBUF_ALWAYS_INLINE void ProviderFunctionDescriptor::set_durable_cancel(Arg_&& arg, Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  SetHasBit(_impl_._has_bits_[0], 0x00010000U);
+  _impl_.durable_cancel_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:croupier.sdk.v1.ProviderFunctionDescriptor.durable_cancel)
+}
+inline ::std::string* PROTOBUF_NONNULL ProviderFunctionDescriptor::mutable_durable_cancel()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  SetHasBit(_impl_._has_bits_[0], 0x00010000U);
+  ::std::string* _s = _internal_mutable_durable_cancel();
+  // @@protoc_insertion_point(field_mutable:croupier.sdk.v1.ProviderFunctionDescriptor.durable_cancel)
+  return _s;
+}
+inline const ::std::string& ProviderFunctionDescriptor::_internal_durable_cancel() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.durable_cancel_.Get();
+}
+inline void ProviderFunctionDescriptor::_internal_set_durable_cancel(const ::std::string& value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.durable_cancel_.Set(value, GetArena());
+}
+inline ::std::string* PROTOBUF_NONNULL ProviderFunctionDescriptor::_internal_mutable_durable_cancel() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _impl_.durable_cancel_.Mutable( GetArena());
+}
+inline ::std::string* PROTOBUF_NULLABLE ProviderFunctionDescriptor::release_durable_cancel() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:croupier.sdk.v1.ProviderFunctionDescriptor.durable_cancel)
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00010000U)) {
+    return nullptr;
+  }
+  ClearHasBit(_impl_._has_bits_[0], 0x00010000U);
+  auto* released = _impl_.durable_cancel_.Release();
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
+    _impl_.durable_cancel_.Set("", GetArena());
+  }
+  return released;
+}
+inline void ProviderFunctionDescriptor::set_allocated_durable_cancel(::std::string* PROTOBUF_NULLABLE value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (value != nullptr) {
+    SetHasBit(_impl_._has_bits_[0], 0x00010000U);
+  } else {
+    ClearHasBit(_impl_._has_bits_[0], 0x00010000U);
+  }
+  _impl_.durable_cancel_.SetAllocated(value, GetArena());
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.durable_cancel_.IsDefault()) {
+    _impl_.durable_cancel_.Set("", GetArena());
+  }
+  // @@protoc_insertion_point(field_set_allocated:croupier.sdk.v1.ProviderFunctionDescriptor.durable_cancel)
+}
+
+// string durable_undo = 21;
+inline void ProviderFunctionDescriptor::clear_durable_undo() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.durable_undo_.ClearToEmpty();
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00020000U);
+}
+inline const ::std::string& ProviderFunctionDescriptor::durable_undo() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:croupier.sdk.v1.ProviderFunctionDescriptor.durable_undo)
+  return _internal_durable_undo();
+}
+template <typename Arg_, typename... Args_>
+PROTOBUF_ALWAYS_INLINE void ProviderFunctionDescriptor::set_durable_undo(Arg_&& arg, Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  SetHasBit(_impl_._has_bits_[0], 0x00020000U);
+  _impl_.durable_undo_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:croupier.sdk.v1.ProviderFunctionDescriptor.durable_undo)
+}
+inline ::std::string* PROTOBUF_NONNULL ProviderFunctionDescriptor::mutable_durable_undo()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  SetHasBit(_impl_._has_bits_[0], 0x00020000U);
+  ::std::string* _s = _internal_mutable_durable_undo();
+  // @@protoc_insertion_point(field_mutable:croupier.sdk.v1.ProviderFunctionDescriptor.durable_undo)
+  return _s;
+}
+inline const ::std::string& ProviderFunctionDescriptor::_internal_durable_undo() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.durable_undo_.Get();
+}
+inline void ProviderFunctionDescriptor::_internal_set_durable_undo(const ::std::string& value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.durable_undo_.Set(value, GetArena());
+}
+inline ::std::string* PROTOBUF_NONNULL ProviderFunctionDescriptor::_internal_mutable_durable_undo() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _impl_.durable_undo_.Mutable( GetArena());
+}
+inline ::std::string* PROTOBUF_NULLABLE ProviderFunctionDescriptor::release_durable_undo() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:croupier.sdk.v1.ProviderFunctionDescriptor.durable_undo)
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00020000U)) {
+    return nullptr;
+  }
+  ClearHasBit(_impl_._has_bits_[0], 0x00020000U);
+  auto* released = _impl_.durable_undo_.Release();
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
+    _impl_.durable_undo_.Set("", GetArena());
+  }
+  return released;
+}
+inline void ProviderFunctionDescriptor::set_allocated_durable_undo(::std::string* PROTOBUF_NULLABLE value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (value != nullptr) {
+    SetHasBit(_impl_._has_bits_[0], 0x00020000U);
+  } else {
+    ClearHasBit(_impl_._has_bits_[0], 0x00020000U);
+  }
+  _impl_.durable_undo_.SetAllocated(value, GetArena());
+  if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.durable_undo_.IsDefault()) {
+    _impl_.durable_undo_.Set("", GetArena());
+  }
+  // @@protoc_insertion_point(field_set_allocated:croupier.sdk.v1.ProviderFunctionDescriptor.durable_undo)
 }
 
 // -------------------------------------------------------------------

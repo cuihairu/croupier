@@ -48,8 +48,14 @@ type ProviderFunctionDescriptor struct {
 	// Approval policy is governance metadata independent of execution mode.
 	ApprovalRequired  bool   `protobuf:"varint,17,opt,name=approval_required,json=approvalRequired,proto3" json:"approval_required,omitempty"`
 	ApprovalPolicyKey string `protobuf:"bytes,18,opt,name=approval_policy_key,json=approvalPolicyKey,proto3" json:"approval_policy_key,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	// Durable idempotency capability (GAME-009 D3): game-side functions the
+	// platform may call to converge unknown outcomes / confirm cancellations.
+	// Empty strings = not declared (x-durable-idempotency absent).
+	DurableQuery  string `protobuf:"bytes,19,opt,name=durable_query,json=durableQuery,proto3" json:"durable_query,omitempty"`    // x-durable-idempotency.query: read-result function
+	DurableCancel string `protobuf:"bytes,20,opt,name=durable_cancel,json=durableCancel,proto3" json:"durable_cancel,omitempty"` // x-durable-idempotency.cancel: cancel-confirm function
+	DurableUndo   string `protobuf:"bytes,21,opt,name=durable_undo,json=durableUndo,proto3" json:"durable_undo,omitempty"`       // x-durable-idempotency.undo: compensation function
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ProviderFunctionDescriptor) Reset() {
@@ -204,6 +210,27 @@ func (x *ProviderFunctionDescriptor) GetApprovalRequired() bool {
 func (x *ProviderFunctionDescriptor) GetApprovalPolicyKey() string {
 	if x != nil {
 		return x.ApprovalPolicyKey
+	}
+	return ""
+}
+
+func (x *ProviderFunctionDescriptor) GetDurableQuery() string {
+	if x != nil {
+		return x.DurableQuery
+	}
+	return ""
+}
+
+func (x *ProviderFunctionDescriptor) GetDurableCancel() string {
+	if x != nil {
+		return x.DurableCancel
+	}
+	return ""
+}
+
+func (x *ProviderFunctionDescriptor) GetDurableUndo() string {
+	if x != nil {
+		return x.DurableUndo
 	}
 	return ""
 }
@@ -707,7 +734,7 @@ var File_croupier_sdk_v1_provider_proto protoreflect.FileDescriptor
 
 const file_croupier_sdk_v1_provider_proto_rawDesc = "" +
 	"\n" +
-	"\x1ecroupier/sdk/v1/provider.proto\x12\x0fcroupier.sdk.v1\"\xc4\x04\n" +
+	"\x1ecroupier/sdk/v1/provider.proto\x12\x0fcroupier.sdk.v1\"\xb3\x05\n" +
 	"\x1aProviderFunctionDescriptor\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n" +
 	"\aversion\x18\x02 \x01(\tR\aversion\x12\x12\n" +
@@ -733,7 +760,10 @@ const file_croupier_sdk_v1_provider_proto_rawDesc = "" +
 	"capability\x12\x1c\n" +
 	"\texecution\x18\x10 \x01(\tR\texecution\x12+\n" +
 	"\x11approval_required\x18\x11 \x01(\bR\x10approvalRequired\x12.\n" +
-	"\x13approval_policy_key\x18\x12 \x01(\tR\x11approvalPolicyKey\"\x83\x05\n" +
+	"\x13approval_policy_key\x18\x12 \x01(\tR\x11approvalPolicyKey\x12#\n" +
+	"\rdurable_query\x18\x13 \x01(\tR\fdurableQuery\x12%\n" +
+	"\x0edurable_cancel\x18\x14 \x01(\tR\rdurableCancel\x12!\n" +
+	"\fdurable_undo\x18\x15 \x01(\tR\vdurableUndo\"\x83\x05\n" +
 	"\x16ProviderConnectRequest\x12\x1d\n" +
 	"\n" +
 	"service_id\x18\x01 \x01(\tR\tserviceId\x12\x18\n" +

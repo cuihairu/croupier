@@ -235,6 +235,15 @@ inline constexpr FunctionDescriptor::Impl_::Impl_(
         approval_policy_key_(
             &::google::protobuf::internal::fixed_address_empty_string,
             ::_pbi::ConstantInitialized()),
+        durable_query_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        durable_cancel_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        durable_undo_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
         summary_(
             &::google::protobuf::internal::fixed_address_empty_string,
             ::_pbi::ConstantInitialized()),
@@ -468,7 +477,7 @@ const ::uint32_t
         protodesc_cold) = {
         0x081, // bitmap
         PROTOBUF_FIELD_OFFSET(::croupier::agent::v1::FunctionDescriptor, _impl_._has_bits_),
-        20, // hasbit index offset
+        23, // hasbit index offset
         PROTOBUF_FIELD_OFFSET(::croupier::agent::v1::FunctionDescriptor, _impl_.id_),
         PROTOBUF_FIELD_OFFSET(::croupier::agent::v1::FunctionDescriptor, _impl_.version_),
         PROTOBUF_FIELD_OFFSET(::croupier::agent::v1::FunctionDescriptor, _impl_.resource_),
@@ -480,6 +489,9 @@ const ::uint32_t
         PROTOBUF_FIELD_OFFSET(::croupier::agent::v1::FunctionDescriptor, _impl_.execution_),
         PROTOBUF_FIELD_OFFSET(::croupier::agent::v1::FunctionDescriptor, _impl_.approval_required_),
         PROTOBUF_FIELD_OFFSET(::croupier::agent::v1::FunctionDescriptor, _impl_.approval_policy_key_),
+        PROTOBUF_FIELD_OFFSET(::croupier::agent::v1::FunctionDescriptor, _impl_.durable_query_),
+        PROTOBUF_FIELD_OFFSET(::croupier::agent::v1::FunctionDescriptor, _impl_.durable_cancel_),
+        PROTOBUF_FIELD_OFFSET(::croupier::agent::v1::FunctionDescriptor, _impl_.durable_undo_),
         PROTOBUF_FIELD_OFFSET(::croupier::agent::v1::FunctionDescriptor, _impl_.summary_),
         PROTOBUF_FIELD_OFFSET(::croupier::agent::v1::FunctionDescriptor, _impl_.description_),
         PROTOBUF_FIELD_OFFSET(::croupier::agent::v1::FunctionDescriptor, _impl_.tags_),
@@ -492,17 +504,20 @@ const ::uint32_t
         4,
         5,
         6,
-        14,
+        17,
         7,
         8,
-        15,
+        18,
         9,
         10,
         11,
-        0,
-        16,
         12,
         13,
+        14,
+        0,
+        19,
+        15,
+        16,
         0x081, // bitmap
         PROTOBUF_FIELD_OFFSET(::croupier::agent::v1::AgentProcess_MetadataEntry_DoNotUse, _impl_._has_bits_),
         5, // hasbit index offset
@@ -610,16 +625,16 @@ const ::uint32_t
 static const ::_pbi::MigrationSchema
     schemas[] ABSL_ATTRIBUTE_SECTION_VARIABLE(protodesc_cold) = {
         {0, sizeof(::croupier::agent::v1::FunctionDescriptor)},
-        {37, sizeof(::croupier::agent::v1::AgentProcess_MetadataEntry_DoNotUse)},
-        {44, sizeof(::croupier::agent::v1::AgentProcess)},
-        {69, sizeof(::croupier::agent::v1::RegisterRequest_LabelsEntry_DoNotUse)},
-        {76, sizeof(::croupier::agent::v1::RegisterRequest)},
-        {99, sizeof(::croupier::agent::v1::RegisterResponse)},
-        {110, sizeof(::croupier::agent::v1::HeartbeatRequest)},
-        {119, sizeof(::croupier::agent::v1::HeartbeatResponse)},
-        {120, sizeof(::croupier::agent::v1::ProviderMeta)},
-        {131, sizeof(::croupier::agent::v1::RegisterCapabilitiesRequest)},
-        {138, sizeof(::croupier::agent::v1::RegisterCapabilitiesResponse)},
+        {43, sizeof(::croupier::agent::v1::AgentProcess_MetadataEntry_DoNotUse)},
+        {50, sizeof(::croupier::agent::v1::AgentProcess)},
+        {75, sizeof(::croupier::agent::v1::RegisterRequest_LabelsEntry_DoNotUse)},
+        {82, sizeof(::croupier::agent::v1::RegisterRequest)},
+        {105, sizeof(::croupier::agent::v1::RegisterResponse)},
+        {116, sizeof(::croupier::agent::v1::HeartbeatRequest)},
+        {125, sizeof(::croupier::agent::v1::HeartbeatResponse)},
+        {126, sizeof(::croupier::agent::v1::ProviderMeta)},
+        {137, sizeof(::croupier::agent::v1::RegisterCapabilitiesRequest)},
+        {144, sizeof(::croupier::agent::v1::RegisterCapabilitiesResponse)},
 };
 static const ::_pb::Message* PROTOBUF_NONNULL const file_default_instances[] = {
     &::croupier::agent::v1::_FunctionDescriptor_default_instance_._instance,
@@ -637,52 +652,54 @@ static const ::_pb::Message* PROTOBUF_NONNULL const file_default_instances[] = {
 const char descriptor_table_protodef_croupier_2fagent_2fv1_2fregister_2eproto[] ABSL_ATTRIBUTE_SECTION_VARIABLE(
     protodesc_cold) = {
     "\n croupier/agent/v1/register.proto\022\021crou"
-    "pier.agent.v1\"\335\002\n\022FunctionDescriptor\022\n\n\002"
+    "pier.agent.v1\"\242\003\n\022FunctionDescriptor\022\n\n\002"
     "id\030\001 \001(\t\022\017\n\007version\030\002 \001(\t\022\020\n\010resource\030\003 "
     "\001(\t\022\021\n\toperation\030\004 \001(\t\022\014\n\004risk\030\005 \001(\t\022\022\n\n"
     "permission\030\006 \001(\t\022\017\n\007enabled\030\007 \001(\010\022\022\n\ncap"
     "ability\030\010 \001(\t\022\021\n\texecution\030\t \001(\t\022\031\n\021appr"
     "oval_required\030\n \001(\010\022\033\n\023approval_policy_k"
-    "ey\030\013 \001(\t\022\017\n\007summary\030\031 \001(\t\022\023\n\013description"
-    "\030\032 \001(\t\022\014\n\004tags\030\033 \003(\t\022\022\n\ndeprecated\030\034 \001(\010"
-    "\022\024\n\014input_schema\030\036 \001(\t\022\025\n\routput_schema\030"
-    "\037 \001(\t\"\274\002\n\014AgentProcess\022\022\n\nservice_id\030\001 \001"
-    "(\t\022\014\n\004addr\030\002 \001(\t\022\017\n\007version\030\003 \001(\t\022\026\n\016las"
-    "t_seen_unix\030\004 \001(\003\022\024\n\014function_ids\030\005 \003(\t\022"
-    "\024\n\014sdk_language\030\006 \001(\t\022\023\n\013sdk_version\030\007 \001"
-    "(\t\022\020\n\010sdk_name\030\010 \001(\t\022\017\n\007game_id\030\t \001(\t\022\013\n"
-    "\003env\030\n \001(\t\022\?\n\010metadata\030\013 \003(\0132-.croupier."
-    "agent.v1.AgentProcess.MetadataEntry\032/\n\rM"
-    "etadataEntry\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\t"
-    ":\0028\001\"\362\002\n\017RegisterRequest\022\020\n\010agent_id\030\001 \001"
-    "(\t\022\017\n\007version\030\002 \001(\t\0228\n\tfunctions\030\003 \003(\0132%"
-    ".croupier.agent.v1.FunctionDescriptor\022\017\n"
-    "\007game_id\030\005 \001(\t\022\013\n\003env\030\006 \001(\t\0222\n\tprocesses"
-    "\030\007 \003(\0132\037.croupier.agent.v1.AgentProcess\022"
-    "\023\n\013ttl_seconds\030\010 \001(\r\022\016\n\006region\030\n \001(\t\022\014\n\004"
-    "zone\030\013 \001(\t\022>\n\006labels\030\014 \003(\0132..croupier.ag"
-    "ent.v1.RegisterRequest.LabelsEntry\032-\n\013La"
-    "belsEntry\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\t:\0028"
-    "\001J\004\010\004\020\005R\010rpc_addr\"`\n\020RegisterResponse\022\022\n"
-    "\nsession_id\030\001 \001(\t\022\021\n\texpire_at\030\002 \001(\003\022\020\n\010"
-    "warnings\030\003 \003(\t\022\023\n\013instance_id\030\004 \001(\t\"S\n\020H"
-    "eartbeatRequest\022\020\n\010agent_id\030\001 \001(\t\022\022\n\nses"
-    "sion_id\030\002 \001(\t\022\031\n\021owner_instance_id\030\003 \001(\t"
-    "\"\023\n\021HeartbeatResponse\"F\n\014ProviderMeta\022\n\n"
-    "\002id\030\001 \001(\t\022\017\n\007version\030\002 \001(\t\022\014\n\004lang\030\003 \001(\t"
-    "\022\013\n\003sdk\030\004 \001(\t\"j\n\033RegisterCapabilitiesReq"
-    "uest\0221\n\010provider\030\001 \001(\0132\037.croupier.agent."
-    "v1.ProviderMeta\022\030\n\020manifest_json_gz\030\002 \001("
-    "\014\"\036\n\034RegisterCapabilitiesResponseBg\n$io."
-    "github.cuihairu.croupier.agent.v1P\001Z=git"
-    "hub.com/cuihairu/croupier/pkg/pb/croupie"
-    "r/agent/v1;agentv1b\006proto3"
+    "ey\030\013 \001(\t\022\025\n\rdurable_query\030\014 \001(\t\022\026\n\016durab"
+    "le_cancel\030\r \001(\t\022\024\n\014durable_undo\030\016 \001(\t\022\017\n"
+    "\007summary\030\031 \001(\t\022\023\n\013description\030\032 \001(\t\022\014\n\004t"
+    "ags\030\033 \003(\t\022\022\n\ndeprecated\030\034 \001(\010\022\024\n\014input_s"
+    "chema\030\036 \001(\t\022\025\n\routput_schema\030\037 \001(\t\"\274\002\n\014A"
+    "gentProcess\022\022\n\nservice_id\030\001 \001(\t\022\014\n\004addr\030"
+    "\002 \001(\t\022\017\n\007version\030\003 \001(\t\022\026\n\016last_seen_unix"
+    "\030\004 \001(\003\022\024\n\014function_ids\030\005 \003(\t\022\024\n\014sdk_lang"
+    "uage\030\006 \001(\t\022\023\n\013sdk_version\030\007 \001(\t\022\020\n\010sdk_n"
+    "ame\030\010 \001(\t\022\017\n\007game_id\030\t \001(\t\022\013\n\003env\030\n \001(\t\022"
+    "\?\n\010metadata\030\013 \003(\0132-.croupier.agent.v1.Ag"
+    "entProcess.MetadataEntry\032/\n\rMetadataEntr"
+    "y\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\t:\0028\001\"\362\002\n\017Re"
+    "gisterRequest\022\020\n\010agent_id\030\001 \001(\t\022\017\n\007versi"
+    "on\030\002 \001(\t\0228\n\tfunctions\030\003 \003(\0132%.croupier.a"
+    "gent.v1.FunctionDescriptor\022\017\n\007game_id\030\005 "
+    "\001(\t\022\013\n\003env\030\006 \001(\t\0222\n\tprocesses\030\007 \003(\0132\037.cr"
+    "oupier.agent.v1.AgentProcess\022\023\n\013ttl_seco"
+    "nds\030\010 \001(\r\022\016\n\006region\030\n \001(\t\022\014\n\004zone\030\013 \001(\t\022"
+    ">\n\006labels\030\014 \003(\0132..croupier.agent.v1.Regi"
+    "sterRequest.LabelsEntry\032-\n\013LabelsEntry\022\013"
+    "\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\t:\0028\001J\004\010\004\020\005R\010rp"
+    "c_addr\"`\n\020RegisterResponse\022\022\n\nsession_id"
+    "\030\001 \001(\t\022\021\n\texpire_at\030\002 \001(\003\022\020\n\010warnings\030\003 "
+    "\003(\t\022\023\n\013instance_id\030\004 \001(\t\"S\n\020HeartbeatReq"
+    "uest\022\020\n\010agent_id\030\001 \001(\t\022\022\n\nsession_id\030\002 \001"
+    "(\t\022\031\n\021owner_instance_id\030\003 \001(\t\"\023\n\021Heartbe"
+    "atResponse\"F\n\014ProviderMeta\022\n\n\002id\030\001 \001(\t\022\017"
+    "\n\007version\030\002 \001(\t\022\014\n\004lang\030\003 \001(\t\022\013\n\003sdk\030\004 \001"
+    "(\t\"j\n\033RegisterCapabilitiesRequest\0221\n\010pro"
+    "vider\030\001 \001(\0132\037.croupier.agent.v1.Provider"
+    "Meta\022\030\n\020manifest_json_gz\030\002 \001(\014\"\036\n\034Regist"
+    "erCapabilitiesResponseBg\n$io.github.cuih"
+    "airu.croupier.agent.v1P\001Z=github.com/cui"
+    "hairu/croupier/pkg/pb/croupier/agent/v1;"
+    "agentv1b\006proto3"
 };
 static ::absl::once_flag descriptor_table_croupier_2fagent_2fv1_2fregister_2eproto_once;
 PROTOBUF_CONSTINIT const ::_pbi::DescriptorTable descriptor_table_croupier_2fagent_2fv1_2fregister_2eproto = {
     false,
     false,
-    1626,
+    1695,
     descriptor_table_protodef_croupier_2fagent_2fv1_2fregister_2eproto,
     "croupier/agent/v1/register.proto",
     &descriptor_table_croupier_2fagent_2fv1_2fregister_2eproto_once,
@@ -741,6 +758,9 @@ PROTOBUF_NDEBUG_INLINE FunctionDescriptor::Impl_::Impl_(
         capability_(arena, from.capability_),
         execution_(arena, from.execution_),
         approval_policy_key_(arena, from.approval_policy_key_),
+        durable_query_(arena, from.durable_query_),
+        durable_cancel_(arena, from.durable_cancel_),
+        durable_undo_(arena, from.durable_undo_),
         summary_(arena, from.summary_),
         description_(arena, from.description_),
         input_schema_(arena, from.input_schema_),
@@ -791,6 +811,9 @@ PROTOBUF_NDEBUG_INLINE FunctionDescriptor::Impl_::Impl_(
         capability_(arena),
         execution_(arena),
         approval_policy_key_(arena),
+        durable_query_(arena),
+        durable_cancel_(arena),
+        durable_undo_(arena),
         summary_(arena),
         description_(arena),
         input_schema_(arena),
@@ -825,6 +848,9 @@ inline void FunctionDescriptor::SharedDtor(MessageLite& self) {
   this_._impl_.capability_.Destroy();
   this_._impl_.execution_.Destroy();
   this_._impl_.approval_policy_key_.Destroy();
+  this_._impl_.durable_query_.Destroy();
+  this_._impl_.durable_cancel_.Destroy();
+  this_._impl_.durable_undo_.Destroy();
   this_._impl_.summary_.Destroy();
   this_._impl_.description_.Destroy();
   this_._impl_.input_schema_.Destroy();
@@ -893,16 +919,16 @@ FunctionDescriptor::GetClassData() const {
   return FunctionDescriptor_class_data_.base();
 }
 PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
-const ::_pbi::TcParseTable<5, 17, 0, 186, 2>
+const ::_pbi::TcParseTable<5, 20, 0, 225, 2>
 FunctionDescriptor::_table_ = {
   {
     PROTOBUF_FIELD_OFFSET(FunctionDescriptor, _impl_._has_bits_),
     0, // no _extensions_
     31, 248,  // max_field_number, fast_idx_mask
     offsetof(decltype(_table_), field_lookup_table),
-    2432694272,  // skipmap
+    2432679936,  // skipmap
     offsetof(decltype(_table_), field_entries),
-    17,  // num_field_entries
+    20,  // num_field_entries
     0,  // num_aux_entries
     offsetof(decltype(_table_), field_names),  // no aux_entries
     FunctionDescriptor_class_data_.base(),
@@ -938,8 +964,8 @@ FunctionDescriptor::_table_ = {
      {50, 6, 0,
       PROTOBUF_FIELD_OFFSET(FunctionDescriptor, _impl_.permission_)}},
     // bool enabled = 7;
-    {::_pbi::TcParser::SingularVarintNoZag1<bool, offsetof(FunctionDescriptor, _impl_.enabled_), 14>(),
-     {56, 14, 0,
+    {::_pbi::TcParser::SingularVarintNoZag1<bool, offsetof(FunctionDescriptor, _impl_.enabled_), 17>(),
+     {56, 17, 0,
       PROTOBUF_FIELD_OFFSET(FunctionDescriptor, _impl_.enabled_)}},
     // string capability = 8;
     {::_pbi::TcParser::FastUS1,
@@ -950,16 +976,25 @@ FunctionDescriptor::_table_ = {
      {74, 8, 0,
       PROTOBUF_FIELD_OFFSET(FunctionDescriptor, _impl_.execution_)}},
     // bool approval_required = 10;
-    {::_pbi::TcParser::SingularVarintNoZag1<bool, offsetof(FunctionDescriptor, _impl_.approval_required_), 15>(),
-     {80, 15, 0,
+    {::_pbi::TcParser::SingularVarintNoZag1<bool, offsetof(FunctionDescriptor, _impl_.approval_required_), 18>(),
+     {80, 18, 0,
       PROTOBUF_FIELD_OFFSET(FunctionDescriptor, _impl_.approval_required_)}},
     // string approval_policy_key = 11;
     {::_pbi::TcParser::FastUS1,
      {90, 9, 0,
       PROTOBUF_FIELD_OFFSET(FunctionDescriptor, _impl_.approval_policy_key_)}},
-    {::_pbi::TcParser::MiniParse, {}},
-    {::_pbi::TcParser::MiniParse, {}},
-    {::_pbi::TcParser::MiniParse, {}},
+    // string durable_query = 12;
+    {::_pbi::TcParser::FastUS1,
+     {98, 10, 0,
+      PROTOBUF_FIELD_OFFSET(FunctionDescriptor, _impl_.durable_query_)}},
+    // string durable_cancel = 13;
+    {::_pbi::TcParser::FastUS1,
+     {106, 11, 0,
+      PROTOBUF_FIELD_OFFSET(FunctionDescriptor, _impl_.durable_cancel_)}},
+    // string durable_undo = 14;
+    {::_pbi::TcParser::FastUS1,
+     {114, 12, 0,
+      PROTOBUF_FIELD_OFFSET(FunctionDescriptor, _impl_.durable_undo_)}},
     {::_pbi::TcParser::MiniParse, {}},
     {::_pbi::TcParser::MiniParse, {}},
     {::_pbi::TcParser::MiniParse, {}},
@@ -972,11 +1007,11 @@ FunctionDescriptor::_table_ = {
     {::_pbi::TcParser::MiniParse, {}},
     // string summary = 25;
     {::_pbi::TcParser::FastUS2,
-     {458, 10, 0,
+     {458, 13, 0,
       PROTOBUF_FIELD_OFFSET(FunctionDescriptor, _impl_.summary_)}},
     // string description = 26;
     {::_pbi::TcParser::FastUS2,
-     {466, 11, 0,
+     {466, 14, 0,
       PROTOBUF_FIELD_OFFSET(FunctionDescriptor, _impl_.description_)}},
     // repeated string tags = 27;
     {::_pbi::TcParser::FastUR2,
@@ -984,16 +1019,16 @@ FunctionDescriptor::_table_ = {
       PROTOBUF_FIELD_OFFSET(FunctionDescriptor, _impl_.tags_)}},
     // bool deprecated = 28;
     {::_pbi::TcParser::FastV8S2,
-     {480, 16, 0,
+     {480, 19, 0,
       PROTOBUF_FIELD_OFFSET(FunctionDescriptor, _impl_.deprecated_)}},
     {::_pbi::TcParser::MiniParse, {}},
     // string input_schema = 30;
     {::_pbi::TcParser::FastUS2,
-     {498, 12, 0,
+     {498, 15, 0,
       PROTOBUF_FIELD_OFFSET(FunctionDescriptor, _impl_.input_schema_)}},
     // string output_schema = 31;
     {::_pbi::TcParser::FastUS2,
-     {506, 13, 0,
+     {506, 16, 0,
       PROTOBUF_FIELD_OFFSET(FunctionDescriptor, _impl_.output_schema_)}},
   }}, {{
     65535, 65535
@@ -1011,31 +1046,37 @@ FunctionDescriptor::_table_ = {
     // string permission = 6;
     {PROTOBUF_FIELD_OFFSET(FunctionDescriptor, _impl_.permission_), _Internal::kHasBitsOffset + 6, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
     // bool enabled = 7;
-    {PROTOBUF_FIELD_OFFSET(FunctionDescriptor, _impl_.enabled_), _Internal::kHasBitsOffset + 14, 0, (0 | ::_fl::kFcOptional | ::_fl::kBool)},
+    {PROTOBUF_FIELD_OFFSET(FunctionDescriptor, _impl_.enabled_), _Internal::kHasBitsOffset + 17, 0, (0 | ::_fl::kFcOptional | ::_fl::kBool)},
     // string capability = 8;
     {PROTOBUF_FIELD_OFFSET(FunctionDescriptor, _impl_.capability_), _Internal::kHasBitsOffset + 7, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
     // string execution = 9;
     {PROTOBUF_FIELD_OFFSET(FunctionDescriptor, _impl_.execution_), _Internal::kHasBitsOffset + 8, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
     // bool approval_required = 10;
-    {PROTOBUF_FIELD_OFFSET(FunctionDescriptor, _impl_.approval_required_), _Internal::kHasBitsOffset + 15, 0, (0 | ::_fl::kFcOptional | ::_fl::kBool)},
+    {PROTOBUF_FIELD_OFFSET(FunctionDescriptor, _impl_.approval_required_), _Internal::kHasBitsOffset + 18, 0, (0 | ::_fl::kFcOptional | ::_fl::kBool)},
     // string approval_policy_key = 11;
     {PROTOBUF_FIELD_OFFSET(FunctionDescriptor, _impl_.approval_policy_key_), _Internal::kHasBitsOffset + 9, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string durable_query = 12;
+    {PROTOBUF_FIELD_OFFSET(FunctionDescriptor, _impl_.durable_query_), _Internal::kHasBitsOffset + 10, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string durable_cancel = 13;
+    {PROTOBUF_FIELD_OFFSET(FunctionDescriptor, _impl_.durable_cancel_), _Internal::kHasBitsOffset + 11, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    // string durable_undo = 14;
+    {PROTOBUF_FIELD_OFFSET(FunctionDescriptor, _impl_.durable_undo_), _Internal::kHasBitsOffset + 12, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
     // string summary = 25;
-    {PROTOBUF_FIELD_OFFSET(FunctionDescriptor, _impl_.summary_), _Internal::kHasBitsOffset + 10, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    {PROTOBUF_FIELD_OFFSET(FunctionDescriptor, _impl_.summary_), _Internal::kHasBitsOffset + 13, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
     // string description = 26;
-    {PROTOBUF_FIELD_OFFSET(FunctionDescriptor, _impl_.description_), _Internal::kHasBitsOffset + 11, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    {PROTOBUF_FIELD_OFFSET(FunctionDescriptor, _impl_.description_), _Internal::kHasBitsOffset + 14, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
     // repeated string tags = 27;
     {PROTOBUF_FIELD_OFFSET(FunctionDescriptor, _impl_.tags_), _Internal::kHasBitsOffset + 0, 0, (0 | ::_fl::kFcRepeated | ::_fl::kUtf8String | ::_fl::kRepSString)},
     // bool deprecated = 28;
-    {PROTOBUF_FIELD_OFFSET(FunctionDescriptor, _impl_.deprecated_), _Internal::kHasBitsOffset + 16, 0, (0 | ::_fl::kFcOptional | ::_fl::kBool)},
+    {PROTOBUF_FIELD_OFFSET(FunctionDescriptor, _impl_.deprecated_), _Internal::kHasBitsOffset + 19, 0, (0 | ::_fl::kFcOptional | ::_fl::kBool)},
     // string input_schema = 30;
-    {PROTOBUF_FIELD_OFFSET(FunctionDescriptor, _impl_.input_schema_), _Internal::kHasBitsOffset + 12, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    {PROTOBUF_FIELD_OFFSET(FunctionDescriptor, _impl_.input_schema_), _Internal::kHasBitsOffset + 15, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
     // string output_schema = 31;
-    {PROTOBUF_FIELD_OFFSET(FunctionDescriptor, _impl_.output_schema_), _Internal::kHasBitsOffset + 13, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+    {PROTOBUF_FIELD_OFFSET(FunctionDescriptor, _impl_.output_schema_), _Internal::kHasBitsOffset + 16, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
   }},
   // no aux_entries
   {{
-    "\44\2\7\10\11\4\12\0\12\11\0\23\7\13\4\0\14\15\0\0\0\0\0\0"
+    "\44\2\7\10\11\4\12\0\12\11\0\23\15\16\14\7\13\4\0\14\15\0\0\0"
     "croupier.agent.v1.FunctionDescriptor"
     "id"
     "version"
@@ -1046,6 +1087,9 @@ FunctionDescriptor::_table_ = {
     "capability"
     "execution"
     "approval_policy_key"
+    "durable_query"
+    "durable_cancel"
+    "durable_undo"
     "summary"
     "description"
     "tags"
@@ -1087,7 +1131,7 @@ PROTOBUF_NOINLINE void FunctionDescriptor::Clear() {
       _impl_.capability_.ClearNonDefaultToEmpty();
     }
   }
-  if (BatchCheckHasBit(cached_has_bits, 0x00003f00U)) {
+  if (BatchCheckHasBit(cached_has_bits, 0x0000ff00U)) {
     if (CheckHasBit(cached_has_bits, 0x00000100U)) {
       _impl_.execution_.ClearNonDefaultToEmpty();
     }
@@ -1095,22 +1139,30 @@ PROTOBUF_NOINLINE void FunctionDescriptor::Clear() {
       _impl_.approval_policy_key_.ClearNonDefaultToEmpty();
     }
     if (CheckHasBit(cached_has_bits, 0x00000400U)) {
-      _impl_.summary_.ClearNonDefaultToEmpty();
+      _impl_.durable_query_.ClearNonDefaultToEmpty();
     }
     if (CheckHasBit(cached_has_bits, 0x00000800U)) {
-      _impl_.description_.ClearNonDefaultToEmpty();
+      _impl_.durable_cancel_.ClearNonDefaultToEmpty();
     }
     if (CheckHasBit(cached_has_bits, 0x00001000U)) {
-      _impl_.input_schema_.ClearNonDefaultToEmpty();
+      _impl_.durable_undo_.ClearNonDefaultToEmpty();
     }
     if (CheckHasBit(cached_has_bits, 0x00002000U)) {
-      _impl_.output_schema_.ClearNonDefaultToEmpty();
+      _impl_.summary_.ClearNonDefaultToEmpty();
+    }
+    if (CheckHasBit(cached_has_bits, 0x00004000U)) {
+      _impl_.description_.ClearNonDefaultToEmpty();
+    }
+    if (CheckHasBit(cached_has_bits, 0x00008000U)) {
+      _impl_.input_schema_.ClearNonDefaultToEmpty();
     }
   }
+  if (CheckHasBit(cached_has_bits, 0x00010000U)) {
+    _impl_.output_schema_.ClearNonDefaultToEmpty();
+  }
   ::memset(&_impl_.enabled_, 0, static_cast<::size_t>(
-      reinterpret_cast<char*>(&_impl_.approval_required_) -
-      reinterpret_cast<char*>(&_impl_.enabled_)) + sizeof(_impl_.approval_required_));
-  _impl_.deprecated_ = false;
+      reinterpret_cast<char*>(&_impl_.deprecated_) -
+      reinterpret_cast<char*>(&_impl_.enabled_)) + sizeof(_impl_.deprecated_));
   _impl_._has_bits_.Clear();
   _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
 }
@@ -1195,7 +1247,7 @@ PROTOBUF_NOINLINE void FunctionDescriptor::Clear() {
   }
 
   // bool enabled = 7;
-  if (CheckHasBit(cached_has_bits, 0x00004000U)) {
+  if (CheckHasBit(cached_has_bits, 0x00020000U)) {
     if (this_._internal_enabled() != 0) {
       target = stream->EnsureSpace(target);
       target = ::_pbi::WireFormatLite::WriteBoolToArray(
@@ -1224,7 +1276,7 @@ PROTOBUF_NOINLINE void FunctionDescriptor::Clear() {
   }
 
   // bool approval_required = 10;
-  if (CheckHasBit(cached_has_bits, 0x00008000U)) {
+  if (CheckHasBit(cached_has_bits, 0x00040000U)) {
     if (this_._internal_approval_required() != 0) {
       target = stream->EnsureSpace(target);
       target = ::_pbi::WireFormatLite::WriteBoolToArray(
@@ -1242,8 +1294,38 @@ PROTOBUF_NOINLINE void FunctionDescriptor::Clear() {
     }
   }
 
-  // string summary = 25;
+  // string durable_query = 12;
   if (CheckHasBit(cached_has_bits, 0x00000400U)) {
+    if (!this_._internal_durable_query().empty()) {
+      const ::std::string& _s = this_._internal_durable_query();
+      ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.agent.v1.FunctionDescriptor.durable_query");
+      target = stream->WriteStringMaybeAliased(12, _s, target);
+    }
+  }
+
+  // string durable_cancel = 13;
+  if (CheckHasBit(cached_has_bits, 0x00000800U)) {
+    if (!this_._internal_durable_cancel().empty()) {
+      const ::std::string& _s = this_._internal_durable_cancel();
+      ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.agent.v1.FunctionDescriptor.durable_cancel");
+      target = stream->WriteStringMaybeAliased(13, _s, target);
+    }
+  }
+
+  // string durable_undo = 14;
+  if (CheckHasBit(cached_has_bits, 0x00001000U)) {
+    if (!this_._internal_durable_undo().empty()) {
+      const ::std::string& _s = this_._internal_durable_undo();
+      ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.agent.v1.FunctionDescriptor.durable_undo");
+      target = stream->WriteStringMaybeAliased(14, _s, target);
+    }
+  }
+
+  // string summary = 25;
+  if (CheckHasBit(cached_has_bits, 0x00002000U)) {
     if (!this_._internal_summary().empty()) {
       const ::std::string& _s = this_._internal_summary();
       ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
@@ -1253,7 +1335,7 @@ PROTOBUF_NOINLINE void FunctionDescriptor::Clear() {
   }
 
   // string description = 26;
-  if (CheckHasBit(cached_has_bits, 0x00000800U)) {
+  if (CheckHasBit(cached_has_bits, 0x00004000U)) {
     if (!this_._internal_description().empty()) {
       const ::std::string& _s = this_._internal_description();
       ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
@@ -1273,7 +1355,7 @@ PROTOBUF_NOINLINE void FunctionDescriptor::Clear() {
   }
 
   // bool deprecated = 28;
-  if (CheckHasBit(cached_has_bits, 0x00010000U)) {
+  if (CheckHasBit(cached_has_bits, 0x00080000U)) {
     if (this_._internal_deprecated() != 0) {
       target = stream->EnsureSpace(target);
       target = ::_pbi::WireFormatLite::WriteBoolToArray(
@@ -1282,7 +1364,7 @@ PROTOBUF_NOINLINE void FunctionDescriptor::Clear() {
   }
 
   // string input_schema = 30;
-  if (CheckHasBit(cached_has_bits, 0x00001000U)) {
+  if (CheckHasBit(cached_has_bits, 0x00008000U)) {
     if (!this_._internal_input_schema().empty()) {
       const ::std::string& _s = this_._internal_input_schema();
       ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
@@ -1292,7 +1374,7 @@ PROTOBUF_NOINLINE void FunctionDescriptor::Clear() {
   }
 
   // string output_schema = 31;
-  if (CheckHasBit(cached_has_bits, 0x00002000U)) {
+  if (CheckHasBit(cached_has_bits, 0x00010000U)) {
     if (!this_._internal_output_schema().empty()) {
       const ::std::string& _s = this_._internal_output_schema();
       ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
@@ -1401,50 +1483,71 @@ PROTOBUF_NOINLINE void FunctionDescriptor::Clear() {
                                         this_._internal_approval_policy_key());
       }
     }
-    // string summary = 25;
+    // string durable_query = 12;
     if (CheckHasBit(cached_has_bits, 0x00000400U)) {
+      if (!this_._internal_durable_query().empty()) {
+        total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                        this_._internal_durable_query());
+      }
+    }
+    // string durable_cancel = 13;
+    if (CheckHasBit(cached_has_bits, 0x00000800U)) {
+      if (!this_._internal_durable_cancel().empty()) {
+        total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                        this_._internal_durable_cancel());
+      }
+    }
+    // string durable_undo = 14;
+    if (CheckHasBit(cached_has_bits, 0x00001000U)) {
+      if (!this_._internal_durable_undo().empty()) {
+        total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                        this_._internal_durable_undo());
+      }
+    }
+    // string summary = 25;
+    if (CheckHasBit(cached_has_bits, 0x00002000U)) {
       if (!this_._internal_summary().empty()) {
         total_size += 2 + ::google::protobuf::internal::WireFormatLite::StringSize(
                                         this_._internal_summary());
       }
     }
     // string description = 26;
-    if (CheckHasBit(cached_has_bits, 0x00000800U)) {
+    if (CheckHasBit(cached_has_bits, 0x00004000U)) {
       if (!this_._internal_description().empty()) {
         total_size += 2 + ::google::protobuf::internal::WireFormatLite::StringSize(
                                         this_._internal_description());
       }
     }
     // string input_schema = 30;
-    if (CheckHasBit(cached_has_bits, 0x00001000U)) {
+    if (CheckHasBit(cached_has_bits, 0x00008000U)) {
       if (!this_._internal_input_schema().empty()) {
         total_size += 2 + ::google::protobuf::internal::WireFormatLite::StringSize(
                                         this_._internal_input_schema());
       }
     }
+  }
+  if (BatchCheckHasBit(cached_has_bits, 0x000f0000U)) {
     // string output_schema = 31;
-    if (CheckHasBit(cached_has_bits, 0x00002000U)) {
+    if (CheckHasBit(cached_has_bits, 0x00010000U)) {
       if (!this_._internal_output_schema().empty()) {
         total_size += 2 + ::google::protobuf::internal::WireFormatLite::StringSize(
                                         this_._internal_output_schema());
       }
     }
     // bool enabled = 7;
-    if (CheckHasBit(cached_has_bits, 0x00004000U)) {
+    if (CheckHasBit(cached_has_bits, 0x00020000U)) {
       if (this_._internal_enabled() != 0) {
         total_size += 2;
       }
     }
     // bool approval_required = 10;
-    if (CheckHasBit(cached_has_bits, 0x00008000U)) {
+    if (CheckHasBit(cached_has_bits, 0x00040000U)) {
       if (this_._internal_approval_required() != 0) {
         total_size += 2;
       }
     }
-  }
-   {
     // bool deprecated = 28;
-    if (CheckHasBit(cached_has_bits, 0x00010000U)) {
+    if (CheckHasBit(cached_has_bits, 0x00080000U)) {
       if (this_._internal_deprecated() != 0) {
         total_size += 3;
       }
@@ -1559,6 +1662,33 @@ void FunctionDescriptor::MergeImpl(::google::protobuf::MessageLite& to_msg,
       }
     }
     if (CheckHasBit(cached_has_bits, 0x00000400U)) {
+      if (!from._internal_durable_query().empty()) {
+        _this->_internal_set_durable_query(from._internal_durable_query());
+      } else {
+        if (_this->_impl_.durable_query_.IsDefault()) {
+          _this->_internal_set_durable_query("");
+        }
+      }
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000800U)) {
+      if (!from._internal_durable_cancel().empty()) {
+        _this->_internal_set_durable_cancel(from._internal_durable_cancel());
+      } else {
+        if (_this->_impl_.durable_cancel_.IsDefault()) {
+          _this->_internal_set_durable_cancel("");
+        }
+      }
+    }
+    if (CheckHasBit(cached_has_bits, 0x00001000U)) {
+      if (!from._internal_durable_undo().empty()) {
+        _this->_internal_set_durable_undo(from._internal_durable_undo());
+      } else {
+        if (_this->_impl_.durable_undo_.IsDefault()) {
+          _this->_internal_set_durable_undo("");
+        }
+      }
+    }
+    if (CheckHasBit(cached_has_bits, 0x00002000U)) {
       if (!from._internal_summary().empty()) {
         _this->_internal_set_summary(from._internal_summary());
       } else {
@@ -1567,7 +1697,7 @@ void FunctionDescriptor::MergeImpl(::google::protobuf::MessageLite& to_msg,
         }
       }
     }
-    if (CheckHasBit(cached_has_bits, 0x00000800U)) {
+    if (CheckHasBit(cached_has_bits, 0x00004000U)) {
       if (!from._internal_description().empty()) {
         _this->_internal_set_description(from._internal_description());
       } else {
@@ -1576,7 +1706,7 @@ void FunctionDescriptor::MergeImpl(::google::protobuf::MessageLite& to_msg,
         }
       }
     }
-    if (CheckHasBit(cached_has_bits, 0x00001000U)) {
+    if (CheckHasBit(cached_has_bits, 0x00008000U)) {
       if (!from._internal_input_schema().empty()) {
         _this->_internal_set_input_schema(from._internal_input_schema());
       } else {
@@ -1585,7 +1715,9 @@ void FunctionDescriptor::MergeImpl(::google::protobuf::MessageLite& to_msg,
         }
       }
     }
-    if (CheckHasBit(cached_has_bits, 0x00002000U)) {
+  }
+  if (BatchCheckHasBit(cached_has_bits, 0x000f0000U)) {
+    if (CheckHasBit(cached_has_bits, 0x00010000U)) {
       if (!from._internal_output_schema().empty()) {
         _this->_internal_set_output_schema(from._internal_output_schema());
       } else {
@@ -1594,20 +1726,20 @@ void FunctionDescriptor::MergeImpl(::google::protobuf::MessageLite& to_msg,
         }
       }
     }
-    if (CheckHasBit(cached_has_bits, 0x00004000U)) {
+    if (CheckHasBit(cached_has_bits, 0x00020000U)) {
       if (from._internal_enabled() != 0) {
         _this->_impl_.enabled_ = from._impl_.enabled_;
       }
     }
-    if (CheckHasBit(cached_has_bits, 0x00008000U)) {
+    if (CheckHasBit(cached_has_bits, 0x00040000U)) {
       if (from._internal_approval_required() != 0) {
         _this->_impl_.approval_required_ = from._impl_.approval_required_;
       }
     }
-  }
-  if (CheckHasBit(cached_has_bits, 0x00010000U)) {
-    if (from._internal_deprecated() != 0) {
-      _this->_impl_.deprecated_ = from._impl_.deprecated_;
+    if (CheckHasBit(cached_has_bits, 0x00080000U)) {
+      if (from._internal_deprecated() != 0) {
+        _this->_impl_.deprecated_ = from._impl_.deprecated_;
+      }
     }
   }
   _this->_impl_._has_bits_[0] |= cached_has_bits;
@@ -1639,6 +1771,9 @@ void FunctionDescriptor::InternalSwap(FunctionDescriptor* PROTOBUF_RESTRICT PROT
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.capability_, &other->_impl_.capability_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.execution_, &other->_impl_.execution_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.approval_policy_key_, &other->_impl_.approval_policy_key_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.durable_query_, &other->_impl_.durable_query_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.durable_cancel_, &other->_impl_.durable_cancel_, arena);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.durable_undo_, &other->_impl_.durable_undo_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.summary_, &other->_impl_.summary_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.description_, &other->_impl_.description_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.input_schema_, &other->_impl_.input_schema_, arena);

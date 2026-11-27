@@ -38,6 +38,12 @@ type FunctionDescriptor struct {
 	// Approval policy (independent of execution mode)
 	ApprovalRequired  bool   `protobuf:"varint,10,opt,name=approval_required,json=approvalRequired,proto3" json:"approval_required,omitempty"`     // whether approval is required
 	ApprovalPolicyKey string `protobuf:"bytes,11,opt,name=approval_policy_key,json=approvalPolicyKey,proto3" json:"approval_policy_key,omitempty"` // optional policy key (e.g., "two_person")
+	// Durable idempotency capability (GAME-009 D3): game-side functions the
+	// platform may call to converge unknown outcomes / confirm cancellations.
+	// Empty strings = not declared (x-durable-idempotency absent).
+	DurableQuery  string `protobuf:"bytes,12,opt,name=durable_query,json=durableQuery,proto3" json:"durable_query,omitempty"`    // x-durable-idempotency.query: read-result function
+	DurableCancel string `protobuf:"bytes,13,opt,name=durable_cancel,json=durableCancel,proto3" json:"durable_cancel,omitempty"` // x-durable-idempotency.cancel: cancel-confirm function
+	DurableUndo   string `protobuf:"bytes,14,opt,name=durable_undo,json=durableUndo,proto3" json:"durable_undo,omitempty"`       // x-durable-idempotency.undo: compensation function
 	// OpenAPI 3.0.3 Operation Object fields for catalog/search.
 	Summary     string   `protobuf:"bytes,25,opt,name=summary,proto3" json:"summary,omitempty"`
 	Description string   `protobuf:"bytes,26,opt,name=description,proto3" json:"description,omitempty"`
@@ -153,6 +159,27 @@ func (x *FunctionDescriptor) GetApprovalRequired() bool {
 func (x *FunctionDescriptor) GetApprovalPolicyKey() string {
 	if x != nil {
 		return x.ApprovalPolicyKey
+	}
+	return ""
+}
+
+func (x *FunctionDescriptor) GetDurableQuery() string {
+	if x != nil {
+		return x.DurableQuery
+	}
+	return ""
+}
+
+func (x *FunctionDescriptor) GetDurableCancel() string {
+	if x != nil {
+		return x.DurableCancel
+	}
+	return ""
+}
+
+func (x *FunctionDescriptor) GetDurableUndo() string {
+	if x != nil {
+		return x.DurableUndo
 	}
 	return ""
 }
@@ -778,7 +805,7 @@ var File_croupier_agent_v1_register_proto protoreflect.FileDescriptor
 
 const file_croupier_agent_v1_register_proto_rawDesc = "" +
 	"\n" +
-	" croupier/agent/v1/register.proto\x12\x11croupier.agent.v1\"\x99\x04\n" +
+	" croupier/agent/v1/register.proto\x12\x11croupier.agent.v1\"\x88\x05\n" +
 	"\x12FunctionDescriptor\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n" +
 	"\aversion\x18\x02 \x01(\tR\aversion\x12\x1a\n" +
@@ -795,7 +822,10 @@ const file_croupier_agent_v1_register_proto_rawDesc = "" +
 	"\texecution\x18\t \x01(\tR\texecution\x12+\n" +
 	"\x11approval_required\x18\n" +
 	" \x01(\bR\x10approvalRequired\x12.\n" +
-	"\x13approval_policy_key\x18\v \x01(\tR\x11approvalPolicyKey\x12\x18\n" +
+	"\x13approval_policy_key\x18\v \x01(\tR\x11approvalPolicyKey\x12#\n" +
+	"\rdurable_query\x18\f \x01(\tR\fdurableQuery\x12%\n" +
+	"\x0edurable_cancel\x18\r \x01(\tR\rdurableCancel\x12!\n" +
+	"\fdurable_undo\x18\x0e \x01(\tR\vdurableUndo\x12\x18\n" +
 	"\asummary\x18\x19 \x01(\tR\asummary\x12 \n" +
 	"\vdescription\x18\x1a \x01(\tR\vdescription\x12\x12\n" +
 	"\x04tags\x18\x1b \x03(\tR\x04tags\x12\x1e\n" +

@@ -151,6 +151,7 @@ func (r *Registry) operationToMetadata(path string, op *openapi3.Operation, opti
 	metadata.Capability = extractExtension(op.Extensions, "x-capability")
 	metadata.Execution = extractExtension(op.Extensions, "x-execution")
 	metadata.ApprovalRequired, metadata.ApprovalPolicyKey = extractApprovalExtension(op.Extensions)
+	extractDurableIdempotencyExtension(op.Extensions, metadata)
 	riskLevel := extractExtension(op.Extensions, "x-risk")
 
 	// Apply options
@@ -253,6 +254,34 @@ func extractExtension(extensions map[string]interface{}, key string) string {
 //	x-approval: true                        → required, default policy
 //	x-approval: "policy-key"                → required, named policy
 //	x-approval: { "required": true, "policyKey": "gm.player.delete" }
+//
+// extractDurableIdempotencyExtension reads the x-durable-idempotency object
+// (GAME-009 D3) into the metadata's durable function names. Absent/malformed
+// declaration leaves the fields empty (= not declared; the server re-validates
+// authoritatively).
+func extractDurableIdempotencyExtension(extensions map[string]interface{}, metadata *FunctionMetadata) {
+	if extensions == nil {
+		return
+	}
+	val, exists := extensions["x-durable-idempotency"]
+	if !exists {
+		return
+	}
+	obj, ok := val.(map[string]interface{})
+	if !ok {
+		return
+	}
+	if q, ok := obj["query"].(string); ok {
+		metadata.DurableQuery = q
+	}
+	if c, ok := obj["cancel"].(string); ok {
+		metadata.DurableCancel = c
+	}
+	if u, ok := obj["undo"].(string); ok {
+		metadata.DurableUndo = u
+	}
+}
+
 func extractApprovalExtension(extensions map[string]interface{}) (required bool, policyKey string) {
 	if extensions == nil {
 		return false, ""

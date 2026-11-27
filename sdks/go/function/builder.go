@@ -63,6 +63,18 @@ func (b *MetadataBuilder) SetApproval(policyKey string) *MetadataBuilder {
 	return b
 }
 
+// SetDurableIdempotency declares the durable idempotency capability
+// (GAME-009 D3): the game-side functions the platform may call for outcome
+// convergence (query), cancellation confirmation (cancel) and optional
+// compensation (undo). At least one name must be non-empty; high-risk
+// functions cannot invoke without a declaration.
+func (b *MetadataBuilder) SetDurableIdempotency(query, cancel, undo string) *MetadataBuilder {
+	b.metadata.DurableQuery = query
+	b.metadata.DurableCancel = cancel
+	b.metadata.DurableUndo = undo
+	return b
+}
+
 // SetCapability sets the capability kind.
 // Valid values: collection_query, item_query, create, update, delete, action, task, report
 func (b *MetadataBuilder) SetCapability(capability string) *MetadataBuilder {

@@ -23,16 +23,16 @@ Grounding is current code: the invoke chain
 (verified: no `BusinessOperation`/`OperationCredential` model exists). The
 concrete failure modes:
 
-| # | Failure mode | Today's behavior | Consequence |
-|---|--------------|------------------|-------------|
-| R1 | **Lost response double-grant** | A function call times out; the platform has no durable game-side dedup contract, so a retry re-invokes the game function. | The game grants twice (gold, items, mail, currency). |
-| R2 | **Unknown misjudged as failure** | `ExecutionLog.Status` is `ok/error`; a timeout is logged as `error`. | A business success after a lost response is reported as failure; operators substitute rewards or retry, amplifying R1. |
-| R3 | **Platform idempotency ≠ game exactly-once** | `taskId`/page-key idempotency dedups platform replays only; it does not constrain the game's own side effects across restart/reconnect. | Exactly-once is claimed where only transport-level dedup exists. |
-| R4 | **Cancellation claims rollback** | Task cancel sets a canceled state without game confirmation of side effects. | "Canceled" reads as "rolled back" even when assets were already granted. |
-| R5 | **Same operationId parameter drift** | No snapshot fingerprint is enforced at the game side; a retry can carry modified parameters under the same identity. | A re-approval is bypassed; the approved intent is silently altered. |
-| R6 | **Credential absence → success fabricated** | No credential/query contract; an unknown outcome is resolved by re-execution rather than by querying the game for the original result. | Duplicate grants (R1) and unrecoverable "unknown" states with no query path. |
+| #   | Failure mode                                 | Today's behavior                                                                                                                        | Consequence                                                                                                            |
+| --- | -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| R1  | **Lost response double-grant**               | A function call times out; the platform has no durable game-side dedup contract, so a retry re-invokes the game function.               | The game grants twice (gold, items, mail, currency).                                                                   |
+| R2  | **Unknown misjudged as failure**             | `ExecutionLog.Status` is `ok/error`; a timeout is logged as `error`.                                                                    | A business success after a lost response is reported as failure; operators substitute rewards or retry, amplifying R1. |
+| R3  | **Platform idempotency ≠ game exactly-once** | `taskId`/page-key idempotency dedups platform replays only; it does not constrain the game's own side effects across restart/reconnect. | Exactly-once is claimed where only transport-level dedup exists.                                                       |
+| R4  | **Cancellation claims rollback**             | Task cancel sets a canceled state without game confirmation of side effects.                                                            | "Canceled" reads as "rolled back" even when assets were already granted.                                               |
+| R5  | **Same operationId parameter drift**         | No snapshot fingerprint is enforced at the game side; a retry can carry modified parameters under the same identity.                    | A re-approval is bypassed; the approved intent is silently altered.                                                    |
+| R6  | **Credential absence → success fabricated**  | No credential/query contract; an unknown outcome is resolved by re-execution rather than by querying the game for the original result.  | Duplicate grants (R1) and unrecoverable "unknown" states with no query path.                                           |
 
-The design must *not* rebuild a duplicate of `taskId`/page idempotency: those
+The design must _not_ rebuild a duplicate of `taskId`/page idempotency: those
 remain the platform transport/page-replay layer. The business identity
 (`operationId`) and game-side durable dedup are a **separate, game-cooperative
 layer**. The two reference each other but never substitute.
@@ -106,13 +106,13 @@ function; `supportsUndo` stays optional because native undo is game-specific.
 
 ## 3. Alternative Comparison
 
-| Decision | Recommended | Alternatives considered | Why rejected |
-|----------|-------------|------------------------|--------------|
-| D1 operationId | Composite `gameId:env:domain:UUIDv7` | Raw UUIDv4 only; server auto-increment; short code only | UUIDv4 loses time-ordering; auto-increment leaks volume and isn't globally unique; short code alone isn't a unique key. |
-| D2 credentials | Dedicated `business_operation_credentials` table | Extend `TaskRun`/`ExecutionLog` columns; structured `ResultPayload` in log | Log retention is shorter than credentials; coupling credential lifetime to transport lifecycle breaks convergence after log cleanup; log payload isn't independently queryable. |
-| D3 envelope | SDK `GameOperationResult` envelope + capability declaration | Structured error-code mapping only; plugin self-declared as safe | Error mapping cannot express `unknown`/`conflict`/`queryHint`; a plugin declaring safety without a capability check can't be audited. |
-| D4 unknown | Auto-query (60s×10) → alert; retry cap 8; never substitute | Retry forever; mark failed after N; query only on operator demand | Retry forever loops; marking failed fabricates failure; query-only delays convergence. |
-| D5 cancel | Mandatory confirm; `supportsUndo` optional | Optional cancel protocol; implicit rollback on cancel | Optional cancel lets functions skip confirmation and reproduce R4; implicit rollback is exactly what the design forbids. |
+| Decision       | Recommended                                                 | Alternatives considered                                                    | Why rejected                                                                                                                                                                    |
+| -------------- | ----------------------------------------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D1 operationId | Composite `gameId:env:domain:UUIDv7`                        | Raw UUIDv4 only; server auto-increment; short code only                    | UUIDv4 loses time-ordering; auto-increment leaks volume and isn't globally unique; short code alone isn't a unique key.                                                         |
+| D2 credentials | Dedicated `business_operation_credentials` table            | Extend `TaskRun`/`ExecutionLog` columns; structured `ResultPayload` in log | Log retention is shorter than credentials; coupling credential lifetime to transport lifecycle breaks convergence after log cleanup; log payload isn't independently queryable. |
+| D3 envelope    | SDK `GameOperationResult` envelope + capability declaration | Structured error-code mapping only; plugin self-declared as safe           | Error mapping cannot express `unknown`/`conflict`/`queryHint`; a plugin declaring safety without a capability check can't be audited.                                           |
+| D4 unknown     | Auto-query (60s×10) → alert; retry cap 8; never substitute  | Retry forever; mark failed after N; query only on operator demand          | Retry forever loops; marking failed fabricates failure; query-only delays convergence.                                                                                          |
+| D5 cancel      | Mandatory confirm; `supportsUndo` optional                  | Optional cancel protocol; implicit rollback on cancel                      | Optional cancel lets functions skip confirmation and reproduce R4; implicit rollback is exactly what the design forbids.                                                        |
 
 ## 4. Acceptance Mapping (design → contract scenarios)
 
@@ -139,7 +139,37 @@ not a substitute for game-side durable dedup.
 
 ## 6. Decisions Needed From the Owner
 
-1. Approve or amend D1–D5 as proposed.
-2. Confirm the credential retention period (proposed: 180 days, configurable).
+**Status (2026-11-27): D1–D5 approved by the owner (2026-11-27); GAME-010
+platform side implemented.** Platform-side delivery slices:
+
+- `2ae38cc86` — D1/D2: operationId composite identifier + `business_operation_credentials`
+  unique store (model + migration 0069)
+- `cfca4c5df` — D3: `x-durable-idempotency` capability on the OpenAPI provider
+  import path + invoke-chain registration/gating (high-risk functions without a
+  declaration fail closed; broadcast rejected)
+- `9f7fdaacc` — D4: auto-converge loop (query 60s×10, retry same
+  operationId+snapshot 1s→60s capped ×8, exhaustion alerts, unknown never
+  rewritten) + migration 0070 (request payload snapshot)
+- `403014a24` — D5: game-confirmed cancellation (`canceled`/`cancel_failed`
+  only; `cancel_failed` preserves the original result; terminal credentials
+  refuse cancellation) + ops endpoints
+  `GET/POST /ops/business-operations/:operationId(/cancel)`
+- SDK half: proto `durable_query`/`durable_cancel`/`durable_undo` on both
+  function descriptors, Go SDK `SetDurableIdempotency` builder + OpenAPI import
+  extraction + `GameOperationResult` envelope helpers
+  (`sdks/go/pkg/croupier/durable.go`); wire contract documented in
+  `docs/architecture/sdk-wire-protocol.md` ("Durable operation envelope").
+
+Known boundaries (honest scope): the game-side durable dedup store and the
+end-to-end acceptance against a live game remain gated on GAME-002/GAME-008 and
+a real integration environment; only the OpenAPI provider import path and the
+SDK descriptor path declare the capability today (the function-contract catalog
+does not surface it yet); other-language SDKs do not ship envelope helpers yet.
+A Go in-memory/state-file demo is not a substitute for game-side durable dedup.
+
+1. ~~Approve or amend D1–D5 as proposed.~~ **Approved 2026-11-27.**
+2. Confirm the credential retention period (proposed: 180 days, configurable) —
+   still open; credentials currently retained indefinitely (no TTL pruning).
 3. Confirm that GAME-010 proceeds on the platform side even if a real game
-   environment is not yet available (the game-side half is separately gated).
+   environment is not yet available (the game-side half is separately gated) —
+   answered by the 2026-11-27 approval.

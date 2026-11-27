@@ -14,7 +14,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n croupier/agent/v1/register.proto\x12\x11\x63roupier.agent.v1\"\xdd\x02\n\x12\x46unctionDescriptor\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0f\n\x07version\x18\x02 \x01(\t\x12\x10\n\x08resource\x18\x03 \x01(\t\x12\x11\n\toperation\x18\x04 \x01(\t\x12\x0c\n\x04risk\x18\x05 \x01(\t\x12\x12\n\npermission\x18\x06 \x01(\t\x12\x0f\n\x07\x65nabled\x18\x07 \x01(\x08\x12\x12\n\ncapability\x18\x08 \x01(\t\x12\x11\n\texecution\x18\t \x01(\t\x12\x19\n\x11\x61pproval_required\x18\n \x01(\x08\x12\x1b\n\x13\x61pproval_policy_key\x18\x0b \x01(\t\x12\x0f\n\x07summary\x18\x19 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x1a \x01(\t\x12\x0c\n\x04tags\x18\x1b \x03(\t\x12\x12\n\ndeprecated\x18\x1c \x01(\x08\x12\x14\n\x0cinput_schema\x18\x1e \x01(\t\x12\x15\n\routput_schema\x18\x1f \x01(\t\"\xbc\x02\n\x0c\x41gentProcess\x12\x12\n\nservice_id\x18\x01 \x01(\t\x12\x0c\n\x04\x61\x64\x64r\x18\x02 \x01(\t\x12\x0f\n\x07version\x18\x03 \x01(\t\x12\x16\n\x0elast_seen_unix\x18\x04 \x01(\x03\x12\x14\n\x0c\x66unction_ids\x18\x05 \x03(\t\x12\x14\n\x0csdk_language\x18\x06 \x01(\t\x12\x13\n\x0bsdk_version\x18\x07 \x01(\t\x12\x10\n\x08sdk_name\x18\x08 \x01(\t\x12\x0f\n\x07game_id\x18\t \x01(\t\x12\x0b\n\x03\x65nv\x18\n \x01(\t\x12?\n\x08metadata\x18\x0b \x03(\x0b\x32-.croupier.agent.v1.AgentProcess.MetadataEntry\x1a/\n\rMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"\xf2\x02\n\x0fRegisterRequest\x12\x10\n\x08\x61gent_id\x18\x01 \x01(\t\x12\x0f\n\x07version\x18\x02 \x01(\t\x12\x38\n\tfunctions\x18\x03 \x03(\x0b\x32%.croupier.agent.v1.FunctionDescriptor\x12\x0f\n\x07game_id\x18\x05 \x01(\t\x12\x0b\n\x03\x65nv\x18\x06 \x01(\t\x12\x32\n\tprocesses\x18\x07 \x03(\x0b\x32\x1f.croupier.agent.v1.AgentProcess\x12\x13\n\x0bttl_seconds\x18\x08 \x01(\r\x12\x0e\n\x06region\x18\n \x01(\t\x12\x0c\n\x04zone\x18\x0b \x01(\t\x12>\n\x06labels\x18\x0c \x03(\x0b\x32..croupier.agent.v1.RegisterRequest.LabelsEntry\x1a-\n\x0bLabelsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01J\x04\x08\x04\x10\x05R\x08rpc_addr\"`\n\x10RegisterResponse\x12\x12\n\nsession_id\x18\x01 \x01(\t\x12\x11\n\texpire_at\x18\x02 \x01(\x03\x12\x10\n\x08warnings\x18\x03 \x03(\t\x12\x13\n\x0binstance_id\x18\x04 \x01(\t\"S\n\x10HeartbeatRequest\x12\x10\n\x08\x61gent_id\x18\x01 \x01(\t\x12\x12\n\nsession_id\x18\x02 \x01(\t\x12\x19\n\x11owner_instance_id\x18\x03 \x01(\t\"\x13\n\x11HeartbeatResponse\"F\n\x0cProviderMeta\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0f\n\x07version\x18\x02 \x01(\t\x12\x0c\n\x04lang\x18\x03 \x01(\t\x12\x0b\n\x03sdk\x18\x04 \x01(\t\"j\n\x1bRegisterCapabilitiesRequest\x12\x31\n\x08provider\x18\x01 \x01(\x0b\x32\x1f.croupier.agent.v1.ProviderMeta\x12\x18\n\x10manifest_json_gz\x18\x02 \x01(\x0c\"\x1e\n\x1cRegisterCapabilitiesResponseBg\n$io.github.cuihairu.croupier.agent.v1P\x01Z=github.com/cuihairu/croupier/pkg/pb/croupier/agent/v1;agentv1b\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n croupier/agent/v1/register.proto\x12\x11\x63roupier.agent.v1\"\xa2\x03\n\x12\x46unctionDescriptor\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0f\n\x07version\x18\x02 \x01(\t\x12\x10\n\x08resource\x18\x03 \x01(\t\x12\x11\n\toperation\x18\x04 \x01(\t\x12\x0c\n\x04risk\x18\x05 \x01(\t\x12\x12\n\npermission\x18\x06 \x01(\t\x12\x0f\n\x07\x65nabled\x18\x07 \x01(\x08\x12\x12\n\ncapability\x18\x08 \x01(\t\x12\x11\n\texecution\x18\t \x01(\t\x12\x19\n\x11\x61pproval_required\x18\n \x01(\x08\x12\x1b\n\x13\x61pproval_policy_key\x18\x0b \x01(\t\x12\x15\n\rdurable_query\x18\x0c \x01(\t\x12\x16\n\x0e\x64urable_cancel\x18\r \x01(\t\x12\x14\n\x0c\x64urable_undo\x18\x0e \x01(\t\x12\x0f\n\x07summary\x18\x19 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x1a \x01(\t\x12\x0c\n\x04tags\x18\x1b \x03(\t\x12\x12\n\ndeprecated\x18\x1c \x01(\x08\x12\x14\n\x0cinput_schema\x18\x1e \x01(\t\x12\x15\n\routput_schema\x18\x1f \x01(\t\"\xbc\x02\n\x0c\x41gentProcess\x12\x12\n\nservice_id\x18\x01 \x01(\t\x12\x0c\n\x04\x61\x64\x64r\x18\x02 \x01(\t\x12\x0f\n\x07version\x18\x03 \x01(\t\x12\x16\n\x0elast_seen_unix\x18\x04 \x01(\x03\x12\x14\n\x0c\x66unction_ids\x18\x05 \x03(\t\x12\x14\n\x0csdk_language\x18\x06 \x01(\t\x12\x13\n\x0bsdk_version\x18\x07 \x01(\t\x12\x10\n\x08sdk_name\x18\x08 \x01(\t\x12\x0f\n\x07game_id\x18\t \x01(\t\x12\x0b\n\x03\x65nv\x18\n \x01(\t\x12?\n\x08metadata\x18\x0b \x03(\x0b\x32-.croupier.agent.v1.AgentProcess.MetadataEntry\x1a/\n\rMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"\xf2\x02\n\x0fRegisterRequest\x12\x10\n\x08\x61gent_id\x18\x01 \x01(\t\x12\x0f\n\x07version\x18\x02 \x01(\t\x12\x38\n\tfunctions\x18\x03 \x03(\x0b\x32%.croupier.agent.v1.FunctionDescriptor\x12\x0f\n\x07game_id\x18\x05 \x01(\t\x12\x0b\n\x03\x65nv\x18\x06 \x01(\t\x12\x32\n\tprocesses\x18\x07 \x03(\x0b\x32\x1f.croupier.agent.v1.AgentProcess\x12\x13\n\x0bttl_seconds\x18\x08 \x01(\r\x12\x0e\n\x06region\x18\n \x01(\t\x12\x0c\n\x04zone\x18\x0b \x01(\t\x12>\n\x06labels\x18\x0c \x03(\x0b\x32..croupier.agent.v1.RegisterRequest.LabelsEntry\x1a-\n\x0bLabelsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01J\x04\x08\x04\x10\x05R\x08rpc_addr\"`\n\x10RegisterResponse\x12\x12\n\nsession_id\x18\x01 \x01(\t\x12\x11\n\texpire_at\x18\x02 \x01(\x03\x12\x10\n\x08warnings\x18\x03 \x03(\t\x12\x13\n\x0binstance_id\x18\x04 \x01(\t\"S\n\x10HeartbeatRequest\x12\x10\n\x08\x61gent_id\x18\x01 \x01(\t\x12\x12\n\nsession_id\x18\x02 \x01(\t\x12\x19\n\x11owner_instance_id\x18\x03 \x01(\t\"\x13\n\x11HeartbeatResponse\"F\n\x0cProviderMeta\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0f\n\x07version\x18\x02 \x01(\t\x12\x0c\n\x04lang\x18\x03 \x01(\t\x12\x0b\n\x03sdk\x18\x04 \x01(\t\"j\n\x1bRegisterCapabilitiesRequest\x12\x31\n\x08provider\x18\x01 \x01(\x0b\x32\x1f.croupier.agent.v1.ProviderMeta\x12\x18\n\x10manifest_json_gz\x18\x02 \x01(\x0c\"\x1e\n\x1cRegisterCapabilitiesResponseBg\n$io.github.cuihairu.croupier.agent.v1P\x01Z=github.com/cuihairu/croupier/pkg/pb/croupier/agent/v1;agentv1b\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -27,25 +27,25 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   _globals['_REGISTERREQUEST_LABELSENTRY']._options = None
   _globals['_REGISTERREQUEST_LABELSENTRY']._serialized_options = b'8\001'
   _globals['_FUNCTIONDESCRIPTOR']._serialized_start=56
-  _globals['_FUNCTIONDESCRIPTOR']._serialized_end=405
-  _globals['_AGENTPROCESS']._serialized_start=408
-  _globals['_AGENTPROCESS']._serialized_end=724
-  _globals['_AGENTPROCESS_METADATAENTRY']._serialized_start=677
-  _globals['_AGENTPROCESS_METADATAENTRY']._serialized_end=724
-  _globals['_REGISTERREQUEST']._serialized_start=727
-  _globals['_REGISTERREQUEST']._serialized_end=1097
-  _globals['_REGISTERREQUEST_LABELSENTRY']._serialized_start=1036
-  _globals['_REGISTERREQUEST_LABELSENTRY']._serialized_end=1081
-  _globals['_REGISTERRESPONSE']._serialized_start=1099
-  _globals['_REGISTERRESPONSE']._serialized_end=1195
-  _globals['_HEARTBEATREQUEST']._serialized_start=1197
-  _globals['_HEARTBEATREQUEST']._serialized_end=1280
-  _globals['_HEARTBEATRESPONSE']._serialized_start=1282
-  _globals['_HEARTBEATRESPONSE']._serialized_end=1301
-  _globals['_PROVIDERMETA']._serialized_start=1303
-  _globals['_PROVIDERMETA']._serialized_end=1373
-  _globals['_REGISTERCAPABILITIESREQUEST']._serialized_start=1375
-  _globals['_REGISTERCAPABILITIESREQUEST']._serialized_end=1481
-  _globals['_REGISTERCAPABILITIESRESPONSE']._serialized_start=1483
-  _globals['_REGISTERCAPABILITIESRESPONSE']._serialized_end=1513
+  _globals['_FUNCTIONDESCRIPTOR']._serialized_end=474
+  _globals['_AGENTPROCESS']._serialized_start=477
+  _globals['_AGENTPROCESS']._serialized_end=793
+  _globals['_AGENTPROCESS_METADATAENTRY']._serialized_start=746
+  _globals['_AGENTPROCESS_METADATAENTRY']._serialized_end=793
+  _globals['_REGISTERREQUEST']._serialized_start=796
+  _globals['_REGISTERREQUEST']._serialized_end=1166
+  _globals['_REGISTERREQUEST_LABELSENTRY']._serialized_start=1105
+  _globals['_REGISTERREQUEST_LABELSENTRY']._serialized_end=1150
+  _globals['_REGISTERRESPONSE']._serialized_start=1168
+  _globals['_REGISTERRESPONSE']._serialized_end=1264
+  _globals['_HEARTBEATREQUEST']._serialized_start=1266
+  _globals['_HEARTBEATREQUEST']._serialized_end=1349
+  _globals['_HEARTBEATRESPONSE']._serialized_start=1351
+  _globals['_HEARTBEATRESPONSE']._serialized_end=1370
+  _globals['_PROVIDERMETA']._serialized_start=1372
+  _globals['_PROVIDERMETA']._serialized_end=1442
+  _globals['_REGISTERCAPABILITIESREQUEST']._serialized_start=1444
+  _globals['_REGISTERCAPABILITIESREQUEST']._serialized_end=1550
+  _globals['_REGISTERCAPABILITIESRESPONSE']._serialized_start=1552
+  _globals['_REGISTERCAPABILITIESRESPONSE']._serialized_end=1582
 # @@protoc_insertion_point(module_scope)

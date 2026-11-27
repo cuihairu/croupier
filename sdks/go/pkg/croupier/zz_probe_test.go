@@ -7,6 +7,9 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"os/exec"
+	"strings"
 	"sync"
 	"syscall"
 	"testing"
@@ -36,6 +39,29 @@ func TestProbeValidateErrorType(t *testing.T) {
 }
 
 func TestProbeRLimitWrite(t *testing.T) {
+	// RLIMIT_FSIZE is process-wide: zeroing it makes every later write in this
+	// process fail with EFBIG, including the testing framework's own exit-time
+	// testlog write. Run the actual probe in a child process so the mutation
+	// never touches the parent test binary.
+	if os.Getenv("CROUPIER_PROBE_RLIMIT_CHILD") != "" {
+		runRLimitProbe(t)
+		return
+	}
+	cmd := exec.Command(os.Args[0], "-test.run", "^TestProbeRLimitWrite$", "-test.v")
+	cmd.Env = append(os.Environ(), "CROUPIER_PROBE_RLIMIT_CHILD=1")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("probe subprocess failed: %v\n%s", err, out)
+	}
+	if !strings.Contains(string(out), "--- PASS: TestProbeRLimitWrite") {
+		t.Fatalf("probe subprocess did not pass:\n%s", out)
+	}
+	t.Logf("probe subprocess output:\n%s", out)
+}
+
+// runRLimitProbe holds the original probe body; it mutates process-wide state
+// and must only run in the subprocess spawned above.
+func runRLimitProbe(t *testing.T) {
 	dir := t.TempDir()
 	var old syscall.Rlimit
 	if err := syscall.Getrlimit(syscall.RLIMIT_FSIZE, &old); err != nil {

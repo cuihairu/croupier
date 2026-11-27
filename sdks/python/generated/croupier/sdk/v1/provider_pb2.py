@@ -14,7 +14,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1e\x63roupier/sdk/v1/provider.proto\x12\x0f\x63roupier.sdk.v1\"\xfb\x02\n\x1aProviderFunctionDescriptor\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0f\n\x07version\x18\x02 \x01(\t\x12\x0c\n\x04tags\x18\x03 \x03(\t\x12\x0f\n\x07summary\x18\x04 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x05 \x01(\t\x12\x14\n\x0coperation_id\x18\x06 \x01(\t\x12\x12\n\ndeprecated\x18\x07 \x01(\x08\x12\x14\n\x0cinput_schema\x18\x08 \x01(\t\x12\x15\n\routput_schema\x18\t \x01(\t\x12\x10\n\x08resource\x18\n \x01(\t\x12\x11\n\toperation\x18\x0b \x01(\t\x12\x0c\n\x04risk\x18\x0c \x01(\t\x12\x0f\n\x07\x65nabled\x18\r \x01(\x08\x12\x12\n\npermission\x18\x0e \x01(\t\x12\x12\n\ncapability\x18\x0f \x01(\t\x12\x11\n\texecution\x18\x10 \x01(\t\x12\x19\n\x11\x61pproval_required\x18\x11 \x01(\x08\x12\x1b\n\x13\x61pproval_policy_key\x18\x12 \x01(\t\"\xcb\x03\n\x16ProviderConnectRequest\x12\x12\n\nservice_id\x18\x01 \x01(\t\x12\x0f\n\x07version\x18\x02 \x01(\t\x12>\n\tfunctions\x18\x03 \x03(\x0b\x32+.croupier.sdk.v1.ProviderFunctionDescriptor\x12\x14\n\x0csdk_language\x18\x04 \x01(\t\x12\x13\n\x0bsdk_version\x18\x05 \x01(\t\x12\x10\n\x08sdk_name\x18\x06 \x01(\t\x12\x18\n\x10protocol_version\x18\x07 \x01(\t\x12\x1e\n\x16supported_capabilities\x18\x08 \x03(\t\x12\x1f\n\x17transport_security_mode\x18\t \x01(\t\x12\x1c\n\x14supported_transports\x18\n \x03(\t\x12\x0f\n\x07game_id\x18\x0b \x01(\t\x12\x0b\n\x03\x65nv\x18\x0c \x01(\t\x12G\n\x08metadata\x18\r \x03(\x0b\x32\x35.croupier.sdk.v1.ProviderConnectRequest.MetadataEntry\x1a/\n\rMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"^\n\x17ProviderConnectResponse\x12\x12\n\nsession_id\x18\x01 \x01(\t\x12\x1d\n\x15\x61\x63\x63\x65pted_capabilities\x18\x02 \x03(\t\x12\x10\n\x08warnings\x18\x03 \x03(\t\"B\n\x18ProviderHeartbeatRequest\x12\x12\n\nservice_id\x18\x01 \x01(\t\x12\x12\n\nsession_id\x18\x02 \x01(\t\"\x1b\n\x19ProviderHeartbeatResponse\"R\n\x14ProviderDrainRequest\x12\x12\n\nsession_id\x18\x01 \x01(\t\x12\x0e\n\x06reason\x18\x02 \x01(\t\x12\x16\n\x0eretry_after_ms\x18\x03 \x01(\r\"\x17\n\x15ProviderDrainResponse\"\'\n\x14GetTaskResultRequest\x12\x0f\n\x07task_id\x18\x01 \x01(\t\"F\n\x15GetTaskResultResponse\x12\r\n\x05state\x18\x01 \x01(\t\x12\x0f\n\x07payload\x18\x02 \x01(\x0c\x12\r\n\x05\x65rror\x18\x03 \x01(\tBa\n\"io.github.cuihairu.croupier.sdk.v1P\x01Z9github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1;sdkv1b\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1e\x63roupier/sdk/v1/provider.proto\x12\x0f\x63roupier.sdk.v1\"\xc0\x03\n\x1aProviderFunctionDescriptor\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0f\n\x07version\x18\x02 \x01(\t\x12\x0c\n\x04tags\x18\x03 \x03(\t\x12\x0f\n\x07summary\x18\x04 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x05 \x01(\t\x12\x14\n\x0coperation_id\x18\x06 \x01(\t\x12\x12\n\ndeprecated\x18\x07 \x01(\x08\x12\x14\n\x0cinput_schema\x18\x08 \x01(\t\x12\x15\n\routput_schema\x18\t \x01(\t\x12\x10\n\x08resource\x18\n \x01(\t\x12\x11\n\toperation\x18\x0b \x01(\t\x12\x0c\n\x04risk\x18\x0c \x01(\t\x12\x0f\n\x07\x65nabled\x18\r \x01(\x08\x12\x12\n\npermission\x18\x0e \x01(\t\x12\x12\n\ncapability\x18\x0f \x01(\t\x12\x11\n\texecution\x18\x10 \x01(\t\x12\x19\n\x11\x61pproval_required\x18\x11 \x01(\x08\x12\x1b\n\x13\x61pproval_policy_key\x18\x12 \x01(\t\x12\x15\n\rdurable_query\x18\x13 \x01(\t\x12\x16\n\x0e\x64urable_cancel\x18\x14 \x01(\t\x12\x14\n\x0c\x64urable_undo\x18\x15 \x01(\t\"\xcb\x03\n\x16ProviderConnectRequest\x12\x12\n\nservice_id\x18\x01 \x01(\t\x12\x0f\n\x07version\x18\x02 \x01(\t\x12>\n\tfunctions\x18\x03 \x03(\x0b\x32+.croupier.sdk.v1.ProviderFunctionDescriptor\x12\x14\n\x0csdk_language\x18\x04 \x01(\t\x12\x13\n\x0bsdk_version\x18\x05 \x01(\t\x12\x10\n\x08sdk_name\x18\x06 \x01(\t\x12\x18\n\x10protocol_version\x18\x07 \x01(\t\x12\x1e\n\x16supported_capabilities\x18\x08 \x03(\t\x12\x1f\n\x17transport_security_mode\x18\t \x01(\t\x12\x1c\n\x14supported_transports\x18\n \x03(\t\x12\x0f\n\x07game_id\x18\x0b \x01(\t\x12\x0b\n\x03\x65nv\x18\x0c \x01(\t\x12G\n\x08metadata\x18\r \x03(\x0b\x32\x35.croupier.sdk.v1.ProviderConnectRequest.MetadataEntry\x1a/\n\rMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"^\n\x17ProviderConnectResponse\x12\x12\n\nsession_id\x18\x01 \x01(\t\x12\x1d\n\x15\x61\x63\x63\x65pted_capabilities\x18\x02 \x03(\t\x12\x10\n\x08warnings\x18\x03 \x03(\t\"B\n\x18ProviderHeartbeatRequest\x12\x12\n\nservice_id\x18\x01 \x01(\t\x12\x12\n\nsession_id\x18\x02 \x01(\t\"\x1b\n\x19ProviderHeartbeatResponse\"R\n\x14ProviderDrainRequest\x12\x12\n\nsession_id\x18\x01 \x01(\t\x12\x0e\n\x06reason\x18\x02 \x01(\t\x12\x16\n\x0eretry_after_ms\x18\x03 \x01(\r\"\x17\n\x15ProviderDrainResponse\"\'\n\x14GetTaskResultRequest\x12\x0f\n\x07task_id\x18\x01 \x01(\t\"F\n\x15GetTaskResultResponse\x12\r\n\x05state\x18\x01 \x01(\t\x12\x0f\n\x07payload\x18\x02 \x01(\x0c\x12\r\n\x05\x65rror\x18\x03 \x01(\tBa\n\"io.github.cuihairu.croupier.sdk.v1P\x01Z9github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1;sdkv1b\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -25,23 +25,23 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   _globals['_PROVIDERCONNECTREQUEST_METADATAENTRY']._options = None
   _globals['_PROVIDERCONNECTREQUEST_METADATAENTRY']._serialized_options = b'8\001'
   _globals['_PROVIDERFUNCTIONDESCRIPTOR']._serialized_start=52
-  _globals['_PROVIDERFUNCTIONDESCRIPTOR']._serialized_end=431
-  _globals['_PROVIDERCONNECTREQUEST']._serialized_start=434
-  _globals['_PROVIDERCONNECTREQUEST']._serialized_end=893
-  _globals['_PROVIDERCONNECTREQUEST_METADATAENTRY']._serialized_start=846
-  _globals['_PROVIDERCONNECTREQUEST_METADATAENTRY']._serialized_end=893
-  _globals['_PROVIDERCONNECTRESPONSE']._serialized_start=895
-  _globals['_PROVIDERCONNECTRESPONSE']._serialized_end=989
-  _globals['_PROVIDERHEARTBEATREQUEST']._serialized_start=991
-  _globals['_PROVIDERHEARTBEATREQUEST']._serialized_end=1057
-  _globals['_PROVIDERHEARTBEATRESPONSE']._serialized_start=1059
-  _globals['_PROVIDERHEARTBEATRESPONSE']._serialized_end=1086
-  _globals['_PROVIDERDRAINREQUEST']._serialized_start=1088
-  _globals['_PROVIDERDRAINREQUEST']._serialized_end=1170
-  _globals['_PROVIDERDRAINRESPONSE']._serialized_start=1172
-  _globals['_PROVIDERDRAINRESPONSE']._serialized_end=1195
-  _globals['_GETTASKRESULTREQUEST']._serialized_start=1197
-  _globals['_GETTASKRESULTREQUEST']._serialized_end=1236
-  _globals['_GETTASKRESULTRESPONSE']._serialized_start=1238
-  _globals['_GETTASKRESULTRESPONSE']._serialized_end=1308
+  _globals['_PROVIDERFUNCTIONDESCRIPTOR']._serialized_end=500
+  _globals['_PROVIDERCONNECTREQUEST']._serialized_start=503
+  _globals['_PROVIDERCONNECTREQUEST']._serialized_end=962
+  _globals['_PROVIDERCONNECTREQUEST_METADATAENTRY']._serialized_start=915
+  _globals['_PROVIDERCONNECTREQUEST_METADATAENTRY']._serialized_end=962
+  _globals['_PROVIDERCONNECTRESPONSE']._serialized_start=964
+  _globals['_PROVIDERCONNECTRESPONSE']._serialized_end=1058
+  _globals['_PROVIDERHEARTBEATREQUEST']._serialized_start=1060
+  _globals['_PROVIDERHEARTBEATREQUEST']._serialized_end=1126
+  _globals['_PROVIDERHEARTBEATRESPONSE']._serialized_start=1128
+  _globals['_PROVIDERHEARTBEATRESPONSE']._serialized_end=1155
+  _globals['_PROVIDERDRAINREQUEST']._serialized_start=1157
+  _globals['_PROVIDERDRAINREQUEST']._serialized_end=1239
+  _globals['_PROVIDERDRAINRESPONSE']._serialized_start=1241
+  _globals['_PROVIDERDRAINRESPONSE']._serialized_end=1264
+  _globals['_GETTASKRESULTREQUEST']._serialized_start=1266
+  _globals['_GETTASKRESULTREQUEST']._serialized_end=1305
+  _globals['_GETTASKRESULTRESPONSE']._serialized_start=1307
+  _globals['_GETTASKRESULTRESPONSE']._serialized_end=1377
 # @@protoc_insertion_point(module_scope)

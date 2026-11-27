@@ -430,6 +430,9 @@ func (c *client) convertToLocalFunctions() []ProviderFunctionDescriptor {
 			Risk:              desc.Risk,
 			Enabled:           desc.Enabled,
 			Permission:        desc.Permission,
+			DurableQuery:      desc.DurableQuery,
+			DurableCancel:     desc.DurableCancel,
+			DurableUndo:       desc.DurableUndo,
 		}
 
 		localFuncs = append(localFuncs, localDesc)

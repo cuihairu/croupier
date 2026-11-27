@@ -44,6 +44,13 @@ type FunctionMetadata struct {
 	// require approval; approval never replaces the sync|task dichotomy.
 	ApprovalRequired  bool   `json:"approvalRequired,omitempty"`
 	ApprovalPolicyKey string `json:"approvalPolicyKey,omitempty"`
+
+	// Durable idempotency capability (GAME-009 D3): game-side query/cancel/
+	// undo functions the platform may call. Wire: x-durable-idempotency.
+	// High-risk functions must declare at least query or cancel.
+	DurableQuery  string `json:"durableQuery,omitempty"`
+	DurableCancel string `json:"durableCancel,omitempty"`
+	DurableUndo   string `json:"durableUndo,omitempty"`
 }
 
 // FunctionBehavior defines how the function executes.
@@ -380,6 +387,9 @@ func (r *Registry) toFunctionDescriptor(metadata *FunctionMetadata) croupier.Fun
 
 		ApprovalRequired:  metadata.ApprovalRequired,
 		ApprovalPolicyKey: metadata.ApprovalPolicyKey,
+		DurableQuery:      metadata.DurableQuery,
+		DurableCancel:     metadata.DurableCancel,
+		DurableUndo:       metadata.DurableUndo,
 	}
 
 	// Safely get risk level
