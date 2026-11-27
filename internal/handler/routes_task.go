@@ -104,6 +104,12 @@ func registerOpsRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.DELETE("/silences/:id", opsHandler.SilenceDelete)
 	g.GET("/silences", opsHandler.Silences)
 
+	// 业务操作凭据（GAME-010）：scope 由 GameDBMiddleware 注入；operationId
+	// 从路径读取（POST bodyless，不走 ShouldBindJSON）。
+	durableOps := ops.NewDurableOpsHandler(ctx)
+	g.GET("/business-operations/:operationId", durableOps.DurableCredentialGet)
+	g.POST("/business-operations/:operationId/cancel", durableOps.DurableCredentialCancel)
+
 	// 备份
 	g.POST("/backups", opsHandler.BackupCreate)
 	g.GET("/backups", opsHandler.BackupsList)

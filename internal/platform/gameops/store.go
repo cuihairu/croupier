@@ -141,13 +141,17 @@ func (s *CredentialStore) ApplyEnvelope(ctx context.Context, gameID, env, operat
 		"outcome":    next,
 		"updated_at": time.Now().UTC(),
 	}
-	// 回执/结果只在有新内容时覆盖；cancel_failed 保留原 result（D5：
-	// 取消不谎称回滚，补偿引用原凭据）。
-	if envelope.GameReceipt != "" {
-		updates["game_receipt"] = envelope.GameReceipt
-	}
-	if len(envelope.Result) > 0 {
-		updates["result_json"] = envelope.Result
+	// 回执/结果只在有新内容时覆盖；cancel_failed 保留原 result/回执（D5：
+	// 取消不谎称回滚，补偿引用原凭据——取消尝试自己的回执不覆盖业务结果）。
+	// 凭据尚无 result 时允许落首次快照（游戏自报的取消失败现场）。
+	preserveOriginal := next == model.BizOpOutcomeCancelFailed && len(existing.ResultJSON) > 0
+	if !preserveOriginal {
+		if envelope.GameReceipt != "" {
+			updates["game_receipt"] = envelope.GameReceipt
+		}
+		if len(envelope.Result) > 0 {
+			updates["result_json"] = envelope.Result
+		}
 	}
 	if envelope.QueryHint != "" {
 		updates["query_hint"] = envelope.QueryHint
