@@ -418,8 +418,16 @@ func (m *Manager) triggerSchedule(ctx context.Context, s *model.TaskSchedule, no
 	trigMsg := ""
 	resp, err := m.dispatch.StartTask(ctx, req)
 	if err != nil {
+		// AUD-086：派发确定失败（err 非 nil 且无 runID——结果已知，非未知），
+		// 计入连续失败计数。此前错误路径回写旧值且 last_run_id 清空，下一轮
+		// 触发的终态回查（LastRunID 为空）不推进计数——阈值永不触发、无限
+		// 重派发。未知结果（领取租约过期的 indeterminate、终态未落）不在此
+		// 分支，保持不计失败的既有语义；确定成功（上次 run 终态 succeeded）
+		// 的清零同样由触发前回查承担。本 tick 的阈值判定已在派发前完成，
+		// 本次越限在下一到期触发时停派发（dead_letter）。
 		trigStatus = "failed"
 		trigMsg = err.Error()
+		failures++
 		slog.Warn("scheduler: dispatch failed", "schedule", s.ID, "error", err)
 	} else if resp != nil {
 		runID = resp.GetTaskId()
