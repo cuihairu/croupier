@@ -2304,9 +2304,11 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 依赖：—。交付与验收：对端正常 EOF 或网络错误可立即唤醒本连接的 pending 请求并清除连接状态；从读线程触发的回收不自 join，后续重连不复用旧线程与队列。证据：`sdks/cpp/src/tcp_transport.cpp:496,581` 读循环退出不发布断开。
   - 状态／条件：未开始。
 
-- [ ] **AUD-073 · P1 · 修复 · C# SDK 并发调用使用唯一请求 ID**
+- [x] **AUD-073 · P1 · 修复 · C# SDK 并发调用使用唯一请求 ID**
   - 依赖：—。交付与验收：分配和登记请求 ID 不与仍在途的请求冲突，临近回绕时仍不会覆盖响应等待者。通过同步起跑、多并发乱序回包与取消测试。证据：`sdks/csharp/src/Croupier.Sdk/Transport/TCPTransport.cs:240,248` 普通读改写后按 ID 覆盖 `_pending`，帧写锁在登记之后。
-  - 状态／条件：未开始。
+  - 状态／条件：已完成，LOCAL VERIFIED。新增专用 `_requestIdLock`（纯同步临界区、锁内无 await、与帧写锁分离）：`CallAsync` 的 ID 分配 + `_pending` 登记合并为一步原子操作（`do { INCR & 0x7FFFFFFF } while (!TryAdd)`），回绕时跳过仍在途的占用 ID 而非覆盖等待者；`finally` 改按 `(reqId, tcs)` 对移除本调用自身的 waiter（防整轮回绕后误删复用 ID 的新等待者）；wire 协议、掩码与计数器初值不变。变异自证三组：恢复普通读改写 → 回绕用例确定性红（`resp:0`，回绕覆写在途 waiter）+ 并发用例 5/6 次红（乱路由）；仅保锁不跳占 → 只有回绕用例红；去掉 finally 按对移除 → 只有取消用例红。全部还原后复绿、无残渣。
+  - 完成证据：`8f981cb83`（`sdks/csharp/src/Croupier.Sdk/Transport/TCPTransport.cs`、`sdks/csharp/src/Croupier.Sdk.Tests/Transport/TCPTransportRequestIdTests.cs` 4 新用例：12 线程×40 同步起跑全 480 个 wire reqId 互异、6 调用逆序回包正确路由、临近 0x7FFFFFFF 回绕跳占、取消清册一致）。本地全绿：`dotnet test` Failed: 0, Passed: 945, Skipped: 9, Total: 954（1m51s；基线 941/9/950 → +4 全为新用例）。
+  - 已知边界：2^31 个 ID 全部在途的理论自旋不终止不可达（在途 waiter 受内存约束远低于 2^31）；取消调用 ID 被复用后的迟到重复响应理论上可误完成新 waiter——需整 2^31 回绕期间仍 pending 才可能，属协议信任面；回绕用例经反射种子 waiter（同既有 `Dispose_CancelsPendingRequests` 惯例），无公开 API 可强制计数器逼近 0x7FFFFFFF。
 
 - [ ] **AUD-074 · P1 · 修复 · JS SDK 生效 Provider 和控制面 TLS 配置**
   - 依赖：—。交付与验收：两条连接使用配置指定的 TLS、CA、客户端证书与服务端名称。校验失败阻止建立会话，明确配置明文时沿用 TCP。证据：`sdks/js/src/index.ts:1035,1083` 传入 TLS 选项，`sdks/js/src/tcp_transport.ts:185,247` 存下选项后仍走普通 TCP 拨号。
