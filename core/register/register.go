@@ -58,8 +58,13 @@ type Client struct {
 	cfg Config
 	log *slog.Logger
 
-	mu            sync.Mutex
-	conn          Conn
+	mu   sync.Mutex
+	conn Conn
+	// published 业务侧可见的连接快照（Conn/Connected 透出）：仅在注册确认
+	// （server ack）后发布，替换/注册失败/断线/Stop 时同步撤销。与 conn
+	// （重连/心跳循环的内部工作连接）分离——dial 成功但注册未确认的连接
+	// 不得暴露给任务事件/指标等扩展发送面（AUD-092）。
+	published     Conn
 	ownerInstance string // 最近注册响应中的集群实例 ID（心跳携带，三方对账）
 
 	startMu         sync.Mutex

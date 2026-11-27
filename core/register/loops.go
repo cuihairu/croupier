@@ -60,6 +60,9 @@ func (c *Client) DialAndRegister(ctx context.Context) error {
 	if old := c.current(); old != nil {
 		_ = old.Close()
 		c.setConn(nil)
+		// AUD-092：旧连接关闭即同步撤销业务侧可见快照——置换窗口内业务
+		// 侧看到 not-ready，而不是指向已关闭连接的过期 ready。
+		c.clearPublishedIf(old)
 	}
 	conn, err := c.cfg.Dial(ctx)
 	if err != nil {
@@ -67,6 +70,8 @@ func (c *Client) DialAndRegister(ctx context.Context) error {
 		return err
 	}
 	c.setConn(conn)
+	// AUD-092：此处只落内部工作连接（重连/心跳循环用），不发布业务侧可见
+	// 快照——业务侧的连接与就绪状态待注册确认后由 registerOnce 发布。
 	// ARCH-022：注册调用也应用 requestTimeout 边界（与 SyncAttempts 一致），
 	// 避免无注册响应时 Register 永久阻塞重连/心跳路径；调用方 deadline 更早
 	// 时以调用方为准（registerCtx 取较早者）。Dial 本身沿用调用方预算。
@@ -76,6 +81,9 @@ func (c *Client) DialAndRegister(ctx context.Context) error {
 	if err != nil {
 		_ = conn.Close()
 		c.setConn(nil)
+		// AUD-092：注册未确认，该连接不得留在业务侧可见快照（正常路径
+		// registerOnce 失败不会发布，此处为代际守卫下的防御性撤销）。
+		c.clearPublishedIf(conn)
 		return errors.Join(errors.New("register after connect"), err)
 	}
 	return nil

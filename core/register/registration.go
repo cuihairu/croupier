@@ -23,7 +23,8 @@ func New(cfg Config) *Client {
 	return client
 }
 
-// registerOnce 组装 payload 并注册；成功记录 ownerInstance、透出 server 侧
+// registerOnce 组装 payload 并注册；成功记录 ownerInstance、把确认连接发布
+// 为业务侧可见快照（AUD-092：发布只发生在 server ack 之后）、透出 server 侧
 // 注册告警（否则 agent 以为注册成功而函数实际不可用），并触发 OnConnected。
 func (c *Client) registerOnce(ctx context.Context) error {
 	req, err := c.cfg.Payload(ctx)
@@ -47,6 +48,9 @@ func (c *Client) registerOnce(ctx context.Context) error {
 		c.log.Warn("upstream register reported warnings", "agent_id", c.cfg.AgentID, "warnings", ws)
 	}
 	c.log.Info("synced with upstream server")
+	// AUD-092：注册确认（server ack）后才发布业务侧可见连接——发布先于
+	// OnConnected，回调里业务侧已能观察到 ready 状态与已确认连接。
+	c.publishRegistered(conn)
 	if c.cfg.OnConnected != nil {
 		c.cfg.OnConnected()
 	}
@@ -107,15 +111,17 @@ func (c *Client) Sync(ctx context.Context) error {
 	return c.SyncAttempts(ctx, 3)
 }
 
-// Conn 返回当前连接快照（业务侧扩展发送用：任务事件/指标等）。
-// 无连接时返回 nil。
+// Conn 返回业务侧可见的连接快照（业务侧扩展发送用：任务事件/指标等）。
+// 仅在注册确认（server ack）后发布，替换/注册失败/断线/Stop 时同步撤销；
+// 未确认（拨号成功但注册未返回）或已撤销时返回 nil。
 func (c *Client) Conn() Conn {
-	return c.current()
+	return c.publishedConn()
 }
 
-// Connected 当下是否持有存活连接。
+// Connected 当下业务侧是否处于注册确认且存活的 ready 状态。重连窗口内
+// （旧连接已撤销、新连接尚未 ack）恒为 false，不残留过期 ready。
 func (c *Client) Connected() bool {
-	conn := c.current()
+	conn := c.publishedConn()
 	return conn != nil && conn.Connected()
 }
 
@@ -129,12 +135,14 @@ func (c *Client) OwnerInstance() string {
 	return c.ownerInstance
 }
 
-// SetConn 注入当前连接（测试与高级装配用；正常路径经 Dial 建立，重连会覆盖）。
-// 传 nil 等价断开。
+// SetConn 注入当前连接（测试与高级装配用；正常路径经 Dial 建立，重连会
+// 覆盖）。注入即视为已确认会话，同时落业务侧可见快照（注入面无注册握手
+// 可等）；传 nil 等价断开（工作连接与业务侧可见快照一并撤销）。
 func (c *Client) SetConn(conn Conn) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.conn = conn
+	c.published = conn
 }
 
 // SetOwnerInstance 直接记录集群实例 ID（测试用；正常路径来自注册响应）。
@@ -178,6 +186,9 @@ func (c *Client) Stop() {
 		}
 		c.lifecycleWG.Wait()
 		c.setConn(nil)
+		// AUD-092：停机即撤销业务侧可见快照（在 lifecycleWG.Wait 之后，
+		// 覆盖在飞注册刚确认发布的残尾）。
+		c.clearPublished()
 	})
 }
 
@@ -205,6 +216,38 @@ func (c *Client) setOwnerInstance(v string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.ownerInstance = v
+}
+
+// publishedConn 返回业务侧可见连接快照（加锁读；仅注册确认后非 nil）。
+func (c *Client) publishedConn() Conn {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.published
+}
+
+// publishRegistered 把注册确认的连接发布为业务侧可见快照（仅 registerOnce
+// 成功后与 SetConn 注入面调用）。
+func (c *Client) publishRegistered(conn Conn) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.published = conn
+}
+
+// clearPublishedIf 撤销业务侧可见快照——仅当仍指向 target（代际守卫：
+// 旧代的失败/关闭不得撤销新代已确认的发布）。
+func (c *Client) clearPublishedIf(target Conn) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.published == target {
+		c.published = nil
+	}
+}
+
+// clearPublished 无条件撤销业务侧可见快照（Stop 收尾用）。
+func (c *Client) clearPublished() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.published = nil
 }
 
 // sleepBackoff 等待退避时长或 ctx 取消（core/backoff.Sleep 转发）。
