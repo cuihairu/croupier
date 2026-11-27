@@ -2378,9 +2378,13 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
 
 本轮沿定时调度派发与 task 事件读取、迁移 bootstrap、Agent 注册与配置同步、自托管发布、iOS 构建门禁、管理员缓存追踪生产装配路径。最小 Go 探针复现派发失败计数停滞、迁移 baseline 未继承 deadline、单连接迁移超时、迁移解锁超出调用预算且隐藏错误、注册前连接暴露、停止后连接复活、配置版本回退和任务事件续读漏项。部署环境变量使用临时目录验证。其余证据为源码复核，未执行现场部署、真实数据库迁移或 iOS 构建。
 
-- [ ] **AUD-086 · P1 · 修复 · 将已确定的调度派发失败计入死信阈值**
+- [x] **AUD-086 · P1 · 修复 · 将已确定的调度派发失败计入死信阈值**
   - 依赖：ARCH-023。交付与验收：派发明确失败时记录一次失败并推进计数，在阈值达到后停止派发，后续明确成功可重置连续失败计数。保留未知派发结果的既有处置语义。证据：`internal/tasks/scheduler/manager.go:331,416,425` 在无 run ID 的错误路径将原计数写回。定向测试在阈值为 2 时观察到 3 次派发且计数始终为 0。
-  - 状态／条件：未开始。
+  - 状态／条件：已完成，LOCAL VERIFIED（`204fdadd3` — `fix: count definite dispatch failures toward dead letter`；`internal/tasks/scheduler/manager.go` +8、`internal/tasks/scheduler/aud086_test.go` 新 195 行）。`triggerSchedule` 中 `StartTask` 返回 err 且无 run ID 的确定失败分支现在 `failures++` 后再由 `advanceWith` 落库；明确成功仍由派发前回查 `LastRunID` 终态清零，未知结果（租约过期 indeterminate、终态未落）保持不计失败的既有语义。根因除旧计数回写外还有失败时 `last_run_id` 清空，致下一轮终态回查永不推进计数、阈值永不触发；本修复确保计数真正推进至死信阈值。
+  - 测试：`go build ./internal/tasks/...`、`go vet ./internal/tasks/scheduler/` 均通过；`go test ./internal/tasks/... -count=1` 两个包全绿（scheduler 49 顶层测试，含 3 个新用例 5 叶子）。新增用例覆盖阈值 2 只派发 2 次后 dead_letter 且不再派发、失败→run 未终态不清零→终态 succeeded 清零、非终态与 indeterminate 不计数不重派发。
+  - 变异自证：将 `failures++` 替换为 `_ = failures`（恢复旧计数回写）→ AUD-086 用例红（`TestManager_AUD086_DefiniteSuccessResetsFailureCount` 等失败），恢复增量后全部 PASS、scheduler 包绿；文件 MUTATION 标记计数 0、`gofmt -l` 空。
+  - 完成证据：`204fdadd3` 提交清单 `internal/tasks/scheduler/manager.go` 与 `internal/tasks/scheduler/aud086_test.go`（`git show --stat` 核对），已推 origin/main；本席独立复跑 build/vet/test 与变异红→绿。
+  - 已知边界：死信发生在计数达阈值的下一到期触发（阈值判定仍为既有派发前网关，达限 tick 本身已派发）；`LastRunStatus` 存储错误路径与 `err == nil && resp == nil` 边缘未测且语义未改；dispatch 失败路径清空 `last_run_id` 为既有行为，可能丢失上一待定运行的终态，未在本项范围内修改。
 
 - [ ] **AUD-087 · P1 · 修复 · 从调度任务所属游戏库回读上一次运行终态**
   - 依赖：—。交付与验收：根据 schedule 的 game/env 路由运行状态查询，将找不到记录、运行未终结和查库失败区分开。用 meta 与两个 game 库验收，各 scope 的失败和成功只影响本 schedule。证据：`internal/svc/service_context.go:313` 以 meta 连接构造调度模型，`internal/model/task_schedule_model.go:239` 直接查该连接，`internal/model/migration.go:202` 将 TaskRun 列为 game 模型，`internal/tasks/scheduler/manager.go:333` 忽略查库错误。
