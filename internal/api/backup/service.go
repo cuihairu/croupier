@@ -75,27 +75,30 @@ func (s *Service) List(ctx context.Context, req *BackupsListRequest) (*BackupsLi
 	if s.svcCtx == nil || s.svcCtx.BackupModel == nil {
 		return nil, errors.New("备份模型未初始化")
 	}
-	// AUD-082 read-side convergence: pending rows older than the maximum run
-	// budget can no longer be in flight (the runner died or the row was created
-	// while no executor existed); they are flipped to failed here so they surface
-	// as failed with a reason instead of pending forever.
-	if err := s.convergeOrphanPendingRows(ctx); err != nil {
-		return nil, err
-	}
 	if req == nil {
 		req = &BackupsListRequest{}
 	}
-	if items, ok, err := s.loadBackupsFromExtensionInstallation(ctx); err != nil {
+	// AUD-083: the database backup row is the single record source of truth. The
+	// legacy extension-mirror snapshot (config key "backups" of the
+	// official.backup-advanced installation, written by the pre-AUD-083
+	// dual-write) is migrated into the database here: a one-way, idempotent import
+	// that runs before anything is read, so historical mirror entries survive the
+	// cutover without any second read path. The mirror must never override the
+	// database state, so the import only ever inserts rows whose id has no live
+	// database row yet and drains those entries from the snapshot afterwards
+	// (deleting an imported row can therefore never resurrect it).
+	if err := s.importLegacyMirrorBackups(ctx); err != nil {
 		return nil, err
-	} else if ok {
-		filtered := filterBackupsByType(items, strings.TrimSpace(req.Type))
-		paged, total := paginateBackups(filtered, req.Page, req.PageSize)
-		return &BackupsListResponse{
-			Items: paged,
-			Total: int64(total),
-			Page:  normalizedPage(req.Page),
-			Size:  normalizedPageSize(req.PageSize),
-		}, nil
+	}
+	// AUD-082 read-side convergence: pending rows older than the maximum run
+	// budget can no longer be in flight (the runner died or the row was created
+	// while no executor existed); they are flipped to failed here so they surface
+	// as failed with a reason instead of pending forever. The convergence runs
+	// after the legacy import, so imported rows get the same treatment in the
+	// same read; the mirror itself is no longer converged (AUD-083: it is a
+	// write-side legacy artifact, not a status source).
+	if err := s.convergeOrphanPendingRows(ctx); err != nil {
+		return nil, err
 	}
 	opts := model.ListBackupsOptions{
 		PaginationOptions: model.NewPagination(req.Page, req.PageSize),
@@ -200,7 +203,10 @@ func (s *Service) Create(ctx context.Context, req *BackupCreateRequest) (*Backup
 		}
 		return nil, err
 	}
-	_ = s.upsertBackupToExtension(ctx, buildBackupDTO(backup))
+	// AUD-083: no mirror write here anymore. The pending row lives in the
+	// database only and the async executor below advances that same row, so the
+	// status the caller later reads back is the status the executor wrote. (The
+	// legacy extension mirror is migrated on read by importLegacyMirrorBackups.)
 	_ = s.recordBackupEvent(ctx, "backups_create", "backup created",
 		fmt.Sprintf(`{"backup_id":"%s","type":"%s"}`, backup.BackupID, backup.Type),
 	)
@@ -319,10 +325,11 @@ func (s *Service) convergeZombiePending(ctx context.Context, existing *model.Bac
 // failed with the reason text. Rows that may still be in flight (created within
 // the grace window) are never touched.
 //
-// AUD-083 seam: the executor updates the database rows while List still prefers
-// the extension-mirror snapshot; until that source of truth is unified, the mirror
-// is converged here as well so a forever-pending entry cannot survive in either
-// store. When AUD-083 lands, the mirror half of this function can be retired.
+// AUD-083: this now covers every pending database row regardless of origin —
+// legacy bug rows, crash orphans and entries imported from the extension mirror
+// by importLegacyMirrorBackups (which runs before this convergence on each list).
+// The former mirror-side convergence half is retired: the mirror is no longer a
+// status source, and the database convergence subsumes its migrated rows.
 func (s *Service) convergeOrphanPendingRows(ctx context.Context) error {
 	if s == nil || s.svcCtx == nil || s.svcCtx.BackupModel == nil || s.svcCtx.DB == nil {
 		return nil
@@ -340,36 +347,108 @@ func (s *Service) convergeOrphanPendingRows(ctx context.Context) error {
 		}).Error; err != nil {
 		return err
 	}
-	return s.convergeOrphanPendingInExtension(ctx)
+	return nil
 }
 
-// convergeOrphanPendingInExtension converges the orphaned pending entries of the
-// extension-mirror snapshot (see convergeOrphanPendingRows). Entries without a
-// parseable RFC3339 createdAt are left untouched: an unprovable orphan must not
-// be failed by a heuristic.
-func (s *Service) convergeOrphanPendingInExtension(ctx context.Context) error {
+// importLegacyMirrorBackups performs the AUD-083 one-way migration of the legacy
+// extension-mirror snapshot (config key "backups" of the official.backup-advanced
+// installation) into the database. Before AUD-083, List preferred that snapshot
+// while the executor advanced database rows, so the two stores disagreed forever.
+// The database row is now the single source of truth, and this migration is the
+// documented compatibility story for existing mirror-only history:
+//
+//   - a mirror entry whose id has no database row is imported as a new row,
+//     preserving name/type/size/status/errorMessage and the RFC3339 createdAt;
+//   - a mirror entry whose id already has a live database row is redundant (the
+//     row is authoritative — the executor never updated the mirror), so the stale
+//     mirror copy is drained;
+//   - every migrated entry is removed from the snapshot in the same pass (the
+//     config is rewritten without it), which makes the import idempotent: after a
+//     successful pass the snapshot no longer feeds the import loop, and deleting
+//     an imported row can never resurrect it from a leftover mirror copy. The
+//     other config keys and the secret refs are preserved (see
+//     saveBackupsToExtensionInstallation);
+//   - entries without a usable id cannot be addressed by any API (delete/download
+//     key on the id) and stay in the snapshot untouched — a documented boundary;
+//   - imported pending entries keep the pending status and follow the AUD-082
+//     age-based convergence: entries older than the grace window flip to failed
+//     on this very list (the convergence runs right after the import), fresh ones
+//     stay pending until the window passes and converge on a later read. An
+//     unparseable/absent createdAt imports with the import time and behaves the
+//     same way — an unprovable orphan is not failed by a heuristic.
+//
+// Import and drain errors are returned, not swallowed, so an underlying database
+// or extension-config failure surfaces to the caller instead of silently leaving
+// the migration half-done. A backup_id unique-index conflict from a concurrent
+// import/create racing the same id is treated as already migrated.
+func (s *Service) importLegacyMirrorBackups(ctx context.Context) error {
 	items, ok, err := s.loadBackupsFromExtensionInstallation(ctx)
 	if err != nil || !ok || len(items) == 0 {
 		return err
 	}
-	cutoff := time.Now().UTC().Add(-backupOrphanPendingGrace)
+	remaining := make([]Backup, 0, len(items))
 	changed := false
 	for i := range items {
-		if !strings.EqualFold(strings.TrimSpace(items[i].Status), backupStatusPending) {
+		id := strings.TrimSpace(items[i].Id)
+		if id == "" {
+			remaining = append(remaining, items[i])
 			continue
 		}
-		created, perr := time.Parse(time.RFC3339, strings.TrimSpace(items[i].CreatedAt))
-		if perr != nil || created.IsZero() || created.After(cutoff) {
+		if _, ferr := s.svcCtx.BackupModel.FindByBackupID(ctx, id); ferr == nil {
+			// A live database row owns this id: drain the stale mirror copy.
+			changed = true
 			continue
+		} else if !errors.Is(ferr, gorm.ErrRecordNotFound) {
+			return ferr
 		}
-		items[i].Status = backupStatusFailed
-		items[i].ErrorMessage = backupOrphanPendingMessage
+		if err := s.svcCtx.BackupModel.Create(ctx, mirrorEntryToRow(&items[i])); err != nil {
+			if isBackupIDConflict(err) {
+				changed = true
+				continue
+			}
+			return err
+		}
 		changed = true
 	}
 	if !changed {
 		return nil
 	}
-	return s.saveBackupsToExtensionInstallation(ctx, items)
+	return s.saveBackupsToExtensionInstallation(ctx, remaining)
+}
+
+// mirrorEntryToRow maps a legacy extension-mirror entry onto a database backup
+// row for the one-way import.
+func mirrorEntryToRow(entry *Backup) *model.Backup {
+	row := &model.Backup{
+		BackupID:     strings.TrimSpace(entry.Id),
+		Name:         strings.TrimSpace(entry.Name),
+		Size:         entry.Size,
+		Type:         strings.ToLower(strings.TrimSpace(entry.Type)),
+		Status:       strings.TrimSpace(entry.Status),
+		ErrorMessage: entry.ErrorMessage,
+	}
+	if row.Name == "" {
+		row.Name = row.BackupID
+	}
+	if created, err := time.Parse(time.RFC3339, strings.TrimSpace(entry.CreatedAt)); err == nil && !created.IsZero() {
+		// Bind in local wall-clock shape: the sqlite driver stores/compares
+		// timestamps as offset-bearing text, and an imported UTC ("Z") literal
+		// never compares correctly against the AUD-082 convergence cutoff built
+		// from time.Now() (same reason as the cutoff binding in
+		// convergeOrphanPendingRows). Without .Local() a just-imported fresh
+		// entry would be mis-flipped to failed on the very first list.
+		row.CreatedAt = created.Local()
+	}
+	return row
+}
+
+// isBackupIDConflict recognizes backup_id unique-index conflicts raised by the
+// legacy-mirror import when a concurrent import/create inserted the same id
+// first; the loser treats the row as already migrated instead of failing the
+// list (same dialect shape as isIdempotencyConflict: all three dialects carry
+// the column/constraint name in the error text).
+func isBackupIDConflict(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "backup_id")
 }
 
 // isOrphanPending reports whether the row is a pending record that can no longer
@@ -403,7 +482,10 @@ func (s *Service) Delete(ctx context.Context, req *BackupDeleteRequest) error {
 	if err := s.svcCtx.BackupModel.DeleteByBackupID(ctx, backupID); err != nil {
 		return err
 	}
-	_ = s.removeBackupFromExtension(ctx, backupID)
+	// AUD-083: no mirror cleanup here anymore. The one-way import drains migrated
+	// entries from the extension snapshot and new records never enter it, so the
+	// snapshot cannot resurrect a deleted row (the delete identity comes from the
+	// database row, which the 404 above already proved existed).
 	_ = s.recordBackupEvent(ctx, "backups_delete", "backup deleted",
 		fmt.Sprintf(`{"backup_id":"%s"}`, backupID),
 	)
@@ -595,7 +677,14 @@ func (s *Service) saveBackupsToExtensionInstallation(ctx context.Context, items 
 	if len(bytes.TrimSpace(item.ConfigJSON)) > 0 {
 		_ = json.Unmarshal(item.ConfigJSON, &config)
 	}
-	config[backupRecordsKey] = items
+	// AUD-083: an empty rewrite means the legacy snapshot fully drained into the
+	// database — drop the key instead of leaving an empty array behind, so the
+	// import fast-path skips the installation entirely on later reads.
+	if len(items) == 0 {
+		delete(config, backupRecordsKey)
+	} else {
+		config[backupRecordsKey] = items
+	}
 	secretRefs := map[string]string{}
 	if len(bytes.TrimSpace(item.SecretRefsJSON)) > 0 {
 		_ = json.Unmarshal(item.SecretRefsJSON, &secretRefs)
@@ -607,85 +696,7 @@ func (s *Service) saveBackupsToExtensionInstallation(ctx context.Context, items 
 	return s.svcCtx.Extensions.Installation.UpdateConfig(ctx, item.ID, config, secretRefs, operator)
 }
 
-func (s *Service) upsertBackupToExtension(ctx context.Context, current Backup) error {
-	if strings.TrimSpace(current.Id) == "" {
-		return nil
-	}
-	items, _, err := s.loadBackupsFromExtensionInstallation(ctx)
-	if err != nil {
-		return err
-	}
-	id := strings.TrimSpace(current.Id)
-	for i := range items {
-		if strings.TrimSpace(items[i].Id) == id {
-			items[i] = current
-			return s.saveBackupsToExtensionInstallation(ctx, items)
-		}
-	}
-	items = append(items, current)
-	return s.saveBackupsToExtensionInstallation(ctx, items)
-}
-
-func (s *Service) removeBackupFromExtension(ctx context.Context, backupID string) error {
-	id := strings.TrimSpace(backupID)
-	if id == "" {
-		return nil
-	}
-	items, ok, err := s.loadBackupsFromExtensionInstallation(ctx)
-	if err != nil {
-		return err
-	}
-	if !ok || len(items) == 0 {
-		return nil
-	}
-	filtered := make([]Backup, 0, len(items))
-	for _, item := range items {
-		if strings.TrimSpace(item.Id) == id {
-			continue
-		}
-		filtered = append(filtered, item)
-	}
-	return s.saveBackupsToExtensionInstallation(ctx, filtered)
-}
-
-func filterBackupsByType(items []Backup, backupType string) []Backup {
-	if backupType == "" {
-		return items
-	}
-	out := make([]Backup, 0, len(items))
-	for _, item := range items {
-		if strings.EqualFold(strings.TrimSpace(item.Type), backupType) {
-			out = append(out, item)
-		}
-	}
-	return out
-}
-
-func paginateBackups(items []Backup, page, size int) ([]Backup, int) {
-	total := len(items)
-	page = normalizedPage(page)
-	size = normalizedPageSize(size)
-	start := (page - 1) * size
-	if start >= total {
-		return []Backup{}, total
-	}
-	end := start + size
-	if end > total {
-		end = total
-	}
-	return items[start:end], total
-}
-
-func normalizedPage(page int) int {
-	if page <= 0 {
-		return 1
-	}
-	return page
-}
-
-func normalizedPageSize(size int) int {
-	if size <= 0 {
-		return 20
-	}
-	return size
-}
+// AUD-083 note: the former mirror-maintenance helpers (upsert/remove on create
+// and delete) and the mirror-only filter/pagination helpers were removed with
+// the dual-write; list paging/filtering now goes through BackupModel.List
+// (model.NewPagination normalizes page/pageSize for the response).

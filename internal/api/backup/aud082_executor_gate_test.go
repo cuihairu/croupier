@@ -145,9 +145,12 @@ func TestAud082_LegacyPendingConvergedOnList(t *testing.T) {
 	assert.Equal(t, "pending", inFlight.Status)
 }
 
-// (c2) the extension-mirror snapshot converges too (AUD-083 seam: until the record
-// source of truth is unified, a forever-pending entry must not survive in either
-// store), persisted, while fresh entries stay pending.
+// (c2) legacy mirror-only pending entries: AUD-083 migrated the mirror into the
+// database on list (one-way import, then the snapshot is drained), and the AUD-082
+// database convergence runs right after the import, so an old forever-pending
+// mirror entry surfaces as failed in the very same read while a fresh entry stays
+// pending. Persistence lives in the database rows now — the mirror convergence
+// half (AUD-083 seam) was retired.
 func TestAud082_LegacyPendingConvergedInExtensionMirror(t *testing.T) {
 	env := setupBackupFlowEnv(t)
 	ctx := env.authCtx(t)
@@ -181,16 +184,20 @@ func TestAud082_LegacyPendingConvergedInExtensionMirror(t *testing.T) {
 	assert.NotEmpty(t, byID["aud082-ext-legacy"].ErrorMessage)
 	assert.Equal(t, "pending", byID["aud082-ext-fresh"].Status)
 
-	// Persisted in the mirror snapshot, not just rewritten in the response.
+	// The convergence is persisted on the imported database rows, not just in the
+	// response (the mirror snapshot itself was drained by the migration).
+	converged, err := env.svcCtx.BackupModel.FindByBackupID(ctx, "aud082-ext-legacy")
+	require.NoError(t, err)
+	assert.Equal(t, "failed", converged.Status)
+	assert.Contains(t, converged.ErrorMessage, "重新创建")
+	inFlight, err := env.svcCtx.BackupModel.FindByBackupID(ctx, "aud082-ext-fresh")
+	require.NoError(t, err)
+	assert.Equal(t, "pending", inFlight.Status)
+
 	items, ok, err := env.service.loadBackupsFromExtensionInstallation(ctx)
 	require.NoError(t, err)
-	require.True(t, ok)
-	for _, item := range items {
-		if item.Id == "aud082-ext-legacy" {
-			assert.Equal(t, "failed", item.Status)
-			assert.NotEmpty(t, item.ErrorMessage)
-		}
-	}
+	require.False(t, ok, "迁移完成后镜像快照必须被清空")
+	require.Empty(t, items)
 }
 
 // (c3) a zombie pending hit on the idempotency dedupe path converges and the retry

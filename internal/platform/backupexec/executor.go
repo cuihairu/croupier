@@ -105,7 +105,12 @@ func (e *Executor) RunBackup(ctx context.Context, backupID, name, backupType str
 
 	dumpPath, size, checksum, derr := e.dump(ctx, backupID)
 	if derr != nil {
-		e.finish(ctx, backup, "failed", "", 0, "", derr.Error())
+		// AUD-083: the record write is part of the observable result. If even the
+		// failed-status write fails, the row would silently stay pending — return
+		// both causes so the caller's event/audit path records the real failure.
+		if uerr := e.finish(ctx, backup, "failed", "", 0, "", derr.Error()); uerr != nil {
+			return fmt.Errorf("%w (record update also failed: %v)", derr, uerr)
+		}
 		return derr
 	}
 	defer func() { _ = os.Remove(dumpPath) }()
@@ -120,21 +125,37 @@ func (e *Executor) RunBackup(ctx context.Context, backupID, name, backupType str
 	}
 	f, err := open(dumpPath)
 	if err != nil {
-		e.finish(ctx, backup, "failed", "", 0, "", err.Error())
+		if uerr := e.finish(ctx, backup, "failed", "", 0, "", err.Error()); uerr != nil {
+			return fmt.Errorf("%w (record update also failed: %v)", err, uerr)
+		}
 		return err
 	}
 	defer func() { _ = f.Close() }()
 	if err := e.store.Put(ctx, key, f, size, "application/octet-stream"); err != nil {
-		e.finish(ctx, backup, "failed", "", 0, "", err.Error())
+		if uerr := e.finish(ctx, backup, "failed", "", 0, "", err.Error()); uerr != nil {
+			return fmt.Errorf("%w (record update also failed: %v)", err, uerr)
+		}
 		return err
 	}
 
-	e.finish(ctx, backup, "succeeded", key, size, checksum, "")
+	// AUD-083: a dump+upload that succeeded but whose record update failed must
+	// not report success — the row would stay pending with no in-flight runner,
+	// and the caller would record a backups_run_succeeded event for a backup the
+	// record says never finished. The error surfaces to the caller (the create
+	// path records backups_run_failed; the scheduler logs it).
+	if ferr := e.finish(ctx, backup, "succeeded", key, size, checksum, ""); ferr != nil {
+		return ferr
+	}
 	slog.Info("backupexec: backup succeeded", "backupID", backupID, "size", size, "key", key)
 	return nil
 }
 
-func (e *Executor) finish(ctx context.Context, b *model.Backup, status, location string, size int64, checksum, errMsg string) {
+// finish writes the terminal status of the run onto the database backup row —
+// the single record source of truth (AUD-083). The write error is returned (and
+// logged): before AUD-083 it was only logged, so a failed status write left the
+// row pending forever while a failed succeeded-write still looked like success
+// to the caller.
+func (e *Executor) finish(ctx context.Context, b *model.Backup, status, location string, size int64, checksum, errMsg string) error {
 	now := time.Now().UTC()
 	updates := map[string]interface{}{
 		"status":   status,
@@ -150,7 +171,9 @@ func (e *Executor) finish(ctx context.Context, b *model.Backup, status, location
 	}
 	if err := e.backups.UpdateByBackupID(ctx, b.BackupID, updates); err != nil {
 		slog.Warn("backupexec: update backup record failed", "backupID", b.BackupID, "error", err)
+		return fmt.Errorf("update backup record %s: %w", b.BackupID, err)
 	}
+	return nil
 }
 
 // dump 导出数据库到临时文件，返回（路径, 大小, sha256, 错误）。

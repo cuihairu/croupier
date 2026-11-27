@@ -203,6 +203,9 @@ func TestService_List_FromDatabase(t *testing.T) {
 	assert.Equal(t, int64(3), resp.Total)
 }
 
+// AUD-083: the extension mirror no longer shadows the database rows. Mirror
+// entries are migrated into the database (one-way import) and listed from the
+// same source as every other record.
 func TestService_List_FromExtensionInstallation(t *testing.T) {
 	env := setupBackupFlowEnv(t)
 	ctx := env.authCtx(t)
@@ -213,25 +216,41 @@ func TestService_List_FromExtensionInstallation(t *testing.T) {
 	}
 	installBackupAdvancedExtension(t, env, map[string]any{"backups": records})
 
-	// DB rows should be ignored when the extension records exist.
+	// DB rows are never ignored: both sources end up in the one database-backed list.
 	createBackupRow(t, env, &model.Backup{BackupID: "db-1", Name: "db-one", Type: "full"})
 
 	resp, err := env.service.List(ctx, &BackupsListRequest{})
 	require.NoError(t, err)
-	assert.Equal(t, int64(2), resp.Total)
-	require.Len(t, resp.Items, 2)
-	assert.Equal(t, "ext-1", resp.Items[0].Id)
+	assert.Equal(t, int64(3), resp.Total)
+	require.Len(t, resp.Items, 3)
 
-	resp, err = env.service.List(ctx, &BackupsListRequest{Type: "INCREMENTAL"})
+	// The mirror entries were imported as database rows.
+	for _, id := range []string{"ext-1", "ext-2", "db-1"} {
+		_, err := env.svcCtx.BackupModel.FindByBackupID(ctx, id)
+		require.NoError(t, err, "镜像记录 %s 必须落库", id)
+	}
+
+	// Type filtering now goes through BackupModel.List (exact match, lowercase
+	// canonical values: the import normalizes mirror types to lowercase).
+	resp, err = env.service.List(ctx, &BackupsListRequest{Type: "incremental"})
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), resp.Total)
 	assert.Equal(t, "ext-2", resp.Items[0].Id)
 
 	resp, err = env.service.List(ctx, &BackupsListRequest{Page: 2, PageSize: 1})
 	require.NoError(t, err)
-	assert.Equal(t, int64(2), resp.Total)
+	assert.Equal(t, int64(3), resp.Total)
 	require.Len(t, resp.Items, 1)
-	assert.Equal(t, "ext-2", resp.Items[0].Id)
+
+	// The import is idempotent and drained: a second list neither duplicates nor
+	// re-reads the mirror.
+	resp, err = env.service.List(ctx, &BackupsListRequest{})
+	require.NoError(t, err)
+	assert.Equal(t, int64(3), resp.Total)
+	items, ok, err := env.service.loadBackupsFromExtensionInstallation(ctx)
+	require.NoError(t, err)
+	require.False(t, ok, "迁移完成后镜像快照必须被清空")
+	require.Empty(t, items)
 }
 
 func TestService_List_ExtensionWithoutRecordsFallsBackToDB(t *testing.T) {
@@ -319,6 +338,9 @@ func TestService_Create_Success(t *testing.T) {
 	assert.Equal(t, "weekly", found.Name)
 }
 
+// AUD-083: creation no longer mirrors into the extension config. The database
+// row is the only record written, and the list reads it back from the database
+// even when the extension is installed.
 func TestService_Create_SyncsExtensionRecords(t *testing.T) {
 	env := setupBackupFlowEnv(t)
 	ctx := env.authCtx(t)
@@ -338,21 +360,23 @@ func TestService_Create_SyncsExtensionRecords(t *testing.T) {
 	assert.Contains(t, ids, first.Id)
 	assert.Contains(t, ids, second.Id)
 
-	// Upserting an existing id updates in place instead of appending.
-	updated := first.Backup
-	updated.Name = "first-renamed"
-	require.NoError(t, env.service.upsertBackupToExtension(ctx, updated))
+	// No mirror entries were written for the new records (the dual write is gone).
+	items, ok, err := env.service.loadBackupsFromExtensionInstallation(ctx)
+	require.NoError(t, err)
+	require.False(t, ok, "创建不得再写入扩展镜像")
+	require.Empty(t, items)
 
+	// The executor advanced the database row, and the same status is what a
+	// later list reports (single source of truth end to end).
+	waitBackupStatus(t, env, first.Id, "succeeded")
 	resp, err = env.service.List(ctx, &BackupsListRequest{})
 	require.NoError(t, err)
 	require.Len(t, resp.Items, 2)
-	var renamed bool
 	for _, item := range resp.Items {
-		if item.Id == first.Id && item.Name == "first-renamed" {
-			renamed = true
+		if item.Id == first.Id {
+			assert.Equal(t, "succeeded", item.Status)
 		}
 	}
-	assert.True(t, renamed)
 }
 
 func TestService_Create_DatabaseError(t *testing.T) {
@@ -368,11 +392,9 @@ func TestService_Create_DatabaseError(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestUpsertBackupToExtension_EmptyID(t *testing.T) {
-	env := setupBackupFlowEnv(t)
-	installBackupAdvancedExtension(t, env, map[string]any{})
-	require.NoError(t, env.service.upsertBackupToExtension(context.Background(), Backup{Name: "no-id"}))
-}
+// AUD-083: the mirror upsert/remove helpers were removed with the dual write;
+// their error paths are covered by TestSaveBackupsToExtensionInstallation_UpdateConfigError
+// (the surviving drain write used by the legacy import).
 
 // ---------------------------------------------------------------------------
 // Service: Delete
@@ -390,22 +412,38 @@ func TestService_Delete_Success(t *testing.T) {
 	require.Error(t, err)
 }
 
+// AUD-083: delete keys on the database row. A mirror entry that was already
+// imported stays deleted — the import drained it, so no leftover mirror copy can
+// resurrect the row on a later list.
 func TestService_Delete_RemovesExtensionRecord(t *testing.T) {
 	env := setupBackupFlowEnv(t)
 	ctx := env.authCtx(t)
 
 	installBackupAdvancedExtension(t, env, map[string]any{"backups": []Backup{
-		{Id: "ext-keep", Type: "full"},
-		{Id: "ext-drop", Type: "full"},
+		{Id: "ext-keep", Name: "keep", Type: "full"},
+		{Id: "ext-drop", Name: "drop", Type: "full"},
 	}})
 
-	createBackupRow(t, env, &model.Backup{BackupID: "ext-drop", Name: "drop", Type: "full"})
+	// First list migrates both entries into the database and drains the snapshot.
+	resp, err := env.service.List(ctx, &BackupsListRequest{})
+	require.NoError(t, err)
+	assert.Equal(t, int64(2), resp.Total)
+
 	require.NoError(t, env.service.Delete(ctx, &BackupDeleteRequest{ID: "ext-drop"}))
 
-	resp, err := env.service.List(ctx, &BackupsListRequest{})
+	_, err = env.svcCtx.BackupModel.FindByBackupID(ctx, "ext-drop")
+	require.Error(t, err, "删除必须移除数据库行")
+
+	resp, err = env.service.List(ctx, &BackupsListRequest{})
 	require.NoError(t, err)
 	require.Len(t, resp.Items, 1)
 	assert.Equal(t, "ext-keep", resp.Items[0].Id)
+	assert.Equal(t, int64(1), resp.Total)
+
+	items, ok, err := env.service.loadBackupsFromExtensionInstallation(ctx)
+	require.NoError(t, err)
+	require.False(t, ok, "镜像快照必须保持清空，已删记录不得复活")
+	require.Empty(t, items)
 }
 
 func TestService_Delete_EmptyID(t *testing.T) {
@@ -441,18 +479,26 @@ func TestService_Delete_DatabaseError(t *testing.T) {
 	require.Error(t, err)
 }
 
+// AUD-083: the mirror no longer has a remove path (delete keys on the database
+// row). An installation with no records leaves the list a pure database
+// pass-through; entries that cannot be migrated stay put (covered by
+// TestAud083_LegacyMirrorOnlyEntriesMigrateOnce).
 func TestRemoveBackupFromExtension_NoRecords(t *testing.T) {
 	env := setupBackupFlowEnv(t)
+	ctx := env.authCtx(t)
 
 	// No installation at all.
-	require.NoError(t, env.service.removeBackupFromExtension(context.Background(), "bkp-x"))
+	listed, err := env.service.List(ctx, &BackupsListRequest{})
+	require.NoError(t, err)
+	assert.Equal(t, int64(0), listed.Total)
 
-	// Installation without records.
+	// Installation without records -> pure database pass-through.
 	installBackupAdvancedExtension(t, env, map[string]any{})
-	require.NoError(t, env.service.removeBackupFromExtension(context.Background(), "bkp-x"))
-
-	// Empty id short-circuits.
-	require.NoError(t, env.service.removeBackupFromExtension(context.Background(), "  "))
+	createBackupRow(t, env, &model.Backup{BackupID: "bkp-x", Name: "x", Type: "full"})
+	listed, err = env.service.List(ctx, &BackupsListRequest{})
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), listed.Total)
+	assert.Equal(t, "bkp-x", listed.Items[0].Id)
 }
 
 // ---------------------------------------------------------------------------

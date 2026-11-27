@@ -1,7 +1,8 @@
 // Coverage targets: the executor supported branch and default branch, Create's async
-// RunBackup success/failure events, Delete's DeleteByBackupID error, resolveBackupPath's
-// Abs failure, findActiveBackupInstallation's List error, saveBackups's UpdateConfig
-// error, and upsert/remove's extension record loading errors.
+// RunBackup success/failure events, Delete's DeleteByBackupID error,
+// findActiveBackupInstallation's List error, and saveBackups's UpdateConfig
+// error (AUD-083: the mirror upsert/remove helpers were removed with the dual
+// write; the surviving saveBackups call is the legacy-import drain write).
 package backup
 
 import (
@@ -186,22 +187,6 @@ func corruptActiveInstallationConfig(t *testing.T, env *backupFlowEnv) {
 	item := installBackupAdvancedExtension(t, env, map[string]any{})
 	require.NoError(t, env.db.Exec("UPDATE extension_installations SET config_json = ? WHERE id = ?",
 		`{invalid-json`, item.ID).Error)
-}
-
-func TestUpsertBackupToExtension_LoadError(t *testing.T) {
-	env := newExecTestEnv(t, "", "", nil)
-	corruptActiveInstallationConfig(t, env)
-
-	err := env.service.upsertBackupToExtension(context.Background(), Backup{Id: "bkp-x", Name: "n"})
-	require.Error(t, err)
-}
-
-func TestRemoveBackupFromExtension_LoadError(t *testing.T) {
-	env := newExecTestEnv(t, "", "", nil)
-	corruptActiveInstallationConfig(t, env)
-
-	err := env.service.removeBackupFromExtension(context.Background(), "bkp-x")
-	require.Error(t, err)
 }
 
 func TestSaveBackupsToExtensionInstallation_UpdateConfigError(t *testing.T) {

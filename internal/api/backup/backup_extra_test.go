@@ -36,31 +36,9 @@ func TestService_Download_NilModel(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestNormalizedPage(t *testing.T) {
-	assert.Equal(t, 1, normalizedPage(0))
-	assert.Equal(t, 1, normalizedPage(-1))
-	assert.Equal(t, 1, normalizedPage(1))
-	assert.Equal(t, 10, normalizedPage(10))
-}
-
-func TestNormalizedPageSize(t *testing.T) {
-	assert.Equal(t, 20, normalizedPageSize(0))
-	assert.Equal(t, 20, normalizedPageSize(-1))
-	assert.Equal(t, 1000, normalizedPageSize(1000)) // no upper clamp by design
-	assert.Equal(t, 10, normalizedPageSize(10))
-}
-
-func TestFilterBackupsByType(t *testing.T) {
-	backups := []Backup{
-		{Type: "database"},
-		{Type: "config"},
-		{Type: "database"},
-	}
-	filtered := filterBackupsByType(backups, "database")
-	assert.Len(t, filtered, 2)
-	filtered = filterBackupsByType(backups, "")
-	assert.Len(t, filtered, 3)
-}
+// AUD-083: the mirror-only filter/pagination/normalization helpers were removed
+// with the mirror-priority list; paging/filtering is covered through
+// TestService_List_FromDatabase against BackupModel.List (model.NewPagination).
 
 func TestBuildBackupDTO(t *testing.T) {
 	record := &model.Backup{
@@ -87,24 +65,6 @@ func TestBuildBackupList(t *testing.T) {
 	require.Len(t, list, 2)
 	assert.Equal(t, "1", list[0].Id)
 	assert.Equal(t, "2", list[1].Id)
-}
-
-func TestPaginateBackups(t *testing.T) {
-	backups := make([]Backup, 25)
-	for i := range backups {
-		backups[i] = Backup{Id: string(rune('A' + i))}
-	}
-	paged, total := paginateBackups(backups, 1, 10)
-	assert.Len(t, paged, 10)
-	assert.Equal(t, 25, total)
-
-	paged, total = paginateBackups(backups, 3, 10)
-	assert.Len(t, paged, 5)
-	assert.Equal(t, 25, total)
-
-	paged, total = paginateBackups(backups, 10, 10)
-	assert.Len(t, paged, 0)
-	assert.Equal(t, 25, total)
 }
 
 func TestTryRemoteDownload(t *testing.T) {
