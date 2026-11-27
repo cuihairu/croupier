@@ -28,6 +28,9 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.zip.GZIPOutputStream;
@@ -57,10 +60,21 @@ public class CroupierClientImpl implements CroupierClient {
         new java.util.concurrent.atomic.AtomicLong(0);
 
     private volatile TransportClient transport;
-    private String sessionId = "";
+    private volatile String sessionId = "";
     private volatile boolean stopHeartbeat;
     private Thread heartbeatThread;
     private final Invoker invoker;
+
+    // AUD-071 生命周期互斥：connect 的 transport 发布与 stop/close 的清理
+    // 在同一把锁内串行——此前 stop 只清理"已发布"的连接，握手在途时停机，
+    // 迟到的建连结果会把已停机客户端复活（transport 重挂、connected 置真、
+    // 心跳/manifest 后台动作照常启动）。
+    private final ReentrantLock lifecycleLock = new ReentrantLock();
+    // 停机代际：stop()/close() 递增。建连/重连握手开工前捕获代际，
+    // 发布点发现代际变化即拒绝迟到结果并释放 transport。
+    private final AtomicLong lifecycleEpoch = new AtomicLong();
+    // 单飞握手：并发 connect 共用同一次有效握手，不做重复拨号。
+    private final AtomicReference<CompletableFuture<Void>> inFlightConnect = new AtomicReference<>();
 
     public CroupierClientImpl(ClientConfig config) {
         this(config, createTransportFactory(config));
@@ -114,9 +128,36 @@ public class CroupierClientImpl implements CroupierClient {
             return CompletableFuture.completedFuture(null);
         }
 
-        return CompletableFuture.runAsync(() -> {
+        // AUD-071 单飞（single-flight）：并发 connect 共用同一次有效握手；
+        // 握手在途时 stop/close 使该 future 异常完结，迟到结果在
+        // publishConnection 的代际检查处被拒绝，不再复活客户端。
+        while (true) {
+            CompletableFuture<Void> existing = inFlightConnect.get();
+            if (existing == null) {
+                CompletableFuture<Void> attempt = new CompletableFuture<>();
+                if (inFlightConnect.compareAndSet(null, attempt)) {
+                    startConnectAttempt(attempt);
+                    return attempt;
+                }
+                continue; // 丢坑失败：重读并加入胜者的握手
+            }
+            if (!existing.isDone()) {
+                return existing;
+            }
+            // 已完结（失败/被拒）的占位 future 不得再交给新调用方
+            inFlightConnect.compareAndSet(existing, null);
+        }
+    }
+
+    /** 执行一次建连握手，结果写入 attempt；成败后让出单飞坑位。 */
+    private void startConnectAttempt(CompletableFuture<Void> attempt) {
+        final long capturedEpoch = lifecycleEpoch.get();
+        CompletableFuture.runAsync(() -> {
             TransportClient nextTransport = null;
             try {
+                if (lifecycleEpoch.get() != capturedEpoch) {
+                    throw new CroupierException("Client stopped during connect");
+                }
                 logger.info("Connecting to Croupier Agent: {}", config.getAgentAddr());
 
                 if (handlers.isEmpty()) {
@@ -133,17 +174,13 @@ public class CroupierClientImpl implements CroupierClient {
                     throw new CroupierException("ProviderConnect returned empty session_id");
                 }
 
-                if (transport != null) {
-                    transport.close();
+                if (!publishConnection(nextTransport, response.sessionId, capturedEpoch)) {
+                    // stop/close 与握手并发：候选 transport 已在发布点关闭，
+                    // 不发布、不置 connected、不启动心跳/manifest 后台动作。
+                    nextTransport = null;
+                    throw new CroupierException("Client stopped during connect");
                 }
-                transport = nextTransport;
-                sessionId = response.sessionId;
-                // 首连也必须挂入站 listener（Agent→Provider 调用）——此前仅
-                // 重连路径挂载，首连客户端对所有 agent 主动调用无响应。
-                attachInboundListener(nextTransport);
-                connected.set(true);
-                startHeartbeatLoop();
-
+                nextTransport = null; // ownership transferred to this client
                 logger.info("Successfully connected");
 
                 // F/审查发现 #2：控制面 manifest 上传 fire-and-forget——
@@ -151,16 +188,56 @@ public class CroupierClientImpl implements CroupierClient {
                 Thread capabilitiesThread = new Thread(this::maybeRegisterCapabilities);
                 capabilitiesThread.setDaemon(true);
                 capabilitiesThread.start();
+                attempt.complete(null);
             } catch (Exception e) {
-                connected.set(false);
-                sessionId = "";
                 if (nextTransport != null) {
                     nextTransport.close();
                 }
                 logger.error("Connection failed", e);
-                throw wrapAsyncFailure("Connection failed", e);
+                attempt.completeExceptionally(wrapAsyncFailure("Connection failed", e));
+            } finally {
+                // 占位 future 已反映本次尝试结果，让出单飞坑位供后续 connect 使用
+                inFlightConnect.compareAndSet(attempt, null);
             }
         });
+    }
+
+    /**
+     * AUD-071：transport/connected/心跳的唯一发布点。持锁校验代际并发布，
+     * stop/close 持同一把锁递增代际并清理——"回包已到、transport 未发布"
+     * 的窗口不再存在。
+     *
+     * @return true 表示连接已归属 client；false 表示代际已失效，
+     *         候选 transport 已关闭、生命周期状态未被改动
+     */
+    private boolean publishConnection(TransportClient candidate, String newSessionId, long capturedEpoch) {
+        lifecycleLock.lock();
+        try {
+            if (lifecycleEpoch.get() != capturedEpoch) {
+                candidate.close();
+                return false;
+            }
+            TransportClient old = transport;
+            transport = candidate;
+            sessionId = newSessionId;
+            // 首连也必须挂入站 listener（Agent→Provider 调用）——此前仅
+            // 重连路径挂载，首连客户端对所有 agent 主动调用无响应。
+            attachInboundListener(candidate);
+            connected.set(true);
+            if (old != null) {
+                old.close();
+            }
+            startHeartbeatLoop();
+            return true;
+        } catch (Exception e) {
+            logger.error("Failed to publish connection", e);
+            candidate.close();
+            connected.set(false);
+            sessionId = "";
+            return false;
+        } finally {
+            lifecycleLock.unlock();
+        }
     }
 
     @Override
@@ -205,11 +282,26 @@ public class CroupierClientImpl implements CroupierClient {
 
     @Override
     public void stop() {
-        serving.set(false);
-        connected.set(false);
-        sessionId = "";
-        stopHeartbeatLoop();
-        closeTransport();
+        // AUD-071：代际递增 + 状态清理 + 在途握手取消全部在锁内完成。
+        // 握手回包晚于 stop 时，publishConnection 会看到代际已变并释放候选 transport。
+        lifecycleLock.lock();
+        try {
+            lifecycleEpoch.incrementAndGet();
+            serving.set(false);
+            connected.set(false);
+            sessionId = "";
+            CompletableFuture<Void> pending = inFlightConnect.getAndSet(null);
+            if (pending != null) {
+                // 中止在途握手：等待方立即得到异常；拨号线程稍后回包时，
+                // publishConnection 的代际检查会拒绝并释放迟到 transport。
+                pending.completeExceptionally(new CompletionException(
+                    new CroupierException("Client stopped during connect")));
+            }
+            stopHeartbeatLoop();
+            closeTransport();
+        } finally {
+            lifecycleLock.unlock();
+        }
 
         logger.info("Stopping Croupier client...");
         logger.info("Client stopped successfully");
@@ -466,6 +558,7 @@ public class CroupierClientImpl implements CroupierClient {
 
         Thread recoveryThread = new Thread(() -> {
             try {
+                final long recoveryEpoch = lifecycleEpoch.get();
                 stopHeartbeatLoop();
                 closeTransport();
                 sessionId = "";
@@ -490,8 +583,20 @@ public class CroupierClientImpl implements CroupierClient {
                     logger.info("Reconnection attempt {}...", attempt);
                     try {
                         reconnectOnce();
-                        connected.set(true);
-                        startHeartbeatLoop();
+                        // AUD-071：重连 transport 已在 reconnectOnce 的锁内发布，
+                        // 但 stop/close 可能紧随其后——持锁复核代际，避免
+                        // "已停机客户端被恢复线程重新置 connected / 重启心跳"。
+                        lifecycleLock.lock();
+                        try {
+                            if (lifecycleEpoch.get() != recoveryEpoch) {
+                                logger.warn("Client stopped during reconnection; discarding recovered session");
+                                return;
+                            }
+                            connected.set(true);
+                            startHeartbeatLoop();
+                        } finally {
+                            lifecycleLock.unlock();
+                        }
                         logger.info("Reconnected successfully after {} attempts", attempt);
                         return;
                     } catch (Exception e) {
@@ -530,6 +635,9 @@ public class CroupierClientImpl implements CroupierClient {
             throw new CroupierException("No functions registered");
         }
 
+        // AUD-071：与 connect 相同的代际守卫——stop/close 与重连握手并发时，
+        // 迟到的重连结果不得复活客户端。
+        final long capturedEpoch = lifecycleEpoch.get();
         TransportClient nextTransport = transportFactory.apply(
             config.getAgentAddr(),
             config.getTimeoutSeconds() * 1000
@@ -542,10 +650,19 @@ public class CroupierClientImpl implements CroupierClient {
                 throw new CroupierException("ProviderConnect returned empty session_id");
             }
 
-            TransportClient old = transport;
-            transport = nextTransport;
-            sessionId = response.sessionId;
-            attachInboundListener(nextTransport);
+            TransportClient old;
+            lifecycleLock.lock();
+            try {
+                if (lifecycleEpoch.get() != capturedEpoch) {
+                    throw new CroupierException("Client stopped during reconnect");
+                }
+                old = transport;
+                transport = nextTransport;
+                sessionId = response.sessionId;
+                attachInboundListener(nextTransport);
+            } finally {
+                lifecycleLock.unlock();
+            }
             if (old != null) {
                 old.close();
             }
