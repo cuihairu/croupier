@@ -509,13 +509,13 @@
   - 依赖：GAME-007。交付与验收：实现已批准的 TargetRef 解析并供页面/审批/任务/审计复用；同角色 ID 多区服、账号多角色、合服旧引用明确解析，歧义拒绝，不以 gameId/env 或主机代替业务区服
   - 状态／条件：BLOCKED（2026-11-01 复核）：需 GAME-007 方案批准后实施 + 接入方身份映射样本；缺方案批准/身份映射样本。
 
-- [ ] **GAME-009 · P0 · 方案决策 · 评审高风险操作凭据与未知结果协议**
+- [x] **GAME-009 · P0 · 方案决策 · 评审高风险操作凭据与未知结果协议**
   - 依赖：GAME-001。交付与验收：复用 high-risk-operation-contract-design，决定稳定 operationId、参数/目标指纹、批准快照、游戏持久去重与收据查询职责；明确响应丢失后先查凭据及重试/取消/补偿边界，不重建与 taskId/page idempotency 重复的系统
-  - 状态／条件：**方案已落，待用户拍板**（2026-11-22，commit b814280c0，LOCAL VERIFIED）：评审文档 `docs/design/high-risk-operation-protocol-review.md`（中文镜像 `docs/zh/design/high-risk-operation-protocol-review.md`）——风险面 6 项（响应丢失重复发放/未知误判/平台幂等≠游戏 exactly-once/取消谎称回滚/参数漂移/无凭据伪造成功）+ 5 项决策方案 D1–D5（operationId=`gameId:env:domain:UUIDv7` 复合编码、专用 `business_operation_credentials` 表、SDK `GameOperationResult` 信封+durableIdempotency 能力声明、未知 60s×10 自动查询+重试上限 8 且不补发、取消强制游戏确认）+ 备选对比表 + 验收映射 + GAME-010 范围（平台侧）/边界（游戏侧待真实环境）。**待用户拍板后才可实现 GAME-010**。验证：`go test ./internal/... -count=1` 全绿（含 AUD-036/037 提交）；`cd docs && CI=true pnpm build` 通过。
+  - 状态／条件：LOCAL VERIFIED（方案 b814280c0 于 2026-11-22；**用户 2026-11-27 批准 D1–D5 原案**）：评审文档 `docs/design/high-risk-operation-protocol-review.md`（中文镜像同步，批准记录见其 §6）——风险面 6 项 + 决策 D1–D5（operationId=`gameId:env:domain:UUIDv7` 复合编码、专用 `business_operation_credentials` 表、SDK `GameOperationResult` 信封+durableIdempotency 能力声明、未知 60s×10 自动查询+重试上限 8 且不补发、取消强制游戏确认）+ 备选对比 + 验收映射。GAME-010 平台侧已按批准实现（见下条）。
 
-- [ ] **GAME-010 · P0 · 实现 · 游戏持久执行凭据与未知结果收敛**
+- [x] **GAME-010 · P0 · 实现 · 游戏持久执行凭据与未知结果收敛**
   - 依赖：GAME-009, GAME-008。交付与验收：按批准协议贯通游戏适配器、执行结果和凭据查询；同 operationId 改参数拒绝、响应丢失/服务重启不重复发奖、未知结果可查询收敛；取消不谎称回滚，补偿引用原凭据
-  - 状态／条件：BLOCKED（2026-11-01 复核）：需游戏方持久去重/查询实现与受控写环境；Go demo 的内存记录不能替代。缺游戏方实现/受控写环境。
+  - 状态／条件：LOCAL VERIFIED（2026-11-27 平台侧全部交付，切片 commit `2ae38cc86`/`cfca4c5df`/`9f7fdaacc`/`403014a24`/`a861efe30`）：D1/D2 operationId 复合标识 + `business_operation_credentials` 唯一凭据（迁移 0069，0070 补参数快照）；D3 `x-durable-idempotency` 能力声明（OpenAPI 导入 + SDK 描述符双路径，高危未声明 fail-closed，broadcast 拒绝）+ Go SDK `GameOperationResult` 信封便捷构造 + 调用链 operationId 透传；D4 自动收敛循环（查询 60s×10、同 operationId+同快照重试 1s→60s 封顶 ×8、耗尽告警、unknown 绝不改写）；D5 游戏确认取消（只接受 `canceled`/`cancel_failed`、`cancel_failed` 保留原结果、终态拒取消）+ 运维端点 `GET/POST /ops/business-operations/:operationId(/cancel)`。线上契约 `docs/architecture/sdk-wire-protocol.md`「Durable operation envelope」。验证：`go build ./...` + `go test ./internal/...` exit 0；`sdks/go` 两包全绿（信封/声明/透传 8 用例 + 4 组 mutation 自测全红）；`buf lint proto`；`cd docs && CI=true pnpm build`；dashboard guard PASSED。已知边界（诚实）：游戏侧持久去重存储与真实环境端到端验收仍以 GAME-002/GAME-008 + 真实接入环境为门禁（Go demo 内存/state-file 不替代）；凭据保留期未定（当前无限期，180 天方案待确认）；函数契约目录尚未透出能力面；其余语言 SDK 未随附信封构造。
 
 - [ ] **GAME-011 · P1 · 方案决策 · 评审批量运营冻结与预算恢复规则**
   - 依赖：GAME-009。交付与验收：复用 batch-operations-compensation-design，评审名单快照、预演人数/预算、审批后变化处理、单位/倍率、速率并发、失败阈值、暂停恢复和逐对象凭据；冻结后的对象/金额变更重新审批
