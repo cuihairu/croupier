@@ -12,6 +12,12 @@ type revRow struct {
 	revenue uint64
 	refunds uint64
 	failed  uint64
+	// version is the durable progress version for DATA-021 rows (a Redis INCR
+	// counter on the cumulative progress hash, seeded above legacy wall-clock
+	// versions). Zero means "no durable version" — the row is either an
+	// in-memory-only increment from a hand-built Worker or legacy state; the
+	// flush falls back to the wall-clock version for it.
+	version uint64
 }
 
 // otelEventAliases maps the dotted OTel semantic event names emitted by the
@@ -279,7 +285,17 @@ func (w *Worker) flush(ctx context.Context) error {
 		}
 		day, game, env := sp[0], sp[1], sp[2]
 		d, _ := time.Parse("2006-01-02", day)
-		ver := uint64(time.Now().Unix())
+		// DATA-021: the snapshot row is a cumulative total, not an increment.
+		// Its durable version (Redis INCR, strictly monotonic per revKey
+		// across workers and seeded above legacy wall-clock versions) makes
+		// rewriting it idempotent under ReplacingMergeTree FINAL — the same
+		// total can be flushed twice (crash between Send and marker clear)
+		// without ever double counting. Versionless rows keep the legacy
+		// wall-clock version.
+		ver := rv.version
+		if ver == 0 {
+			ver = uint64(time.Now().Unix())
+		}
 		batch, err := w.ch.PrepareBatch(ctx, "INSERT INTO analytics.daily_revenue (d, game_id, env, revenue_cents, refunds_cents, failed, version)")
 		if err != nil {
 			slog.Warn("ch daily_revenue", "err", err)
@@ -295,6 +311,16 @@ func (w *Worker) flush(ctx context.Context) error {
 			slog.Warn("daily_revenue send", "err", err)
 			w.remergeRev(rk, rv)
 			continue
+		}
+		// The cumulative row is durable: drop the revenue flush obligation.
+		// If a payment advanced the same revKey while the row was being
+		// written, commitRevenueDurable has already re-marked it and refreshed
+		// revAgg (its map entry exists again) — keep both.
+		w.aggMu.Lock()
+		_, readvanced := w.revAgg[rk]
+		w.aggMu.Unlock()
+		if !readvanced {
+			w.clearRevenueProgress(ctx, rk)
 		}
 	}
 	return nil
@@ -323,15 +349,25 @@ func (w *Worker) remergeTouchedDay(k string) {
 	w.touchedDays[k] = struct{}{}
 }
 
-// remergeRev merges a daily_revenue increment whose flush failed back into the shared
-// map; if the writer already rebuilt the same key, the values are accumulated (not
-// overwritten), so failed retries lose no increments.
+// remergeRev merges a daily_revenue snapshot whose flush failed back into the
+// shared map. For legacy increment rows (versionless) the values are
+// accumulated (not overwritten), so failed retries lose no increments.
+// DATA-021 rows are cumulative totals, not increments — adding them would
+// double count — so between two versioned rows the higher version is the
+// newer truth and replaces wholesale, and a stale snapshot whose total is
+// already contained in the newer one is dropped.
 func (w *Worker) remergeRev(k string, rv *revRow) {
 	w.aggMu.Lock()
 	defer w.aggMu.Unlock()
 	cur := w.revAgg[k]
 	if cur == nil {
 		w.revAgg[k] = rv
+		return
+	}
+	if rv.version > 0 && cur.version > 0 {
+		if rv.version > cur.version {
+			w.revAgg[k] = rv
+		}
 		return
 	}
 	cur.revenue += rv.revenue

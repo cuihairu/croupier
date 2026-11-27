@@ -110,7 +110,18 @@ func (w *Worker) flushPaymentBatchLocked(ctx context.Context) error {
 		delete(w.paymentData, ref.id)
 		delete(w.holdFails, holdKey(ref.stream, ref.id))
 	}
-	w.commitRevenue(acks)
+	// DATA-021: advance the durable cumulative revenue progress BEFORE the
+	// ACK. On Redis failure the advance returns an error, the messages stay
+	// pending and reclaim redelivers them; the per-message seen markers make
+	// the retry skip anything the failed round never advanced, so the
+	// cumulative total cannot double count. The tradeoff is that a redelivery
+	// re-appends the payments detail row — a visible, recoverable duplication
+	// in analytics.payments, the same exposure the crash window between Send
+	// and ackSent already had. Corrupting daily_revenue is strictly worse.
+	if err := w.commitRevenueDurable(ctx, acks); err != nil {
+		slog.Warn("durable revenue commit failed; leaving messages pending for reclaim", "n", len(acks), "err", err)
+		return err
+	}
 	w.ackSent(ctx, acks)
 	return nil
 }

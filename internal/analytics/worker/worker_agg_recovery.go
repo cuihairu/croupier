@@ -13,12 +13,14 @@ import (
 // Marker prefixes tag the durable aggregate bookkeeping set members so a
 // worker restart can tell which Redis HLL buckets still owe a flushed
 // aggregate row, and which of those need their HLL re-derived from the
-// persisted raw events (DATA-020).
+// persisted raw events (DATA-020). The revenue prefix (DATA-021) marks a
+// revKey whose cumulative progress still owes a daily_revenue flush.
 const (
 	aggDirtyMinutePrefix   = "m:"
 	aggDirtyDayPrefix      = "d:"
 	aggRebuildMinutePrefix = "rm:"
 	aggRebuildDayPrefix    = "rd:"
+	aggDirtyRevenuePrefix  = "r:"
 )
 
 // aggRedis is the Redis command surface used by the aggregation durability

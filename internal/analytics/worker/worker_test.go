@@ -131,6 +131,8 @@ func testWorker(t *testing.T) (*Worker, *miniredis.Miniredis) {
 		aggDirtySet:        "analytics:agg:dirty",
 		aggRebuildSet:      "analytics:agg:rebuild",
 		aggRdb:             rdb,
+		revProgressSet:     "analytics:rev:progress",
+		revProgressSeenTTL: revProgressSeenDefaultTTL,
 	}
 	return w, mr
 }
@@ -159,6 +161,8 @@ func testWorkerOn(t *testing.T, mr *miniredis.Miniredis) *Worker {
 		aggDirtySet:        "analytics:agg:dirty",
 		aggRebuildSet:      "analytics:agg:rebuild",
 		aggRdb:             rdb,
+		revProgressSet:     "analytics:rev:progress",
+		revProgressSeenTTL: revProgressSeenDefaultTTL,
 	}
 }
 

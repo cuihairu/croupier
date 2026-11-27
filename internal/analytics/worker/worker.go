@@ -127,6 +127,15 @@ type Worker struct {
 	aggDirtySet   string
 	aggRebuildSet string
 	aggRdb        aggRedis
+	// revenue durability (DATA-021): revProgressSet is a Redis hash of
+	// cumulative per-revKey counters (<revKey>:rev/:ref/:fail plus a :ver
+	// version). The Lua script advances the totals and writes a bounded
+	// per-message seen marker before the payment message is ACKed, so a crash
+	// between payment Send+XACK and the daily_revenue insert leaves the owed
+	// cumulative total in Redis for the next worker to restore and write.
+	// revProgressSeenTTL bounds the seen-marker lifetime.
+	revProgressSet     string
+	revProgressSeenTTL time.Duration
 	// dead letter handling
 	deadEventsStream   string
 	deadPaymentsStream string
@@ -205,6 +214,8 @@ func NewWorker() (*Worker, error) {
 		aggDirtySet:        envOrDefault("ANALYTICS_AGG_DIRTY_SET", "analytics:agg:dirty"),
 		aggRebuildSet:      envOrDefault("ANALYTICS_AGG_REBUILD_SET", "analytics:agg:rebuild"),
 		aggRdb:             rdb,
+		revProgressSet:     envOrDefault("ANALYTICS_REV_PROGRESS_SET", "analytics:rev:progress"),
+		revProgressSeenTTL: revProgressSeenDefaultTTL,
 		deadEventsStream:   deadEvents,
 		deadPaymentsStream: deadPayments,
 	}, nil
@@ -273,6 +284,10 @@ func (w *Worker) ensureGroups(ctx context.Context) {
 		slog.Info("stream group created", "stream", stream, "group", w.group, "start", pos)
 	}
 	w.restoreAggDirty(ctx)
+	// DATA-021: reload owed cumulative revenue progress into revAgg so the
+	// next flush writes the owed totals after a crash between payment
+	// Send+XACK and the daily_revenue insert.
+	w.restoreAggRevenue(ctx)
 }
 
 // groupExists reports whether the consumer group already exists on the
