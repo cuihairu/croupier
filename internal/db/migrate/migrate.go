@@ -18,6 +18,7 @@ package migrate
 import (
 	"context"
 	"database/sql"
+	"database/sql/driver"
 	"embed"
 	"errors"
 	"fmt"
@@ -72,6 +73,13 @@ func dialectOf(gormDialect string) string {
 // finish its own migration pass before failing startup.
 const sessionLockDeadline = 60 * time.Second
 
+// sessionLockCleanupBudget bounds one session-lock release attempt. The unlock
+// runs under its own budget, independent of the (possibly cancelled/expired)
+// migration context, but must never be allowed to outlive the migration pass it
+// serves: AUD-098 observed an unbounded MySQL cleanup (RELEASE_LOCK) still
+// running after the original migration call budget had expired.
+const sessionLockCleanupBudget = 5 * time.Second
+
 const mysqlMigrationLockName = "croupier_schema_migration"
 
 // Application-lock resource name for SQL Server (sp_getapplock).
@@ -87,12 +95,14 @@ const (
 
 // acquireSessionLock takes a cross-process lock bound to a dedicated pooled
 // connection. The returned release func must be called when migration work is
-// done. SQLite returns a no-op release because it is single-writer.
-func acquireSessionLock(ctx context.Context, sqlDB *sql.DB, gooseDialect string) (func(), error) {
+// done; it returns the unlock error so callers can join it with the original
+// migration error instead of silently swallowing it (AUD-098).
+// SQLite returns a no-op release because it is single-writer.
+func acquireSessionLock(ctx context.Context, sqlDB *sql.DB, gooseDialect string) (func() error, error) {
 	switch gooseDialect {
 	case "mysql", "postgres", "mssql":
 	default:
-		return func() {}, nil
+		return func() error { return nil }, nil
 	}
 
 	conn, err := sqlDB.Conn(ctx)
@@ -126,20 +136,61 @@ func acquireSessionLock(ctx context.Context, sqlDB *sql.DB, gooseDialect string)
 		}
 	}
 
-	release := func() {
-		switch gooseDialect {
-		case "mysql":
-			_, _ = conn.ExecContext(context.Background(), "SELECT RELEASE_LOCK(?)", mysqlMigrationLockName)
-		case "postgres":
-			query := fmt.Sprintf("SELECT pg_advisory_unlock(%d, %d)", pgAdvisoryLockKey1, pgAdvisoryLockKey2)
-			_, _ = conn.ExecContext(context.Background(), query)
-		case "mssql":
-			query := fmt.Sprintf("EXEC sp_releaseapplock @Resource = N'%s', @LockOwner = 'Session'", sqlServerMigrationLockName)
-			_, _ = conn.ExecContext(context.Background(), query)
-		}
-		_ = conn.Close()
+	release := func() error {
+		return releaseSessionLock(conn, gooseDialect, sessionLockCleanupBudget)
 	}
 	return release, nil
+}
+
+// discardConn poisons the underlying driver connection so database/sql closes
+// it for good instead of returning it to the idle pool: putConn treats
+// driver.ErrBadConn as "don't reuse" (it closes the driver connection and
+// never touches freeConn). This Raw-with-ErrBadConn trick is the only
+// discard mechanism the database/sql abstraction exposes. The logical Close
+// afterwards is a no-op safety net (Raw's release path already closed the
+// logical conn), so its ErrConnDone error is deliberately ignored.
+func discardConn(conn *sql.Conn) {
+	_ = conn.Raw(func(any) error { return driver.ErrBadConn })
+	_ = conn.Close()
+}
+
+// releaseSessionLock runs the dialect-specific unlock statement under a fresh
+// context bounded by budget — its own cleanup budget, never the migration ctx:
+// cancellation there must not stop the unlock from being attempted, while the
+// budget prevents a slow/unresponsive server from holding up cleanup
+// indefinitely (the AUD-098 MySQL double-probe leak). The budget is a
+// parameter so tests can shrink it below sessionLockCleanupBudget. The
+// dialect is already filtered to mysql/postgres/mssql by acquireSessionLock,
+// mirroring tryAcquireLock.
+//
+// Error classification boundary: database/sql does not let us distinguish a
+// connection-level failure from a SQL-level unlock failure, so every unlock
+// error is treated as "release unconfirmed" and the physical connection that
+// owns the possibly-still-held lock is discarded rather than pooled. The
+// worst case for a non-connection-level error is one healthy connection
+// dropped and re-dialled on demand — the conservative side of the trade.
+func releaseSessionLock(conn *sql.Conn, gooseDialect string, budget time.Duration) error {
+	cleanupCtx, cancel := context.WithTimeout(context.Background(), budget)
+	defer cancel()
+
+	var unlockErr error
+	switch gooseDialect {
+	case "mysql":
+		_, unlockErr = conn.ExecContext(cleanupCtx, "SELECT RELEASE_LOCK(?)", mysqlMigrationLockName)
+	case "postgres":
+		query := fmt.Sprintf("SELECT pg_advisory_unlock(%d, %d)", pgAdvisoryLockKey1, pgAdvisoryLockKey2)
+		_, unlockErr = conn.ExecContext(cleanupCtx, query)
+	case "mssql":
+		query := fmt.Sprintf("EXEC sp_releaseapplock @Resource = N'%s', @LockOwner = 'Session'", sqlServerMigrationLockName)
+		_, unlockErr = conn.ExecContext(cleanupCtx, query)
+	}
+	if unlockErr == nil {
+		// Unlock confirmed on the owning connection; the physical connection
+		// is clean, so conn.Close hands it back to the pool as before.
+		return conn.Close()
+	}
+	discardConn(conn)
+	return fmt.Errorf("migrate: release session lock: %w", unlockErr)
 }
 
 // tryAcquireLock performs one dialect-specific non-blocking lock acquisition on
@@ -202,7 +253,7 @@ func EnsureUpToDate(ctx context.Context, db *gorm.DB, scope Scope, baseline func
 	return ensureUpToDate(ctx, db, sub, scope, baseline)
 }
 
-func ensureUpToDate(ctx context.Context, db *gorm.DB, fsys fs.FS, scope Scope, baseline func(*gorm.DB) error) (int64, error) {
+func ensureUpToDate(ctx context.Context, db *gorm.DB, fsys fs.FS, scope Scope, baseline func(*gorm.DB) error) (version int64, err error) {
 	sqlDB, err := db.DB()
 	if err != nil {
 		return 0, fmt.Errorf("migrate: unwrap sql.DB: %w", err)
@@ -223,7 +274,13 @@ func ensureUpToDate(ctx context.Context, db *gorm.DB, fsys fs.FS, scope Scope, b
 	if err != nil {
 		return 0, err
 	}
-	defer release()
+	defer func() {
+		// AUD-098: surface unlock failures without replacing the migration
+		// error — when the release itself fails both survive in the result.
+		if unlockErr := release(); unlockErr != nil {
+			err = errors.Join(err, unlockErr)
+		}
+	}()
 
 	hasVersions, err := versionTableExists(ctx, sqlDB, gooseDialect)
 	if err != nil {
