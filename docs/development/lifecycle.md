@@ -50,7 +50,7 @@ This page inventories four aspects of this repo's development lifecycle (branchi
 
 ### The Rest
 
-- Analytics E2E (`ci-analytics.yml:39`), Mobile (`ci-mobile.yml:24`, release APK manual only `:48-49`), docs checks (`docs-check.yml:49`/`:53` link and term guards; `:60` architecture-asset and todo DAG guard, ARCH-020).
+- Analytics E2E (`ci-analytics.yml:39`), Mobile (`ci-mobile.yml:24`, release APK manual dispatch only `:92`; AUD-085 signature split — default dispatch produces the debug-signed rehearsal artifact `croupier-mobile-rehearsal-debugsigned-apk`, non-rehearsal requires the managed keystore secrets and yields `croupier-mobile-release-apk`; an unflagged local release build without the keystore fails fast in `mobile/android/app/build.gradle.kts`), docs checks (`docs-check.yml:49`/`:53` link and term guards; `:60` architecture-asset and todo DAG guard, ARCH-020).
 - **Local gates**: pre-commit hooks run BOM and gofmt checks (`scripts/git-hooks/pre-commit:29-43`, one section each); `make test-changed` is a local selective-testing tool, while CI gates stay full (`repository-guidelines.md:71`).
 
 ### Gaps (pre-release gates)

@@ -50,7 +50,7 @@ title: 开发周期与发布说明
 
 ### 其余
 
-- Analytics E2E（`ci-analytics.yml:39`）、Mobile（`ci-mobile.yml:24`，release APK 仅手动 `:48-49`）、文档检查（`docs-check.yml:49`/`:53` 链接与术语守卫；`:60` 架构资产与 todo DAG 守卫，ARCH-020）。
+- Analytics E2E（`ci-analytics.yml:39`）、Mobile（`ci-mobile.yml:24`，release APK 仅手动 dispatch `:92`；AUD-085 签名分离——默认 dispatch 产出 debug 签名演练包 `croupier-mobile-rehearsal-debugsigned-apk`，非演练需受管 keystore secrets 产出 `croupier-mobile-release-apk`；本地无 keystore 且未标演练的 release 构建在 `mobile/android/app/build.gradle.kts` 快速失败）、文档检查（`docs-check.yml:49`/`:53` 链接与术语守卫；`:60` 架构资产与 todo DAG 守卫，ARCH-020）。
 - **本地门禁**：pre-commit 钩子做 BOM 与 gofmt 检查（`scripts/git-hooks/pre-commit:29-43`，BOM 循环与 gofmt 各一段）；`make test-changed` 是本地选择性测试工具，CI 门禁保持全量（`repository-guidelines.md:71`）。
 
 ### 缺失项（发布前置门禁）
