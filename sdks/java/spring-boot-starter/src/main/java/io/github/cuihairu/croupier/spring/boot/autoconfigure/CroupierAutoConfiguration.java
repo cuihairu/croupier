@@ -60,6 +60,11 @@ public class CroupierAutoConfiguration {
         config.setCaFile(properties.getCaFile());
         config.setCertFile(properties.getCertFile());
         config.setKeyFile(properties.getKeyFile());
+        // AUD-107: the default TCP transport consumes these security settings
+        // directly from ClientConfig (TLS factory + peer-name verification
+        // when insecure=false), so the Spring entry must expose the same set.
+        config.setServerName(properties.getServerName());
+        config.setKeyStorePassword(properties.getKeyStorePassword());
         config.setProviderLang(properties.getProviderLang());
         config.setProviderSdk(properties.getProviderSdk());
 

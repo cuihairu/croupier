@@ -14,9 +14,17 @@ title: Java SDK Guide
 
 The Java SDK works best as a long-lived service component. Thread pools, timeouts, and retry policies should be controlled explicitly by the business side.
 
+## Security (TLS)
+
+With `insecure=false` (explicit security mode) the default TCP transport builds its TLS session from the PEM files on `ClientConfig` — `caFile` verifies the peer, `certFile` + `keyFile` enable mutual TLS, and `serverName` selects the certificate name to verify (falling back to the connection host when blank). The factory is used for the first connect and every reconnect; certificates are re-read per dial, so a missing or unreadable `caFile` fails that dial instead of silently downgrading to plaintext.
+
+- Mutual TLS requires `keyStorePassword` to protect the client key entry (C-011: no default password); configuring `certFile` + `keyFile` without it fails closed.
+- A wrong CA or a certificate that does not match `serverName` is rejected during the handshake — the client never registers over an unverified channel.
+- Development default stays plaintext: `insecure=true` keeps the original plain TCP transport.
+
 ## Spring Boot Starter
 
-`io.github.cuihairu.croupier:croupier-spring-boot-starter` exposes the same hand-written SDK as auto-configured beans. Connection settings live under the `croupier.*` property prefix (`game-id`, `service-id`, `agent-address`, `env`, `timeout-seconds`, `insecure`, `ca-file`, ...):
+`io.github.cuihairu.croupier:croupier-spring-boot-starter` exposes the same hand-written SDK as auto-configured beans. Connection settings live under the `croupier.*` property prefix (`game-id`, `service-id`, `agent-address`, `env`, `timeout-seconds`, `insecure`, `ca-file`, `cert-file`, `key-file`, `server-name`, `key-store-password`, ...):
 
 ```yaml
 croupier:
@@ -27,6 +35,12 @@ croupier:
   # sent as the reserved authToken metadata key on ProviderConnectRequest;
   # the agent verifies it and never persists it into session metadata.
   auth-token: Bearer my-token
+  # Explicit security mode: the default TCP transport uses the PEM TLS
+  # factory below plus peer-name verification; mutual TLS additionally
+  # requires key-store-password.
+  insecure: false
+  ca-file: /etc/croupier/ca.pem
+  server-name: agent.internal
 ```
 
 - Omitting `croupier.auth-token` leaves `ClientConfig.authToken` unset, and no `authToken` key is added to the handshake metadata.

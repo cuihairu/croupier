@@ -14,9 +14,17 @@ title: Java SDK 指南
 
 Java SDK 适合作为长驻服务组件使用；线程池、超时与重试策略应由业务方显式控制。
 
+## 安全（TLS）
+
+`insecure=false`（显式安全模式）下，默认 TCP transport 用 `ClientConfig` 上的 PEM 文件建立 TLS 会话——`caFile` 校验对端，`certFile` + `keyFile` 启用双向 TLS，`serverName` 指定待校验的证书名（为空时回退到连接主机）。该工厂用于首连与每次重连；每次拨号重读证书，`caFile` 缺失或不可读会让该次拨号失败，不会静默降级为明文。
+
+- 双向 TLS 需要 `keyStorePassword` 保护客户端私钥条目（C-011：无默认口令）；配置了 `certFile` + `keyFile` 而缺口令时 fail-closed。
+- 错误 CA 或与 `serverName` 不匹配的证书在握手期被拒绝——客户端绝不会在未校验的信道上注册。
+- 开发默认保持明文：`insecure=true` 维持原明文 TCP transport。
+
 ## Spring Boot Starter
 
-`io.github.cuihairu.croupier:croupier-spring-boot-starter` 把同一个手写 SDK 以自动装配 bean 的形式暴露出来。连接配置在 `croupier.*` 属性前缀下（`game-id`、`service-id`、`agent-address`、`env`、`timeout-seconds`、`insecure`、`ca-file` 等）：
+`io.github.cuihairu.croupier:croupier-spring-boot-starter` 把同一个手写 SDK 以自动装配 bean 的形式暴露出来。连接配置在 `croupier.*` 属性前缀下（`game-id`、`service-id`、`agent-address`、`env`、`timeout-seconds`、`insecure`、`ca-file`、`cert-file`、`key-file`、`server-name`、`key-store-password` 等）：
 
 ```yaml
 croupier:
@@ -27,6 +35,11 @@ croupier:
   # authToken metadata key 随 ProviderConnectRequest 上送；agent 校验该值，
   # 不会把它持久化进 session metadata。
   auth-token: Bearer my-token
+  # 显式安全模式：默认 TCP transport 使用以下 PEM TLS factory 并做端点名
+  # 校验；双向 TLS 还需 key-store-password。
+  insecure: false
+  ca-file: /etc/croupier/ca.pem
+  server-name: agent.internal
 ```
 
 - 不配置 `croupier.auth-token` 时 `ClientConfig.authToken` 保持默认空值，握手 metadata 不会出现 `authToken` key。

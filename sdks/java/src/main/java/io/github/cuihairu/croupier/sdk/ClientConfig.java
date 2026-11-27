@@ -35,6 +35,9 @@ public class ClientConfig {
     private String certFile; // client certificate file path
     private String keyFile;  // client private key file path
     private String serverName; // Server name for TLS verification
+    // C-011：mTLS 私钥条目口令，必须由调用方显式提供（无默认口令）。
+    // 仅 certFile+keyFile 同时配置时必需；缺失时建厂 fail-closed。
+    private String keyStorePassword;
 
     // ========== Authentication ==========
     private String authToken;                      // Bearer token for authentication
@@ -111,6 +114,9 @@ public class ClientConfig {
 
     public String getServerName() { return serverName; }
     public void setServerName(String serverName) { this.serverName = serverName; }
+
+    public String getKeyStorePassword() { return keyStorePassword; }
+    public void setKeyStorePassword(String keyStorePassword) { this.keyStorePassword = keyStorePassword; }
 
     public String getAuthToken() { return authToken; }
     public void setAuthToken(String authToken) { this.authToken = authToken; }

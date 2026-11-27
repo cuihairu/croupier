@@ -86,7 +86,22 @@ public class CroupierClientImpl implements CroupierClient {
             String[] parts = address.replace("tcp://", "").split(":");
             String host = parts[0];
             int port = parts.length > 1 ? Integer.parseInt(parts[1]) : 19091;
-            return new TCPTransport(host, port, timeout);
+            // AUD-107：显式安全模式（insecure=false）走 PEM TLS factory +
+            // 端点名校验；首连与重连共用同一工厂分支，每次拨号重读证书。
+            // 开发模式（insecure=true，默认）保持明文构造不变。
+            if (config.isInsecure()) {
+                return new TCPTransport(host, port, timeout);
+            }
+            javax.net.ssl.SSLSocketFactory tlsFactory;
+            try {
+                char[] keyPassword = config.getKeyStorePassword() == null
+                    ? null : config.getKeyStorePassword().toCharArray();
+                tlsFactory = io.github.cuihairu.croupier.sdk.transport.TlsSocketFactory.create(
+                    config.getCaFile(), config.getCertFile(), config.getKeyFile(), keyPassword);
+            } catch (IOException | java.security.GeneralSecurityException e) {
+                throw new IllegalStateException("failed to build TLS transport factory: " + e.getMessage(), e);
+            }
+            return new TCPTransport(host, port, timeout, tlsFactory, config.getServerName());
         };
     }
 

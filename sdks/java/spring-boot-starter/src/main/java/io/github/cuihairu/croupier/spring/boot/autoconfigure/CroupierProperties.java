@@ -88,6 +88,19 @@ public class CroupierProperties {
     private String keyFile;
 
     /**
+     * Server name for TLS peer verification (insecure=false). Falls back to
+     * the connection host when blank.
+     */
+    private String serverName;
+
+    /**
+     * Password protecting the mTLS client key entry (C-011: no default).
+     * Required only when {@code certFile} and {@code keyFile} are both set;
+     * the TLS factory fails closed when they are configured without it.
+     */
+    private String keyStorePassword;
+
+    /**
      * Provider language identifier.
      */
     private String providerLang = "java";
@@ -199,6 +212,22 @@ public class CroupierProperties {
 
     public void setKeyFile(String keyFile) {
         this.keyFile = keyFile;
+    }
+
+    public String getServerName() {
+        return serverName;
+    }
+
+    public void setServerName(String serverName) {
+        this.serverName = serverName;
+    }
+
+    public String getKeyStorePassword() {
+        return keyStorePassword;
+    }
+
+    public void setKeyStorePassword(String keyStorePassword) {
+        this.keyStorePassword = keyStorePassword;
     }
 
     public String getProviderLang() {
