@@ -60,6 +60,17 @@ This page is the canonical entry point for C++ SDK configuration semantics. Conf
 - `tls` is the security configuration of the TCP session, not a new transport kind.
 - Reconnection should be on by default so a brief Agent restart does not leave the business process unavailable for long.
 
+## Profile Overlays
+
+`ClientConfigLoader::LoadProfile(dir, profile)` loads `base.json` first and then overlays `profile + ".json"`. Only fields **explicitly present** in the profile file override the base configuration; omitted fields keep the base value (or `CreateDefaultConfig()` when no base file exists). This applies to booleans and numeric zero values too:
+
+- `{"env": "staging"}` changes only `env`. It does not reset `insecure`, `auto_reconnect`, timeouts, retry counts, or TLS paths from the base file.
+- `"insecure": false`, `"auto_reconnect": false`, and `"reconnect_max_attempts": 0` are explicit values and do override the base.
+- Security fields are accepted as flat (`ca_file`) or nested (`security.ca_file`) keys, with the nested form winning when both are present. `auth.token`, `auth.headers`, and `headers` likewise overlay the base values.
+- An invalid profile JSON file throws a `std::runtime_error` with the profile path.
+
+`LoadFromFile` and `LoadFromJson` still apply parser defaults for standalone config files; presence-aware merging is specific to `LoadProfile`.
+
 ## Known Boundary (AUD-014)
 
 The C++ TCP transport does **not** implement TLS yet. When a secure session is requested (`insecure=false`, which registers the provider with `transport_security_mode=tls`), the SDK **explicitly rejects the connection** instead of silently downgrading to plaintext — `Connect()` returns `false` and `LastError()` carries the reason ("does not implement TLS"). This prevents the false claim of a TLS session over a plaintext socket.

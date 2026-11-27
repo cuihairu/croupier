@@ -60,6 +60,17 @@
 - `tls` 是 TCP session 的安全配置，不是新的传输类型。
 - 重连应默认开启，避免 Agent 短暂重启导致业务进程长时间不可用。
 
+## Profile 覆盖语义
+
+`ClientConfigLoader::LoadProfile(dir, profile)` 先读 `base.json`，再叠加 `profile + ".json"`。只有 profile 文件中**显式出现**的字段会覆盖基础配置；未出现的字段保留基础值（没有基础文件时取 `CreateDefaultConfig()`）。布尔 false 与数值 0 同样按「是否出现」判断：
+
+- `{"env": "staging"}` 只改 `env`，不会把基础配置里的 `insecure`、`auto_reconnect`、超时、重试次数或 TLS 路径重置成解析默认值。
+- `"insecure": false`、`"auto_reconnect": false`、`"reconnect_max_attempts": 0` 是显式值，会覆盖基础配置。
+- 安全字段支持平铺（`ca_file`）与嵌套（`security.ca_file`）两种写法，两者同存时嵌套优先；`auth.token`、`auth.headers` 与 `headers` 同样叠加到基础值上。
+- profile JSON 非法时抛出带 profile 路径的 `std::runtime_error`。
+
+`LoadFromFile` 与 `LoadFromJson` 作为独立配置入口仍会补齐解析默认值；按字段出现与否合并是 `LoadProfile` 专属语义。
+
 ## 已知边界（AUD-014）
 
 C++ TCP transport **尚未实现** TLS。请求安全会话（`insecure=false`，注册时向 Agent 声明 `transport_security_mode=tls`）时，SDK **显式拒绝连接**而非静默降级明文——`Connect()` 返回 `false`，`LastError()` 携带原因（"does not implement TLS"）。这避免了在明文 socket 上谎称 TLS 会话。

@@ -41,13 +41,9 @@ TEST(ConfigProfileGenerationTest, LoadProfileMergesBaseAndProfile) {
     // Overlay values win where set explicitly.
     EXPECT_EQ("production", config.env);
     EXPECT_EQ(77, config.timeout_seconds);
-    // Base service_id survives because the overlay's default service_id does
-    // not override (MergeConfigs special case).
+    // A profile only overrides fields it actually contains (AUD-103).
     EXPECT_EQ("svc-base", config.service_id);
-    // NOTE (recorded behavior, candidate bug): a profile file that omits
-    // game_id still overrides the base value because LoadFromJson back-fills
-    // the default "default-game" before merging.
-    EXPECT_EQ("default-game", config.game_id);
+    EXPECT_EQ("demo", config.game_id);
 }
 
 TEST(ConfigProfileGenerationTest, LoadProfileWithoutBaseUsesDefaults) {
@@ -67,6 +63,145 @@ TEST(ConfigProfileGenerationTest, LoadProfileWithoutProfileFileWarnsButReturns) 
     ClientConfigLoader loader;
     const ClientConfig config = loader.LoadProfile(dir, "does-not-exist");
     EXPECT_EQ("only-base", config.game_id);
+}
+
+TEST(ConfigProfileGenerationTest, LoadProfileEnvOnlyKeepsBaseSettings) {
+    // AUD-103: a profile that only changes env must not rewrite the base
+    // file's security, reconnect or timeout settings.
+    const std::string dir = MakeTempDir("envonly");
+    utils::FileSystemUtils::WriteFileContent(dir + "/base.json",
+                                             R"({
+                                                 "game_id":"demo",
+                                                 "env":"development",
+                                                 "service_id":"svc-base",
+                                                 "insecure":false,
+                                                 "auto_reconnect":false,
+                                                 "timeout_seconds":17,
+                                                 "reconnect_interval_seconds":11,
+                                                 "reconnect_max_attempts":9,
+                                                 "cert_file":"/etc/tls/client.crt",
+                                                 "key_file":"/etc/tls/client.key",
+                                                 "ca_file":"/etc/tls/ca.crt",
+                                                 "server_name":"prod.example.com"
+                                             })");
+    utils::FileSystemUtils::WriteFileContent(dir + "/staging.json", R"({"env":"staging"})");
+
+    ClientConfigLoader loader;
+    const ClientConfig config = loader.LoadProfile(dir, "staging");
+
+    EXPECT_EQ("staging", config.env);
+    EXPECT_EQ("demo", config.game_id);
+    EXPECT_EQ("svc-base", config.service_id);
+    EXPECT_FALSE(config.insecure);
+    EXPECT_FALSE(config.auto_reconnect);
+    EXPECT_EQ(17, config.timeout_seconds);
+    EXPECT_EQ(11, config.reconnect_interval_seconds);
+    EXPECT_EQ(9, config.reconnect_max_attempts);
+    EXPECT_EQ("/etc/tls/client.crt", config.cert_file);
+    EXPECT_EQ("/etc/tls/client.key", config.key_file);
+    EXPECT_EQ("/etc/tls/ca.crt", config.ca_file);
+    EXPECT_EQ("prod.example.com", config.server_name);
+}
+
+TEST(ConfigProfileGenerationTest, LoadProfileExplicitFalseAndZeroOverrideBase) {
+    // AUD-103: explicit false booleans and an explicit zero retry count are
+    // real values, not "unset"; presence decides, not the value.
+    const std::string dir = MakeTempDir("explicit");
+    utils::FileSystemUtils::WriteFileContent(dir + "/base.json",
+                                             R"({
+                                                 "game_id":"demo",
+                                                 "env":"development",
+                                                 "service_id":"svc-base",
+                                                 "insecure":true,
+                                                 "auto_reconnect":true,
+                                                 "timeout_seconds":30,
+                                                 "reconnect_max_attempts":5
+                                             })");
+    utils::FileSystemUtils::WriteFileContent(dir + "/prod.json",
+                                             R"({
+                                                 "env":"production",
+                                                 "insecure":false,
+                                                 "auto_reconnect":false,
+                                                 "reconnect_max_attempts":0
+                                             })");
+
+    ClientConfigLoader loader;
+    const ClientConfig config = loader.LoadProfile(dir, "prod");
+
+    EXPECT_EQ("production", config.env);
+    EXPECT_FALSE(config.insecure);
+    EXPECT_FALSE(config.auto_reconnect);
+    EXPECT_EQ(0, config.reconnect_max_attempts);
+    EXPECT_EQ("demo", config.game_id);
+    EXPECT_EQ("svc-base", config.service_id);
+    EXPECT_EQ(30, config.timeout_seconds);
+}
+
+TEST(ConfigProfileGenerationTest, LoadProfileSecurityHeadersAndServiceId) {
+    // AUD-103: nested security/auth sections and explicit header entries in a
+    // profile overlay the base; fields the profile omits survive.
+    const std::string dir = MakeTempDir("security");
+    utils::FileSystemUtils::WriteFileContent(dir + "/base.json",
+                                             R"({
+                                                 "game_id":"demo",
+                                                 "env":"development",
+                                                 "service_id":"svc-base",
+                                                 "insecure":true,
+                                                 "agent_addr":"127.0.0.1:19090",
+                                                 "headers":{"X-Base":"base","X-Shared":"old"}
+                                             })");
+    utils::FileSystemUtils::WriteFileContent(
+        dir + "/tls.json",
+        R"({
+            "env":"production",
+            "service_id":"cpp-service",
+            "insecure":false,
+            "security":{
+                "cert_file":"/etc/tls/client.crt",
+                "key_file":"/etc/tls/client.key",
+                "ca_file":"/etc/tls/ca.crt",
+                "server_name":"prod.example.com"
+            },
+            "auth":{"token":"Bearer prod-token","headers":{"X-Profile":"profile","X-Shared":"new"}}
+        })");
+
+    ClientConfigLoader loader;
+    const ClientConfig config = loader.LoadProfile(dir, "tls");
+
+    EXPECT_EQ("production", config.env);
+    EXPECT_EQ("cpp-service", config.service_id);
+    EXPECT_FALSE(config.insecure);
+    EXPECT_EQ("127.0.0.1:19090", config.agent_addr);
+    EXPECT_EQ("/etc/tls/client.crt", config.cert_file);
+    EXPECT_EQ("/etc/tls/client.key", config.key_file);
+    EXPECT_EQ("/etc/tls/ca.crt", config.ca_file);
+    EXPECT_EQ("prod.example.com", config.server_name);
+    EXPECT_EQ("Bearer prod-token", config.auth_token);
+    EXPECT_EQ("base", config.headers.at("X-Base"));
+    EXPECT_EQ("profile", config.headers.at("X-Profile"));
+    EXPECT_EQ("new", config.headers.at("X-Shared"));
+}
+
+TEST(ConfigProfileGenerationTest, LoadProfileInvalidJsonThrows) {
+    const std::string dir = MakeTempDir("bad");
+    utils::FileSystemUtils::WriteFileContent(dir + "/base.json", R"({"game_id":"demo"})");
+    utils::FileSystemUtils::WriteFileContent(dir + "/broken.json", R"({"env":})");
+
+    ClientConfigLoader loader;
+    EXPECT_THROW(loader.LoadProfile(dir, "broken"), std::runtime_error);
+}
+
+TEST(ConfigProfileGenerationTest, LoadProfileExplicitStringServiceIdIsApplied) {
+    // AUD-103: an explicitly configured default-looking service_id must win
+    // over the base value; presence, not the "cpp-service" sentinel.
+    const std::string dir = MakeTempDir("svc");
+    utils::FileSystemUtils::WriteFileContent(dir + "/base.json",
+                                             R"({"game_id":"demo","service_id":"svc-base"})");
+    utils::FileSystemUtils::WriteFileContent(dir + "/dev.json", R"({"service_id":"cpp-service"})");
+
+    ClientConfigLoader loader;
+    const ClientConfig config = loader.LoadProfile(dir, "dev");
+    EXPECT_EQ("cpp-service", config.service_id);
 }
 
 TEST(ConfigGenerationTest, DevelopmentExampleConfigParsesBack) {

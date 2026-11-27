@@ -6,7 +6,9 @@
 #include <algorithm>
 #include <cstdlib>
 #include <iostream>
+#include <map>
 #include <regex>
+#include <string>
 
 #ifdef CROUPIER_SDK_ENABLE_JSON
 #include <nlohmann/json.hpp>
@@ -16,6 +18,152 @@ using json = nlohmann::json;
 namespace croupier {
 namespace sdk {
 namespace config {
+
+namespace {
+
+// AUD-103: a profile file used to be loaded with LoadFromJson, which applies
+// parser defaults (insecure=true, auto_reconnect=true, timeout=30s, ...)
+// before MergeConfigs ran. MergeConfigs then treated those defaults as
+// overlay values, so a profile that only changed `env` rewrote the base
+// file's security, reconnect and timeout settings. Profile overlays must
+// apply only the fields the file actually contains; defaults stay with the
+// base config (or CreateDefaultConfig when no base file exists).
+bool HasExplicitField(const nlohmann::json& json, const std::string& path) {
+    const nlohmann::json* current = &json;
+    std::size_t start = 0;
+    while (true) {
+        const std::size_t dot = path.find('.', start);
+        const std::string part =
+            path.substr(start, dot == std::string::npos ? std::string::npos : dot - start);
+        if (!current->is_object() || !current->contains(part)) {
+            return false;
+        }
+        if (dot == std::string::npos) {
+            return true;
+        }
+        current = &current->at(part);
+        start = dot + 1;
+    }
+}
+
+#ifndef CROUPIER_SDK_ENABLE_JSON
+bool HasExplicitField(const utils::JsonUtils::SimpleJson& json, const std::string& path) {
+    const utils::JsonUtils::SimpleJson* current = &json;
+    std::size_t start = 0;
+    while (true) {
+        const std::size_t dot = path.find('.', start);
+        const std::string part =
+            path.substr(start, dot == std::string::npos ? std::string::npos : dot - start);
+        if (current->type != utils::JsonUtils::SimpleJson::OBJECT || !current->contains(part)) {
+            return false;
+        }
+        if (dot == std::string::npos) {
+            return true;
+        }
+        current = &current->at(part);
+        start = dot + 1;
+    }
+}
+#endif
+
+// Apply only the fields explicitly present in the profile JSON. Getters use
+// the current base value as their fallback, so a wrong-typed value in the
+// profile also leaves the base value untouched instead of injecting a default.
+template <typename JsonT>
+void ApplyExplicitProfileFields(ClientConfig& config, const JsonT& profile_json,
+                                const std::map<std::string, std::string>& parsed_headers) {
+    auto has = [&profile_json](const std::string& path) {
+        return HasExplicitField(profile_json, path);
+    };
+
+    if (has("game_id")) {
+        config.game_id = utils::JsonUtils::GetStringValue(profile_json, "game_id", config.game_id);
+    }
+    if (has("env")) {
+        config.env = utils::JsonUtils::GetStringValue(profile_json, "env", config.env);
+    }
+    if (has("service_id")) {
+        config.service_id =
+            utils::JsonUtils::GetStringValue(profile_json, "service_id", config.service_id);
+    }
+    if (has("agent_addr")) {
+        config.agent_addr =
+            utils::JsonUtils::GetStringValue(profile_json, "agent_addr", config.agent_addr);
+    }
+    if (has("control_addr")) {
+        config.control_addr =
+            utils::JsonUtils::GetStringValue(profile_json, "control_addr", config.control_addr);
+    }
+    if (has("provider_lang")) {
+        config.provider_lang =
+            utils::JsonUtils::GetStringValue(profile_json, "provider_lang", config.provider_lang);
+    }
+    if (has("provider_sdk")) {
+        config.provider_sdk =
+            utils::JsonUtils::GetStringValue(profile_json, "provider_sdk", config.provider_sdk);
+    }
+
+    if (has("timeout_seconds")) {
+        config.timeout_seconds =
+            utils::JsonUtils::GetIntValue(profile_json, "timeout_seconds", config.timeout_seconds);
+    }
+    if (has("heartbeat_interval")) {
+        config.heartbeat_interval = utils::JsonUtils::GetIntValue(profile_json,
+                                                                  "heartbeat_interval",
+                                                                  config.heartbeat_interval);
+    }
+    if (has("insecure")) {
+        config.insecure = utils::JsonUtils::GetBoolValue(profile_json, "insecure", config.insecure);
+    }
+    if (has("auto_reconnect")) {
+        config.auto_reconnect =
+            utils::JsonUtils::GetBoolValue(profile_json, "auto_reconnect", config.auto_reconnect);
+    }
+    if (has("reconnect_interval_seconds")) {
+        config.reconnect_interval_seconds =
+            utils::JsonUtils::GetIntValue(profile_json, "reconnect_interval_seconds",
+                                          config.reconnect_interval_seconds);
+    }
+    // An explicit 0 means "unlimited", not "unset"; presence decides, not value.
+    if (has("reconnect_max_attempts")) {
+        config.reconnect_max_attempts = utils::JsonUtils::GetIntValue(profile_json,
+                                                                      "reconnect_max_attempts",
+                                                                      config.reconnect_max_attempts);
+    }
+
+    // Security fields accept both flat and nested forms; the nested form wins
+    // when both are present, matching ParseJsonToClientConfig.
+    auto security_string = [&](const std::string& nested, const std::string& flat,
+                               std::string ClientConfig::*member) {
+        if (has(nested)) {
+            config.*member = utils::JsonUtils::GetStringValue(profile_json, nested, config.*member);
+        } else if (has(flat)) {
+            config.*member = utils::JsonUtils::GetStringValue(profile_json, flat, config.*member);
+        }
+    };
+    security_string("security.cert_file", "cert_file", &ClientConfig::cert_file);
+    security_string("security.key_file", "key_file", &ClientConfig::key_file);
+    security_string("security.ca_file", "ca_file", &ClientConfig::ca_file);
+    security_string("security.server_name", "server_name", &ClientConfig::server_name);
+
+    if (has("auth.token")) {
+        config.auth_token =
+            utils::JsonUtils::GetStringValue(profile_json, "auth.token", config.auth_token);
+    } else if (has("auth_token")) {
+        config.auth_token =
+            utils::JsonUtils::GetStringValue(profile_json, "auth_token", config.auth_token);
+    }
+
+    // Explicit headers overlay the base headers, matching the old merge
+    // semantics for this one map-valued field.
+    if (has("headers") || has("auth.headers")) {
+        for (const auto& [key, value] : parsed_headers) {
+            config.headers[key] = value;
+        }
+    }
+}
+
+}  // namespace
 
 ClientConfigLoader::ClientConfigLoader() {
     std::cout << "Client configuration loader initialized" << '\n';
@@ -104,10 +252,23 @@ ClientConfig ClientConfigLoader::LoadProfile(const std::string& config_dir, cons
         std::cout << "Using default configuration as base" << '\n';
     }
 
-    // Apply profile-specific overrides
+    // Apply profile-specific overrides. Parse the profile JSON directly so
+    // only fields present in the file are overlaid; LoadFromFile would inject
+    // parser defaults for every omitted field and silently rewrite the base.
     if (utils::FileSystemUtils::FileExists(profile_file)) {
-        ClientConfig profile_config = LoadFromFile(profile_file);
-        config = MergeConfigs(config, profile_config);
+        const std::string content = utils::FileSystemUtils::ReadFileContent(profile_file);
+        if (!utils::JsonUtils::IsValidJson(content)) {
+            throw std::runtime_error("Invalid JSON format in profile configuration: " + profile_file);
+        }
+        std::map<std::string, std::string> profile_headers;
+#ifdef CROUPIER_SDK_ENABLE_JSON
+        json profile_json = utils::JsonUtils::ParseJson(content);
+        profile_headers = ParseJsonToClientConfig(profile_json).headers;
+        ApplyExplicitProfileFields(config, profile_json, profile_headers);
+#else
+        auto profile_json = utils::JsonUtils::ParseJson(content);
+        ApplyExplicitProfileFields(config, profile_json, profile_headers);
+#endif
         std::cout << "Applied profile-specific configuration" << '\n';
     } else {
         std::cout << "Warning: Profile configuration file not found: " << profile_file << '\n';
