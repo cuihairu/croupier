@@ -1,4 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- The app is a networked operator client (login + scoped API calls);
+         INTERNET must ship in release, not only in debug/profile overlays. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
         android:label="croupier_mobile"
         android:name="${applicationName}"
