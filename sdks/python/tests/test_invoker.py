@@ -18,6 +18,7 @@ from croupier.invoker import (
     RetryConfig,
     ServerHTTPError,
     SyncInvoker,
+    UnknownResultError,
     TaskEventInfo,
     TaskStatus,
     create_invoker,
@@ -232,12 +233,123 @@ def test_retry_repeats_retryable_server_failures() -> None:
         return 200, {"result": {"ok": True}}
 
     with MockServer(responder) as server:
+        # Writes opt into retries explicitly via retry_writes (AUD-068): the
+        # default policy replays them only when the caller declares the
+        # endpoint safe to replay.
         result = run(Invoker(InvokerConfig(address=server.address, retry=RetryConfig(
-            max_attempts=3, initial_delay_ms=0, max_delay_ms=0, jitter_factor=0,
+            max_attempts=3, initial_delay_ms=0, max_delay_ms=0, jitter_factor=0, retry_writes=True,
         ))).invoke("health.check", "{}"))
 
     assert result == '{"ok":true}'
     assert attempts == 3
+
+
+def test_write_not_retried_by_default_and_marked_unknown() -> None:
+    """首个 POST 副作用后连接被切断：默认单发，失败标 result-unknown（AUD-068）。"""
+    attempts = 0
+
+    def responder(_method: str, _path: str, _headers: Dict[str, str], _body: Any) -> Tuple[int, Any]:
+        nonlocal attempts
+        attempts += 1
+        raise RuntimeError("connection dropped after side effect")
+
+    with MockServer(responder) as server:
+        invoker = Invoker(InvokerConfig(address=server.address))
+        with pytest.raises(UnknownResultError) as excinfo:
+            run(invoker.invoke("player.ban", "{}"))
+
+    assert attempts == 1  # no automatic replay of the write
+    assert excinfo.value.status_code == 0  # transport failure, no response
+
+
+def test_write_5xx_not_retried_by_default_and_marked_unknown() -> None:
+    """可重试 5xx 丢失：默认门控下单发并标 result-unknown（AUD-068 验收主用例）。"""
+    attempts = 0
+
+    def responder(_method: str, _path: str, _headers: Dict[str, str], _body: Any) -> Tuple[int, Any]:
+        nonlocal attempts
+        attempts += 1
+        return 503, {"message": "temporarily unavailable"}
+
+    with MockServer(responder) as server:
+        invoker = Invoker(InvokerConfig(address=server.address))  # default retry enabled, retry_writes off
+        with pytest.raises(UnknownResultError) as excinfo:
+            run(invoker.invoke("player.ban", "{}"))
+
+    assert attempts == 1  # the write is not replayed despite the retryable 503
+    assert excinfo.value.status_code == 503
+
+
+def test_write_exhausted_retry_marked_unknown() -> None:
+    attempts = 0
+
+    def responder(_method: str, _path: str, _headers: Dict[str, str], _body: Any) -> Tuple[int, Any]:
+        nonlocal attempts
+        attempts += 1
+        return 503, {"message": "unavailable"}
+
+    with MockServer(responder) as server:
+        invoker = Invoker(InvokerConfig(address=server.address, retry=RetryConfig(
+            max_attempts=3, initial_delay_ms=0, max_delay_ms=0, jitter_factor=0, retry_writes=True,
+        )))
+        with pytest.raises(UnknownResultError) as excinfo:
+            run(invoker.invoke("player.ban", "{}"))
+
+    assert attempts == 3
+    assert excinfo.value.status_code == 503
+
+
+def test_write_explicit_rejection_not_unknown() -> None:
+    attempts = 0
+
+    def responder(_method: str, _path: str, _headers: Dict[str, str], _body: Any) -> Tuple[int, Any]:
+        nonlocal attempts
+        attempts += 1
+        return 403, {"message": "forbidden"}
+
+    with MockServer(responder) as server:
+        invoker = Invoker(InvokerConfig(address=server.address, retry=RetryConfig(
+            max_attempts=3, initial_delay_ms=0, max_delay_ms=0, jitter_factor=0, retry_writes=True,
+        )))
+        with pytest.raises(ServerHTTPError, match="forbidden") as excinfo:
+            run(invoker.invoke("player.ban", "{}"))
+
+    assert attempts == 1  # 4xx is neither retryable nor result-unknown
+    assert not isinstance(excinfo.value, UnknownResultError)
+
+
+def test_get_still_retries_by_default() -> None:
+    attempts = 0
+
+    def responder(_method: str, _path: str, _headers: Dict[str, str], _body: Any) -> Tuple[int, Any]:
+        nonlocal attempts
+        attempts += 1
+        if attempts < 3:
+            return 503, {"message": "temporarily unavailable"}
+        return 200, {"id": "t1", "status": "running"}
+
+    with MockServer(responder) as server:
+        invoker = Invoker(InvokerConfig(address=server.address))
+        status = run(invoker.get_task_status("t1"))
+
+    assert attempts == 3  # reads keep the default retry behavior
+    assert status.status == "running"
+
+
+def test_cancel_task_write_single_shot_by_default() -> None:
+    attempts = 0
+
+    def responder(_method: str, _path: str, _headers: Dict[str, str], _body: Any) -> Tuple[int, Any]:
+        nonlocal attempts
+        attempts += 1
+        raise RuntimeError("connection dropped after side effect")
+
+    with MockServer(responder) as server:
+        invoker = Invoker(InvokerConfig(address=server.address))
+        with pytest.raises(UnknownResultError):
+            run(invoker.cancel_task("t1"))
+
+    assert attempts == 1
 
 
 def test_connect_close_and_factories() -> None:

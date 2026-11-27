@@ -31,6 +31,7 @@ public class RetryConfig {
     private final double backoffMultiplier;
     private final double jitterFactor;
     private final List<Integer> retryableStatusCodes;
+    private final boolean retryWrites;
 
     private RetryConfig(Builder builder) {
         this.enabled = builder.enabled;
@@ -40,6 +41,7 @@ public class RetryConfig {
         this.backoffMultiplier = builder.backoffMultiplier;
         this.jitterFactor = builder.jitterFactor;
         this.retryableStatusCodes = List.copyOf(builder.retryableStatusCodes);
+        this.retryWrites = builder.retryWrites;
     }
 
     /**
@@ -132,6 +134,15 @@ public class RetryConfig {
         return retryableStatusCodes;
     }
 
+    /**
+     * Gets whether write requests (non-GET) opt into automatic retries.
+     *
+     * @return true when writes may be replayed automatically
+     */
+    public boolean isRetryWrites() {
+        return retryWrites;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -143,13 +154,14 @@ public class RetryConfig {
                maxDelayMs == that.maxDelayMs &&
                Double.compare(that.backoffMultiplier, backoffMultiplier) == 0 &&
                Double.compare(that.jitterFactor, jitterFactor) == 0 &&
-               Objects.equals(retryableStatusCodes, that.retryableStatusCodes);
+               Objects.equals(retryableStatusCodes, that.retryableStatusCodes) &&
+               retryWrites == that.retryWrites;
     }
 
     @Override
     public int hashCode() {
         return Objects.hash(enabled, maxAttempts, initialDelayMs, maxDelayMs,
-                           backoffMultiplier, jitterFactor, retryableStatusCodes);
+                           backoffMultiplier, jitterFactor, retryableStatusCodes, retryWrites);
     }
 
     @Override
@@ -162,6 +174,7 @@ public class RetryConfig {
                ", backoffMultiplier=" + backoffMultiplier +
                ", jitterFactor=" + jitterFactor +
                ", retryableStatusCodes=" + retryableStatusCodes +
+               ", retryWrites=" + retryWrites +
                '}';
     }
 
@@ -182,6 +195,7 @@ public class RetryConfig {
             10,  // ABORTED
             4    // DEADLINE_EXCEEDED
         );
+        private boolean retryWrites = false;
 
         /**
          * Sets whether retry is enabled.
@@ -260,6 +274,20 @@ public class RetryConfig {
             this.retryableStatusCodes = retryableStatusCodes != null
                 ? List.copyOf(retryableStatusCodes)
                 : List.of();
+            return this;
+        }
+
+        /**
+         * Opts write requests (non-GET) into automatic retries. Defaults to
+         * {@code false}: a write may have taken effect before the failure, so
+         * replaying it blindly can duplicate side effects. Set it only for
+         * endpoints that are idempotent or safe to replay (AUD-068).
+         *
+         * @param retryWrites true to allow automatic retries of writes
+         * @return this builder
+         */
+        public Builder retryWrites(boolean retryWrites) {
+            this.retryWrites = retryWrites;
             return this;
         }
 

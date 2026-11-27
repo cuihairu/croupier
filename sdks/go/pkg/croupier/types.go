@@ -229,6 +229,11 @@ type RetryConfig struct {
 	BackoffMultiplier    float64 `json:"backoffMultiplier"`    // exponential backoff multiplier
 	JitterFactor         float64 `json:"jitterFactor"`         // jitter factor (0-1) to add randomness
 	RetryableStatusCodes []int32 `json:"retryableStatusCodes"` // HTTP status codes that trigger retry
+	// RetryWrites opts write requests (non-GET) into automatic retries. It
+	// defaults to false: a write may have taken effect before the failure, so
+	// replaying it blindly can duplicate side effects. Set it only for
+	// endpoints that are idempotent or safe to replay (AUD-068).
+	RetryWrites bool `json:"retryWrites"`
 }
 
 // DefaultRetryConfig returns a default retry configuration

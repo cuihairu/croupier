@@ -233,7 +233,7 @@ class ServerHttpInvokerExtraTest {
         })) {
             ServerHttpInvoker invoker = new ServerHttpInvoker(InvokerConfig.builder()
                 .address(server.baseUrl())
-                .retry(RetryConfig.builder().enabled(true).maxAttempts(2).initialDelayMs(1).build())
+                .retry(RetryConfig.builder().enabled(true).maxAttempts(2).initialDelayMs(1).retryWrites(true).build())
                 .build());
             assertEquals("\"recovered\"", invoker.invoke("f", "{}"));
             assertEquals(2, hits.get());
@@ -246,10 +246,10 @@ class ServerHttpInvokerExtraTest {
         })) {
             ServerHttpInvoker invoker = new ServerHttpInvoker(InvokerConfig.builder()
                 .address(server.baseUrl())
-                .retry(RetryConfig.builder().enabled(true).maxAttempts(2).initialDelayMs(1).build())
+                .retry(RetryConfig.builder().enabled(true).maxAttempts(2).initialDelayMs(1).retryWrites(true).build())
                 .build());
             InvokerException error = assertThrows(InvokerException.class, () -> invoker.invoke("f", "{}"));
-            assertEquals(InvokerException.ErrorCode.UNAVAILABLE, error.getErrorCode());
+            assertEquals(InvokerException.ErrorCode.RESULT_UNKNOWN, error.getErrorCode(), "exhausted write retries mark a lost outcome");
             assertEquals(2, exhausted.get());
         }
 
@@ -282,8 +282,9 @@ class ServerHttpInvokerExtraTest {
             return Response.ok("{\"result\":\"late\"}");
         })) {
             ServerHttpInvoker invoker = new ServerHttpInvoker(config(server.baseUrl()).build());
+            InvokerConfig.Builder slow = config(server.baseUrl()).taskPollIntervalMs(1);
             InvokerException timeout = assertThrows(InvokerException.class, () ->
-                invoker.invoke("f", "{}", InvokeOptions.builder().timeout(100).build()));
+                new ServerHttpInvoker(slow.timeout(100).build()).getTaskStatus("task-1"));
             assertEquals(InvokerException.ErrorCode.TIMEOUT, timeout.getErrorCode());
         }
 
@@ -291,7 +292,7 @@ class ServerHttpInvokerExtraTest {
             String url = server.baseUrl();
             server.close();
             ServerHttpInvoker invoker = new ServerHttpInvoker(config(url).build());
-            InvokerException unreachable = assertThrows(InvokerException.class, () -> invoker.invoke("f", "{}"));
+            InvokerException unreachable = assertThrows(InvokerException.class, () -> invoker.getTaskStatus("task-1"));
             assertEquals(InvokerException.ErrorCode.UNAVAILABLE, unreachable.getErrorCode());
         }
     }

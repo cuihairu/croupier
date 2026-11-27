@@ -17,6 +17,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -181,8 +182,10 @@ class ServerHttpInvokerBranchTest {
 
         try (MockServer server = new MockServer(exchange -> Response.ok("{not-json"))) {
             ServerHttpInvoker invoker = invoker(server, null);
+            // A received 2xx body with bad JSON is a known failure, not a lost write (AUD-068).
             InvokerException error = assertThrows(InvokerException.class, () -> invoker.invoke("fn", "{}"));
             assertEquals(InvokerException.ErrorCode.INTERNAL, error.getErrorCode());
+            assertNotEquals(InvokerException.ErrorCode.RESULT_UNKNOWN, error.getErrorCode());
         }
     }
 

@@ -879,6 +879,7 @@ describe("invoker retry config clamping", () => {
           backoffMultiplier: 0,
           initialDelayMs: 1,
           jitterFactor: 0,
+          retryWrites: true,
         },
       });
       await expect(invoker.invoke("fn", {})).resolves.toMatchObject({
@@ -913,7 +914,7 @@ describe("invoker status-0 retry and schema_validation passthrough", () => {
     try {
       const invoker = new Invoker({
         baseUrl: "https://h/api/v1",
-        retry: { maxAttempts: 2, initialDelayMs: 1, jitterFactor: 0 },
+        retry: { maxAttempts: 2, initialDelayMs: 1, jitterFactor: 0, retryWrites: true },
       });
       await expect(invoker.invoke("fn", {})).rejects.toBe(synthetic);
       expect(fetchSpy).toHaveBeenCalledTimes(2);

@@ -78,7 +78,7 @@ describe("Invoker error parsing", () => {
   it("falls back to 'request failed' when the body is unusable and statusText empty", async () => {
     mockFetch(async () => new Response("not json", { status: 502 }));
     const inv = new Invoker({ baseUrl: "https://h/api/v1" });
-    const err = await inv.startTask("f").catch((e) => e);
+    const err = await inv.cancelTask("t-1").catch((e) => e);
     expect(err).toBeInstanceOf(InvokerError);
     expect(err.message).toBe("request failed");
     expect(err.status).toBe(502);

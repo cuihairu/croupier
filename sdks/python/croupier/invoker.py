@@ -48,7 +48,12 @@ def _default_reconnect_config() -> ReconnectConfig:
 
 @dataclass
 class RetryConfig:
-    """Configuration for retrying retryable Server HTTP requests."""
+    """Configuration for retrying retryable Server HTTP requests.
+
+    ``retry_writes`` defaults to ``False``: a write may have taken effect
+    before the failure, so replaying it blindly can duplicate side effects.
+    Set it only for endpoints that are idempotent or safe to replay (AUD-068).
+    """
 
     enabled: bool = True
     max_attempts: int = 3
@@ -56,6 +61,7 @@ class RetryConfig:
     max_delay_ms: int = 5000
     backoff_multiplier: float = 2.0
     jitter_factor: float = 0.1
+    retry_writes: bool = False
 
 
 def _default_retry_config() -> RetryConfig:
@@ -140,6 +146,20 @@ class ServerHTTPError(RuntimeError):
         self.status_code = status_code
         self.message = message
         super().__init__(f"server returned HTTP {status_code}: {message}")
+
+
+class UnknownResultError(RuntimeError):
+    """A write whose outcome the client cannot determine.
+
+    The server may or may not have applied the write: the transport produced
+    no usable answer (connection lost, timeout, HTTP 408/429/5xx) or the
+    response was unusable. Resolve the outcome out of band (query the server)
+    instead of replaying the write.
+    """
+
+    def __init__(self, status_code: int, message: str):
+        self.status_code = status_code
+        super().__init__(message)
 
 
 class Invoker:
@@ -299,8 +319,13 @@ class Invoker:
     ) -> Any:
         request_options = options or InvokeOptions()
         retry = request_options.retry or self.config.retry
-        attempts = retry.max_attempts if retry and retry.enabled else 1
-        attempts = max(attempts, 1)
+        # Writes are single-shot unless the caller explicitly opts in: the
+        # server may have applied the side effect before the response was
+        # lost (AUD-068).
+        is_write = method.upper() not in ("GET", "HEAD")
+        attempts = 1
+        if retry and retry.enabled and (not is_write or retry.retry_writes):
+            attempts = max(retry.max_attempts, 1)
         url = _endpoint_url(self._base_url, segments, query)
         encoded_body = None if body is None else json.dumps(body, separators=(",", ":")).encode("utf-8")
 
@@ -322,10 +347,10 @@ class Invoker:
             except Exception as exc:  # Retry only selected transport/server failures below.
                 last_error = exc
                 if attempt == attempts - 1 or not _is_retryable_error(exc):
-                    raise
+                    raise _result_unknown_for_write(method, exc) from exc
                 await asyncio.sleep(_retry_delay_seconds(attempt, retry))
 
-        raise last_error or RuntimeError("request failed")  # pragma: no cover - defensive
+        raise _result_unknown_for_write(method, last_error)  # pragma: no cover - defensive
 
     def _headers(self, options: InvokeOptions) -> Dict[str, str]:
         headers = dict(options.headers or {})
@@ -571,6 +596,26 @@ def _is_retryable_error(error: Exception) -> bool:
     if isinstance(error, ServerHTTPError):
         return error.status_code == 429 or error.status_code >= 500
     return isinstance(error, RuntimeError)
+
+
+def _is_unknown_result_error(error: Exception) -> bool:
+    """Classify a write failure whose outcome the client cannot determine.
+
+    HTTP 408/429/5xx and transport failures mean the server may have applied
+    the write before the failure. An unusable response (invalid JSON) also
+    leaves the outcome unknown — the request was sent and may have run.
+    Explicit 4xx rejections are known outcomes and are never marked.
+    """
+    if isinstance(error, ServerHTTPError):
+        return error.status_code in (408, 429) or error.status_code >= 500
+    return True
+
+
+def _result_unknown_for_write(method: str, error: Exception) -> Exception:
+    if method.upper() in ("GET", "HEAD") or not _is_unknown_result_error(error):
+        return error
+    status_code = getattr(error, "status_code", 0)
+    return UnknownResultError(status_code, f"result unknown after write: {error}")
 
 
 def _server_error_message(body: str) -> str:

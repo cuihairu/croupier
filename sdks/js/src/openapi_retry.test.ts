@@ -366,7 +366,8 @@ describe("Invoker retry", () => {
     });
     const invoker = new Invoker({
       baseUrl: "http://s:18780",
-      retry: { maxAttempts: 3, initialDelayMs: 1, jitterFactor: 0 },
+      // writes opt into retries via retryWrites (AUD-068 default is single-shot)
+      retry: { maxAttempts: 3, initialDelayMs: 1, jitterFactor: 0, retryWrites: true },
     });
 
     const result = await invoker.invoke("fn", {});
@@ -417,7 +418,7 @@ describe("Invoker retry", () => {
     });
     const invoker = new Invoker({
       baseUrl: "http://s:18780",
-      retry: { maxAttempts: 2, initialDelayMs: 1, jitterFactor: 0 },
+      retry: { maxAttempts: 2, initialDelayMs: 1, jitterFactor: 0, retryWrites: true },
     });
 
     await expect(invoker.startTask("fn", {})).resolves.toBe("t-9");
@@ -455,6 +456,7 @@ describe("Invoker retry", () => {
         initialDelayMs: 1,
         jitterFactor: 0,
         retryableStatusCodes: [418],
+        retryWrites: true,
       },
     });
 

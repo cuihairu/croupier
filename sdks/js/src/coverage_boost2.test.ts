@@ -391,7 +391,7 @@ describe("Invoker retry corners", () => {
     });
     const invoker = new Invoker({
       baseUrl: "http://s:18780",
-      retry: { maxAttempts: 3, initialDelayMs: 1, jitterFactor: 0 },
+      retry: { maxAttempts: 3, initialDelayMs: 1, jitterFactor: 0, retryWrites: true },
     });
 
     await expect(invoker.invoke("fn", {})).resolves.toEqual({

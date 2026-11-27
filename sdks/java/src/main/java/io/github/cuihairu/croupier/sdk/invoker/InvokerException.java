@@ -51,7 +51,9 @@ public class InvokerException extends Exception {
         /** Unimplemented operation */
         UNIMPLEMENTED("UNIMPLEMENTED"),
         /** Data loss */
-        DATA_LOSS("DATA_LOSS");
+        DATA_LOSS("DATA_LOSS"),
+        /** Write outcome cannot be determined: the request may have executed before the failure */
+        RESULT_UNKNOWN("RESULT_UNKNOWN");
 
         private final String code;
 

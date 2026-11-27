@@ -147,7 +147,7 @@ class ServerHttpInvokerBoostTest {
                     configBuilder(server.baseUrl()).timeout(200).retry(noRetry).build());
             try {
                 InvokerException error = assertThrows(InvokerException.class,
-                    () -> invoker.invoke("fn", "{}"));
+                    () -> invoker.getTaskStatus("task-1"));
                 assertEquals(InvokerException.ErrorCode.TIMEOUT, error.getErrorCode());
             } finally {
                 invoker.close();
@@ -172,6 +172,7 @@ class ServerHttpInvokerBoostTest {
             RetryConfig fastRetry = RetryConfig.builder()
                 .maxAttempts(3)
                 .initialDelayMs(1)
+                .retryWrites(true)
                 .build();
             ServerHttpInvoker invoker = new ServerHttpInvoker(
                     configBuilder(server.baseUrl()).retry(fastRetry).build());
@@ -246,7 +247,7 @@ class ServerHttpInvokerBoostTest {
                 configBuilder("http://127.0.0.1:1").retry(noRetry).build());
         try {
             InvokerException error = assertThrows(InvokerException.class,
-                () -> invoker.invoke("fn", "{}"));
+                () -> invoker.getTaskStatus("task-1"));
             assertEquals(InvokerException.ErrorCode.UNAVAILABLE, error.getErrorCode());
         } finally {
             invoker.close();

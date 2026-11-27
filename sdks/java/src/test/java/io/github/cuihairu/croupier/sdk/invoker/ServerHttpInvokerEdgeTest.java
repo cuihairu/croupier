@@ -74,7 +74,7 @@ class ServerHttpInvokerEdgeTest {
             return Response.status(503, "{\"message\":\"down\"}");
         })) {
             RetryConfig retry = RetryConfig.builder()
-                .maxAttempts(10).initialDelayMs(10_000).maxDelayMs(10_000).build();
+                .maxAttempts(10).initialDelayMs(10_000).maxDelayMs(10_000).retryWrites(true).build();
             ServerHttpInvoker invoker = invoker(server.baseUrl(), retry);
             AtomicReference<Throwable> failure = new AtomicReference<>();
             CountDownLatch done = new CountDownLatch(1);

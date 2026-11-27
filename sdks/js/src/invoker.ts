@@ -61,6 +61,13 @@ export interface RetryConfig {
   jitterFactor?: number;
   /** Extra HTTP status codes that trigger a retry. */
   retryableStatusCodes?: number[];
+  /**
+   * Opt write requests (non-GET) into automatic retries. Default false: a
+   * write may have taken effect before the failure, so replaying it blindly
+   * can duplicate side effects. Set it only for endpoints that are
+   * idempotent or safe to replay (AUD-068).
+   */
+  retryWrites?: boolean;
 }
 
 const DEFAULT_RETRY: Required<RetryConfig> = {
@@ -71,6 +78,7 @@ const DEFAULT_RETRY: Required<RetryConfig> = {
   backoffMultiplier: 2.0,
   jitterFactor: 0.1,
   retryableStatusCodes: [],
+  retryWrites: false,
 };
 
 function mergeRetry(
@@ -109,31 +117,102 @@ function isRetryableFailure(
   return error instanceof TypeError;
 }
 
+/** True when a failed write's outcome cannot be determined (AUD-068). */
+function isUnknownOutcome(error: unknown): boolean {
+  if (error instanceof InvokerError) {
+    return (
+      error.status === 0 ||
+      error.status === 408 ||
+      error.status === 429 ||
+      error.status >= 500
+    );
+  }
+  // fetch()/timeout failures (TypeError, AbortError): the request may have
+  // reached the server before the failure.
+  return error instanceof Error;
+}
+
+/**
+ * Locally synthesized protocol errors whose outcome is known: the server
+ * already answered (2xx payload-shape checks) or invoke() guarantees these
+ * surface untouched (schema_validation). Never marked result-unknown.
+ */
+const preservedErrorCodes = new Set([
+  "no_result",
+  "no_task_id",
+  "schema_validation",
+]);
+
+/**
+ * Wrap a failed write whose outcome is undetermined into an InvokerError
+ * marked resultUnknown. Explicit 4xx rejections and locally synthesized
+ * protocol errors stay unmarked: their outcome is known.
+ */
+function markResultUnknown(error: unknown): unknown {
+  if (error instanceof InvokerError) {
+    if (
+      error.resultUnknown ||
+      !isUnknownOutcome(error) ||
+      (error.code !== undefined && preservedErrorCodes.has(error.code))
+    ) {
+      return error;
+    }
+    const marked = new InvokerError(
+      `result unknown after write (HTTP ${error.status}): ${error.message}`,
+      error.status,
+      "result_unknown",
+      error.details,
+    );
+    marked.resultUnknown = true;
+    return marked;
+  }
+  if (error instanceof Error) {
+    const marked = new InvokerError(
+      `result unknown after write: ${error.message}`,
+      0,
+      "result_unknown",
+    );
+    marked.resultUnknown = true;
+    return marked;
+  }
+  return error;
+}
+
+/** True when err signals a write whose outcome the client cannot determine. */
+export function isResultUnknown(error: unknown): boolean {
+  return error instanceof InvokerError && error.resultUnknown === true;
+}
+
 async function withRetry<T>(
   operation: () => Promise<T>,
   base: RetryConfig | undefined,
   override: RetryConfig | undefined,
+  method?: "GET" | "POST",
 ): Promise<T> {
   const retry = mergeRetry(base, override);
-  if (!retry.enabled || retry.maxAttempts <= 1) {
-    return operation();
-  }
+  // Writes are single-shot unless the caller explicitly opts in: the server
+  // may have applied the side effect before the response was lost (AUD-068).
+  // The gate only clamps a real attempt count (>1); a NaN maxAttempts keeps
+  // its historical zero-fetch fallthrough.
+  const isWrite = method !== undefined && method !== "GET";
+  let attempts = retry.enabled ? retry.maxAttempts : 1;
+  if (isWrite && !retry.retryWrites && attempts > 1) attempts = 1;
   let lastError: unknown;
-  for (let attempt = 0; attempt < retry.maxAttempts; attempt++) {
+  for (let attempt = 0; attempt < attempts; attempt++) {
     try {
       return await operation();
     } catch (error) {
       lastError = error;
-      if (
-        attempt === retry.maxAttempts - 1 ||
-        !isRetryableFailure(error, retry)
-      ) {
-        throw error;
+      if (attempt === attempts - 1 || !isRetryableFailure(error, retry)) {
+        break;
       }
       await new Promise((resolve) =>
         setTimeout(resolve, retryDelayMs(attempt, retry)),
       );
     }
+  }
+  if (isWrite && lastError !== undefined) {
+    throw markResultUnknown(lastError);
   }
   throw lastError;
 }
@@ -180,6 +259,8 @@ export class InvokerError extends Error {
   status: number;
   code?: string;
   details?: unknown;
+  /** True when the request was a write whose outcome cannot be determined. */
+  resultUnknown?: boolean;
   constructor(
     message: string,
     status: number,
@@ -368,6 +449,7 @@ export class Invoker {
         },
         this.config.retry,
         options?.retry,
+        "POST",
       );
     } catch (error) {
       if (error instanceof InvokerError && error.code === "schema_validation")
@@ -425,6 +507,7 @@ export class Invoker {
       },
       this.config.retry,
       options?.retry,
+      "POST",
     );
   }
 
@@ -468,6 +551,7 @@ export class Invoker {
       },
       this.config.retry,
       options?.retry,
+      "GET",
     );
   }
 

@@ -7,6 +7,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -329,7 +330,7 @@ func (i *httpInvoker) GetAddress() string {
 
 func (i *httpInvoker) doJSON(ctx context.Context, method string, segments []string, rawQuery string, body []byte, options InvokeOptions) ([]byte, error) {
 	requestURL := i.endpoint(segments, rawQuery)
-	return i.withRetry(ctx, options, func(callCtx context.Context) ([]byte, int, error) {
+	return i.withRetry(ctx, method, options, func(callCtx context.Context) ([]byte, int, error) {
 		var reader io.Reader
 		if body != nil {
 			reader = bytes.NewReader(body)
@@ -401,13 +402,16 @@ func (i *httpInvoker) applyHeaders(req *http.Request, options InvokeOptions) {
 	}
 }
 
-func (i *httpInvoker) withRetry(ctx context.Context, options InvokeOptions, request func(context.Context) ([]byte, int, error)) ([]byte, error) {
+func (i *httpInvoker) withRetry(ctx context.Context, method string, options InvokeOptions, request func(context.Context) ([]byte, int, error)) ([]byte, error) {
 	retry := i.config.Retry
 	if options.Retry != nil {
 		retry = options.Retry
 	}
+	// Writes are single-shot unless the caller explicitly opts in: the server
+	// may have applied the side effect before the response was lost (AUD-068).
+	isWrite := method != http.MethodGet && method != http.MethodHead
 	attempts := 1
-	if retry != nil && retry.Enabled && retry.MaxAttempts > 1 {
+	if retry != nil && retry.Enabled && retry.MaxAttempts > 1 && (!isWrite || retry.RetryWrites) {
 		attempts = retry.MaxAttempts
 	}
 
@@ -430,6 +434,9 @@ func (i *httpInvoker) withRetry(ctx context.Context, options InvokeOptions, requ
 		if attempt == attempts-1 || !isRetryableHTTPError(statusCode, retry) {
 			break
 		}
+	}
+	if isWrite && lastErr != nil {
+		return nil, wrapResultUnknown(lastErr)
 	}
 	return nil, lastErr
 }
@@ -609,6 +616,56 @@ type httpInvokerError struct {
 
 func (e *httpInvokerError) Error() string {
 	return fmt.Sprintf("server returned HTTP %d: %s", e.statusCode, e.message)
+}
+
+// UnknownResultError reports that a failed write may or may not have taken
+// effect: the transport produced no usable answer (connection lost, timeout,
+// HTTP 408/429/5xx). Callers must resolve the outcome out of band (query the
+// server) instead of blindly retrying the write.
+type UnknownResultError struct {
+	// StatusCode carries the HTTP status when the failure came from a
+	// response; 0 means the connection failed before any response arrived.
+	StatusCode int
+	Err        error
+}
+
+func (e *UnknownResultError) Error() string {
+	if e.StatusCode != 0 {
+		return fmt.Sprintf("result unknown after write (HTTP %d): %v", e.StatusCode, e.Err)
+	}
+	return fmt.Sprintf("result unknown after write: %v", e.Err)
+}
+
+func (e *UnknownResultError) Unwrap() error { return e.Err }
+
+// IsResultUnknown reports whether err signals a write whose outcome the
+// client cannot determine. Explicit 4xx rejections are known outcomes and
+// are never marked.
+func IsResultUnknown(err error) bool {
+	var unknown *UnknownResultError
+	return errors.As(err, &unknown)
+}
+
+func wrapResultUnknown(err error) error {
+	if err == nil || IsResultUnknown(err) {
+		return err
+	}
+	statusCode := 0
+	var httpErr *httpInvokerError
+	if errors.As(err, &httpErr) {
+		if !isUnknownHTTPStatus(httpErr.statusCode) {
+			return err
+		}
+		statusCode = httpErr.statusCode
+	}
+	return &UnknownResultError{StatusCode: statusCode, Err: err}
+}
+
+func isUnknownHTTPStatus(code int) bool {
+	return code == 0 ||
+		code == http.StatusRequestTimeout ||
+		code == http.StatusTooManyRequests ||
+		code >= http.StatusInternalServerError
 }
 
 func serverErrorMessage(body []byte) string {

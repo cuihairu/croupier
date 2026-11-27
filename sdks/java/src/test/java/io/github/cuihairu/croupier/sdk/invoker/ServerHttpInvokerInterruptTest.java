@@ -44,6 +44,7 @@ class ServerHttpInvokerInterruptTest {
                 .maxAttempts(3)
                 .initialDelayMs(10_000)
                 .maxDelayMs(10_000)
+                .retryWrites(true)
                 .build();
         ServerHttpInvoker invoker = new ServerHttpInvoker(InvokerConfig.builder()
                 .address("http://127.0.0.1:" + deadPort())

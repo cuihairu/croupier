@@ -15,6 +15,7 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -171,23 +172,46 @@ public final class ServerHttpInvoker implements TaskStatusInvoker {
     private Object request(String method, List<String> segments, Map<String, Object> body, InvokeOptions options, Map<String, String> query) throws InvokerException {
         InvokeOptions effective = options == null ? InvokeOptions.create() : options;
         RetryConfig retry = effective.getRetry() == null ? config.getRetry() : effective.getRetry();
-        int attempts = retry != null && retry.isEnabled() ? Math.max(1, retry.getMaxAttempts()) : 1;
+        // AUD-068: a write may have taken effect before its response was lost, so writes are
+        // single-shot unless the caller declares the endpoint replay-safe via retryWrites; the
+        // final write failure of unknown outcome is marked RESULT_UNKNOWN.
+        boolean isWrite = !"GET".equalsIgnoreCase(method) && !"HEAD".equalsIgnoreCase(method);
+        int attempts = 1;
+        if (retry != null && retry.isEnabled() && (!isWrite || retry.isRetryWrites())) attempts = Math.max(1, retry.getMaxAttempts());
         InvokerException previous = null;
         for (int attempt = 0; attempt < attempts; attempt++) {
             try {
                 return requestOnce(method, segments, body, effective, query);
             } catch (InvokerException error) {
                 previous = error;
-                if (attempt == attempts - 1 || !isRetryable(error)) throw error;
+                if (attempt == attempts - 1 || !isRetryable(error)) throw asFinalWriteError(method, error);
                 try {
                     Thread.sleep(retryDelay(attempt, retry));
                 } catch (InterruptedException interrupted) {
                     Thread.currentThread().interrupt();
+                    // An interrupt is a caller-side cancellation with a known outcome, not a write result.
                     throw new InvokerException(ErrorCode.CANCELLED, "Server HTTP request interrupted", interrupted);
                 }
             }
         }
-        throw previous == null ? new InvokerException(ErrorCode.UNKNOWN, "Server HTTP request failed") : previous;
+        throw asFinalWriteError(method, previous == null ? new InvokerException(ErrorCode.UNKNOWN, "Server HTTP request failed") : previous);
+    }
+
+    /**
+     * Error codes whose outcome is known, so a write failure must not be marked result-unknown:
+     * explicit rejections (the server answered "no"), INTERNAL (a 2xx response proved the request
+     * executed, so a bad body is a known failure rather than a lost response) and CANCELLED (the
+     * caller deliberately stopped waiting).
+     */
+    private static final EnumSet<ErrorCode> KNOWN_OUTCOME_CODES = EnumSet.of(
+        ErrorCode.INVALID_ARGUMENT, ErrorCode.UNAUTHENTICATED, ErrorCode.PERMISSION_DENIED, ErrorCode.NOT_FOUND,
+        ErrorCode.ALREADY_EXISTS, ErrorCode.FAILED_PRECONDITION, ErrorCode.OUT_OF_RANGE, ErrorCode.UNIMPLEMENTED,
+        ErrorCode.INTERNAL, ErrorCode.CANCELLED);
+
+    private static InvokerException asFinalWriteError(String method, InvokerException error) {
+        if ("GET".equalsIgnoreCase(method) || "HEAD".equalsIgnoreCase(method)) return error;
+        if (KNOWN_OUTCOME_CODES.contains(error.getErrorCode())) return error;
+        return new InvokerException(ErrorCode.RESULT_UNKNOWN, "result unknown after write: " + error.getMessage(), error);
     }
 
     private Object requestOnce(String method, List<String> segments, Map<String, Object> body, InvokeOptions options, Map<String, String> query) throws InvokerException {
@@ -215,6 +239,8 @@ public final class ServerHttpInvoker implements TaskStatusInvoker {
             Thread.currentThread().interrupt();
             throw new InvokerException(ErrorCode.CANCELLED, "Server HTTP request interrupted", exception);
         } catch (IllegalArgumentException exception) {
+            // A 2xx response with an invalid JSON body was received: the write executed, so its
+            // outcome is not "unknown" (AUD-068) even though deserialization failed.
             throw new InvokerException(ErrorCode.INTERNAL, "server returned invalid JSON: " + exception.getMessage(), exception);
         }
     }
