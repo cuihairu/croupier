@@ -74,6 +74,8 @@ TCPTransport::TCPTransport(TCPTransport&& other) noexcept
       connected_(other.connected_.load()),
       closing_(other.closing_.load()),
       next_req_id_(other.next_req_id_.load()),
+      conn_epoch_(other.conn_epoch_.load()),
+      disconnect_cb_(std::move(other.disconnect_cb_)),
       pending_responses_(std::move(other.pending_responses_)),
       read_thread_(std::move(other.read_thread_)),
       inbound_pool_(std::move(other.inbound_pool_)),
@@ -104,6 +106,8 @@ TCPTransport& TCPTransport::operator=(TCPTransport&& other) noexcept {
         connected_ = other.connected_.load();
         closing_ = other.closing_.load();
         next_req_id_ = other.next_req_id_.load();
+        conn_epoch_ = other.conn_epoch_.load();
+        disconnect_cb_ = std::move(other.disconnect_cb_);
         pending_responses_ = std::move(other.pending_responses_);
         read_thread_ = std::move(other.read_thread_);
         inbound_pool_ = std::move(other.inbound_pool_);
@@ -124,6 +128,10 @@ TCPTransport& TCPTransport::operator=(TCPTransport&& other) noexcept {
 
 void TCPTransport::SetConnectTimeout(int timeout_ms) {
     connect_timeout_ms_ = timeout_ms;
+}
+
+void TCPTransport::SetDisconnectCallback(std::function<void()> callback) {
+    disconnect_cb_ = std::move(callback);
 }
 
 void TCPTransport::SetSocketNonBlocking(bool non_blocking) {
@@ -279,6 +287,21 @@ void TCPTransport::Connect() {
         return;
     }
 
+    // AUD-072: reclaim the previous connection's read thread before
+    // installing a new one. After a self-published disconnect the dead
+    // thread has already detached itself (joinable() == false → no-op
+    // here); any finished-but-not-joined thread is joined here — from a
+    // caller thread, never from inside the thread itself.
+    if (read_thread_.joinable()) {
+        if (read_thread_.get_id() == std::this_thread::get_id()) {
+            // Paranoia guard (AUD-072 rule: a thread must not join itself);
+            // unreachable for a sane call stack.
+            read_thread_.detach();
+        } else {
+            read_thread_.join();
+        }
+    }
+
     // Use connect with timeout
     ConnectWithTimeout(connect_timeout_ms_);
 
@@ -296,11 +319,19 @@ void TCPTransport::Connect() {
     setsockopt(socket_, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
 #endif
 
-    connected_ = true;
-    closing_ = false;
-
-    // Start read loop
-    read_thread_ = std::thread(&TCPTransport::ReadLoop, this);
+    // AUD-072: epoch bump + state reset + thread install must be atomic
+    // against PublishDisconnect of a still-unwinding old read-loop tail
+    // (see PublishDisconnect): the stale tail must either run fully before
+    // this block (it publishes the OLD connection) or observe the new
+    // epoch and skip (never clobber this new connection).
+    {
+        std::lock_guard<std::mutex> lock(disconnect_mu_);
+        conn_epoch_.fetch_add(1, std::memory_order_acq_rel);
+        connected_ = true;
+        closing_ = false;
+        read_thread_ = std::thread(&TCPTransport::ReadLoop, this,
+                                   conn_epoch_.load(std::memory_order_acquire));
+    }
 }
 
 void TCPTransport::DetachPool(std::shared_ptr<InboundPool>& pool) {
@@ -481,6 +512,16 @@ std::pair<uint32_t, std::vector<uint8_t>> TCPTransport::Call(
 
         int wait_time = std::min(check_interval_ms, timeout_ms_ - total_waited);
         if (latch_ptr->Wait(wait_time)) {
+            // AUD-072: the latch can also be woken by PublishDisconnect
+            // (read loop died on peer EOF / network error). The failure flag
+            // is read from the caller-held latch_ptr — the map entry may
+            // already be gone — so the wake can never masquerade as a
+            // legitimate (empty) response.
+            if (latch_ptr->IsFailed()) {
+                std::lock_guard<std::mutex> lock(pending_mutex_);
+                pending_responses_.erase(req_id);
+                throw std::runtime_error("Connection lost");
+            }
             // Response received - extract data and remove from pending
             std::vector<uint8_t> body;
             uint32_t msg_id = 0;
@@ -563,7 +604,7 @@ bool TCPTransport::WriteAll(socket_t sock, const char* data, size_t len,
     return true;
 }
 
-void TCPTransport::ReadLoop() {
+void TCPTransport::ReadLoop(uint64_t epoch) {
     uint8_t header_buf[FRAME_HEADER_BYTES];
 
     while (!closing_ && socket_ != INVALID_SOCKET_VALUE) {
@@ -648,8 +689,76 @@ void TCPTransport::ReadLoop() {
         }
     }
 
-    // ReadLoop exits - do NOT recursively call Close()
-    // The Close() method is responsible for cleanup
+    // AUD-072: the loop exited on its own — peer clean EOF, network error,
+    // or a broken frame. Publish the disconnect immediately (fail pending
+    // requests, clear connection state, fire the owner callback) instead of
+    // letting Call()ers hang until their full timeout and IsConnected()
+    // keep reporting true. Do NOT call Close() here: Close() joins
+    // read_thread_, which is THIS thread — joining oneself deadlocks.
+    // PublishDisconnect tears the thread down without self-join.
+    PublishDisconnect(epoch);
+}
+
+void TCPTransport::PublishDisconnect(uint64_t epoch) {
+    std::function<void()> on_disconnect;
+    {
+        std::lock_guard<std::mutex> lock(disconnect_mu_);
+        // Stale tail of an already-replaced connection (a newer Connect()
+        // bumped the epoch): never touch the new connection's state,
+        // pending queue, thread member, or callback.
+        if (conn_epoch_.load(std::memory_order_acquire) != epoch) {
+            return;
+        }
+        // closing_ exchange is both the "already published / Close() in
+        // charge" guard and the flag that makes IsConnected() false and
+        // rejects new Call()s. If Close() won the race, it owns the
+        // teardown (socket shutdown, pool detach) — step aside.
+        if (closing_.exchange(true)) {
+            return;
+        }
+        connected_ = false;
+        // Snapshot the callback while the member is guaranteed valid; it is
+        // invoked after the lock (and after self-detach) below.
+        on_disconnect = disconnect_cb_;
+
+        // (a) wake every in-flight Call() on THIS connection: fail the
+        // latch so its Wait() returns immediately with the failure marker.
+        // Move the map out under the lock, fail outside it — same shape as
+        // Close(), for the same deadlock-avoidance reasons.
+        std::unordered_map<uint32_t, std::shared_ptr<ResponseLatch>> responses_to_fail;
+        {
+            std::lock_guard<std::mutex> lock(pending_mutex_);
+            responses_to_fail = std::move(pending_responses_);
+        }
+        for (auto& [req_id, latch] : responses_to_fail) {
+            if (latch) {
+                latch->Fail();
+            }
+        }
+
+        // (b) recycle the read thread WITHOUT self-join: read_thread_ is
+        // this very thread; join() here would deadlock. Detach frees the
+        // member so a later Connect() can install a fresh thread (and a
+        // fresh pending queue — next_req_id_ keeps counting but the map
+        // starts empty). fd reclamation (shutdown/closesocket) and inbound
+        // pool teardown stay with Close(), which is still safe to call
+        // afterwards (its join sees a non-joinable thread).
+        if (read_thread_.joinable()) {
+            read_thread_.detach();
+        }
+    }
+    // (c) notify the owner AFTER disconnect_mu_ is released: the callback
+    // runs on this read thread and may immediately kick reconnection logic
+    // that re-enters this transport (Close/Connect) from other threads.
+    // Exceptions must never cross into the read thread; the owner's
+    // callback is expected not to throw, but guard anyway.
+    if (on_disconnect) {
+        try {
+            on_disconnect();
+        } catch (...) {
+            std::cerr << "[WARN] TCPTransport: disconnect callback threw\n";
+        }
+    }
 }
 
 int TCPTransport::ReadFully(void* buf, size_t count) {

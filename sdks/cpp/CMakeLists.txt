@@ -728,6 +728,7 @@ if(BUILD_TESTS)
             tests/test_coverage_boost4.cpp
             tests/test_provider_inbound.cpp
             tests/test_dual_lane.cpp
+            tests/test_read_loop_disconnect.cpp
             tests/test_sigpipe_guard.cpp
             tests/test_coverage_boost5.cpp
             tests/test_coverage_boost6.cpp

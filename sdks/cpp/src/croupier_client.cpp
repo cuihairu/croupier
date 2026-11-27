@@ -347,6 +347,17 @@ public:
     std::optional<std::thread::id> heartbeat_thread_id_;
     std::string last_error_;
 
+    // AUD-072：传输层断开（对端 EOF / 网络错误）时的即时唤醒通道。断开
+    // 回调跑在传输层读线程上，只做状态翻转 + 置位 kick；真正的重连拨号
+    // 仍由心跳线程的 reconnectLoop() 执行（该线程已 detach，不存在自
+    // join）。kick 参与心跳睡眠的轮询条件，让等待最多 100ms（一个睡眠
+    // 片）就被截断，而不是等满一个 heartbeat_interval（默认 60s）才发现
+    // 连接已死。注意：这里刻意不用条件变量——心跳线程是 detach 的，
+    // Stop() 返回后 Impl 成员即可被析构，cv/mutex 会在 wait_for 内踩已
+    // 释放内存（曾实测 malloc(): unaligned tcache chunk 崩溃）；裸原子
+    // 轮询与既有停机语义完全兼容。
+    std::atomic<bool> heartbeat_kick_{false};
+
     // Drain 状态：收到 ProviderDrainRequest 后置位——拒绝新 Invoke，
     // 在途调用清零后复用 RegisterAllFunctions 恢复会话（对齐 C# 参考实现）。
     std::atomic<bool> draining_{false};
@@ -420,6 +431,9 @@ public:
             replacement->SetInboundHandler([this](uint32_t msg_id, uint32_t req_id, const std::vector<uint8_t>& body) {
                 return handleAgentRequest(msg_id, req_id, body);
             });
+            // AUD-072：对端断开（EOF/网络错误）即时触发重连（见
+            // OnTransportDisconnected——回调只翻转状态并踢醒心跳线程）。
+            replacement->SetDisconnectCallback([this]() { OnTransportDisconnected(); });
             replacement->Connect();
             std::string session_id = registerWithAgent(*replacement);
 
@@ -608,6 +622,9 @@ public:
             transport->SetInboundHandler([this](uint32_t msg_id, uint32_t req_id, const std::vector<uint8_t>& body) {
                 return handleAgentRequest(msg_id, req_id, body);
             });
+            // AUD-072：对端断开（EOF/网络错误）即时触发重连（见
+            // OnTransportDisconnected——回调只翻转状态并踢醒心跳线程）。
+            transport->SetDisconnectCallback([this]() { OnTransportDisconnected(); });
             transport->Connect();
             std::string session_id = registerWithAgent(*transport);
 
@@ -892,6 +909,7 @@ public:
     void startHeartbeatLoop() {
         stopHeartbeatLoop();
         should_stop_heartbeat_ = false;
+        heartbeat_kick_ = false;
         // detach: the heartbeat thread may run the reconnect loop, and
         // Connect() inside it calls startHeartbeatLoop() again — a join there
         // would self-deadlock. Ownership is tracked via heartbeat_thread_id_.
@@ -899,12 +917,19 @@ public:
             heartbeat_thread_id_ = std::this_thread::get_id();
             const auto interval = std::max(1, config_.heartbeat_interval);
             while (!should_stop_heartbeat_) {
-                for (int elapsed = 0; elapsed < interval * 10 && !should_stop_heartbeat_; ++elapsed) {
+                // AUD-072：可中断睡眠——传输层断开回调置位 kick，睡眠片
+                // 条件里带上 kick，最多 100ms 内心跳即醒来探测连接
+                // （IsConnected()==false → 抛出 → reconnectLoop），不再等
+                // 满整个 interval 才发现断连。保持裸 sleep_for 轮询（线程
+                // 已 detach，不得在成员 mutex/cv 上等待——见成员注释）。
+                for (int elapsed = 0; elapsed < interval * 10 && !should_stop_heartbeat_ && !heartbeat_kick_;
+                     ++elapsed) {
                     std::this_thread::sleep_for(std::chrono::milliseconds(100));
                 }
                 if (should_stop_heartbeat_) {
                     break;
                 }
+                heartbeat_kick_ = false;  // 消费本次唤醒（无论来源）
 
                 try {
                     sendHeartbeat();
@@ -936,6 +961,28 @@ public:
         should_stop_heartbeat_ = true;
         if (heartbeat_thread_.joinable()) {
             heartbeat_thread_.join();
+        }
+    }
+
+    // AUD-072：传输层读循环失去连接（对端 EOF / 网络错误）后的回调。
+    // 跑在传输层读线程上——必须严格非阻塞：不拨号、不 join、不做业务，
+    // 只翻转状态并置位 kick（心跳线程的睡眠片轮询最多 100ms 内消费），
+    // 让 reconnectLoop() 立即开始（重连拨号全程在心跳线程上执行，该线程
+    // 已 detach，无自 join 风险）。
+    void OnTransportDisconnected() {
+        try {
+            connected_ = false;
+            // 刻意不写 last_error_：它是普通 std::string，而心跳线程的
+            // 失败路径会并发写同一字符串（本回调 kick 心跳后，心跳立即
+            // 抛 "heartbeat transport is not connected" 并记录）——两个
+            // 线程并发赋值 std::string 是数据竞争（堆破坏风险）。错误
+            // 记录交给心跳失败路径，本回调只翻转状态 + 置位 kick。
+            if (running_.load()) {
+                heartbeat_kick_.store(true);
+            }
+        } catch (...) {
+            // 绝不让异常穿越回传输层读线程（PublishDisconnect 已有兜底，
+            // 这里保持回调体本身无异常抛出）。
         }
     }
 

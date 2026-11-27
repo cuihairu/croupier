@@ -99,6 +99,18 @@ public:
     void SetConnectTimeout(int timeout_ms);
 
     /**
+     * AUD-072: register a callback invoked when the read loop exits on its
+     * own (peer clean EOF or network error) — i.e. the connection died
+     * WITHOUT a local Close(). The callback runs on the read thread, right
+     * after pending requests have been failed and the connection state has
+     * been cleared; it must stay non-blocking (no dial, no join, no handler
+     * work) so the read thread is never held. Not invoked for an explicit
+     * Close()/destructor, and not re-invoked for stale tails of an
+     * already-replaced connection.
+     */
+    void SetDisconnectCallback(std::function<void()> callback);
+
+    /**
      * Close the connection.
      */
     void Close();
@@ -154,6 +166,11 @@ private:
         std::vector<uint8_t> body;
         uint32_t msg_id = 0;
         bool ready = false;
+        // AUD-072: set when the read loop died (peer EOF / network error)
+        // before a response arrived. Distinguishes "connection lost" from a
+        // legitimate empty response, so Call() can fail fast instead of
+        // returning a fake empty success or burning the full timeout.
+        bool failed = false;
 
         bool Wait(int timeout_ms) {
             std::unique_lock<std::mutex> lock(mutex);
@@ -168,9 +185,32 @@ private:
             ready = true;
             cv.notify_one();
         }
+
+        // AUD-072: wake the waiter with the failure marker (immediate, no
+        // polling). Monotone: a later Signal() cannot un-fail the latch.
+        void Fail() {
+            std::lock_guard<std::mutex> lock(mutex);
+            failed = true;
+            ready = true;
+            cv.notify_all();
+        }
+
+        bool IsFailed() {
+            std::lock_guard<std::mutex> lock(mutex);
+            return failed;
+        }
     };
 
-    void ReadLoop();
+    // AUD-072: read loop owns one connection instance; epoch identifies the
+    // connection incarnation (bumped by every Connect()). A late-exiting
+    // tail of an old connection must never publish against the new one.
+    void ReadLoop(uint64_t epoch);
+    // AUD-072: publish a self-detected disconnect (peer EOF / network error):
+    // fail every pending request on THIS connection, clear the connection
+    // state, detach the (self-owned) read thread instead of joining it —
+    // a thread must not join itself — then fire the disconnect callback.
+    // Must be called with the connection epoch the loop was started for.
+    void PublishDisconnect(uint64_t epoch);
     int ReadFully(void* buf, size_t count);
     static void PutMsgId(uint8_t* buf, uint32_t msg_id);
     static uint32_t GetMsgId(const uint8_t* buf);
@@ -211,6 +251,15 @@ private:
     std::atomic<bool> closing_;
     bool close_called_ = false;  // Close() 幂等：显式 Close + 析构 Close 双跑防护
     std::atomic<uint32_t> next_req_id_;
+    // AUD-072：连接纪元。Connect() 每次建立新连接前 +1；读循环携带自己
+    // 的纪元退出，PublishDisconnect 仅在纪元仍匹配时发布——旧连接的
+    // 尾巴（迟到的读循环退出）绝不污染新连接的 pending 队列与状态。
+    std::atomic<uint64_t> conn_epoch_{0};
+    // AUD-072：发布断开的互斥锁——epoch 校验 + 状态翻转 + pending 搬空
+    // + 线程自 detach 必须原子；Connect() 重置状态也在锁内，两边互斥。
+    std::mutex disconnect_mu_;
+    // AUD-072：断开回调（读线程退出时触发，见 SetDisconnectCallback）。
+    std::function<void()> disconnect_cb_;
     // shared_ptr 而非 unique_ptr：Call() 在锁外等待期间持有 latch 引用，
     // Close() move 走整个 map 并 signal 后立即析构局部副本时，等待方
     // 的引用仍保持 latch 存活——否则等待方会在已释放的 mutex/cv 上
