@@ -114,38 +114,108 @@ jobs:
           # get the worker-compatible schema automatically).
           mkdir -p "${{ inputs.deploy_dir }}/configs/clickhouse/initdb"
           cp configs/clickhouse/initdb/*.sql "${{ inputs.deploy_dir }}/configs/clickhouse/initdb/"
-          # SDK demo 的 game/env scope 与 agent.yaml 一样是环境事实；.env 每次
-          # 重建会回落 default/dev，把 demo 注册进不可见 scope。
-          PREV_GAME="${CROUPIER_SDK_EXAMPLE_GAME_ID_PERSIST:-}"
-          PREV_ENVV="${CROUPIER_SDK_EXAMPLE_ENV_PERSIST:-}"
-          if [ -f "${{ inputs.deploy_dir }}/.env" ]; then
-            PREV_GAME="$(grep -oP '^CROUPIER_SDK_EXAMPLE_GAME_ID=\K.*' "${{ inputs.deploy_dir }}/.env" || true)"
-            PREV_ENVV="$(grep -oP '^CROUPIER_SDK_EXAMPLE_ENV=\K.*' "${{ inputs.deploy_dir }}/.env" || true)"
+          # AUD-095: .env has two explicit owners.
+          # MANAGED_KEYS are rebuilt from workflow inputs on every deploy
+          # (image tags, registry, feature switches). Every other key is
+          # instance-owned (host ports, ClickHouse/collection config and
+          # credentials, demo game/env scope, image overrides, external
+          # endpoints and secrets) and must survive redeploys. INSTANCE_KEYS
+          # gives the known keys a stable emission order; the catch-all below
+          # preserves any future instance key without a workflow edit. Managed
+          # keys always win (they are skipped during the snapshot).
+          # BEGIN deploy env merge (AUD-095)
+          DEPLOY_DIR="${{ inputs.deploy_dir }}"
+          MANAGED_KEYS=(
+            GHCR_OWNER
+            CROUPIER_SERVER_TAG CROUPIER_AGENT_TAG CROUPIER_DASHBOARD_TAG
+            CROUPIER_SDK_EXAMPLE_TAG ENABLE_SDK_EXAMPLES ANALYTICS_BRIDGE_ENABLED
+          )
+          INSTANCE_KEYS=(
+            CROUPIER_SDK_EXAMPLE_GAME_ID CROUPIER_SDK_EXAMPLE_ENV
+            POSTGRES_PORT REDIS_PORT CLICKHOUSE_HTTP_PORT CLICKHOUSE_NATIVE_PORT
+            JAEGER_UI_PORT SERVER_TRANSPORT_PORT SERVER_HTTP_PORT AGENT_HTTP_PORT
+            DASHBOARD_PORT HAPROXY_STATS_PORT INGEST_PORT
+            POSTGRES_DB POSTGRES_USER POSTGRES_PASSWORD
+            CLICKHOUSE_USER CLICKHOUSE_PASSWORD CLICKHOUSE_DB CLICKHOUSE_DSN
+            ANALYTICS_INGEST_SECRET ANALYTICS_MQ_TYPE ANALYTICS_REDIS_ADDR
+            ANALYTICS_REDIS_STREAM_EVENTS ANALYTICS_REDIS_STREAM_PAYMENTS
+            ANALYTICS_INGEST_SKEW WORKER_GROUP
+            DATABASE_URL REDIS_URL GEOIP_TIMEOUT_MS OTEL_EXPORTER_OTLP_ENDPOINT
+            CROUPIER_JAEGER_URL CROUPIER_GRAFANA_EXPLORE_URL CROUPIER_LB_PROMETHEUS_URL
+            CROUPIER_AUTH_LDAP_BIND_PASSWORD CROUPIER_AUTH_OIDC_CLIENT_SECRET
+            CROUPIER_INGEST_TAG CROUPIER_ANALYTICS_WORKER_TAG
+            POSTGRES_IMAGE REDIS_IMAGE CLICKHOUSE_IMAGE OTEL_IMAGE JAEGER_IMAGE
+            HAPROXY_IMAGE
+          )
+          ENV_FILE="${DEPLOY_DIR}/.env"
+          # Snapshot before writing: the old flow truncated .env, then tried
+          # to grep the previous ports from the newly written file.
+          declare -A PRESERVED=()
+          if [ -f "${ENV_FILE}" ]; then
+            while IFS= read -r line || [ -n "${line}" ]; do
+              case "${line}" in ''|'#'*) continue ;; esac
+              key="${line%%=*}"
+              case "${key}" in *=|*[!A-Z0-9_]*) continue ;; esac
+              for managed in "${MANAGED_KEYS[@]}"; do
+                if [ "${key}" = "${managed}" ]; then continue 2; fi
+              done
+              for owned in "${INSTANCE_KEYS[@]}"; do
+                if [ "${key}" = "${owned}" ]; then
+                  PRESERVED["${key}"]="${line}"
+                  continue 2
+                fi
+              done
+              # Catch-all: anything not workflow-managed belongs to the instance.
+              # This covers future *_PORT / *_IMAGE / collection config keys
+              # that are not yet in the explicit INSTANCE_KEYS list.
+              PRESERVED["${key}"]="${line}"
+            done < "${ENV_FILE}"
           fi
-          cat > "${{ inputs.deploy_dir }}/.env" <<EOF
-          GHCR_OWNER=${{ inputs.ghcr_owner }}
-          CROUPIER_SERVER_TAG=${{ inputs.server_tag }}
-          CROUPIER_AGENT_TAG=${{ inputs.agent_tag }}
-          CROUPIER_DASHBOARD_TAG=${{ inputs.dashboard_tag }}
-          CROUPIER_SDK_EXAMPLE_TAG=${{ inputs.sdk_example_tag }}
-          ENABLE_SDK_EXAMPLES=${{ inputs.enable_sdk_examples }}
-          ANALYTICS_BRIDGE_ENABLED=${{ inputs.analytics_bridge }}
-          EOF
-          if [ -n "${PREV_GAME}" ]; then
-            echo "CROUPIER_SDK_EXAMPLE_GAME_ID=${PREV_GAME}" >> "${{ inputs.deploy_dir }}/.env"
-          fi
-          if [ -n "${PREV_ENVV}" ]; then
-            echo "CROUPIER_SDK_EXAMPLE_ENV=${PREV_ENVV}" >> "${{ inputs.deploy_dir }}/.env"
-          fi
-          # 宿主机自定义宿主端口（*_PORT=）与 GAME/ENV 同理是环境事实：
-          # 共享 runner 上 9000/8123 可能被他项目占用（2026-09 cockpit-server
-          # 冲突致部署失败），运维在 .env 里改端口必须跨部署存活。
-          if [ -f "${{ inputs.deploy_dir }}/.env" ]; then
-            PREV_PORTS="$(grep -E '^[A-Z][A-Z0-9_]*_PORT=' "${{ inputs.deploy_dir }}/.env" || true)"
-            if [ -n "${PREV_PORTS}" ]; then
-              printf '%s\n' "${PREV_PORTS}" >> "${{ inputs.deploy_dir }}/.env"
+          # Older installers set these on the runner before .env existed.
+          for pair in \
+            "CROUPIER_SDK_EXAMPLE_GAME_ID:${CROUPIER_SDK_EXAMPLE_GAME_ID_PERSIST:-}" \
+            "CROUPIER_SDK_EXAMPLE_ENV:${CROUPIER_SDK_EXAMPLE_ENV_PERSIST:-}"
+          do
+            key="${pair%%:*}"
+            value="${pair#*:}"
+            if [ -n "${value}" ] && [ -z "${PRESERVED[${key}]:-}" ]; then
+              PRESERVED["${key}"]="${key}=${value}"
             fi
-          fi
+          done
+          # Build beside the target, then publish with a single rename; compose
+          # never observes a half-written .env. Scoped subshell owns cleanup.
+          (
+            set -e
+            TMP_ENV="$(mktemp "${DEPLOY_DIR}/.env.XXXXXX")"
+            trap 'rm -f "${TMP_ENV}"' EXIT
+            {
+              printf 'GHCR_OWNER=%s\n' "${{ inputs.ghcr_owner }}"
+              printf 'CROUPIER_SERVER_TAG=%s\n' "${{ inputs.server_tag }}"
+              printf 'CROUPIER_AGENT_TAG=%s\n' "${{ inputs.agent_tag }}"
+              printf 'CROUPIER_DASHBOARD_TAG=%s\n' "${{ inputs.dashboard_tag }}"
+              printf 'CROUPIER_SDK_EXAMPLE_TAG=%s\n' "${{ inputs.sdk_example_tag }}"
+              printf 'ENABLE_SDK_EXAMPLES=%s\n' "${{ inputs.enable_sdk_examples }}"
+              printf 'ANALYTICS_BRIDGE_ENABLED=%s\n' "${{ inputs.analytics_bridge }}"
+            } > "${TMP_ENV}"
+            declare -A EMITTED=()
+            for key in "${INSTANCE_KEYS[@]}"; do
+              if [ -n "${PRESERVED[${key}]:-}" ]; then
+                printf '%s\n' "${PRESERVED[${key}]}" >> "${TMP_ENV}"
+                EMITTED["${key}"]=1
+              fi
+            done
+            if [ "${#PRESERVED[@]}" -gt 0 ]; then
+              for key in "${!PRESERVED[@]}"; do
+                if [ -z "${EMITTED[${key}]:-}" ]; then
+                  printf '%s\n' "${PRESERVED[${key}]}" >> "${TMP_ENV}"
+                fi
+              done
+            fi
+            chmod 600 "${TMP_ENV}"
+            mv -f "${TMP_ENV}" "${ENV_FILE}"
+          )
+          unset PRESERVED
+          # END deploy env merge (AUD-095)
 
       - name: Login GHCR
         timeout-minutes: 3
