@@ -182,6 +182,9 @@ import (
 //               GAME-010 平台半边：高风险业务操作的游戏侧执行凭据——
 //               operationId 复合标识唯一作用域 + 参数指纹 + outcome 状态机 +
 //               D4 查询/重试计量列；新建表 CreateTable 无存量漂移；缺表跳过）
+//   0070 (Go)   business_operation_credentials.request_payload JSON 列
+//               （GAME-009 D4 自动重试的参数快照；加列 0025 模式；缺表跳过；
+//               存量行 NULL = 无快照不自动重试）
 
 func init() {
 	registerSvcMigrations()
@@ -261,6 +264,7 @@ func registerSvcMigrations() {
 		adminRefreshTokenTableMigration(),
 		backupIdempotencyKeyMigration(),
 		businessOperationCredentialsTableMigration(),
+		businessOperationCredentialPayloadColumnMigration(),
 	); err != nil {
 		// panic-ok: init 期迁移注册表组装失败属开发期错误（迁移函数
 		// 引用漂移），进程不可安全启动（CR-FIX-22 豁免清单）。

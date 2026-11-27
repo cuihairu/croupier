@@ -599,6 +599,12 @@ func startControlServer(ctx context.Context, c *config.Config, svcCtx *svc.Servi
 		svcCtx.ServerProbes = serverProbes
 		go serverProbes.Start(ctx)
 	}
+	// GAME-010：业务操作凭据 D4 自动收敛（unknown→queryHint 查询 ×10、retryable_failed
+	// 同快照重派 ×8 退避）；缺 DB 不启动（收敛循环无凭据可扫）。
+	if svcCtx.DB != nil {
+		operationConverge := functioninvoke.NewOperationConverger(svcCtx, slog.Default())
+		go operationConverge.Start(ctx)
+	}
 	controlService.SetOutletManager(svcCtx.OutletManager)
 	// capture 闸规则下行拉取：config_versions capture.gates（分库模式注入
 	// Router 解析 game 库；单库 nil 即走默认连接）

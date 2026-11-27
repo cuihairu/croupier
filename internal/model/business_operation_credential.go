@@ -21,6 +21,9 @@ type BusinessOperationCredential struct {
 	// RequestFingerprint 是「契约函数 + 参数规范化 JSON」的 SHA-256：
 	// 同 operationId 携带不同参数的重放（R5 参数漂移）在此判 409。
 	RequestFingerprint string `gorm:"size:64;not null"`
+	// RequestPayload 是首次登记时的参数快照（D4 自动重试须同 operationId 同
+	// 快照重放）；重放命中既有行不覆盖快照。列经 0070 加列迁移补齐。
+	RequestPayload JSON `gorm:"type:json"`
 	// Outcome 取值见 Outcome* 常量：pending（已登记、副作用未落定）→
 	// succeeded/failed/retryable_failed/unknown → canceled/cancel_failed。
 	// unknown 只能经查询收敛改写，绝不允许被直接改写为 succeeded（D4）。

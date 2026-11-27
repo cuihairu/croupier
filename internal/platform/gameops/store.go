@@ -54,11 +54,13 @@ func NewCredentialStore(db *gorm.DB) *CredentialStore {
 }
 
 // Register 原子登记业务意图凭据（CreateOrGet）：
-//   - 无同 ID 行 → 插入 pending 凭据，返回 (credential, created=true)；
+//   - 无同 ID 行 → 插入 pending 凭据（携带参数快照 payload，D4 自动重试依据），
+//     返回 (credential, created=true)；
 //   - 同 ID 且指纹一致 → 返回既有凭据（created=false）——响应丢失后的重试
-//     携带同一 operationId 命中同一行，游戏侧据此去重（R1/R3）；
+//     携带同一 operationId 命中同一行，游戏侧据此去重（R1/R3）；快照保持
+//     首次登记值不覆盖；
 //   - 同 ID 但指纹不同 → ErrFingerprintConflict（R5 参数漂移拒绝）。
-func (s *CredentialStore) Register(ctx context.Context, gameID, env, operationID, functionID, fingerprint, actor, queryHint, cancelHint string) (*model.BusinessOperationCredential, bool, error) {
+func (s *CredentialStore) Register(ctx context.Context, gameID, env, operationID, functionID, fingerprint string, payload []byte, actor, queryHint, cancelHint string) (*model.BusinessOperationCredential, bool, error) {
 	if err := ValidateOperationID(operationID); err != nil {
 		return nil, false, err
 	}
@@ -75,6 +77,7 @@ func (s *CredentialStore) Register(ctx context.Context, gameID, env, operationID
 		Domain:             domain,
 		FunctionID:         functionID,
 		RequestFingerprint: fingerprint,
+		RequestPayload:     model.JSON(payload),
 		Outcome:            model.BizOpOutcomePending,
 		QueryHint:          queryHint,
 		CancelHint:         cancelHint,
@@ -170,8 +173,8 @@ func (s *CredentialStore) ApplyEnvelope(ctx context.Context, gameID, env, operat
 // MarkUnknownOnTransportFailure 在执行链无权威信封返回（传输失败/超时）时
 // 落 unknown——绝不落 failed（R2：未知误判失败会诱发重复发放）。凭据不存在
 // 时登记占位凭据（指纹必须与登记时一致）。
-func (s *CredentialStore) MarkUnknownOnTransportFailure(ctx context.Context, gameID, env, operationID, functionID, fingerprint, actor string) (*model.BusinessOperationCredential, error) {
-	rec, created, err := s.Register(ctx, gameID, env, operationID, functionID, fingerprint, actor, "", "")
+func (s *CredentialStore) MarkUnknownOnTransportFailure(ctx context.Context, gameID, env, operationID, functionID, fingerprint string, payload []byte, actor string) (*model.BusinessOperationCredential, error) {
+	rec, created, err := s.Register(ctx, gameID, env, operationID, functionID, fingerprint, payload, actor, "", "")
 	if err != nil {
 		return nil, err
 	}

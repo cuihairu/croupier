@@ -612,3 +612,34 @@ func businessOperationCredentialsTableMigration() *goose.Migration {
 		nil,
 	)
 }
+
+// migrateBusinessOperationCredentialPayloadColumn 为 0070：
+// business_operation_credentials.request_payload JSON 列（GAME-009 批准协议
+// D4 自动重试的参数快照：同 operationId 同快照重放）。加列 0025 模式——
+// HasTable 检查 + HasColumn → AddColumn，幂等；缺表跳过（fanout 重放到
+// 无该表的库不报错、不建空壳）；存量行 NULL = 无快照，不自动重试（诚实留空，
+// 只有 0070 之后登记的凭据才带快照）。
+func migrateBusinessOperationCredentialPayloadColumn(ctx context.Context, sqlDB *sql.DB) error {
+	db, err := wrapGorm(sqlDB)
+	if err != nil {
+		return err
+	}
+	m := db.Migrator()
+	if !m.HasTable(&model.BusinessOperationCredential{}) {
+		return nil
+	}
+	if m.HasColumn(&model.BusinessOperationCredential{}, "request_payload") {
+		return nil
+	}
+	if err := m.AddColumn(&model.BusinessOperationCredential{}, "request_payload"); err != nil {
+		return fmt.Errorf("migrate: 0070 add business_operation_credentials.request_payload: %w", err)
+	}
+	return nil
+}
+
+func businessOperationCredentialPayloadColumnMigration() *goose.Migration {
+	return goose.NewGoMigration(70,
+		&goose.GoFunc{RunDB: migrateBusinessOperationCredentialPayloadColumn},
+		nil,
+	)
+}

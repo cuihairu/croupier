@@ -71,6 +71,8 @@ type operationContext struct {
 	capability  *DurableIdempotency
 	credential  *model.BusinessOperationCredential
 	store       *gameops.CredentialStore
+	// payload 是参数快照（D4 自动重试重放依据），与凭据行 request_payload 同源。
+	payload []byte
 	// mode 是本次调用模式；async 任务的凭据保持 pending（任务完成收敛是边界，
 	// 见 review 文档 §5），sync 路径按信封/未知收敛。
 	mode string
@@ -132,7 +134,7 @@ func beginDurableOperation(ctx context.Context, svcCtx *svc.ServiceContext, req 
 		return nil, errorx.NewInternalError("durable operation needs database")
 	}
 	store := gameops.NewCredentialStore(svcCtx.DB)
-	credential, _, err := store.Register(ctx, req.GameID, req.Env, operationID, req.ID, fingerprint, adminUsername, capability.Query, capability.Cancel)
+	credential, _, err := store.Register(ctx, req.GameID, req.Env, operationID, req.ID, fingerprint, InvokePayload(req), adminUsername, capability.Query, capability.Cancel)
 	if err != nil {
 		if errors.Is(err, gameops.ErrFingerprintConflict) {
 			return nil, errorx.NewConflictWithDetails(
@@ -148,6 +150,7 @@ func beginDurableOperation(ctx context.Context, svcCtx *svc.ServiceContext, req 
 		capability:  capability,
 		credential:  credential,
 		store:       store,
+		payload:     InvokePayload(req),
 		mode:        strings.TrimSpace(req.Mode),
 	}, nil
 }
@@ -196,7 +199,7 @@ func finalizeDurableOperation(ctx context.Context, op *operationContext, result 
 		return "", nil
 	}
 	if invokeErr != nil {
-		updated, markErr := op.store.MarkUnknownOnTransportFailure(ctx, op.credential.GameID, op.credential.Env, op.operationID, op.credential.FunctionID, op.fingerprint, op.credential.Actor)
+		updated, markErr := op.store.MarkUnknownOnTransportFailure(ctx, op.credential.GameID, op.credential.Env, op.operationID, op.credential.FunctionID, op.fingerprint, op.payload, op.credential.Actor)
 		if markErr != nil {
 			return model.BizOpOutcomeUnknown, markErr
 		}
@@ -207,7 +210,7 @@ func finalizeDurableOperation(ctx context.Context, op *operationContext, result 
 	}
 	if result == nil || len(result.Result) == 0 {
 		// 无响应体：未知，等查询收敛。
-		updated, markErr := op.store.MarkUnknownOnTransportFailure(ctx, op.credential.GameID, op.credential.Env, op.operationID, op.credential.FunctionID, op.fingerprint, op.credential.Actor)
+		updated, markErr := op.store.MarkUnknownOnTransportFailure(ctx, op.credential.GameID, op.credential.Env, op.operationID, op.credential.FunctionID, op.fingerprint, op.payload, op.credential.Actor)
 		if markErr != nil {
 			return model.BizOpOutcomeUnknown, markErr
 		}
@@ -216,7 +219,7 @@ func finalizeDurableOperation(ctx context.Context, op *operationContext, result 
 	envelope, parseErr := gameops.ParseEnvelope(op.operationID, op.fingerprint, result.Result)
 	if parseErr != nil {
 		// 收到响应但不是合法信封：按未知收敛，不发明终态。
-		updated, markErr := op.store.MarkUnknownOnTransportFailure(ctx, op.credential.GameID, op.credential.Env, op.operationID, op.credential.FunctionID, op.fingerprint, op.credential.Actor)
+		updated, markErr := op.store.MarkUnknownOnTransportFailure(ctx, op.credential.GameID, op.credential.Env, op.operationID, op.credential.FunctionID, op.fingerprint, op.payload, op.credential.Actor)
 		if markErr != nil {
 			return model.BizOpOutcomeUnknown, markErr
 		}

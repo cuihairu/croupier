@@ -101,20 +101,20 @@ func TestCredentialStore_RegisterRetryFingerprintAndTransition(t *testing.T) {
 	const opID = "demo:prod:player:018f3b27-5c2e-7b10-8000-000000000001"
 
 	// 1) 首次登记 → pending（副作用尚未落定）。
-	rec, created, err := store.Register(ctx, "demo", "prod", opID, "player.ban", "fp-a", "alice", "queryFn", "cancelFn")
+	rec, created, err := store.Register(ctx, "demo", "prod", opID, "player.ban", "fp-a", []byte(`{}`), "alice", "queryFn", "cancelFn")
 	require.NoError(t, err)
 	assert.True(t, created)
 	assert.Equal(t, model.BizOpOutcomePending, rec.Outcome)
 	assert.Equal(t, "player", rec.Domain)
 
 	// 2) 同 ID 同指纹重放（响应丢失后的重试）→ 不新建行、不重复执行。
-	again, created, err := store.Register(ctx, "demo", "prod", opID, "player.ban", "fp-a", "alice", "", "")
+	again, created, err := store.Register(ctx, "demo", "prod", opID, "player.ban", "fp-a", []byte(`{}`), "alice", "", "")
 	require.NoError(t, err)
 	assert.False(t, created)
 	assert.Equal(t, rec.ID, again.ID)
 
 	// 3) 同 ID 不同指纹 → R5 参数漂移拒绝。
-	_, _, err = store.Register(ctx, "demo", "prod", opID, "player.ban", "fp-b", "alice", "", "")
+	_, _, err = store.Register(ctx, "demo", "prod", opID, "player.ban", "fp-b", []byte(`{}`), "alice", "", "")
 	assert.True(t, errors.Is(err, ErrFingerprintConflict), "got %v", err)
 
 	// 4) 游戏方权威信封落定成功 → 凭据同步；终态不可被再次改写。
@@ -145,7 +145,7 @@ func TestCredentialStore_UnknownConvergenceNeverSubstitutes(t *testing.T) {
 
 	// 场景 A：传输无响应（首个 POST 完成副作用后丢响应）→ 落 unknown 不落 failed。
 	idA := "demo:prod:mail:018f3b27-5c2e-7b10-8000-000000000002"
-	rec, err := store.MarkUnknownOnTransportFailure(ctx, "demo", "prod", idA, "mail.send", "fp-a", "alice")
+	rec, err := store.MarkUnknownOnTransportFailure(ctx, "demo", "prod", idA, "mail.send", "fp-a", []byte(`{}`), "alice")
 	require.NoError(t, err)
 	assert.Equal(t, model.BizOpOutcomeUnknown, rec.Outcome, "结果未知绝不能标成失败（R2）")
 
@@ -159,9 +159,9 @@ func TestCredentialStore_UnknownConvergenceNeverSubstitutes(t *testing.T) {
 
 	// 场景 C：查询上限计量与收敛清单（unknown 未超限进清单，超限不进）。
 	idB := "demo:prod:mail:018f3b27-5c2e-7b10-8000-000000000003"
-	_, _, err = store.Register(ctx, "demo", "prod", idB, "mail.send", "fp-b", "alice", "", "")
+	_, _, err = store.Register(ctx, "demo", "prod", idB, "mail.send", "fp-b", []byte(`{}`), "alice", "", "")
 	require.NoError(t, err)
-	_, err = store.MarkUnknownOnTransportFailure(ctx, "demo", "prod", idB, "mail.send", "fp-b", "alice")
+	_, err = store.MarkUnknownOnTransportFailure(ctx, "demo", "prod", idB, "mail.send", "fp-b", []byte(`{}`), "alice")
 	require.NoError(t, err)
 	rows, err := store.ListConvergeable(ctx, "demo", "prod", 10)
 	require.NoError(t, err)
@@ -184,7 +184,7 @@ func TestCredentialStore_CancellationRequiresGameConfirmation(t *testing.T) {
 	ctx := context.Background()
 	store := NewCredentialStore(db)
 	const opID = "demo:prod:player:018f3b27-5c2e-7b10-8000-000000000004"
-	_, _, err = store.Register(ctx, "demo", "prod", opID, "player.ban", "fp", "alice", "", "cancelFn")
+	_, _, err = store.Register(ctx, "demo", "prod", opID, "player.ban", "fp", []byte(`{}`), "alice", "", "cancelFn")
 	require.NoError(t, err)
 
 	// 取消确认失败 → cancel_failed，原 result 保留，状态不谎称 canceled。
@@ -200,7 +200,7 @@ func TestCredentialStore_CancellationRequiresGameConfirmation(t *testing.T) {
 
 	// 游戏确认取消成功 → 才允许 canceled。
 	const opID2 = "demo:prod:player:018f3b27-5c2e-7b10-8000-000000000005"
-	_, _, err = store.Register(ctx, "demo", "prod", opID2, "player.ban", "fp", "alice", "", "cancelFn")
+	_, _, err = store.Register(ctx, "demo", "prod", opID2, "player.ban", "fp", []byte(`{}`), "alice", "", "cancelFn")
 	require.NoError(t, err)
 	_, changed, err = store.ApplyEnvelope(ctx, "demo", "prod", opID2, &GameOperationResult{
 		OperationID: opID2, Outcome: EnvelopeOutcomeCanceled,

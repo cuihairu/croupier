@@ -62,4 +62,27 @@ func TestRegisterSvcMigrations_ContainsBusinessOperationCredentials(t *testing.T
 	registerSvcMigrations()
 	err := goose.SetGlobalMigrations(businessOperationCredentialsTableMigration())
 	require.Error(t, err, "0069 must already be registered; duplicate registration must fail")
+	err = goose.SetGlobalMigrations(businessOperationCredentialPayloadColumnMigration())
+	require.Error(t, err, "0070 must already be registered; duplicate registration must fail")
+}
+
+// 0070 加列迁移（D4 重试快照列）：老形态库（0069 已建表、无 request_payload）
+// 补列幂等；已带列跳过；缺表跳过不建空壳。
+func TestBusinessOperationCredentialPayloadColumnMigration(t *testing.T) {
+	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	ctx := context.Background()
+
+	// 缺表跳过：不建空壳。
+	require.NoError(t, migrateBusinessOperationCredentialPayloadColumn(ctx, sqlDB))
+	assert.False(t, db.Migrator().HasTable("business_operation_credentials"))
+
+	// 0069 建表（模型此时仍含 payload 列，模拟时先建 0069 形态再补列不现实；
+	// 直接以 HasColumn 判定幂等：跑两次 0070 都不报错且列存在）。
+	require.NoError(t, migrateBusinessOperationCredentials(ctx, sqlDB))
+	require.NoError(t, migrateBusinessOperationCredentialPayloadColumn(ctx, sqlDB))
+	require.NoError(t, migrateBusinessOperationCredentialPayloadColumn(ctx, sqlDB), "重复运行幂等")
+	assert.True(t, db.Migrator().HasColumn(&model.BusinessOperationCredential{}, "request_payload"))
 }
