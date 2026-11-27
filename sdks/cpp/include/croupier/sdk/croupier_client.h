@@ -163,6 +163,37 @@ private:
     long status_code_;
 };
 
+// AUD-069: the Server accepted a request for approval instead of executing it
+// (no task was dispatched, no business side effect occurred). approval_id()
+// is the handle for following the approval workflow.
+class ApprovalRequiredError : public std::runtime_error {
+public:
+    ApprovalRequiredError(const std::string& approval_id, const std::string& approval_workflow,
+                          const std::string& status)
+        : std::runtime_error(BuildMessage(approval_id, approval_workflow, status)),
+          approval_id_(approval_id),
+          approval_workflow_(approval_workflow),
+          status_(status) {}
+
+    const std::string& approval_id() const { return approval_id_; }
+    const std::string& approval_workflow() const { return approval_workflow_; }
+    const std::string& status() const { return status_; }
+
+private:
+    static std::string BuildMessage(const std::string& approval_id,
+                                    const std::string& approval_workflow,
+                                    const std::string& status) {
+        std::string message = "request submitted for approval (approval_id=" + approval_id;
+        if (!approval_workflow.empty()) message += ", approval_workflow=" + approval_workflow;
+        if (!status.empty()) message += ", status=" + status;
+        return message + ")";
+    }
+
+    std::string approval_id_;
+    std::string approval_workflow_;
+    std::string status_;
+};
+
 // Invoker configuration
 struct InvokerConfig {
     // Complete Server API URL, Server root URL, or host:port. It normalizes to

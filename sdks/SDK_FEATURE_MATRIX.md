@@ -209,6 +209,16 @@ SDK 描述符不承载 UI、菜单、页面分类、多语言标题、页面 sch
 | 读请求保持退避重试                            | ✅                      | ✅                      | ✅                            | ✅                              | ✅                      | ⚠️ 读走裸 `SendAsync`，本就不重试（既有行为，本次未改变）                  |
 | 结果未知错误（含状态码/可 `IsResultUnknown`） | ✅ `UnknownResultError` | ✅ `UnknownResultError` | ✅ `ErrorCode.RESULT_UNKNOWN` | ✅ `InvokerError.resultUnknown` | ✅ `ResultUnknownError` | ✅ `ResultUnknownException` / `InvokeResult.ErrorCode == "RESULT_UNKNOWN"` |
 
+待审批响应保留（AUD-069）：HTTP 200 的 `approvalId` + `approvalRequired`/`status=approval_required`
+必须被识别为「已提交审批、未派发任务」，不能误判为 `no_task_id` / `no_result`，
+也不得标记为 result-unknown。
+
+| 能力                     | Go                         | Python                    | Java                             | JS                                         | C++                        | C#                                 |
+| ------------------------ | -------------------------- | ------------------------- | -------------------------------- | ------------------------------------------ | -------------------------- | ---------------------------------- |
+| invoke 保留审批凭据      | ✅ `ApprovalRequiredError` | ✅ `PendingApprovalError` | ✅ `ErrorCode.APPROVAL_REQUIRED` | ✅ `InvokeResult.approvalId`               | ✅ `ApprovalRequiredError` | ✅ `InvokeResult.ApprovalRequired` |
+| startTask 保留审批状态   | ✅ `Status` 字段           | ✅ `status` 字段          | ✅ `getApprovalStatus()`         | ✅ `InvokerError` code `approval_required` | ✅ `status()`              | ✅ `ApprovalRequiredException`     |
+| 缺审批 ID 不凭空合成审批 | ✅                         | ✅                        | ✅                               | ✅                                         | ✅                         | ✅                                 |
+
 ---
 
 ## 六、L4 语言/引擎扩展（不要求跨语言对齐）

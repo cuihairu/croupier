@@ -76,6 +76,8 @@ public final class ServerHttpInvoker implements TaskStatusInvoker {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("params", parseAndValidatePayload(functionId, payload));
         Map<String, Object> response = objectResponse(request("POST", List.of("functions", functionId, "invoke"), body, options, Map.of()), "invoke");
+        InvokerException pending = pendingApproval(response);
+        if (pending != null) throw pending;
         if (!response.containsKey("result")) {
             throw new InvokerException(ErrorCode.INTERNAL, "server invoke response does not contain result");
         }
@@ -93,7 +95,10 @@ public final class ServerHttpInvoker implements TaskStatusInvoker {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("functionId", functionId);
         body.put("params", parseAndValidatePayload(functionId, payload));
-        String taskId = stringValue(objectResponse(request("POST", List.of("tasks"), body, options, Map.of()), "start task").get("taskId"));
+        Map<String, Object> startResponse = objectResponse(request("POST", List.of("tasks"), body, options, Map.of()), "start task");
+        InvokerException pending = pendingApproval(startResponse);
+        if (pending != null) throw pending;
+        String taskId = stringValue(startResponse.get("taskId"));
         if (taskId == null || taskId.isBlank()) {
             throw new InvokerException(ErrorCode.INTERNAL, "server start task response does not contain taskId");
         }
@@ -206,7 +211,7 @@ public final class ServerHttpInvoker implements TaskStatusInvoker {
     private static final EnumSet<ErrorCode> KNOWN_OUTCOME_CODES = EnumSet.of(
         ErrorCode.INVALID_ARGUMENT, ErrorCode.UNAUTHENTICATED, ErrorCode.PERMISSION_DENIED, ErrorCode.NOT_FOUND,
         ErrorCode.ALREADY_EXISTS, ErrorCode.FAILED_PRECONDITION, ErrorCode.OUT_OF_RANGE, ErrorCode.UNIMPLEMENTED,
-        ErrorCode.INTERNAL, ErrorCode.CANCELLED);
+        ErrorCode.INTERNAL, ErrorCode.CANCELLED, ErrorCode.APPROVAL_REQUIRED);
 
     private static InvokerException asFinalWriteError(String method, InvokerException error) {
         if ("GET".equalsIgnoreCase(method) || "HEAD".equalsIgnoreCase(method)) return error;
@@ -293,6 +298,33 @@ public final class ServerHttpInvoker implements TaskStatusInvoker {
     }
     private static boolean containsHeader(Map<String, String> headers, String expected) { return headers.keySet().stream().anyMatch(key -> key.equalsIgnoreCase(expected)); }
     private static boolean isRetryable(InvokerException exception) { return exception.getErrorCode() == ErrorCode.UNAVAILABLE || exception.getErrorCode() == ErrorCode.RESOURCE_EXHAUSTED || exception.getErrorCode() == ErrorCode.TIMEOUT; }
+
+    /**
+     * AUD-069: a pending-approval response is an HTTP 200 with no business
+     * outcome. It carries an approval credential instead of a task ID or result,
+     * so the decoder must surface it rather than report a missing field.
+     */
+    private static InvokerException pendingApproval(Map<String, Object> response) {
+        String approvalId = stringValue(response.get("approvalId"));
+        if (approvalId == null || approvalId.isBlank()) {
+            return null;
+        }
+        Object approvalRequired = response.get("approvalRequired");
+        boolean required = Boolean.TRUE.equals(approvalRequired);
+        String status = stringValue(response.get("status"));
+        if (!required && !"approval_required".equals(status)) {
+            return null;
+        }
+        String message = "request submitted for approval (approvalId=" + approvalId;
+        String workflow = stringValue(response.get("approvalWorkflow"));
+        if (workflow != null && !workflow.isBlank()) {
+            message += ", approvalWorkflow=" + workflow;
+        }
+        if (status != null && !status.isBlank()) {
+            message += ", status=" + status;
+        }
+        return new InvokerException(ErrorCode.APPROVAL_REQUIRED, message + ")", approvalId, workflow, status);
+    }
     private static long retryDelay(int attempt, RetryConfig retry) { double delay = retry.getInitialDelayMs() * Math.pow(retry.getBackoffMultiplier() > 0 ? retry.getBackoffMultiplier() : 2, attempt); if (retry.getMaxDelayMs() > 0) delay = Math.min(delay, retry.getMaxDelayMs()); if (retry.getJitterFactor() > 0) delay += delay * retry.getJitterFactor() * (Math.random() * 2 - 1); return Math.max(0L, Math.round(delay)); }
     @SuppressWarnings("unchecked") private static Map<String, Object> objectResponse(Object response, String operation) throws InvokerException { if (!(response instanceof Map<?, ?>)) throw new InvokerException(ErrorCode.INTERNAL, "server " + operation + " response must be an object"); return (Map<String, Object>) response; }
     private static String stringValue(Object value) { return value instanceof String string ? string : null; }

@@ -227,6 +227,19 @@ int JsonIntValue(const json& object, const char* key) {
     return it != object.end() && it->is_number_integer() ? it->get<int>() : 0;
 }
 
+bool JsonBoolValue(const json& object, const char* key) {
+    const auto it = object.find(key);
+    return it != object.end() && it->is_boolean() && it->get<bool>();
+}
+
+void ThrowIfPendingApproval(const json& response) {
+    const std::string approval_id = JsonStringValue(response, "approvalId");
+    if (approval_id.empty()) return;
+    const std::string status = JsonStringValue(response, "status");
+    if (!JsonBoolValue(response, "approvalRequired") && status != "approval_required") return;
+    throw ApprovalRequiredError(approval_id, JsonStringValue(response, "approvalWorkflow"), status);
+}
+
 }  // namespace
 
 // CroupierInvoker is an independent L3 client for the Server HTTP API. It
@@ -269,6 +282,7 @@ public:
         if (!TrimString(options.hash_key).empty()) body["hashKey"] = options.hash_key;
 
         const json response = ParseResponse(Request("POST", {"functions", function_id, "invoke"}, body.dump(), options));
+        ThrowIfPendingApproval(response);
         const auto result = response.find("result");
         if (result == response.end()) {
             throw std::runtime_error("server invoke response does not contain result");
@@ -282,6 +296,7 @@ public:
 
         const json body{{"functionId", function_id}, {"params", ParsePayload(payload)}};
         const json response = ParseResponse(Request("POST", {"tasks"}, body.dump(), options));
+        ThrowIfPendingApproval(response);
         const std::string task_id = JsonStringValue(response, "taskId");
         if (TrimString(task_id).empty()) {
             throw std::runtime_error("server start task response does not contain taskId");

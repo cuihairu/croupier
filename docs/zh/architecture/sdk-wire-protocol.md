@@ -267,6 +267,33 @@ C# `ResultUnknownException` / `InvokeResult.ErrorCode == "RESULT_UNKNOWN"`）。
 | 函数 invoke             | 否                                                |
 | 任务启动                | 否                                                |
 
+## 待审批的 invoke 响应（AUD-069）
+
+要求审批的 invoke 是 **HTTP 200、成功形态但无业务结果** 的响应：服务端不派发任务、
+不产生游戏侧副作用，响应携带调用方必须保留的审批凭据。
+
+| 入口                                | HTTP 200 响应体                                                                                     | SDK 侧结果                                      |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| `POST /api/v1/functions/:id/invoke` | `{"taskId":"","approvalId":"...","approvalRequired":true,"approvalWorkflow":"...","traceId":"..."}` | `invoke` 返回待审批结果（无 `result` 业务载荷） |
+| `POST /api/v1/tasks`                | `{"taskId":"","status":"approval_required","approvalId":"...","approvalWorkflow":"..."}`            | `startTask` 抛出专门的待审批错误（无任务 ID）   |
+
+判定要求非空 `approvalId`，并同时带 `approvalRequired: true`（invoke）或
+`status: "approval_required"`（任务启动）。仅仅缺少 `result`/`taskId` 的响应仍是缺字段失败；
+SDK 绝不凭空合成审批凭据。由于服务端已作答，待审批是已知结果：绝不标 result-unknown
+（AUD-068），也不重试。
+
+| 语言   | 待审批表面                                                                                                             |
+| ------ | ---------------------------------------------------------------------------------------------------------------------- |
+| Go     | `IsApprovalRequired(err)` / `*ApprovalRequiredError`（`ApprovalID`、`ApprovalWorkflow`、`Status`）                     |
+| Python | `PendingApprovalError`（`approval_id`、`approval_workflow`、`status`）                                                 |
+| JS     | `InvokeResult.approvalId`；`startTask` 抛 code 为 `approval_required` 的 `InvokerError`                                |
+| Java   | `InvokerException.ErrorCode.APPROVAL_REQUIRED`，附 `getApprovalId()` / `getApprovalWorkflow()` / `getApprovalStatus()` |
+| C++    | `ApprovalRequiredError`（`approval_id()`、`approval_workflow()`、`status()`）                                          |
+| C#     | `InvokeResult.ApprovalRequired` / `ApprovalId`；`StartTaskAsync` 抛 `ApprovalRequiredException`                        |
+
+已知边界：待审批响应只带审批 ID 与工作流 key；审批人角色、过期时间与工作流状态需查询
+`GET /api/v1/approvals/:id`，invoke 端点不返回。
+
 ## Provider 握手鉴权
 
 SDK → Agent 的 `ProviderConnectRequest` 在 `metadata` map 中以平台保留键

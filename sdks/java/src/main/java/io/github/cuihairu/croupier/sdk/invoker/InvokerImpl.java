@@ -318,6 +318,7 @@ public class InvokerImpl implements Invoker {
             case DATA_LOSS -> 15;
             case UNAUTHENTICATED -> 16;
             case RESULT_UNKNOWN -> 17;
+            case APPROVAL_REQUIRED -> 18;
         };
     }
 

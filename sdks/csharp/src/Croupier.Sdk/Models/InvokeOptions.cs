@@ -132,6 +132,27 @@ public class InvokeResult
     public string? ErrorCode { get; init; }
 
     /// <summary>
+    /// AUD-069: Server accepted the request for approval instead of executing it.
+    /// The caller must preserve this ID to follow the approval workflow.
+    /// </summary>
+    public string? ApprovalId { get; init; }
+
+    /// <summary>
+    /// Approval workflow key returned by the Server (for example single_admin).
+    /// </summary>
+    public string? ApprovalWorkflow { get; init; }
+
+    /// <summary>
+    /// Server status of the pending response (for example approval_required).
+    /// </summary>
+    public string? ApprovalStatus { get; init; }
+
+    /// <summary>
+    /// True when this response is a pending approval, not a business result.
+    /// </summary>
+    public bool ApprovalRequired => ApprovalId is not null;
+
+    /// <summary>
     /// 执行时长（毫秒）
     /// </summary>
     public long DurationMs { get; init; }
@@ -147,4 +168,21 @@ public class InvokeResult
     /// </summary>
     public static InvokeResult Failed(string error, string? errorCode = null, long durationMs = 0) =>
         new() { Success = false, Error = error, ErrorCode = errorCode, DurationMs = durationMs };
+
+    /// <summary>
+    /// AUD-069: create a pending-approval result carrying the Server approval credential.
+    /// </summary>
+    public static InvokeResult Pending(string approvalId, string? approvalWorkflow, string? status, string? traceId, long durationMs = 0) =>
+        new()
+        {
+            Success = false,
+            ApprovalId = approvalId,
+            ApprovalWorkflow = approvalWorkflow,
+            ApprovalStatus = status,
+            Error = traceId is null
+                ? $"request submitted for approval (approvalId={approvalId})"
+                : $"request submitted for approval (approvalId={approvalId}, traceId={traceId})",
+            ErrorCode = "APPROVAL_REQUIRED",
+            DurationMs = durationMs,
+        };
 }

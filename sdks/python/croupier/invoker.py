@@ -162,6 +162,47 @@ class UnknownResultError(RuntimeError):
         super().__init__(message)
 
 
+class PendingApprovalError(RuntimeError):
+    """A Server response that accepted the request for approval.
+
+    No task was dispatched and no business effect occurred. Preserve
+    ``approval_id`` to query or deep-link the approval workflow.
+    """
+
+    def __init__(
+        self,
+        approval_id: str,
+        approval_workflow: Optional[str] = None,
+        status: Optional[str] = None,
+    ):
+        self.approval_id = approval_id
+        self.approval_workflow = approval_workflow
+        self.status = status
+        text = f"request submitted for approval (id={approval_id}"
+        if approval_workflow:
+            text += f", workflow={approval_workflow}"
+        if status:
+            text += f", status={status}"
+        super().__init__(text + ")")
+
+
+def _pending_approval_from_response(response: Any) -> Optional[PendingApprovalError]:
+    if not isinstance(response, dict):
+        return None
+    approval_id = _optional_string(response.get("approvalId"))
+    if not approval_id:
+        return None
+    required = response.get("approvalRequired") is True
+    status = _optional_string(response.get("status"))
+    if not required and status != "approval_required":
+        return None
+    return PendingApprovalError(
+        approval_id=approval_id,
+        approval_workflow=_optional_string(response.get("approvalWorkflow")),
+        status=status,
+    )
+
+
 class Invoker:
     """L3 caller that only uses the Croupier Server HTTP contract.
 
@@ -197,6 +238,9 @@ class Invoker:
             {"params": params},
             options,
         )
+        pending = _pending_approval_from_response(response)
+        if pending is not None:
+            raise pending
         if not isinstance(response, dict) or "result" not in response:
             raise ValueError("server invoke response does not contain result")
         return _json_string(response["result"])
@@ -213,6 +257,9 @@ class Invoker:
             {"functionId": function_id, "params": _parse_json_payload(payload)},
             options,
         )
+        pending = _pending_approval_from_response(response)
+        if pending is not None:
+            raise pending
         task_id = response.get("taskId") if isinstance(response, dict) else None
         if not isinstance(task_id, str) or not task_id.strip():
             raise ValueError("server start task response does not contain taskId")

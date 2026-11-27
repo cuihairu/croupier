@@ -291,6 +291,36 @@ duplicate a business effect. Endpoints that do consume an idempotency key remain
 | Function invoke                 | No                                                |
 | Task start                      | No                                                |
 
+## Pending-approval invoke responses (AUD-069)
+
+An approval-required invoke is an **HTTP 200 success-shaped response with no
+business outcome**. The server does not dispatch a task and produces no game-side
+effect; the response carries an approval credential the caller must preserve:
+
+| Entry point                         | HTTP 200 body                                                                                       | SDK-facing outcome                                                |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| `POST /api/v1/functions/:id/invoke` | `{"taskId":"","approvalId":"...","approvalRequired":true,"approvalWorkflow":"...","traceId":"..."}` | `invoke` surfaces a pending-approval result (no `result` payload) |
+| `POST /api/v1/tasks`                | `{"taskId":"","status":"approval_required","approvalId":"...","approvalWorkflow":"..."}`            | `startTask` surfaces a dedicated approval error (no task ID)      |
+
+Recognition requires a non-empty `approvalId` plus either `approvalRequired: true`
+(invoke) or `status: "approval_required"` (task start). A response that is merely
+missing `result`/`taskId` stays a missing-field failure; SDKs never synthesize an
+approval credential. Because the server already answered, pending approval is a
+known outcome: it is never marked result-unknown (AUD-068) and it is not retried.
+
+| Language | Pending-approval surface                                                                                                |
+| -------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Go       | `IsApprovalRequired(err)` / `*ApprovalRequiredError` (`ApprovalID`, `ApprovalWorkflow`, `Status`)                       |
+| Python   | `PendingApprovalError` (`approval_id`, `approval_workflow`, `status`)                                                   |
+| JS       | `InvokeResult.approvalId` / `InvokerError` with code `approval_required` for `startTask`                                |
+| Java     | `InvokerException.ErrorCode.APPROVAL_REQUIRED` plus `getApprovalId()` / `getApprovalWorkflow()` / `getApprovalStatus()` |
+| C++      | `ApprovalRequiredError` (`approval_id()`, `approval_workflow()`, `status()`)                                            |
+| C#       | `InvokeResult.ApprovalRequired` / `ApprovalId`; `ApprovalRequiredException` from `StartTaskAsync`                       |
+
+Known boundary: the pending body deliberately carries only the approval ID and
+workflow key; approver roles, expiry and workflow state live behind
+`GET /api/v1/approvals/:id` and are not returned by the invoke endpoints.
+
 ## Provider handshake auth
 
 The SDK → Agent `ProviderConnectRequest` carries an auth token in its

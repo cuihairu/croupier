@@ -708,6 +708,7 @@ if(BUILD_TESTS)
             tests/test_client_lifecycle.cpp
             tests/test_invoker_fallback.cpp
             tests/test_invoker.cpp
+            tests/test_invoker_pending_approval.cpp
             tests/test_plugin_registry.cpp
             tests/test_tcp_transport_errors.cpp
             tests/test_plugin_manager.cpp

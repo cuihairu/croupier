@@ -11,6 +11,9 @@ import java.util.Objects;
 public class InvokerException extends Exception {
 
     private final ErrorCode errorCode;
+    private final String approvalId;
+    private final String approvalWorkflow;
+    private final String approvalStatus;
 
     /**
      * Error codes for invoker failures.
@@ -53,7 +56,9 @@ public class InvokerException extends Exception {
         /** Data loss */
         DATA_LOSS("DATA_LOSS"),
         /** Write outcome cannot be determined: the request may have executed before the failure */
-        RESULT_UNKNOWN("RESULT_UNKNOWN");
+        RESULT_UNKNOWN("RESULT_UNKNOWN"),
+        /** The Server accepted the request for approval; no task was dispatched (AUD-069) */
+        APPROVAL_REQUIRED("APPROVAL_REQUIRED");
 
         private final String code;
 
@@ -73,8 +78,37 @@ public class InvokerException extends Exception {
      * @param message the error message
      */
     public InvokerException(ErrorCode errorCode, String message) {
-        super(message);
+        this(errorCode, message, null, null, null, null);
+    }
+
+    /** AUD-069: a pending-approval response carries the Server approval credential. */
+    public InvokerException(ErrorCode errorCode, String message, String approvalId,
+                            String approvalWorkflow, String approvalStatus) {
+        this(errorCode, message, null, approvalId, approvalWorkflow, approvalStatus);
+    }
+
+    private InvokerException(ErrorCode errorCode, String message, Throwable cause,
+                             String approvalId, String approvalWorkflow, String approvalStatus) {
+        super(message, cause);
         this.errorCode = errorCode;
+        this.approvalId = approvalId;
+        this.approvalWorkflow = approvalWorkflow;
+        this.approvalStatus = approvalStatus;
+    }
+
+    /** Approval ID for APPROVAL_REQUIRED responses; null otherwise. */
+    public String getApprovalId() {
+        return approvalId;
+    }
+
+    /** Approval workflow key for APPROVAL_REQUIRED responses; null otherwise. */
+    public String getApprovalWorkflow() {
+        return approvalWorkflow;
+    }
+
+    /** Server status for APPROVAL_REQUIRED responses; null otherwise. */
+    public String getApprovalStatus() {
+        return approvalStatus;
     }
 
     /**
@@ -85,8 +119,7 @@ public class InvokerException extends Exception {
      * @param cause the underlying cause
      */
     public InvokerException(ErrorCode errorCode, String message, Throwable cause) {
-        super(message, cause);
-        this.errorCode = errorCode;
+        this(errorCode, message, cause, null, null, null);
     }
 
     /**

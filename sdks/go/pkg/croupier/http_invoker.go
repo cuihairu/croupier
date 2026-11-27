@@ -110,16 +110,23 @@ func (i *httpInvoker) Invoke(ctx context.Context, functionID, payload string, op
 	if err != nil {
 		return "", err
 	}
-	var result struct {
-		Result json.RawMessage `json:"result"`
+	var decoded struct {
+		Result           json.RawMessage `json:"result"`
+		ApprovalID       string          `json:"approvalId"`
+		ApprovalRequired bool            `json:"approvalRequired"`
+		ApprovalWorkflow string          `json:"approvalWorkflow"`
+		Status           string          `json:"status"`
 	}
-	if err := json.Unmarshal(response, &result); err != nil {
+	if err := json.Unmarshal(response, &decoded); err != nil {
 		return "", fmt.Errorf("decode invoke response: %w", err)
 	}
-	if result.Result == nil {
+	if pending := pendingApprovalFrom(decoded.ApprovalID, decoded.ApprovalWorkflow, decoded.Status, decoded.ApprovalRequired); pending != nil {
+		return "", pending
+	}
+	if decoded.Result == nil {
 		return "", fmt.Errorf("server invoke response does not contain result")
 	}
-	return string(result.Result), nil
+	return string(decoded.Result), nil
 }
 
 // StartTask starts an asynchronous Server task and returns the Server-issued
@@ -149,10 +156,16 @@ func (i *httpInvoker) StartTask(ctx context.Context, functionID, payload string,
 		return "", err
 	}
 	var task struct {
-		TaskID string `json:"taskId"`
+		TaskID           string `json:"taskId"`
+		Status           string `json:"status"`
+		ApprovalID       string `json:"approvalId"`
+		ApprovalWorkflow string `json:"approvalWorkflow"`
 	}
 	if err := json.Unmarshal(response, &task); err != nil {
 		return "", fmt.Errorf("decode start task response: %w", err)
+	}
+	if pending := pendingApprovalFrom(task.ApprovalID, task.ApprovalWorkflow, task.Status, task.Status == approvalRequiredStatus); pending != nil {
+		return "", pending
 	}
 	if strings.TrimSpace(task.TaskID) == "" {
 		return "", fmt.Errorf("server start task response does not contain taskId")
@@ -607,6 +620,41 @@ func validateTaskID(taskID string) error {
 		return fmt.Errorf("task ID cannot be empty")
 	}
 	return nil
+}
+
+// ApprovalRequiredError reports a Server response that accepted the request for
+// approval instead of executing it. No task was dispatched and no business side
+// effect occurred; the caller must preserve ApprovalID and follow that approval.
+type ApprovalRequiredError struct {
+	ApprovalID       string
+	ApprovalWorkflow string
+	Status           string
+}
+
+func (e *ApprovalRequiredError) Error() string {
+	message := "request submitted for approval (id=" + e.ApprovalID
+	if e.ApprovalWorkflow != "" {
+		message += ", workflow=" + e.ApprovalWorkflow
+	}
+	if e.Status != "" {
+		message += ", status=" + e.Status
+	}
+	return message + ")"
+}
+
+// IsApprovalRequired reports whether err is a Server pending-approval response.
+func IsApprovalRequired(err error) bool {
+	var pending *ApprovalRequiredError
+	return errors.As(err, &pending)
+}
+
+const approvalRequiredStatus = "approval_required"
+
+func pendingApprovalFrom(approvalID, workflow, status string, required bool) *ApprovalRequiredError {
+	if approvalID == "" || (!required && status != approvalRequiredStatus) {
+		return nil
+	}
+	return &ApprovalRequiredError{ApprovalID: approvalID, ApprovalWorkflow: workflow, Status: status}
 }
 
 type httpInvokerError struct {

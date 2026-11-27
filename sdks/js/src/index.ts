@@ -1720,6 +1720,7 @@ export {
   type TaskEvent,
   type TaskStatus,
   type InvokeResult,
+  type PendingApproval,
 } from "./invoker";
 
 export {

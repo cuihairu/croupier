@@ -89,6 +89,8 @@ public sealed class CroupierInvoker : IDisposable
 
             var (_, content) = await SendWithRetryAsync(RequestFactory, options, cancellationToken, isWrite: true).ConfigureAwait(false);
 
+            var pending = ExtractPendingApproval(content);
+            if (pending is not null) return pending;
             return InvokeResult.Succeeded(ExtractResult(content), ElapsedMilliseconds(startedAt));
         }
         catch (OperationCanceledException)
@@ -159,6 +161,12 @@ public sealed class CroupierInvoker : IDisposable
         var (_, content) = await SendWithRetryAsync(RequestFactory, options, cancellationToken, isWrite: true).ConfigureAwait(false);
 
         using var document = JsonDocument.Parse(content);
+        var pending = ExtractPendingApproval(content);
+        if (pending is not null)
+        {
+            throw new ApprovalRequiredException(
+                $"request submitted for approval (approvalId={pending.ApprovalId})");
+        }
         if (!document.RootElement.TryGetProperty("taskId", out var taskId) || string.IsNullOrWhiteSpace(taskId.GetString()))
         {
             throw new InvalidOperationException("Server did not return a taskId");
@@ -509,6 +517,38 @@ public sealed class CroupierInvoker : IDisposable
             return result.GetRawText();
         }
         return document.RootElement.GetRawText();
+    }
+
+    /// <summary>
+    /// AUD-069: a pending-approval HTTP 200 response carries an approval credential
+    /// instead of a task ID or result. It is a known outcome and must never be
+    /// mistaken for a transport failure.
+    /// </summary>
+    private static InvokeResult? ExtractPendingApproval(string content)
+    {
+        using var document = JsonDocument.Parse(content);
+        var root = document.RootElement;
+        if (!root.TryGetProperty("approvalId", out var approvalId)
+            || approvalId.ValueKind != JsonValueKind.String
+            || string.IsNullOrWhiteSpace(approvalId.GetString()))
+        {
+            return null;
+        }
+        var required = root.TryGetProperty("approvalRequired", out var requiredElement)
+            && requiredElement.ValueKind == JsonValueKind.True
+            && requiredElement.GetBoolean();
+        var status = root.TryGetProperty("status", out var statusElement) && statusElement.ValueKind == JsonValueKind.String
+            ? statusElement.GetString()
+            : null;
+        if (!required && status != "approval_required") return null;
+        var workflow = root.TryGetProperty("approvalWorkflow", out var workflowElement)
+            && workflowElement.ValueKind == JsonValueKind.String
+            ? workflowElement.GetString()
+            : null;
+        var traceId = root.TryGetProperty("traceId", out var traceElement) && traceElement.ValueKind == JsonValueKind.String
+            ? traceElement.GetString()
+            : null;
+        return InvokeResult.Pending(approvalId.GetString()!, workflow, status, traceId, 0);
     }
 
     private static string ExtractErrorMessage(string content, HttpStatusCode statusCode)

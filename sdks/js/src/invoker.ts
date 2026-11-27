@@ -141,6 +141,7 @@ const preservedErrorCodes = new Set([
   "no_result",
   "no_task_id",
   "schema_validation",
+  "approval_required",
 ]);
 
 /**
@@ -252,6 +253,13 @@ export interface InvokeResult {
   payload: unknown;
   /** 平台侧 trace id——贴进 Jaeger/Grafana 可查整条调用链。 */
   traceId?: string;
+  /**
+   * AUD-069: 服务端因政策要求审批而接受请求（未派发任务、未产生业务副作用）。
+   * 此时 `payload` 为 undefined，调用方须保留 `approvalId` 跟进审批流。
+   */
+  approvalId?: string;
+  approvalWorkflow?: string;
+  approvalStatus?: string;
 }
 
 /** Error thrown when the server returns a non-2xx response. */
@@ -273,6 +281,32 @@ export class InvokerError extends Error {
     this.code = code;
     this.details = details;
   }
+}
+
+/** AUD-069: an HTTP 200 response that accepted the request for approval. */
+export interface PendingApproval {
+  approvalId: string;
+  approvalWorkflow?: string;
+  status?: string;
+}
+
+function pendingApprovalFrom(
+  data: unknown,
+): PendingApproval | undefined {
+  if (!data || typeof data !== "object") return undefined;
+  const record = data as Record<string, unknown>;
+  const approvalId = typeof record.approvalId === "string" ? record.approvalId : "";
+  if (!approvalId) return undefined;
+  const status = typeof record.status === "string" ? record.status : undefined;
+  if (record.approvalRequired !== true && status !== "approval_required") {
+    return undefined;
+  }
+  return {
+    approvalId,
+    approvalWorkflow:
+      typeof record.approvalWorkflow === "string" ? record.approvalWorkflow : undefined,
+    status,
+  };
 }
 
 const DEFAULT_TIMEOUT = 30_000;
@@ -430,6 +464,19 @@ export class Invoker {
             );
             if (!res.ok) throw await parseError(res);
             const data: unknown = await res.json();
+            const pending = pendingApprovalFrom(data);
+            if (pending) {
+              return {
+                payload: undefined,
+                traceId:
+                  data && typeof data === "object" && typeof (data as Record<string, unknown>).traceId === "string"
+                    ? ((data as Record<string, unknown>).traceId as string)
+                    : undefined,
+                approvalId: pending.approvalId,
+                approvalWorkflow: pending.approvalWorkflow,
+                approvalStatus: pending.status,
+              };
+            }
             if (!data || typeof data !== "object" || !("result" in data)) {
               throw new InvokerError(
                 "server did not return a result",
@@ -491,16 +538,29 @@ export class Invoker {
             signal,
           });
           if (!res.ok) throw await parseError(res);
-          const data: any = await res.json();
-          const taskId = data?.taskId;
-          if (!taskId)
+          const data: unknown = await res.json();
+          const pending = pendingApprovalFrom(data);
+          if (pending) {
+            throw new InvokerError(
+              "request submitted for approval (no task dispatched)",
+              200,
+              "approval_required",
+              data,
+            );
+          }
+          const taskId =
+            data && typeof data === "object"
+              ? (data as Record<string, unknown>).taskId
+              : undefined;
+          if (typeof taskId !== "string" || !taskId) {
             throw new InvokerError(
               "server did not return a taskId",
               502,
               "no_task_id",
               data,
             );
-          return taskId as string;
+          }
+          return taskId;
         } finally {
           cancel();
         }
