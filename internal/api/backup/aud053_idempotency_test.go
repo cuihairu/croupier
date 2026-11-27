@@ -14,10 +14,12 @@ package backup
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/config"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/svc"
 	gsqlite "github.com/glebarez/sqlite"
@@ -30,7 +32,19 @@ import (
 // are not dragged into a false red by the sqlite shared-cache lock; the super-admin
 // seed reuses the flows package helper so the service-layer RequireAnyPermission
 // passes through.
+//
+// AUD-082 adaptation: the create path rejects when no executor is available, so the
+// env is wired executor-capable (real sqlite source file + stub object store) and
+// the idempotency semantics are exercised against backups that actually run.
 func aud053Env(t *testing.T) (*Service, *gorm.DB, context.Context) {
+	t.Helper()
+	return aud053EnvWithSource(t, "")
+}
+
+// aud053EnvWithSource builds the aud053 env with an explicit backup data source.
+// An empty dataSource gets a real, populated sqlite file (runs succeed); callers
+// pass a nonexistent path to get deterministically failed runs.
+func aud053EnvWithSource(t *testing.T, dataSource string) (*Service, *gorm.DB, context.Context) {
 	t.Helper()
 	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
@@ -39,14 +53,34 @@ func aud053Env(t *testing.T) (*Service, *gorm.DB, context.Context) {
 	}
 	require.NoError(t, model.AutoMigrate(db))
 	seedBackupSuperAdmin(t, db)
+	if dataSource == "" {
+		dataSource = filepath.Join(t.TempDir(), "aud053-src.db")
+		writeRealSQLiteDB(t, dataSource)
+	}
 	svcCtx := &svc.ServiceContext{
 		DB:          db,
 		AdminModel:  model.NewAdminModel(db),
 		RoleModel:   model.NewRoleModel(db),
 		BackupModel: model.NewBackupModel(db),
+		Config: config.Config{
+			Database: config.DatabaseConfig{Driver: "sqlite", DataSource: dataSource},
+		},
+		ObjectStore: &execObjStoreStub{},
 	}
 	ctx := context.WithValue(context.Background(), "username", backupSuperAdminUsername)
 	return NewService(svcCtx), db, ctx
+}
+
+// aud053WaitStatus waits until the backup row reaches the wanted terminal status
+// (the async run writes it, so the manual-update shortcut of the pre-AUD-082
+// record-only env no longer applies).
+func aud053WaitStatus(t *testing.T, db *gorm.DB, backupID, want string) {
+	t.Helper()
+	require.Eventually(t, func() bool {
+		var row model.Backup
+		err := db.Where("backup_id = ?", backupID).First(&row).Error
+		return err == nil && row.Status == want
+	}, 15*time.Second, 50*time.Millisecond, "backup %s should become %s", backupID, want)
 }
 
 func aud053CountByKey(t *testing.T, db *gorm.DB, key string) int64 {
@@ -78,14 +112,14 @@ func TestAud053_IdempotencyKeySequentialRetryReuses(t *testing.T) {
 }
 
 // succeeded also counts as active: a completed backup reuses on a same-key retry
-// (no stacking of duplicate backups).
+// (no stacking of duplicate backups). AUD-082: the terminal status comes from the
+// real async run (executor-capable env) instead of a manual update.
 func TestAud053_SucceededBackupStillDeduplicates(t *testing.T) {
 	s, db, ctx := aud053Env(t)
 
 	first, err := s.Create(ctx, &BackupCreateRequest{Name: "aud053-done", Type: "full", IdempotencyKey: "aud053-key-done"})
 	require.NoError(t, err)
-	require.NoError(t, db.Model(&model.Backup{}).Where("backup_id = ?", first.Backup.Id).
-		Update("status", "succeeded").Error)
+	aud053WaitStatus(t, db, first.Backup.Id, "succeeded")
 
 	second, err := s.Create(ctx, &BackupCreateRequest{Name: "aud053-done-again", Type: "full", IdempotencyKey: "aud053-key-done"})
 	require.NoError(t, err)
@@ -94,14 +128,15 @@ func TestAud053_SucceededBackupStillDeduplicates(t *testing.T) {
 }
 
 // failed does not count as active: after a failure a same-key retry creates a new
-// backup (retry semantics).
+// backup (retry semantics). AUD-082: the failure comes from a real failed run
+// (missing sqlite source file) so the row is deterministically failed before the
+// retry, without racing a manual update against the async finish write.
 func TestAud053_FailedBackupAllowsRetryWithSameKey(t *testing.T) {
-	s, db, ctx := aud053Env(t)
+	s, db, ctx := aud053EnvWithSource(t, filepath.Join(t.TempDir(), "aud053-missing-source.db"))
 
 	first, err := s.Create(ctx, &BackupCreateRequest{Name: "aud053-fail", Type: "full", IdempotencyKey: "aud053-key-fail"})
 	require.NoError(t, err)
-	require.NoError(t, db.Model(&model.Backup{}).Where("backup_id = ?", first.Backup.Id).
-		Update("status", "failed").Error)
+	aud053WaitStatus(t, db, first.Backup.Id, "failed")
 
 	second, err := s.Create(ctx, &BackupCreateRequest{Name: "aud053-fail-retry", Type: "full", IdempotencyKey: "aud053-key-fail"})
 	require.NoError(t, err)

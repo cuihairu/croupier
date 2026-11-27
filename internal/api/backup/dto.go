@@ -8,6 +8,10 @@ type Backup struct {
 	Type      string `json:"type"`
 	Status    string `json:"status"`
 	CreatedAt string `json:"createdAt"`
+	// ErrorMessage carries the failure reason for failed rows (AUD-082: the
+	// executor's failure text and the orphan-pending convergence reason land
+	// here, so a failed backup is explainable without reading the database).
+	ErrorMessage string `json:"errorMessage,omitempty"`
 }
 
 // BackupsListRequest represents the request to list backups

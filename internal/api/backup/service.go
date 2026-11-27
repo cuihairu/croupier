@@ -29,6 +29,36 @@ const backupRecordsKey = "backups"
 // window) is unaffected.
 const backupDedupeWindow = 10 * time.Minute
 
+// Backup row status values used by the create/convergence paths. The executor
+// (internal/platform/backupexec) writes the same two terminal values.
+const (
+	backupStatusPending = "pending"
+	backupStatusFailed  = "failed"
+)
+
+// AUD-082: stable client-facing code and machine-readable reasons for the
+// create-time rejection when no executor can ever run a backup.
+const (
+	backupExecutorUnavailableCode    = "backup_executor_unavailable"
+	executorReasonBackupModelMissing = "backup_model_missing"
+	executorReasonObjectStoreMissing = "object_store_missing"
+	executorReasonDriverUnsupported  = "driver_unsupported"
+)
+
+// backupOrphanPendingGrace is the age after which a pending backup row can no
+// longer be in flight (AUD-082): every runner bounds its run with a 30m context
+// budget (generic create, scheduler, ops default), after which the row is advanced
+// to succeeded/failed or the process died and the row is orphaned. The extra 15m
+// slack covers dump/upload overshoot before cancellation propagates. Rows pending
+// longer than this are converged to failed on read; a legitimately long ops run
+// (caller-supplied timeout > grace) would be mis-statused transiently and
+// self-heal when its run finishes.
+const backupOrphanPendingGrace = 45 * time.Minute
+
+// backupOrphanPendingMessage is the error_message recorded on rows converged by
+// the AUD-082 read/retry convergence (and surfaced to clients via the backup DTO).
+const backupOrphanPendingMessage = "备份长时间停留在 pending 且从未被执行器推进，已按悬挂记录收敛为失败；请重新创建备份"
+
 type Service struct {
 	svcCtx *svc.ServiceContext
 }
@@ -44,6 +74,13 @@ func (s *Service) List(ctx context.Context, req *BackupsListRequest) (*BackupsLi
 	}
 	if s.svcCtx == nil || s.svcCtx.BackupModel == nil {
 		return nil, errors.New("备份模型未初始化")
+	}
+	// AUD-082 read-side convergence: pending rows older than the maximum run
+	// budget can no longer be in flight (the runner died or the row was created
+	// while no executor existed); they are flipped to failed here so they surface
+	// as failed with a reason instead of pending forever.
+	if err := s.convergeOrphanPendingRows(ctx); err != nil {
+		return nil, err
 	}
 	if req == nil {
 		req = &BackupsListRequest{}
@@ -86,6 +123,13 @@ func (s *Service) Create(ctx context.Context, req *BackupCreateRequest) (*Backup
 	if s.svcCtx == nil || s.svcCtx.BackupModel == nil {
 		return nil, errors.New("备份模型未初始化")
 	}
+	// AUD-082: reject up-front when no executor can ever run this backup (object
+	// storage not configured / database driver unsupported). Before this gate the
+	// pending row was written first and only then was the executor inspected, so
+	// the caller got a pending status that nothing would ever advance.
+	if reason := s.executorUnavailableReason(); reason != "" {
+		return nil, executorUnavailableError(reason)
+	}
 	backupType := strings.ToLower(strings.TrimSpace(req.Type))
 	if backupType == "" {
 		backupType = "full"
@@ -106,16 +150,33 @@ func (s *Service) Create(ctx context.Context, req *BackupCreateRequest) (*Backup
 	idemKey := strings.TrimSpace(req.IdempotencyKey)
 	if idemKey != "" {
 		if existing, err := s.svcCtx.BackupModel.FindActiveByIdempotencyKey(ctx, idemKey); err == nil && existing != nil {
-			return &BackupCreateResponse{Backup: buildBackupDTO(existing)}, nil
+			// AUD-082: a pending hit older than the run budget is an orphan (its
+			// runner is long gone); converge it and fall through to a fresh,
+			// actually executable backup instead of re-issuing a dead pending row.
+			zombie, err := s.convergeZombiePending(ctx, existing)
+			if err != nil {
+				return nil, err
+			}
+			if !zombie {
+				return &BackupCreateResponse{Backup: buildBackupDTO(existing)}, nil
+			}
 		}
 		// A failed row with the same key yields: after a failure a retry creates a new
 		// row and the unique index must not block it
 		// (pre-check miss = no active row; a failed row may still be holding the key).
+		// A just-converged zombie is failed too, so this release also lets its key go.
 		if err := s.svcCtx.BackupModel.ReleaseIdempotencyKey(ctx, idemKey); err != nil {
 			return nil, err
 		}
 	} else if existing, err := s.svcCtx.BackupModel.FindRecentDuplicateByNameType(ctx, name, backupType, backupDedupeWindow); err == nil && existing != nil {
-		return &BackupCreateResponse{Backup: buildBackupDTO(existing)}, nil
+		// AUD-082: same orphan rule as the idempotency-key branch above.
+		zombie, err := s.convergeZombiePending(ctx, existing)
+		if err != nil {
+			return nil, err
+		}
+		if !zombie {
+			return &BackupCreateResponse{Backup: buildBackupDTO(existing)}, nil
+		}
 	}
 
 	backup := &model.Backup{
@@ -181,25 +242,143 @@ func isIdempotencyConflict(err error) bool {
 	return err != nil && strings.Contains(err.Error(), "idempotency_key")
 }
 
-// executor builds the real backup executor (returns nil when the driver is
-// unsupported or storage is not ready; Create then degrades to record-only mode,
-// compatible with the old behavior).
+// executorUnavailableReason reports why the generic backup entry cannot execute
+// a backup at all (AUD-082). "" means executor() would return a real executor;
+// otherwise the returned value is the stable machine-readable reason carried in
+// the 400 rejection details ("backup_model_missing" is defensive and unreachable
+// from Create, which checks the model first).
+func (s *Service) executorUnavailableReason() string {
+	if s == nil || s.svcCtx == nil || s.svcCtx.BackupModel == nil {
+		return executorReasonBackupModelMissing
+	}
+	if s.svcCtx.ObjectStore == nil {
+		return executorReasonObjectStoreMissing
+	}
+	if !backupexec.SupportedDriver(s.svcCtx.Config.Database.Driver) {
+		return executorReasonDriverUnsupported
+	}
+	return ""
+}
+
+// executorUnavailableError builds the AUD-082 create-time rejection: 400 with the
+// stable snake_case code and a machine-readable reason in details, per the repo
+// API response contract.
+func executorUnavailableError(reason string) error {
+	message := "备份执行器不可用，无法创建备份"
+	switch reason {
+	case executorReasonObjectStoreMissing:
+		message = "对象存储未配置，备份无法执行；请先完成 storage 配置后再创建备份"
+	case executorReasonDriverUnsupported:
+		message = "数据库驱动不支持备份执行（支持 mysql/postgres/sqlite），已拒绝创建"
+	}
+	return errorx.NewBadRequestWithCode(
+		backupExecutorUnavailableCode,
+		message,
+		map[string]any{"reason": reason},
+	)
+}
+
+// executor builds the real backup executor. Since AUD-082 the create path rejects
+// up-front when this would return nil, so a pending record is only ever written
+// when a real executor exists (record-only create mode no longer exists).
 func (s *Service) executor() *backupexec.Executor {
-	if s == nil || s.svcCtx == nil || s.svcCtx.BackupModel == nil || s.svcCtx.ObjectStore == nil {
+	if s.executorUnavailableReason() != "" {
 		return nil
 	}
-	switch strings.ToLower(strings.TrimSpace(s.svcCtx.Config.Database.Driver)) {
-	case "mysql", "postgres", "pg", "sqlite":
-		return backupexec.New(
-			s.svcCtx.Config.Database.Driver,
-			s.svcCtx.Config.Database.DataSource,
-			s.svcCtx.BackupModel,
-			s.svcCtx.ObjectStore,
-			"backups",
-		)
-	default:
+	return backupexec.New(
+		s.svcCtx.Config.Database.Driver,
+		s.svcCtx.Config.Database.DataSource,
+		s.svcCtx.BackupModel,
+		s.svcCtx.ObjectStore,
+		"backups",
+	)
+}
+
+// convergeZombiePending implements the AUD-082 retry-side convergence: a dedupe/
+// idempotency hit whose status is still pending but whose age exceeds the maximum
+// run budget is an orphan (no runner is going to advance it). It is flipped to
+// failed with the reason text and the caller falls through to create a fresh,
+// actually executable backup. Returns false when the row is not a zombie (reuse
+// it as before) — a convergence write error is returned, not swallowed.
+func (s *Service) convergeZombiePending(ctx context.Context, existing *model.Backup) (bool, error) {
+	if !isOrphanPending(existing, time.Now().UTC().Add(-backupOrphanPendingGrace)) {
+		return false, nil
+	}
+	if err := s.svcCtx.BackupModel.UpdateByBackupID(ctx, existing.BackupID, map[string]interface{}{
+		"status":        backupStatusFailed,
+		"error_message": backupOrphanPendingMessage,
+	}); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+// convergeOrphanPendingRows is the AUD-082 read-side convergence for the legacy
+// rows written by the old write-pending-then-inspect bug (plus crash/restart
+// orphans): every pending row older than backupOrphanPendingGrace is flipped to
+// failed with the reason text. Rows that may still be in flight (created within
+// the grace window) are never touched.
+//
+// AUD-083 seam: the executor updates the database rows while List still prefers
+// the extension-mirror snapshot; until that source of truth is unified, the mirror
+// is converged here as well so a forever-pending entry cannot survive in either
+// store. When AUD-083 lands, the mirror half of this function can be retired.
+func (s *Service) convergeOrphanPendingRows(ctx context.Context) error {
+	if s == nil || s.svcCtx == nil || s.svcCtx.BackupModel == nil || s.svcCtx.DB == nil {
 		return nil
 	}
+	// The cutoff is bound in local wall-clock shape (no .UTC() conversion): the
+	// sqlite driver stores/compares timestamps as offset-bearing text, so a UTC
+	// ("Z"-suffixed) literal never compares correctly against rows stored with a
+	// local offset. Binding both sides in the same shape keeps the comparison
+	// consistent on every dialect (same pattern as the AUD-053 dedupe window).
+	if err := s.svcCtx.DB.WithContext(ctx).Model(&model.Backup{}).
+		Where("status = ? AND created_at <= ?", backupStatusPending, time.Now().Add(-backupOrphanPendingGrace)).
+		Updates(map[string]interface{}{
+			"status":        backupStatusFailed,
+			"error_message": backupOrphanPendingMessage,
+		}).Error; err != nil {
+		return err
+	}
+	return s.convergeOrphanPendingInExtension(ctx)
+}
+
+// convergeOrphanPendingInExtension converges the orphaned pending entries of the
+// extension-mirror snapshot (see convergeOrphanPendingRows). Entries without a
+// parseable RFC3339 createdAt are left untouched: an unprovable orphan must not
+// be failed by a heuristic.
+func (s *Service) convergeOrphanPendingInExtension(ctx context.Context) error {
+	items, ok, err := s.loadBackupsFromExtensionInstallation(ctx)
+	if err != nil || !ok || len(items) == 0 {
+		return err
+	}
+	cutoff := time.Now().UTC().Add(-backupOrphanPendingGrace)
+	changed := false
+	for i := range items {
+		if !strings.EqualFold(strings.TrimSpace(items[i].Status), backupStatusPending) {
+			continue
+		}
+		created, perr := time.Parse(time.RFC3339, strings.TrimSpace(items[i].CreatedAt))
+		if perr != nil || created.IsZero() || created.After(cutoff) {
+			continue
+		}
+		items[i].Status = backupStatusFailed
+		items[i].ErrorMessage = backupOrphanPendingMessage
+		changed = true
+	}
+	if !changed {
+		return nil
+	}
+	return s.saveBackupsToExtensionInstallation(ctx, items)
+}
+
+// isOrphanPending reports whether the row is a pending record that can no longer
+// be in flight: status pending and created before the cutoff.
+func isOrphanPending(backup *model.Backup, cutoff time.Time) bool {
+	return backup != nil &&
+		strings.EqualFold(strings.TrimSpace(backup.Status), backupStatusPending) &&
+		!backup.CreatedAt.IsZero() &&
+		backup.CreatedAt.Before(cutoff)
 }
 
 // Delete deletes a backup
@@ -336,12 +515,13 @@ func buildBackupList(backups []model.Backup) []Backup {
 
 func buildBackupDTO(backup *model.Backup) Backup {
 	return Backup{
-		Id:        backup.BackupID,
-		Name:      backup.Name,
-		Size:      backup.Size,
-		Type:      backup.Type,
-		Status:    backup.Status,
-		CreatedAt: utils.FormatTimestamp(backup.CreatedAt),
+		Id:           backup.BackupID,
+		Name:         backup.Name,
+		Size:         backup.Size,
+		Type:         backup.Type,
+		Status:       backup.Status,
+		CreatedAt:    utils.FormatTimestamp(backup.CreatedAt),
+		ErrorMessage: backup.ErrorMessage,
 	}
 }
 

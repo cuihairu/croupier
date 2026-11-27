@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/internal/common/errorx"
+	"github.com/cuihairu/croupier/internal/config"
 	extensioninstallation "github.com/cuihairu/croupier/internal/core/extension/installation"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/platform/objstore"
@@ -109,12 +110,22 @@ func setupBackupFlowEnv(t *testing.T) *backupFlowEnv {
 	repos := extensiongorm.NewBundle(db)
 	installationSvc := extensioninstallation.NewService(repos.Installation, repos.Event, repos.Binding)
 
+	// AUD-082: since the create path rejects when no executor is available, the
+	// shared flow env is wired executor-capable (sqlite driver + real source file
+	// + stub object store) so Create-shaped cases exercise the real acceptance
+	// path; cases that need a specific store overwrite ObjectStore explicitly.
+	src := filepath.Join(t.TempDir(), "flow-src.db")
+	writeRealSQLiteDB(t, src)
 	svcCtx := &svc.ServiceContext{
 		DB:          db,
 		AdminModel:  model.NewAdminModel(db),
 		RoleModel:   model.NewRoleModel(db),
 		BackupModel: model.NewBackupModel(db),
 		Extensions:  &svc.ExtensionServices{Installation: installationSvc},
+		Config: config.Config{
+			Database: config.DatabaseConfig{Driver: "sqlite", DataSource: src},
+		},
+		ObjectStore: &execObjStoreStub{},
 	}
 	service := NewService(svcCtx)
 	handler := NewHandler(service)
@@ -345,19 +356,15 @@ func TestService_Create_SyncsExtensionRecords(t *testing.T) {
 }
 
 func TestService_Create_DatabaseError(t *testing.T) {
-	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
-	require.NoError(t, err)
-	require.NoError(t, model.AutoMigrate(db))
-	require.NoError(t, db.Migrator().DropTable("backups"))
+	// AUD-082: the env must be executor-capable, otherwise the create-time gate
+	// would reject before the database insert is reached and this case would
+	// silently stop covering the insert error path.
+	src := filepath.Join(t.TempDir(), "create-err-src.db")
+	writeRealSQLiteDB(t, src)
+	env := newExecTestEnv(t, "sqlite", src, &execObjStoreStub{})
+	require.NoError(t, env.db.Migrator().DropTable("backups"))
 
-	seedBackupSuperAdmin(t, db)
-	service := NewService(&svc.ServiceContext{
-		DB:          db,
-		AdminModel:  model.NewAdminModel(db),
-		RoleModel:   model.NewRoleModel(db),
-		BackupModel: model.NewBackupModel(db),
-	})
-	_, err = service.Create(context.WithValue(context.Background(), "username", backupSuperAdminUsername), &BackupCreateRequest{Name: "x"})
+	_, err := env.service.Create(env.authCtx(t), &BackupCreateRequest{Name: "x"})
 	require.Error(t, err)
 }
 

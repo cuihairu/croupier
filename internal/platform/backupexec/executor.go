@@ -52,6 +52,19 @@ func New(driver, dsn string, backups *model.BackupModel, store objstore.Store, p
 	return &Executor{driver: driver, dsn: dsn, backups: backups, store: store, prefix: prefix}
 }
 
+// SupportedDriver reports whether a real dump can be produced for the given
+// database driver (AUD-082). Callers that would otherwise create a pending
+// record before inspecting the executor use this to reject up-front with a
+// concrete reason instead of leaving a forever-pending row behind.
+func SupportedDriver(driver string) bool {
+	switch strings.ToLower(strings.TrimSpace(driver)) {
+	case "mysql", "postgres", "pg", "sqlite":
+		return true
+	default:
+		return false
+	}
+}
+
 // VerifyChecksum 重新读取备份对象（objstore.Get 读路径）并重算 sha256，
 // 与记录中的 Checksum 比对，返回是否一致。这是备份校验（OPS-008 校验）
 // 的读侧原语：读取失败返回错误；校验不一致返回 (false, nil)。
