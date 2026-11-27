@@ -2330,9 +2330,11 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 完成证据：`f01150fca`（`sdks/python/croupier/invoker.py` +50/-8、`sdks/python/tests/test_invoker_coverage.py` 强化在环拒绝用例+新增 `test_sync_invoker_reuses_and_closes_owned_loop`（MockServer 端到端、两次 invoke 复用同循环、close 后 `loop.is_closed()`）。本地全绿：`/usr/bin/python3 -m pytest tests/ -q` 566 passed/17 skipped（61s）；invoker 三文件 `-W error::ResourceWarning` 90 passed、零 unclosed-event-loop 告警（6 条既有 urllib GC 噪声）；变异红→还原绿全程留痕。
   - 已知边界：`close()` 会关闭它用过的循环——若该循环是线程既有 current loop（通常由 `get_event_loop` 发放），同线程外部代码裸调 `get_event_loop()` 会见到已关闭循环（既有暴露方向，此前是从不关闭的泄漏）；`SyncInvokerLoopError` 仅从 `croupier.invoker` 导出、未在顶层重导出（同既有惯例，`ServerHTTPError`/`UnknownResultError` 亦如此）；未等待协程的消除依赖 `run_until_complete` 求值顺序（先 `_get_loop()` 后协程实参）与 `stream_task` 先调 `_get_loop()`，经读码验证无专门告警捕获断言；`stream_task` 迭代中途弃离仍会留底层异步生成器打开（既有问题，超本项范围）。
 
-- [ ] **AUD-077 · P1 · 修复 · DB Router 关闭后拒绝发布迟到连接池**
+- [x] **AUD-077 · P1 · 修复 · DB Router 关闭后拒绝发布迟到连接池**
   - 依赖：—。交付与验收：Close 与数据库发布共享生命周期检查。挂起最后迁移步骤、关闭后让迁移成功返回，迟到池被关闭、调用返回已关闭错误、池计数为零。证据：`internal/db/router/router.go:251,267,406` 在打开与缓存发布间缺少关闭检查，SQLite 探针复现关闭后池数回到 1。
-  - 状态／条件：未开始。
+  - 状态／条件：已完成，LOCAL VERIFIED。新增哨兵 `ErrClosed` 与 Router `closed atomic.Bool`（随既有原子计数惯用法）：`GameDB` 入口门（关后任何取用先于 resolve/open I/O 直接返回 `ErrClosed` 包裹错误）；发布点门位于缓存写锁临界区内（与 Close 的排空共享 `r.mu`）——`Close` 先置位再排空，胜负两分支都收敛到零池：发布赢了 Close 随后排空关闭它，Close 赢了发布点当场 `closeQuietly` 迟到池并向全部 singleflight 等待者返回 `ErrClosed`；迁移语义按验收原文——挂起的最后迁移步骤在 Close 后成功返回仍算幂等完成，仅发布被拒、迟到池被关闭。变异自证（本人独立复核重做）：去掉发布点关闭门 → `TestClose_SuspendedMigrationLatePublishRejected` 精确红（"a caller whose open raced Close must get an error, not a late pool"）；还原后 router 全包绿。
+  - 完成证据：`e9f613ba1`（`internal/db/router/router.go` +37：哨兵/标志/入口门/发布门/Close 先置位；`internal/db/router/router_close_publish_test.go` 176 行 3 用例：关后取用返回 closed 错误、挂起迁移 SQLite 探针（迁移停在 channel 上、Close 完成、迁移返 nil、调用者得 `ErrClosed`、迟到池 ping 失败、池计数 0）、24 个并发首开对单次 Close 的乱序竞态零迟到池）。本地全绿：`go test ./internal/db/... -count=1` 四包 ok（migrate 36 例 61s）；`go test ./internal/db/router/ -count=3` ok；交付席另跑 `-race -count=2` ok；gofmt/vet clean。
+  - 已知边界：竞态锤测单独不承变异检测（5 次仍绿——`openWithContext` 已中止取消先于 gorm.Open 返回的开，迟到发布窗口只剩最后一次生命周期检查到发布之间，挂起迁移探针才是确定性探测器，锤测守零泄漏一般不变量）；Close 前合法取得句柄的调用者在 Close 后持有已关池（缓存句柄既有语义）；被拒迟到开仍计入 `FirstOpenCount` 统计样本（仅 Stats 可见，不影响池态）。
 
 - [ ] **AUD-078 · P1 · 修复 · SDK 发布物固定到同一个版本提交**
   - 依赖：—。交付与验收：统一解析目标 tag 和 commit，六个发布任务记录并使用相同的源提交。用当前分支领先于既有 tag 的 dry-run 比较 Go 子模块 tag、C++ 源码及二进制、其余包源 SHA。证据：`.github/workflows/release-sdk-go.yml:39,65` 从触发 ref 打子模块 tag，`.github/workflows/release-sdk-cpp.yml:64,82` 源码包与编译物分别取触发 ref 和目标 tag。
