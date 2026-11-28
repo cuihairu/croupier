@@ -684,9 +684,9 @@
 
 ## 部署事实
 
-- [ ] **DEPLOY-001 · P1 · 资料调查 · 真实部署与外部依赖配置盘点**
+- [x] **DEPLOY-001 · P1 · 资料调查 · 真实部署与外部依赖配置盘点**（3619cf039）
   - 依赖：—。交付与验收：核对实际镜像摘要/角色/端口/TLS/协调后端/备份、Herald 与外部平台开关、OIDC/Vault/观测出口；交付脱敏拓扑和与模板差异，不把 Compose 存在当部署证据。
-  - 状态／条件：BLOCKED（2026-11-01 复核）：需真实部署只读权限与脱敏配置；沙箱无生产部署访问。缺部署权限/脱敏配置。
+  - 状态／条件：已完成 2026-11-28 LOCAL VERIFIED。旧 BLOCKED 前提失效（部署宿主只读 ssh 可达）。证据：docs/review/deploy-inventory-2026-11-28.md（live docker ps/inspect + psql 计数；模板逐文件 diff：部署=deploy.yml 一代、server.yaml/haproxy/agent2/otel/prometheus 逐字节一致；关键发现=prod backups 表 0 行零备份、LB 监控源 19092 死源、全明文链路+默认口令+DB 端口宿主发布、herald/rustfs 独立栈未接入）。
 
 - [ ] **DEPLOY-002 · P1 · 故障验证 · 备份可恢复与业务凭据核对**
   - 依赖：DEPLOY-001。交付与验收：复用 backupexec 和既有备份/对象存储，在隔离环境实际恢复配置、契约/页面、审批/任务/执行凭据与角色数据，记录 RPO/RTO/校验和及未覆盖内存状态；验证副作用不因恢复重复执行，不新增未经设计的恢复服务
