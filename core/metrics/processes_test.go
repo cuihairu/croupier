@@ -2,6 +2,8 @@ package metrics
 
 import (
 	"context"
+	"errors"
+	"runtime"
 	"syscall"
 	"testing"
 	"time"
@@ -125,5 +127,55 @@ func TestListenerConnectionsInetOnly(t *testing.T) {
 		if _, ok := listenerKind(cn); !ok {
 			t.Fatalf("listenerConnections returned non-inet socket family=%d type=%d", cn.Family, cn.Type)
 		}
+	}
+}
+
+// TestListenerConnectionsEmptyInetSkipsFallbackOnLinux pins the trust-empty
+// contract: on Linux an error-free empty "inet" scan means the /proc tables
+// were read and there simply are no sockets — the per-protocol fallback must
+// NOT run (it would re-read the same tables four times).
+func TestListenerConnectionsEmptyInetSkipsFallbackOnLinux(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("trust-empty contract is linux-specific")
+	}
+	orig := fetchConnections
+	t.Cleanup(func() { fetchConnections = orig })
+
+	var kinds []string
+	fetchConnections = func(kind string) ([]net.ConnectionStat, error) {
+		kinds = append(kinds, kind)
+		if kind == "inet" {
+			return nil, nil
+		}
+		return nil, errors.New("fallback must not be reached on empty inet scan")
+	}
+	conns := listenerConnections()
+	if len(conns) != 0 {
+		t.Fatalf("expected empty result, got %d sockets", len(conns))
+	}
+	if len(kinds) != 1 {
+		t.Fatalf("expected exactly one inet scan, got %d calls: %v", len(kinds), kinds)
+	}
+}
+
+// TestListenerConnectionsFallbackOnError pins the fallback contract: when the
+// single "inet" scan errors, the per-protocol calls run and their per-call
+// errors are absorbed (a kind that errors contributes nothing).
+func TestListenerConnectionsFallbackOnError(t *testing.T) {
+	orig := fetchConnections
+	t.Cleanup(func() { fetchConnections = orig })
+
+	fetchConnections = func(kind string) ([]net.ConnectionStat, error) {
+		switch kind {
+		case "inet":
+			return nil, errors.New("inet unavailable")
+		case "tcp":
+			return []net.ConnectionStat{{Family: syscall.AF_INET, Type: syscall.SOCK_STREAM}}, nil
+		}
+		return nil, errors.New(kind + " unavailable")
+	}
+	conns := listenerConnections()
+	if len(conns) != 1 {
+		t.Fatalf("expected 1 socket from the tcp fallback, got %d", len(conns))
 	}
 }

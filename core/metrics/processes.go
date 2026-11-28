@@ -40,20 +40,27 @@ type listenerScan struct {
 	ports []*opsv1.PortMetrics
 }
 
+// fetchConnections is indirected only so tests can stub the socket-table
+// scan without a real /proc walk; production always uses net.Connections.
+var fetchConnections = net.Connections
+
 // listenerConnections fetches all inet sockets in one gopsutil call. On
 // Linux "inet" (tcp4+tcp6+udp4+udp6) shares a single /proc/<pid>/fd walk
 // inside gopsutil; asking per protocol repeats that whole walk four times,
 // which costs seconds per report on hosts with huge process tables.
-// Non-Linux platforms may not know the "inet" kind — fall back to the
-// per-protocol calls (the historical behavior, absorbed per-call errors).
+// On Linux an empty result with no error is authoritative (the /proc tables
+// were read successfully) — falling back there would just re-read the same
+// files four times. Non-Linux platforms may not know the "inet" kind — fall
+// back to the per-protocol calls (the historical behavior, absorbed
+// per-call errors).
 func listenerConnections() []net.ConnectionStat {
-	conns, err := net.Connections("inet")
-	if err == nil && len(conns) > 0 {
+	conns, err := fetchConnections("inet")
+	if err == nil && (len(conns) > 0 || runtime.GOOS == "linux") {
 		return conns
 	}
 	var out []net.ConnectionStat
 	for _, kind := range []string{"tcp", "tcp6", "udp", "udp6"} {
-		cs, err := net.Connections(kind)
+		cs, err := fetchConnections(kind)
 		if err != nil {
 			continue
 		}
