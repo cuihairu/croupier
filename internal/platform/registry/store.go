@@ -149,6 +149,10 @@ type AgentSession struct {
 }
 
 // Store keeps lightweight agent registry state in-memory.
+//
+// Contract-state boundary: this Store is the runtime snapshot (live agent
+// sessions, OpenAPI operations, registration warnings). Version conversion
+// and persisted contract lifecycle live in internal/service/contract_service.go.
 type Store struct {
 	mu sync.RWMutex
 	// registrationMu serializes local registration projection changes. It keeps

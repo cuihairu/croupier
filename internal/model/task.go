@@ -5,6 +5,12 @@ import (
 	"time"
 )
 
+// TaskRun is the persistence row of one task execution (task domain, role 1
+// of 3: storage shape). The execution state machine and routing live in
+// internal/platform/dispatch (TaskRunState / TaskEventQuery / TaskRunWriter);
+// internal/tasks/store.go adapts this row plus TaskEvent into those
+// interfaces for the per-game database. This struct owns columns only —
+// status transitions are dispatch's contract, not gorm hooks.
 type TaskRun struct {
 	gorm.Model
 	TaskID            string `gorm:"size:64;uniqueIndex"`

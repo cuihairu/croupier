@@ -30,6 +30,11 @@ func processActionParams(c *gin.Context) (agentId, name string) {
 	return strings.TrimSpace(c.Param("agentId")), strings.TrimSpace(c.Param("name"))
 }
 
+// Handler serves the Server-side ops REST surface (ops domain, Server role:
+// DTO mapping and orchestration). Execution happens on the agent host in
+// internal/app/agent/ops_server.go (gRPC OpsServer); this handler only
+// resolves targets and forwards over the control tunnel. The two share the
+// domain name but not a process or a store.
 type Handler struct {
 	service *Service
 }

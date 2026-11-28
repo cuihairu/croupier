@@ -24,6 +24,11 @@ func restartConfig(config ManagedProcessConfig) processcore.RestartConfig {
 
 // OpsServer implements ops functionality for the agent.
 // It provides system info, process management, and command execution capabilities.
+//
+// Ops-domain boundary: this is the Agent-side executor (gRPC surface on the
+// agent host). The Server-side counterpart is internal/api/ops (REST DTO +
+// orchestration, forwarding over the control tunnel) — same domain name,
+// disjoint responsibilities and stores.
 type OpsServer struct {
 	mu      sync.RWMutex
 	config  *OpsConfig

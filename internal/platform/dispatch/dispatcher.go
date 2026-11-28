@@ -40,6 +40,12 @@ type TaskEventRecord struct {
 	Event *sdkv1.TaskEvent
 }
 
+// TaskRunState is the dispatch-side view of one task run (task domain, role
+// 2 of 3: execution state machine). The persistence row it mirrors is
+// model.TaskRun; events are read back through TaskEventQuery (adapted from
+// model.TaskEventModel / model.TaskRunModel in task_query.go, backed by the
+// internal/tasks store). State transitions belong here, storage shape in
+// the model.
 type TaskRunState struct {
 	TaskID        string
 	Status        string

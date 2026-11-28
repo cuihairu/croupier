@@ -26,6 +26,12 @@ import (
 const PageProposalGeneratorVersion = "page-generator:3"
 
 // ContractService manages FunctionContract persistence and semantic rebuilding.
+//
+// Contract-state boundary: this service owns persisted contract versions,
+// conversion and lifecycle (the DB models wired in NewContractService). The
+// runtime snapshot of what agents currently serve lives in
+// internal/platform/registry/store.Store — the registry never owns
+// versioning, this service never owns live sessions.
 type ContractService struct {
 	db               *gorm.DB
 	contractModel    *model.FunctionContractModel
