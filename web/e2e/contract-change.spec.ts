@@ -217,14 +217,20 @@ test.describe('真实契约变化链路', () => {
             headers,
           });
           if (response.status() !== 200) return false;
-          const proposals = (await response.json()) as Array<{ proposalKey?: string }>;
+          const proposals = (await response.json()) as Array<{
+            proposalKey?: string;
+            title?: unknown;
+            pageSpec?: unknown;
+          }>;
           const ops = proposals.find((item) => item.proposalKey === 'operation:ops.restart');
           if (!ops) return false;
-          const json = JSON.stringify(ops);
+          // SUI-011 起 proposal DTO 携带 contract 迁移诊断（F12 破坏性变更警告
+          // 会提及被删的旧字段名），不能当污染标记；重建判定只看 title/pageSpec。
+          const spec = JSON.stringify([ops.title, ops.pageSpec]);
           return (
-            json.includes('Restart game server') &&
-            !json.includes('premium') &&
-            !json.includes('priority')
+            spec.includes('Restart game server') &&
+            !spec.includes('premium') &&
+            !spec.includes('priority')
           );
         },
         { timeout: 30000 },
