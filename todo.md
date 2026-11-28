@@ -692,7 +692,7 @@
 
 - [ ] **DEPLOY-002 · P1 · 故障验证 · 备份可恢复与业务凭据核对**
   - 依赖：DEPLOY-001。交付与验收：复用 backupexec 和既有备份/对象存储，在隔离环境实际恢复配置、契约/页面、审批/任务/执行凭据与角色数据，记录 RPO/RTO/校验和及未覆盖内存状态；验证副作用不因恢复重复执行，不新增未经设计的恢复服务
-  - 状态／条件：BLOCKED（2026-11-28 现场复核，见 docs/review/deploy-inventory-2026-11-28.md §9）：阻塞点已具体化——prod backups/db_sources 双 0 行 + server 镜像 distroless/static 无 pg_dump（容器探测 rc=1）= 备份 API 创建即失败、「既有备份」结构性不存在。解阻前置：镜像带 pg_dump（distroless 无 loader，musl 版不可直 COPY）或 postgres pure-Go dump，属设计决策待用户拍板；随后 API 建首份真实备份 → 隔离容器恢复演练。宿主手工 dump+恢复已评估并否决（不经 backupexec 链路，违反验收口径）。
+  - 状态／条件：解阻决策评审稿已起草（ab0a695f）：docs/design/backup-restore-unblock-review.md（zh 镜像同步）。阻塞点收窄为四问签核：D1 镜像获得 pg_dump 的载体（推荐 base-debian12 + postgres:15-bookworm builder 阶段 ldd 闭包 COPY——保持 distroless 姿态、仓内 sdk-demo-go 已有 base-debian12 先例、钉线上 major 15；pure-Go dump 为后备且库生态 NOT VERIFIED；包管理器全换底/musl 直 COPY/sidecar 宿主 cron 三路已排除并给理由）+ D2 首份备份范围（推荐平台 meta DB 回落路径，backups.go:133-135/209-223 无需 db_sources 行、线上单库一份 dump 覆盖全部表）+ D3 演练形态定形（即 OPS-008 Stage C：推荐 runbook 先行零新代码——一次性 postgres:15 容器 + 既有 Verify/下载 + psql 恢复 scratch 库 + RPO/RTO 记录；周期演练端点仅按需另立设计；内存态边界绑定）+ D4 凭据轮换范围（确认为边界外）。验收映射 A1-A6；实现与演练本体仍待用户签核（A4/A5 另需部署宿主窗口授权），本稿不实现任何东西。
 
 ## 容量验证
 
