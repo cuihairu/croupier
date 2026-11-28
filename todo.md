@@ -1823,7 +1823,8 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 状态／条件：完成（2026-11-16 codex exec read-only 静态审计 + 逐条人工复核核伪）。LOCAL VERIFIED
   - 完成证据：报告 `docs/review/aud-cov-005-web-console-2026-11-16.md`（P1×4/P2×6/P3×3 + 修复与复核附注）；当场修 4 条 `2f6d79d01`/`95072aaeb`/`c430996a2`/`abc6f25a1`；P2/P3 遗留落 AUD-029..035；核伪 2 条见报告附注。
 - [ ] AUD-COV-006 · 复核 · Mobile 客户端：检查登录/会话、作用域、token 存储、请求生命周期、旧数据清理、错误/离线表现与 Android/iOS 配置；覆盖 mobile/lib 和原生工程。
-  - 进度（2026-11-21）：已检查会话和作用域，并核对 Android manifest 源文件、签名与 APK 工作流，见 AUD-061～064、AUD-066～067、AUD-084～085。续审核对 iOS 工程和 CI 构建入口，见 AUD-097。iOS 实机、合并 manifest 和 release 包验证仍待完成。
+  - 进度（2026-11-21）：已检查会话和作用域，并核对 Android manifest 源文件、签名与 APK 工作流，见 AUD-061～064、AUD-066～067、AUD-084～085。续审核对 iOS 工程和 CI 构建入口，见 AUD-097。
+  - 进度（2026-11-28）：「合并 manifest 验证」收口（Android 侧）——对本机 AUD-084 演练 release APK（`~/aud084-work/mobile/build/app/outputs/flutter-apk/app-release.apk`，2026-11-28 构建）`aapt2 dump xmltree --file AndroidManifest.xml` 对照源 `mobile/android/app/src/main/AndroidManifest.xml` 逐项核验合并产物：package `com.cuihairu.croupier_mobile`、versionCode 2 / versionName 0.1.0、INTERNET 权限在 release 生效（源注释要求的点）、MainActivity exported=true + singleTop(=1) + MAIN/LAUNCHER、PROCESS_TEXT queries 合并、flutterEmbedding=2、库贡献项（androidx startup/profileinstaller/window、应用包域 DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION）合并正确无越权权限。签名复验：该演练包为 debug 证书签名（rehearsal 约定，AUD-085 有记录）。剩余待办仅「iOS 实机验证」与「正式 release 包验收」（iOS 构建需 macOS/Xcode 本机不具备；正式 release 包受版本发布红线约束，须用户给出版本号）。
 - [ ] AUD-COV-007 · 复核 · 构建/发布/部署/运维与文档契约：检查 CI 触发路径、质量门禁、发布版本一致性、镜像/Compose 默认值、密钥暴露、备份恢复和用户文档与实现漂移；覆盖 .github、docker、configs、scripts、Makefile 与 docs。
   - 进度（2026-11-21）：本轮补查分析 CI、SDK 发布输入和备份执行状态，见 DATA-031～032、AUD-078～079、AUD-082～085。续审核对自托管发布配置替换与实例配置保留，见 AUD-095～096、AUD-099。真实部署、恢复演练及各平台产物验收仍待执行。
 - [ ] AUD-COV-008 · 汇总 · 回归历史审计并形成总报告：把 11 月 1–10 日历史审计结论按当前 HEAD 逐条标成仍存在/已修/无法复核；合并重复项、给出严重级别和证据；未覆盖区域明确标注，不能用扫描器无告警替代人工复核。
