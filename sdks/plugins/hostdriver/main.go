@@ -33,6 +33,11 @@
 //	probe-tcp          payloadJson reaches a real TCP reference probe and
 //	                   success/refused/timeout retain their distinct
 //	                   target/plugin semantics
+//	probe-mc-slp       the game-protocol reference probe (Minecraft SLP)
+//	                   passes against a speaking server and a silent non-SLP
+//	                   listener stays a plugin business failure; -target
+//	                   host:port drives a REAL game server instead of the
+//	                   in-process mock (PROBE-001 real-target path)
 //	probe-credentials  secretEnv references resolve and ride the Check call
 //	                   across languages; a chatty plugin's echoed secret is
 //	                   scrubbed from the mapped result; a missing reference
@@ -46,12 +51,14 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"sort"
@@ -71,6 +78,7 @@ func main() {
 	args := flag.String("args", "", "comma-separated plugin argv; empty = none")
 	n := flag.Int("n", 300, "funcbench: timed samples per measurement")
 	warmup := flag.Int("warmup", 20, "funcbench: untimed warmup invokes before sampling")
+	target := flag.String("target", "", "probe-mc-slp: host:port of a real game target (default: in-process mock SLP server)")
 	flag.Parse()
 
 	if *scenario == "" || *command == "" {
@@ -90,7 +98,7 @@ func main() {
 	case "func":
 		err = runFuncScenario(ctx, *scenario, *command, pluginArgs)
 	case "probe":
-		err = runProbeScenario(*scenario, *command, pluginArgs)
+		err = runProbeScenario(*scenario, *command, pluginArgs, *target)
 	case "funcbench":
 		err = runFuncBench(ctx, *scenario, *command, pluginArgs, *n, *warmup)
 	default:
@@ -364,7 +372,7 @@ func runFuncScenario(ctx context.Context, scenario, command string, pluginArgs [
 	}
 }
 
-func runProbeScenario(scenario, command string, pluginArgs []string) error {
+func runProbeScenario(scenario, command string, pluginArgs []string, gameTarget string) error {
 	ctl := pluginhost.NewController(
 		synconfig.Synthetics{
 			Plugins: []synconfig.PluginConfig{{
@@ -491,6 +499,75 @@ func runProbeScenario(scenario, command string, pluginArgs []string) error {
 		fmt.Printf("PASS probe-tcp: payload reached plugin; open=%v refused=%q timeout=%q\n", open.Result.OK, closed.Result.Error, timedOut.Cause)
 		return nil
 
+	case "probe-mc-slp":
+		// Game-protocol reference probe (Minecraft SLP, PROBE-001):
+		// Describe/Check against a speaking game server, and the
+		// guarantee that a silent non-SLP listener stays a plugin
+		// business failure rather than a host degradation. With
+		// -target host:port the scenario drives a REAL game server
+		// (assertions stay generic: version/protocol present);
+		// without it an in-process mock SLP server asserts exact
+		// values so SDK suites stay hermetic.
+		addr := gameTarget
+		genericAssertions := false
+		if strings.TrimSpace(addr) == "" {
+			mockAddr, stopMock, mockErr := startMockSLPServer(mcMockStatus)
+			if mockErr != nil {
+				return fmt.Errorf("start mock SLP server: %w", mockErr)
+			}
+			defer stopMock()
+			addr = mockAddr
+		} else {
+			genericAssertions = true
+		}
+		host, portStr, splitErr := net.SplitHostPort(addr)
+		if splitErr != nil {
+			return fmt.Errorf("slp target %q: %w", addr, splitErr)
+		}
+		port, _ := strconv.Atoi(portStr)
+		payload := fmt.Sprintf(`{"host":%q,"port":%d}`, host, port)
+		ok := ctl.Check(context.Background(), synconfig.Target{
+			Name: "mc-slp", Plugin: "probe-echo", Timeout: 5 * time.Second, PayloadJSON: payload,
+		})
+		if ok.Cause != "" {
+			return failf("slp check degraded with cause %s", ok.Cause)
+		}
+		if !ok.Result.OK || ok.Result.Status != 200 {
+			return failf("slp check: ok=%v status=%d error=%q", ok.Result.OK, ok.Result.Status, ok.Result.Error)
+		}
+		if genericAssertions {
+			if !strings.Contains(ok.Detail, "version=") || !strings.Contains(ok.Detail, "protocol=") {
+				return failf("real-target slp detail missing version/protocol: %q", ok.Detail)
+			}
+			fmt.Printf("PASS probe-mc-slp: real game target %s answered: %s\n", addr, ok.Detail)
+			return nil
+		}
+		for _, want := range []string{"version=mcslp-mock-1.0", "protocol=769", "players=3/20"} {
+			if !strings.Contains(ok.Detail, want) {
+				return failf("mock SLP detail drifted: %q missing %q", ok.Detail, want)
+			}
+		}
+		silentAddr, stopSilent, silentErr := startSilentListener()
+		if silentErr != nil {
+			return fmt.Errorf("start silent listener: %w", silentErr)
+		}
+		defer stopSilent()
+		silentHost, silentPortStr, _ := net.SplitHostPort(silentAddr)
+		silentPort, _ := strconv.Atoi(silentPortStr)
+		silent := ctl.Check(context.Background(), synconfig.Target{
+			Name: "mc-silent", Plugin: "probe-echo", Timeout: 800 * time.Millisecond,
+			PayloadJSON: fmt.Sprintf(`{"host":%q,"port":%d}`, silentHost, silentPort),
+		})
+		if silent.Cause != "" {
+			return failf("silent non-SLP target must stay a business failure, got degradation cause %s", silent.Cause)
+		}
+		if silent.Result.OK {
+			return failf("silent non-SLP target must not pass")
+		}
+		fmt.Printf("PASS probe-mc-slp: game-protocol pass ok=%v (%q); silent non-SLP failure ok=%v\n",
+			ok.Result.OK, ok.Detail, silent.Result.OK)
+		return nil
+
 	case "probe-icmp-capability":
 		out := ctl.Check(context.Background(), synconfig.Target{
 			Name:        "icmp-capability",
@@ -569,4 +646,115 @@ func runProbeScenario(scenario, command string, pluginArgs []string) error {
 	default:
 		return failf("unknown probe scenario %q", scenario)
 	}
+}
+
+// mcMockStatus is the canned SLP status JSON the in-process mock serves.
+const mcMockStatus = `{"version":{"name":"mcslp-mock-1.0","protocol":769},` +
+	`"players":{"online":3,"max":20},"description":{"text":"hostdriver mock"}}`
+
+// startMockSLPServer serves two varint-framed reads (handshake, status
+// request) then one canned status response frame, mirroring the protocol
+// framing of core/healthprobe/games/minecraft.
+func startMockSLPServer(statusJSON string) (string, func(), error) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		return "", nil, err
+	}
+	go func() {
+		for {
+			conn, err := ln.Accept()
+			if err != nil {
+				return
+			}
+			go func(c net.Conn) {
+				defer func() { _ = c.Close() }()
+				if _, _, err := slpReadFrame(c); err != nil {
+					return
+				}
+				if _, _, err := slpReadFrame(c); err != nil {
+					return
+				}
+				data := []byte{0x00}
+				data = slpAppendVarInt(data, uint32(len(statusJSON)))
+				data = append(data, statusJSON...)
+				frame := slpAppendVarInt(nil, uint32(len(data)))
+				frame = append(frame, data...)
+				_, _ = c.Write(frame)
+			}(conn)
+		}
+	}()
+	return ln.Addr().String(), func() { _ = ln.Close() }, nil
+}
+
+// startSilentListener accepts connections and never speaks: game-protocol
+// reads must time out into a plugin business failure.
+func startSilentListener() (string, func(), error) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		return "", nil, err
+	}
+	go func() {
+		for {
+			conn, err := ln.Accept()
+			if err != nil {
+				return
+			}
+			go func(c net.Conn) {
+				time.Sleep(time.Minute)
+				_ = c.Close()
+			}(conn)
+		}
+	}()
+	return ln.Addr().String(), func() { _ = ln.Close() }, nil
+}
+
+func slpAppendVarInt(b []byte, v uint32) []byte {
+	for {
+		if v&^0x7F == 0 {
+			return append(b, byte(v))
+		}
+		b = append(b, byte(v&0x7F)|0x80)
+		v >>= 7
+	}
+}
+
+func slpReadFrame(c net.Conn) (byte, []byte, error) {
+	var lenBytes []byte
+	one := make([]byte, 1)
+	for i := 0; i < 5; i++ {
+		if _, err := io.ReadFull(c, one); err != nil {
+			return 0, nil, err
+		}
+		lenBytes = append(lenBytes, one[0])
+		if one[0]&0x80 == 0 {
+			break
+		}
+	}
+	length, err := slpReadVarInt(bytes.NewReader(lenBytes))
+	if err != nil {
+		return 0, nil, err
+	}
+	if length == 0 || length > 64*1024 {
+		return 0, nil, fmt.Errorf("bad frame length %d", length)
+	}
+	payload := make([]byte, length)
+	if _, err := io.ReadFull(c, payload); err != nil {
+		return 0, nil, err
+	}
+	return payload[0], payload[1:], nil
+}
+
+func slpReadVarInt(r *bytes.Reader) (uint32, error) {
+	var result uint32
+	for i := 0; i < 5; i++ {
+		b, err := r.ReadByte()
+		if err != nil {
+			return 0, err
+		}
+		result |= uint32(b&0x7F) << (7 * i)
+		if b&0x80 == 0 {
+			return result, nil
+		}
+	}
+	return 0, io.ErrUnexpectedEOF
 }

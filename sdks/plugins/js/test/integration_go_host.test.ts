@@ -43,6 +43,7 @@ describeHost("real hostdriver scenarios (node plugins)", () => {
   let probeExample: string;
   let tcpExample: string;
   let icmpExample: string;
+  let slpExample: string;
   let funcExample: string;
 
   beforeAll(() => {
@@ -54,6 +55,7 @@ describeHost("real hostdriver scenarios (node plugins)", () => {
     probeExample = path.join(sdkDir, "dist", "examples", "probe_echo.js");
     tcpExample = path.join(sdkDir, "dist", "examples", "probe_tcp.js");
     icmpExample = path.join(sdkDir, "dist", "examples", "probe_icmp.js");
+    slpExample = path.join(sdkDir, "dist", "examples", "probe_mc_slp.js");
     funcExample = path.join(sdkDir, "dist", "examples", "func_echo.js");
     expect(fs.existsSync(probeExample)).toBe(true);
     expect(fs.existsSync(funcExample)).toBe(true);
@@ -98,6 +100,11 @@ describeHost("real hostdriver scenarios (node plugins)", () => {
     it("probe-tcp carries payloadJson and keeps target timeout separate", () => {
       const out = drive("probe", "probe-tcp", tcpExample);
       expect(out).toContain("PASS probe-tcp");
+    });
+
+    it("probe-mc-slp carries the game-protocol payload through the real host", () => {
+      const out = drive("probe", "probe-mc-slp", slpExample);
+      expect(out).toContain("PASS probe-mc-slp");
     });
 
     it("probe-version reports the plugin self-description", () => {

@@ -48,6 +48,12 @@ void serve(probe);
   cookie env (`CROUPIER_SYNTHETICS_PLUGIN`).
 
 A complete runnable example ships in `examples/probe_echo.ts`.
+`examples/probe_mc_slp.ts` is the game-protocol reference probe
+(Minecraft Java Server List Ping): hostdriver's `probe-mc-slp` scenario
+drives it against a speaking mock by default, and against a real server
+with `-target host:port` (the MC_E2E gate in
+`core/healthprobe/games/minecraft/slp_e2e_test.go` does exactly that).
+A pass is server-status evidence only — SLP never proves a player login.
 
 ## Function adapter plugin
 

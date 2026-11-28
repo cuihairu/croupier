@@ -107,7 +107,12 @@ pytest                      # needs a Go toolchain for the hostdriver integratio
 `hostdriver/` builds against the real Go hosts (`funcplugin.NewHost`,
 `pluginhost.NewController`) and drives the reference plugins in
 `examples/` through the real handshake; every scenario is a full
-host⇄plugin round trip.
+host⇄plugin round trip. `examples/probe_mc_slp.py` is the game-protocol
+reference probe (Minecraft Java Server List Ping): with
+`hostdriver -mode probe -scenario probe-mc-slp -target host:port` it is
+driven against a real server (the MC_E2E gate in
+`core/healthprobe/games/minecraft/slp_e2e_test.go` does exactly that).
+A pass is server-status evidence only — SLP never proves a player login.
 
 Generated gRPC stubs are committed under `croupier_plugin/`; regenerate
 with `protos/gen.sh <python-with-grpcio-tools>`.

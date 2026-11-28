@@ -340,3 +340,94 @@ func execCmd(cmd *exec.Cmd) (string, error) {
 	out, err := cmd.CombinedOutput()
 	return string(out), err
 }
+
+// TestSLPProbePluginsRealServerE2E 真服务端上的插件路径（PROBE-001 余量验收）：
+// 同一台 vanilla 服务器，SLP 经 go-plugin 外挂进程走真实 Describe/Check 往返——
+// Go 参考插件（mcslpprobe）+ Python/Node 参考探测（sdks/plugins probe_mc_slp），
+// 断言统一收敛在 hostdriver（与 SDK 套件同一词汇）。Python/Node 腿在解释器或
+// 构建依赖缺席时跳过（带诊断，不静默）。约束条款不变：SLP 通过只证服务器
+// 状态，绝不是玩家登录证据。
+func TestSLPProbePluginsRealServerE2E(t *testing.T) {
+	if os.Getenv("MC_E2E") != "1" {
+		t.Skip("MC_E2E=1 to run the real vanilla server e2e (needs docker + network)")
+	}
+	for _, bin := range []string{"docker", "curl", "go"} {
+		if _, err := exec.LookPath(bin); err != nil {
+			t.Skipf("%s not on PATH: %v", bin, err)
+		}
+	}
+
+	versionID, javaMajor := e2eResolveVersion(t)
+	jar := e2eEnsureServerJar(t, versionID)
+	addr, stop := e2eStartVanilla(t, jar, versionID, javaMajor)
+	defer stop()
+
+	repoRoot, err := filepath.Abs("../../../..")
+	require.NoError(t, err)
+	workDir := t.TempDir()
+
+	driver := filepath.Join(workDir, "croupier-hostdriver-mce2e")
+	e2eBuild(t, repoRoot, driver, "./sdks/plugins/hostdriver")
+	goPlugin := filepath.Join(workDir, "mcslpprobe")
+	e2eBuild(t, repoRoot, goPlugin, "./agents/synthetics/pluginhost/examples/mcslpprobe")
+
+	t.Run("go-plugin path", func(t *testing.T) {
+		e2eDriveSLP(t, driver, addr, goPlugin, nil)
+	})
+
+	t.Run("python-plugin path", func(t *testing.T) {
+		py, err := exec.LookPath("python3")
+		if err != nil {
+			t.Skipf("python3 not on PATH: %v", err)
+		}
+		probe := filepath.Join(repoRoot, "sdks", "plugins", "python", "examples", "probe_mc_slp.py")
+		if out, err := execCmd(exec.Command(py, "-c", "import grpc")); err != nil {
+			t.Skipf("python3 grpc unavailable (%v): %s", err, out)
+		}
+		e2eDriveSLP(t, driver, addr, py, []string{probe})
+	})
+
+	t.Run("node-plugin path", func(t *testing.T) {
+		node, err := exec.LookPath("node")
+		if err != nil {
+			t.Skipf("node not on PATH: %v", err)
+		}
+		jsSDK := filepath.Join(repoRoot, "sdks", "plugins", "js")
+		tsc := filepath.Join(jsSDK, "node_modules", ".bin", "tsc")
+		if _, err := os.Stat(tsc); err != nil {
+			t.Skipf("js sdk deps not installed (%v); run pnpm --dir sdks/plugins/js install", err)
+		}
+		tscBuild := exec.Command(tsc, "-p", "tsconfig.json")
+		tscBuild.Dir = jsSDK
+		if out, err := execCmd(tscBuild); err != nil {
+			t.Fatalf("building js examples failed: %v: %s", err, out)
+		}
+		probe := filepath.Join(jsSDK, "dist", "examples", "probe_mc_slp.js")
+		e2eDriveSLP(t, driver, addr, node, []string{probe})
+	})
+}
+
+func e2eBuild(t *testing.T, dir, out, pkg string) {
+	t.Helper()
+	build := exec.Command("go", "build", "-o", out, pkg)
+	build.Dir = dir
+	if outb, err := execCmd(build); err != nil {
+		t.Fatalf("go build %s: %v: %s", pkg, err, outb)
+	}
+}
+
+// e2eDriveSLP 经 hostdriver probe-mc-slp 场景驱动一个插件命令打到真服务端；
+// 场景内的断言（PASS/exit 0）与 SDK 套件完全一致。
+func e2eDriveSLP(t *testing.T, driver, addr, command string, args []string) {
+	t.Helper()
+	cmdArgs := []string{"-mode", "probe", "-scenario", "probe-mc-slp",
+		"-command", command, "-target", addr}
+	cmdArgs = append(cmdArgs, "-args", strings.Join(args, ","))
+	cmd := exec.Command(driver, cmdArgs...)
+	cmd.Env = append(os.Environ(), "GO_LOG_FORMAT=standard", "GO_LOG_LEVEL=warn")
+	out, err := execCmd(cmd)
+	require.NoError(t, err, "hostdriver probe-mc-slp failed:\n%s", out)
+	// go-plugin 的握手 DEBUG/TRACE 日志会先于结果行出现，断言用 contains。
+	require.True(t, strings.Contains(out, "PASS probe-mc-slp"),
+		"hostdriver output lacks PASS marker:\n%s", out)
+}
