@@ -95,6 +95,8 @@ func NewNegotiation() *Negotiation {
 // so tests can rehearse the next version bump (N/N-1 mixes) before Version1
 // moves.
 func NewNegotiationWindow(min, max uint8) *Negotiation {
+	// panic-ok: 构造期不变量——版本窗非法（min=0 或 max<min）无合理返回形态，
+	// 构造即暴露优于零值 Negotiation 静默外发。
 	if min == 0 || max < min {
 		panic(fmt.Sprintf("protocol: invalid version window [%d,%d]", min, max))
 	}
