@@ -11,6 +11,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// fixtureSignalNotify is indirected so the regression test can pin the
+// registration order: the listener must exist before the FIXTURE_READY line
+// (76f057be9 同型残留——编排器见到该行即发 SIGTERM).
+var fixtureSignalNotify = func(sig chan os.Signal) {
+	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
+}
+
 // dev-fixture starts the named "real-dashboard" E2E fixture: a genuine
 // Server + Agent + Go SDK + /players OpenAPI provider with a dedicated clean
 // scope. It prints a single FIXTURE_READY line once all components are
@@ -21,6 +28,13 @@ var fixtureCmd = &cobra.Command{
 	Short:  "Start the real-dashboard E2E fixture (server+agent+sdk+provider)",
 	Hidden: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		// signal 监听先于启动与 FIXTURE_READY 行（76f057be9 同型残留修补）：
+		// 编排器见到该行即发 SIGTERM，若此刻监听未装则默认处置直接杀死进程，
+		// scope 清理与临时目录回收全部跳过。带缓冲通道兜住启动期间到达的
+		// 信号，ready 后统一在 <-sig 消费。
+		sig := make(chan os.Signal, 1)
+		fixtureSignalNotify(sig)
+
 		opts := DashboardFixtureOptions{
 			BaseDir:        fixtureBaseDir,
 			GameID:         fixtureGameID,
@@ -34,6 +48,7 @@ var fixtureCmd = &cobra.Command{
 		}
 		fixture, err := StartDashboardFixture(context.Background(), opts)
 		if err != nil {
+			signal.Stop(sig)
 			return err
 		}
 
@@ -50,8 +65,6 @@ var fixtureCmd = &cobra.Command{
 		raw, _ := json.Marshal(ready)
 		fmt.Printf("FIXTURE_READY %s\n", raw)
 
-		sig := make(chan os.Signal, 1)
-		signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
 		<-sig
 
 		if err := fixture.CleanupScope(context.Background()); err != nil {
