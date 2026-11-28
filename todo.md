@@ -670,17 +670,17 @@
 
 - [ ] **PROBE-005 · P1 · 方案决策 · 探测结果与故障恢复事件丢失语义**
   - 依赖：—。交付与验收：区分可丢的周期采样与必须可核对的故障/恢复跃迁；评审断链缓存/重传/新鲜度/缺测状态及容量预算，优先复用既有 report/告警机制，不默认持久化每条采样
-  - 状态／条件：BLOCKED（2026-11-01 复核）：协议缺口需方案评审批准（用户拍板）；真实第三方环境不能补齐此协议缺口。缺方案批准。
+  - 状态／条件：评审稿已起草（897a30cbe）：docs/design/probe-event-loss-semantics-review.md（zh 镜像同步）。两类划分（C1 周期采样可丢 / C2 故障恢复跃迁必须可核对）+ agent 有界跃迁缓冲、重连按原始时间戳重发 + server 新鲜度窗口与缺测（unknown）态接 probe_lifecycle + 容量预算表（supervisor 环对齐）+ A1-A5 验收映射；复用面盘点（configsync 重连节奏/OTel 计数/probe_events/probe_lifecycle）。仍 BLOCKED：待用户批准 D1-D4 后实施。
 
 ## 待批准的运维方案
 
 - [ ] **OPS-012 · P2 · 方案决策 · Agent 自升级四问**
   - 依赖：—。交付与验收：评审升级源/触发权限/重启接力/失败姿态，复用现有指纹及最后已知锚点；交付失败不砖化与带外回滚验收方案，等待既有要求的决策批准后实施。
-  - 状态／条件：BLOCKED（2026-11-01 复核）：待方案批准（用户拍板）。缺方案批准。
+  - 状态／条件：评审稿已起草（897a30cbe）：docs/design/agent-self-upgrade-review.md（zh 镜像同步）。收敛 supervisor-design §10.5 v0.1 草案为 D1-D4 签核清单（推荐：staged 中继 / 独立键手动 API / fork+exec 接力 / 改名不删备份+10s 稳定窗）+ 已落地地基盘点（指纹上行 SystemInfo.agent_binary_sha256、注册 label+DB 最后已知锚点、UpdateProcess 机制、§10.7 授权三件套）+ A1-A3 不砖化与带外回滚验收方案。仍 BLOCKED：待用户批准。
 
 - [ ] **OPS-013 · P2 · 方案决策 · 受管程序配置更新五问**
   - 依赖：—。交付与验收：明确路径沙箱/格式校验/原子性与重启回滚/体积带宽/审批闸，复用 configsync 先例；不声称现有探针配置拉取已支持程序文件分发。
-  - 状态／条件：BLOCKED（2026-11-01 复核）：待方案批准（用户拍板）。缺方案批准。
+  - 状态／条件：评审稿已起草（897a30cbe）：docs/design/managed-process-config-update-review.md（zh 镜像同步）。五问提案：config_versions 拉取通道（键 ops.managed_processes）/ apply 前整体 Validate + last-good 保留 / 受影响集重启 + 稳定窗回滚 + config_applied/config_rolled_back 事件 / MaxPushFileBytes 对齐 1MiB 上限 / 独立闸 allowProcessConfigUpdate + 双人审批子决策；A1-A7 验收映射；显式声明既有探针配置拉取不含程序文件分发；现状事实=ManagedProcesses 静态 yaml 构造期编译、在线更新需新增重编译路径。仍 BLOCKED：待用户批准。
 
 ## 部署事实
 
