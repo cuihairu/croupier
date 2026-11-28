@@ -58,7 +58,7 @@ func TestCoverageE_ExtractParameterSchemasSkipsNonObjectEntries(t *testing.T) {
 
 // requestBody 形态缺失链：requestBody 非对象 / content 非对象 /
 // application/json 非对象 / schema 非对象 / 仅有其他 content-type——
-// 全部返回 (nil, false)，操作退化为纯参数输入。
+// 全部返回 (nil, false, "")，操作退化为纯参数输入。
 func TestCoverageE_ExtractJSONBodySchemaNegativeShapes(t *testing.T) {
 	root := map[string]interface{}{}
 	cases := []map[string]interface{}{
@@ -69,7 +69,7 @@ func TestCoverageE_ExtractJSONBodySchemaNegativeShapes(t *testing.T) {
 		{"requestBody": map[string]interface{}{"content": map[string]interface{}{"text/plain": map[string]interface{}{}}}},
 	}
 	for i, methodObj := range cases {
-		res, ok := extractJSONBodySchema(methodObj, root, nil)
+		res, ok, _ := extractJSONBodySchema(methodObj, root, nil)
 		assert.False(t, ok, "case %d", i)
 		assert.Nil(t, res, "case %d", i)
 	}
@@ -88,7 +88,7 @@ func TestCoverageE_ResolveRefPointerThroughNonMapNode(t *testing.T) {
 
 // extractJSONBodySchema 的解析后非对象分支：schema 本身是对象，但 $ref
 // 指向文档中的标量节点——resolveRefPointer 尾部对解析结果继续深解析时原样
-// 返回标量，类型断言失败 → (nil, false)。
+// 返回标量，类型断言失败 → (nil, false, "")。
 func TestCoverageE_ExtractJSONBodySchemaRefToScalarNode(t *testing.T) {
 	root := map[string]interface{}{
 		"info": map[string]interface{}{"title": "scalar"},
@@ -102,7 +102,7 @@ func TestCoverageE_ExtractJSONBodySchemaRefToScalarNode(t *testing.T) {
 			},
 		},
 	}
-	res, ok := extractJSONBodySchema(methodObj, root, nil)
+	res, ok, _ := extractJSONBodySchema(methodObj, root, nil)
 	assert.False(t, ok)
 	assert.Nil(t, res)
 }

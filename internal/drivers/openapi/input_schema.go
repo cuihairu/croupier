@@ -86,6 +86,11 @@ func extractInputSchemaWithIssues(methodObj, root map[string]interface{}) (strin
 		if param.name == "" {
 			continue
 		}
+		if param.in == "body" {
+			// Swagger 2.0: the single in:body parameter IS the body slot
+			// (SUI-007); it never joins the flat properties as a field.
+			continue
+		}
 		if param.required {
 			required = appendUniqueString(required, param.name)
 		}
@@ -99,7 +104,8 @@ func extractInputSchemaWithIssues(methodObj, root map[string]interface{}) (strin
 		properties[param.name] = filtered
 	}
 
-	if resolved, ok := extractJSONBodySchema(methodObj, root, &issues); ok {
+	var mediaDiagnostics []spec.Diagnostic
+	if resolved, ok, mediaReason := extractJSONBodySchema(methodObj, root, &issues); ok {
 		// SUI-010: the request side loses its readOnly fields; a body whose
 		// root is flagged belongs to the response side entirely and the
 		// operation is left with no body to send.
@@ -122,7 +128,12 @@ func extractInputSchemaWithIssues(methodObj, root map[string]interface{}) (strin
 				properties["body"] = resolved
 			}
 		}
+	} else if mediaReason != "" {
+		// Declared body schemas but no executable media type (SUI-007):
+		// record the reason instead of silently leaving the body out.
+		mediaDiagnostics = append(mediaDiagnostics, RequestBodyMediaDiagnostic(mediaReason))
 	}
+	applySwagger20BodySlot(methodObj, root, &issues, properties, &required, &mediaDiagnostics)
 
 	schema := map[string]interface{}{"type": "object", "properties": properties}
 	if len(required) > 0 {
@@ -137,6 +148,7 @@ func extractInputSchemaWithIssues(methodObj, root map[string]interface{}) (strin
 	// (same shape as the spec merge in parseOpenAPISpec).
 	encoded, _ := json.Marshal(schema)
 	diagnostics := refIssuesToDiagnostics(issues)
+	diagnostics = append(diagnostics, mediaDiagnostics...)
 	diagnostics = append(diagnostics, spec.DialectNotesToDiagnostics(notes)...)
 	diagnostics = append(diagnostics, spec.DirectionNotesToDiagnostics(directionNotes)...)
 	return string(encoded), diagnostics
@@ -145,6 +157,7 @@ func extractInputSchemaWithIssues(methodObj, root map[string]interface{}) (strin
 // derivedParam is one caller-facing parameter projected into the input schema.
 type derivedParam struct {
 	name     string
+	in       string
 	required bool
 	schema   map[string]interface{}
 }
@@ -183,6 +196,7 @@ func extractParameterSchemas(methodObj, root map[string]interface{}, issues *[]r
 		}
 		out = append(out, derivedParam{
 			name:     name,
+			in:       paramIn(pObj),
 			required: pObj["required"] == true,
 			schema:   prop,
 		})
@@ -192,28 +206,131 @@ func extractParameterSchemas(methodObj, root map[string]interface{}, issues *[]r
 
 // extractJSONBodySchema returns the $ref-resolved schema of the operation's
 // application/json request body, if any.
-func extractJSONBodySchema(methodObj, root map[string]interface{}, issues *[]refIssue) (map[string]interface{}, bool) {
+// extractJSONBodySchema picks the request body schema of one 3.x operation.
+// The media type is selected under the executor capability (SUI-007):
+// application/json first, then the +json suffix entries, tie-broken
+// lexicographically. The third result carries the recorded reason when the
+// operation declares body schemas but none of their media types is
+// executable — the body slot stays unset and the caller records the
+// diagnostic. Schema-less entries keep the legacy "no schema → no body"
+// silence.
+func extractJSONBodySchema(methodObj, root map[string]interface{}, issues *[]refIssue) (map[string]interface{}, bool, string) {
 	requestBody, ok := methodObj["requestBody"].(map[string]interface{})
 	if !ok {
-		return nil, false
+		return nil, false, ""
 	}
 	content, ok := requestBody["content"].(map[string]interface{})
 	if !ok {
-		return nil, false
+		return nil, false, ""
 	}
-	jsonContent, ok := content["application/json"].(map[string]interface{})
-	if !ok {
-		return nil, false
+	declared := make(map[string]RequestMedia, len(content))
+	for mediaType, entry := range content {
+		entryMap, ok := entry.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if _, has := entryMap["schema"]; has {
+			declared[mediaType] = RequestMedia{}
+		}
 	}
-	schema, ok := jsonContent["schema"].(map[string]interface{})
+	mediaType, reason := SelectRequestBodyMediaType(declared)
+	if mediaType == "" {
+		if len(declared) > 0 {
+			return nil, false, reason
+		}
+		return nil, false, ""
+	}
+	entry, _ := content[mediaType].(map[string]interface{})
+	schema, ok := entry["schema"].(map[string]interface{})
 	if !ok {
-		return nil, false
+		return nil, false, ""
 	}
 	resolved, ok := resolveSchemaRefs(schema, root, 0, issues).(map[string]interface{})
 	if !ok {
-		return nil, false
+		return nil, false, ""
 	}
-	return resolved, true
+	return resolved, true, ""
+}
+
+// paramIn reads a raw parameter's location, defaulting to "" like the rest of
+// the map fallback's tolerant parsing.
+func paramIn(pObj map[string]interface{}) string {
+	in, _ := pObj["in"].(string)
+	return in
+}
+
+// applySwagger20BodySlot lifts a Swagger 2.0 `in: body` parameter into the
+// body slot: object schemas flatten into the flat properties (the same rule
+// the 3.x body applies), any other shape lands under the "body" property. The
+// `consumes` declaration (operation level, then document level) follows the
+// SUI-007 capability rule: an all-non-executable list records the
+// no-executable-media diagnostic instead of a body slot; no consumes
+// declaration stays silent and defaults to JSON.
+func applySwagger20BodySlot(
+	methodObj, root map[string]interface{},
+	issues *[]refIssue,
+	properties map[string]interface{},
+	required *[]string,
+	mediaDiagnostics *[]spec.Diagnostic,
+) {
+	var bodySchema map[string]interface{}
+	for _, param := range extractParameterSchemas(methodObj, root, issues) {
+		if param.in == "body" && param.schema != nil {
+			bodySchema = param.schema
+			break
+		}
+	}
+	if bodySchema == nil {
+		return
+	}
+	if declared := declaredConsumes(methodObj, root); len(declared) > 0 {
+		if _, reason := SelectExecutableMediaType(declared); reason != "" {
+			*mediaDiagnostics = append(*mediaDiagnostics, RequestBodyMediaDiagnostic(reason))
+			return
+		}
+	}
+	resolved := spec.FilterSchemaDirection(bodySchema, spec.SchemaDirectionRequest, nil)
+	if resolved == nil {
+		return
+	}
+	if typ, _ := resolved["type"].(string); typ == "object" {
+		if bodyProps, ok := resolved["properties"].(map[string]interface{}); ok {
+			for key, value := range bodyProps {
+				properties[key] = value
+			}
+		}
+		if bodyRequired, ok := resolved["required"].([]interface{}); ok {
+			for _, item := range bodyRequired {
+				if name, ok := item.(string); ok {
+					*required = appendUniqueString(*required, name)
+				}
+			}
+		}
+	} else {
+		properties["body"] = resolved
+	}
+}
+
+// declaredConsumes collects the effective Swagger 2.0 consumes list:
+// operation-level overrides document level.
+func declaredConsumes(methodObj, root map[string]interface{}) []string {
+	collect := func(raw interface{}) []string {
+		list, ok := raw.([]interface{})
+		if !ok {
+			return nil
+		}
+		out := make([]string, 0, len(list))
+		for _, item := range list {
+			if text, ok := item.(string); ok {
+				out = append(out, text)
+			}
+		}
+		return out
+	}
+	if declared := collect(methodObj["consumes"]); len(declared) > 0 {
+		return declared
+	}
+	return collect(root["consumes"])
 }
 
 // resolveSchemaRefs deep-copies node while resolving local $ref pointers

@@ -289,7 +289,10 @@ func (p *Provider) buildRequest(ctx context.Context, apiMethod *APIMethod, reqDa
 			// addressing must not leak into the request body.
 			data, _ := json.Marshal(filterConsumedParamsByKeys(consumedKeysFromMethod(apiMethod), reqData))
 			body = bytes.NewReader(data)
-			contentType = "application/json"
+			contentType, err = contractBodyContentType(apiMethod)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -317,6 +320,27 @@ func (p *Provider) buildRequest(ctx context.Context, apiMethod *APIMethod, reqDa
 	}
 
 	return req, nil
+}
+
+// contractBodyContentType resolves the Content-Type the executor sends for a
+// contract-driven JSON body (SUI-007). The media type selected at import time
+// is sent verbatim, so a vendor JSON tree (application/vnd.api+json) keeps its
+// declared type instead of being rewritten to application/json. A contract
+// whose body media types are all non-executable is refused with the same
+// reason the import recorded — a stale persisted contract is never silently
+// mislabeled as JSON. Methods without a request contract keep the historical
+// default.
+func contractBodyContentType(apiMethod *APIMethod) (string, error) {
+	if apiMethod.Request == nil || apiMethod.Request.Body == nil || len(apiMethod.Request.Body.Content) == 0 {
+		// A body slot with no declared media at all carries no selection
+		// guidance; the historical JSON default applies.
+		return "application/json", nil
+	}
+	mediaType, reason := SelectRequestBodyMediaType(apiMethod.Request.Body.Content)
+	if mediaType == "" {
+		return "", fmt.Errorf("%s", reason)
+	}
+	return mediaType, nil
 }
 
 // buildURL builds the full URL with path parameters and query string.

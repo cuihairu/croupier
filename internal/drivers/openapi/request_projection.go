@@ -53,41 +53,53 @@ func ProjectInput(operationID string, request *RequestContract, root map[string]
 	}
 
 	var body map[string]any
-	if canonical.Body != nil {
-		media, hasJSON := canonical.Body.Content["application/json"]
-		body, _ = resolvedRequestSchema(media.Schema, root, nil)
-		bodyPath := canonical.Body.Origin.Pointer
-		schemaPath := bodyPath + "/content/application~1json/schema"
-		if !hasJSON {
-			diagnose(FlatInputConstraint, bodyPath+"/content", "No application/json body is declared")
-		} else if body == nil || body["type"] != "object" {
-			diagnose(FlatInputConstraint, schemaPath, "Request body requires its own JSON value")
-		} else if len(fields) > 0 {
-			if !canonical.Body.Required {
-				diagnose(FlatInputConstraint, bodyPath+"/required", "Flat input cannot identify whether the optional body was supplied")
-			}
-			for _, name := range slices.Sorted(maps.Keys(body)) {
-				switch name {
-				case "type", "properties", "required", "title", "description", "example", "examples", "externalDocs":
-					continue
+	if canonical.Body != nil && len(canonical.Body.Content) > 0 {
+		// Body media type selected under the executor capability (SUI-007):
+		// application/json first, then the +json suffix entries, all
+		// tie-broken lexicographically. A body whose media types are all
+		// outside the capability leaves the body slot unset and records the
+		// reason — it is never silently mislabeled as JSON. Content empty
+		// after canonicalization is SUI-010's signal (readOnly-rooted body)
+		// and stays silent here.
+		mediaType, reason := SelectRequestBodyMediaType(canonical.Body.Content)
+		if mediaType == "" {
+			mediaDiagnostic := RequestBodyMediaDiagnostic(reason)
+			mediaDiagnostic.FunctionID = operationID
+			projection.Diagnostics = append(projection.Diagnostics, mediaDiagnostic)
+		} else {
+			media := canonical.Body.Content[mediaType]
+			body, _ = resolvedRequestSchema(media.Schema, root, nil)
+			bodyPath := canonical.Body.Origin.Pointer
+			schemaPath := bodyPath + "/content/" + pointerToken(mediaType) + "/schema"
+			if body == nil || body["type"] != "object" {
+				diagnose(FlatInputConstraint, schemaPath, "Request body requires its own JSON value")
+			} else if len(fields) > 0 {
+				if !canonical.Body.Required {
+					diagnose(FlatInputConstraint, bodyPath+"/required", "Flat input cannot identify whether the optional body was supplied")
 				}
-				diagnose(FlatInputConstraint, schemaPath+"/"+pointerToken(name),
-					fmt.Sprintf("Flat input cannot preserve the body's %q keyword", name))
-			}
-			properties, _ := body["properties"].(map[string]any)
-			for _, name := range slices.Sorted(maps.Keys(properties)) {
-				if previous, ok := fields[name]; ok {
-					diagnose(FlatInputCollision, schemaPath+"/properties/"+pointerToken(name),
-						fmt.Sprintf("Body property %q also appears at %s", name, previous))
+				for _, name := range slices.Sorted(maps.Keys(body)) {
+					switch name {
+					case "type", "properties", "required", "title", "description", "example", "examples", "externalDocs":
+						continue
+					}
+					diagnose(FlatInputConstraint, schemaPath+"/"+pointerToken(name),
+						fmt.Sprintf("Flat input cannot preserve the body's %q keyword", name))
 				}
-			}
-			required, _ := body["required"].([]any)
-			for _, field := range required {
-				name, _ := field.(string)
-				if previous, ok := fields[name]; ok {
-					if _, declared := properties[name]; !declared {
-						diagnose(FlatInputCollision, schemaPath+"/required",
-							fmt.Sprintf("Required body property %q also appears at %s", name, previous))
+				properties, _ := body["properties"].(map[string]any)
+				for _, name := range slices.Sorted(maps.Keys(properties)) {
+					if previous, ok := fields[name]; ok {
+						diagnose(FlatInputCollision, schemaPath+"/properties/"+pointerToken(name),
+							fmt.Sprintf("Body property %q also appears at %s", name, previous))
+					}
+				}
+				required, _ := body["required"].([]any)
+				for _, field := range required {
+					name, _ := field.(string)
+					if previous, ok := fields[name]; ok {
+						if _, declared := properties[name]; !declared {
+							diagnose(FlatInputCollision, schemaPath+"/required",
+								fmt.Sprintf("Required body property %q also appears at %s", name, previous))
+						}
 					}
 				}
 			}

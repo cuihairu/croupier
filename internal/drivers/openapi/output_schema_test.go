@@ -40,6 +40,31 @@ func TestExtractOutputSchema_Picks200BeforeOther2xx(t *testing.T) {
 	require.JSONEq(t, `{"type":"object"}`, out)
 }
 
+// SUI-007：无 200 时按升序取第一个带 JSON schema 的 2xx（确定性），与上传
+// 管线 openAPIResponseSchema 同口径。
+func TestExtractOutputSchema_Ascending2xx(t *testing.T) {
+	root := map[string]interface{}{}
+	methodObj := map[string]interface{}{
+		"responses": map[string]interface{}{
+			"204": map[string]interface{}{
+				"content": map[string]interface{}{
+					"application/json": map[string]interface{}{
+						"schema": map[string]interface{}{"type": "array"},
+					},
+				},
+			},
+			"202": map[string]interface{}{
+				"content": map[string]interface{}{
+					"application/json": map[string]interface{}{
+						"schema": map[string]interface{}{"type": "object"},
+					},
+				},
+			},
+		},
+	}
+	require.JSONEq(t, `{"type":"object"}`, extractOutputSchema(methodObj, root))
+}
+
 func TestExtractOutputSchema_RefResolved(t *testing.T) {
 	root := map[string]interface{}{
 		"components": map[string]interface{}{

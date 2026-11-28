@@ -1261,3 +1261,35 @@ func TestOpenAPIResponseSchemaFallbackCodes(t *testing.T) {
 	noSchemaContent := openapi3.Content{"text/plain": {}}
 	assert.Equal(t, "", openAPIMediaSchemaJSON(noSchemaContent))
 }
+
+// SUI-007：响应 schema 派生确定性——同一文档（多状态码、多媒体类型）重复
+// 导入恒推导出同一 schema，不因 map 迭代顺序漂移。
+func TestOpenAPIResponseSchemaDeterministic(t *testing.T) {
+	objSchema := &openapi3.SchemaRef{Value: openapi3.NewObjectSchema()}
+	arrSchema := &openapi3.SchemaRef{Value: openapi3.NewArraySchema()}
+
+	// 多 2xx 码：200 优先，否则升序（202 先于 204）。
+	responses := openapi3.NewResponses()
+	responses.Set("204", &openapi3.ResponseRef{Value: &openapi3.Response{
+		Description: &[]string{"no content"}[0],
+		Content:     openapi3.Content{"application/json": {Schema: arrSchema}},
+	}})
+	responses.Set("202", &openapi3.ResponseRef{Value: &openapi3.Response{
+		Description: &[]string{"accepted"}[0],
+		Content:     openapi3.Content{"application/json": {Schema: objSchema}},
+	}})
+	op := &openapi3.Operation{Responses: responses}
+	for i := 0; i < 20; i++ {
+		assert.Contains(t, openAPIResponseSchema(op), "type")
+		assert.NotContains(t, openAPIResponseSchema(op), "array", "202 (ascending) must win over 204")
+	}
+
+	// 多媒体类型：字典序第一且带 schema 的条目胜出（merge-patch+json < xml）。
+	content := openapi3.Content{
+		"application/xml":              {Schema: arrSchema},
+		"application/merge-patch+json": {Schema: objSchema},
+	}
+	out := openAPIMediaSchemaJSON(content)
+	assert.Contains(t, out, "type")
+	assert.NotContains(t, out, "array", "sorted-first media (merge-patch+json) wins")
+}

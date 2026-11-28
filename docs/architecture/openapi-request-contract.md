@@ -68,11 +68,11 @@ naming convention.
     }
   ],
   "body": {
-    "mediaType": "application/json",
     "required": true,
-    "schema": {
-      "type": "object",
-      "properties": { "name": { "type": "string" } }
+    "content": {
+      "application/json": {
+        "schema": { "type": "object", "properties": { "name": { "type": "string" } } }
+      }
     }
   },
   "diagnostics": []
@@ -101,9 +101,8 @@ naming convention.
 
 | Field       | Type          | Meaning                                                                                                                                                                                                                                                                                                                    |
 | ----------- | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `mediaType` | `string`      | The media type of the payload, selected under the executor capability (SUI-007): `application/json` and the RFC-6839 `application/*+json` suffix types are executable; `application/json` wins, then the `+json` suffix types, then the rest lexicographically. See [Media type selection](#media-type-selection-sui-007). |
-| `required`  | `bool`        | Whether the request body is required.                                                                                                                                                                                                                                                                                      |
-| `schema`    | `JSON Schema` | The **full** body schema, verbatim, including the root `type` (`object` / `array` / scalar) and all root-level constraints (`minProperties`, `additionalProperties`, …).                                                                                                                                                   |
+| `required` | `bool`        | Whether the request body is required.                                                                                                                                                                                                                                                                                      |                                                                                                                                                                                                                                                                                      |
+| `content`  | `map<mediaType, { schema: JSON Schema }>` | Every declared media type's entry, keyed by media type, each schema kept **verbatim** (root `type` `object` / `array` / scalar and all root-level constraints included). The entries are retained as declared; the executable media type that drives the input projection and the outgoing `Content-Type` is selected from them at projection and execution time under the executor capability (SUI-007): `application/json` wins, then the RFC-6839 `application/*+json` suffix types, tie-broken lexicographically. See [Media type selection](#media-type-selection-sui-007). |
 
 ## Extraction rules
 
@@ -127,9 +126,11 @@ the agreement is locked by a parity test. The rules:
 3. **Serialization**: derive `style` / `explode` from the parameter; absent
    values fall back to the OpenAPI default for the position (`path`→`simple`,
    `query`→`form`, `header`→`simple`, `cookie`→`form`).
-4. **Body**: the content entry whose media type is executable by the executor
-   (SUI-007; see [Media type selection](#media-type-selection-sui-007)); the body
-   schema is kept verbatim (root array, scalar, and root constraints included).
+4. **Body**: the slot retains every declared content entry verbatim (root
+   array, scalar, and root constraints included); the executable media type
+   that drives the projection and the `Content-Type` is selected from them at
+   projection/execution time under the executor capability (SUI-007; see
+   [Media type selection](#media-type-selection-sui-007)).
 5. **Diagnostics**: see [Compatibility boundary](#compatibility-boundary).
 
 ## Operator-facing input projection
@@ -504,17 +505,21 @@ executor keeps the legacy behaviour.
   selected by the provider configuration, not by the media type declared in the
   document, so the generated page cannot express that choice; such a body is
   classified as `degraded` for that reason.
-- The media-type capability selection described above is documented as the
-  contract, but the executable-media selection it names is not present in the
-  current source: `internal/dashboard/spec/request_body_media.go` and the
-  executor's contract-driven `Content-Type` path are absent, so today the
-  executor derives the body serialization from the provider's
-  `request_body` configuration. Until that selection is restored, the input
-  projection reads only `content["application/json"]` — a body whose only media
-  type is `application/x-www-form-urlencoded` gets no input body plus the
-  `openapi_flat_input_constraint` "No application/json body is declared"
-  diagnostic — and its form serializer never runs, because nothing tells the
-  executor that the provider should send forms.
+- The media-type capability selection (SUI-007) is implemented in
+  `internal/drivers/openapi/request_body_media.go`: the input projection reads
+  the selected executable media type instead of only
+  `content["application/json"]`, the executor sends the selected media type
+  verbatim as `Content-Type`, and a stale persisted contract whose declared
+  media types are all non-executable is refused at call time with the same
+  reason the import recorded. The projection records
+  `openapi_request_body_no_executable_media` for such a body, and because the
+  projection carries a diagnostic the operation cannot execute until the
+  document declares an executable media type. What stays **config-driven** is
+  the serializer family: form-urlencoded (SUI-012) and multipart (SUI-013)
+  serialization only run when the provider's `request_body` configuration
+  selects them — the declared media type alone still does not switch the
+  serializer, so a form/multipart body remains `degraded` for proposal
+  purposes (see the multipart bullet above).
 - Swagger 2.0 documents are handled by the map front-end only: `in: body`
   parameters become the body slot, `in: formData` parameters are lifted into
   the body object's properties. They do not participate in the kin/map parity

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -708,18 +709,33 @@ func openAPIResponseSchemaDirection(schema string) string {
 	return string(encoded)
 }
 
+// openAPIResponseSchema picks the response schema deterministically: the
+// preferred codes (200, 201, default) in that order, then every remaining
+// response code ascending. Repeated imports of one document therefore always
+// derive the same preview schema regardless of Go map iteration order.
 func openAPIResponseSchema(op *openapi3.Operation) string {
 	if op == nil || op.Responses == nil {
 		return ""
 	}
-	for _, code := range []string{"200", "201", "default"} {
-		if ref := op.Responses.Value(code); ref != nil && ref.Value != nil {
+	responses := op.Responses.Map()
+	preferred := []string{"200", "201", "default"}
+	for _, code := range preferred {
+		if ref := responses[code]; ref != nil && ref.Value != nil {
 			if schema := openAPIMediaSchemaJSON(ref.Value.Content); schema != "" {
 				return openAPIResponseSchemaDirection(schema)
 			}
 		}
 	}
-	for _, ref := range op.Responses.Map() {
+	remaining := make([]string, 0, len(responses))
+	for code := range responses {
+		if slices.Contains(preferred, code) {
+			continue
+		}
+		remaining = append(remaining, code)
+	}
+	sort.Strings(remaining)
+	for _, code := range remaining {
+		ref := responses[code]
 		if ref != nil && ref.Value != nil {
 			if schema := openAPIMediaSchemaJSON(ref.Value.Content); schema != "" {
 				return openAPIResponseSchemaDirection(schema)
@@ -729,6 +745,11 @@ func openAPIResponseSchema(op *openapi3.Operation) string {
 	return ""
 }
 
+// openAPIMediaSchemaJSON picks the response media type deterministically:
+// application/json first, then the remaining media types ascending. The
+// selection here mirrors the executor capability (SUI-007): a JSON payload is
+// the meaningful response schema; non-JSON entries are the deterministic
+// fallback when nothing else declares a schema.
 func openAPIMediaSchemaJSON(content openapi3.Content) string {
 	if len(content) == 0 {
 		return ""
@@ -736,8 +757,13 @@ func openAPIMediaSchemaJSON(content openapi3.Content) string {
 	if media := content.Get("application/json"); media != nil && media.Schema != nil {
 		return openAPISchemaRefJSON(media.Schema)
 	}
-	for _, media := range content {
-		if media != nil && media.Schema != nil {
+	keys := make([]string, 0, len(content))
+	for key := range content {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		if media := content[key]; media != nil && media.Schema != nil {
 			return openAPISchemaRefJSON(media.Schema)
 		}
 	}
