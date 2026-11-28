@@ -11,6 +11,7 @@
 #include <gtest/gtest.h>
 
 #include "croupier/sdk/croupier_client.h"
+#include "croupier/sdk/logger.h"
 #include "croupier/sdk/protocol.h"
 #include "croupier/sdk/tcp_transport.h"
 #include "croupier/sdk/v1/provider.pb.h"
@@ -490,6 +491,65 @@ TEST(ReadLoopDisconnectTest, ClientReconnectsPromptlyAfterPeerEof) {
     EXPECT_TRUE(reconnected) << "no reconnect within 12s after peer EOF";
     client.Stop();
     std::this_thread::sleep_for(std::chrono::milliseconds(150));
+}
+
+// 传输层逐帧 hex dump 必须走 SDK Logger 且被级别门控（AUD-COV-004）：默认
+// INFO 级别下一次 Call 不得向控制台输出任何逐帧调试行（此前是无条件
+// std::cerr——每帧一次格式化 + 无缓冲 stderr I/O，游戏进程日志被刷屏）；
+// 显式调到 DEBUG 后同一行日志必须可见。用 std::cout 重定向捕获 Logger 的
+// 控制台输出（Logger 简单 sink 写 std::cout，见 logger.h）。
+TEST(ReadLoopDisconnectTest, SendPathDebugLogIsLevelGated) {
+    // std::cout 重定向（test_logger.cpp 的 CoutRedirect 同款，本地复制避免
+    // 跨测试文件共享 fixture）。
+    class CoutCapture {
+    public:
+        CoutCapture() : old_(std::cout.rdbuf(buffer_.rdbuf())) {}
+        ~CoutCapture() { std::cout.rdbuf(old_); }
+        std::string str() const { return buffer_.str(); }
+
+    private:
+        std::ostringstream buffer_;
+        std::streambuf* old_;
+    };
+
+    auto& logger = ::croupier::sdk::Logger::GetInstance();
+    logger.SetLevel(::croupier::sdk::Logger::Level::INFO);
+
+    EofFakeAgent agent;
+    std::thread accept_thread([&] { agent.Accept(); });
+    TCPTransport transport("127.0.0.1", agent.port(), /*timeout_ms=*/8000);
+    transport.Connect();
+    accept_thread.join();
+    ASSERT_TRUE(transport.IsConnected());
+
+    const auto heartbeat = static_cast<uint32_t>(protocol::MSG_PROVIDER_HEARTBEAT_REQUEST);
+    const auto heartbeat_resp = heartbeat + 1;  // GetResponseMsgID 约定：请求+1
+    auto round_trip = [&](std::string& captured) {
+        CoutCapture capture;
+        auto outcome = std::async(std::launch::async, [&]() {
+            auto resp = transport.Call(heartbeat, {0x01});
+            return resp.second.size();
+        });
+        protocol::ParsedMessage req;
+        ASSERT_TRUE(agent.ReadFrame(req, 4000));
+        ASSERT_TRUE(agent.SendResponse(heartbeat_resp, req, {0x02}));
+        ASSERT_TRUE(outcome.wait_for(std::chrono::seconds(4)) == std::future_status::ready);
+        captured = capture.str();
+    };
+
+    std::string info_capture;
+    round_trip(info_capture);
+    EXPECT_EQ(info_capture.find("Sending msg_type="), std::string::npos)
+        << "per-frame debug dump leaked at default INFO level: " << info_capture;
+
+    logger.SetLevel(::croupier::sdk::Logger::Level::DEBUG);
+    std::string debug_capture;
+    round_trip(debug_capture);
+    EXPECT_NE(debug_capture.find("Sending msg_type="), std::string::npos)
+        << "debug dump must stay available when DEBUG is explicitly enabled";
+    logger.SetLevel(::croupier::sdk::Logger::Level::INFO);  // 恢复默认级别
+
+    transport.Close();
 }
 
 }  // namespace croupier::sdk::test

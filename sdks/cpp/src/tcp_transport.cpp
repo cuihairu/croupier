@@ -4,8 +4,10 @@
  */
 
 #include "croupier/sdk/tcp_transport.h"
+#include "croupier/sdk/logger.h"
 #include <algorithm>
 #include <chrono>
+#include <sstream>
 #include <stdexcept>
 #include <cstring>
 #include <cstddef>
@@ -454,18 +456,23 @@ std::pair<uint32_t, std::vector<uint8_t>> TCPTransport::Call(
     frame[10] = (req_id >> 8) & 0xFF;
     frame[11] = req_id & 0xFF;
 
-    // Debug: log sent message header (first 16 bytes)
-    std::string hex_send;
-    for (size_t i = 0; i < std::min(size_t(16), frame.size()); ++i) {
-        char buf[4];
-        snprintf(buf, sizeof(buf), "%02X", frame[i]);
-        hex_send += buf;
-        if (i < 15) hex_send += " ";
+    // Debug: log sent message header (first 16 bytes) — gated at DEBUG so the
+    // default INFO level does not pay hex formatting + stderr I/O per frame.
+    if (Logger::GetInstance().IsEnabled(Logger::Level::DEBUG)) {
+        std::string hex_send;
+        for (size_t i = 0; i < std::min(size_t(16), frame.size()); ++i) {
+            char buf[4];
+            snprintf(buf, sizeof(buf), "%02X", frame[i]);
+            hex_send += buf;
+            if (i < 15) hex_send += " ";
+        }
+        std::ostringstream oss;
+        oss << "Sending msg_type=" << msg_type
+            << " (0x" << std::hex << msg_type << std::dec << ")"
+            << ", req_id=" << req_id
+            << ", header_hex=" << hex_send;
+        Logger::GetInstance().Debug("TCPTransport", oss.str());
     }
-    std::cerr << "[DEBUG] TCPTransport: Sending msg_type=" << msg_type
-              << " (0x" << std::hex << msg_type << std::dec << ")"
-              << ", req_id=" << req_id
-              << ", header_hex=" << hex_send << '\n';
 
     // Request body
     std::memcpy(frame.data() + 12, data.data(), data.size());
@@ -655,17 +662,21 @@ void TCPTransport::ReadLoop(uint64_t epoch) {
                          (static_cast<uint32_t>(payload[6]) << 8) |
                          static_cast<uint32_t>(payload[7]);
 
-        // Debug: log received header
-        std::string hex_recv;
-        for (size_t i = 0; i < std::min(size_t(12), payload.size()); ++i) {
-            char buf[4];
-            snprintf(buf, sizeof(buf), "%02X", payload[i]);
-            hex_recv += buf;
-            if (i < 11) hex_recv += " ";
+        // Debug: log received header — gated at DEBUG (per-frame hot path).
+        if (Logger::GetInstance().IsEnabled(Logger::Level::DEBUG)) {
+            std::string hex_recv;
+            for (size_t i = 0; i < std::min(size_t(12), payload.size()); ++i) {
+                char buf[4];
+                snprintf(buf, sizeof(buf), "%02X", payload[i]);
+                hex_recv += buf;
+                if (i < 11) hex_recv += " ";
+            }
+            std::ostringstream oss;
+            oss << "Received msg_id=0x" << std::hex << msg_id << std::dec
+                << " (" << msg_id << "), req_id=" << req_id
+                << ", header_hex=" << hex_recv;
+            Logger::GetInstance().Debug("TCPTransport", oss.str());
         }
-        std::cerr << "[DEBUG] TCPTransport: Received msg_id=0x" << std::hex << msg_id << std::dec
-                  << " (" << msg_id << "), req_id=" << req_id
-                  << ", header_hex=" << hex_recv << '\n';
 
         size_t body_size = payload.size() - PROTOCOL_HEADER_SIZE;
         std::vector<uint8_t> body(body_size);
@@ -683,8 +694,10 @@ void TCPTransport::ReadLoop(uint64_t epoch) {
             if (it != pending_responses_.end()) {
                 it->second->Signal(std::move(body), msg_id);
             } else {
-                std::cerr << "[DEBUG] TCPTransport: Received response for unknown req_id: " << req_id
-                          << ", msg_id: " << msg_id << ", body_size: " << body_size << '\n';
+                std::ostringstream oss;
+                oss << "Received response for unknown req_id: " << req_id
+                    << ", msg_id: " << msg_id << ", body_size: " << body_size;
+                Logger::GetInstance().Debug("TCPTransport", oss.str());
             }
         }
     }

@@ -5,7 +5,9 @@
 
 
 #include "croupier/sdk/tcp_transport.h"
+#include "croupier/sdk/logger.h"
 #include <algorithm>
+#include <sstream>
 #include <stdexcept>
 #include <cstring>
 #include <cstddef>
@@ -142,7 +144,11 @@ void TCPTransport::DispatchInbound(uint32_t msg_id, uint32_t req_id, std::vector
     const int workers = InboundWorkerCount();
     if (inbound_pool_->queued.load() >= workers * 4) {
         // 队列满：立即回空响应，Agent 侧 failover 接管。
-        std::cerr << "[WARN] inbound queue full, fast-failing req_id=" << req_id << '\n';
+        {
+            std::ostringstream oss;
+            oss << "inbound queue full, fast-failing req_id=" << req_id;
+            Logger::GetInstance().Warn("TCPTransport", oss.str());
+        }
         // AUD-013：与 worker 响应写同一把连接级写锁。
         WriteResponseOnSocket(socket_, protocol::GetResponseMsgID(msg_id), req_id, {}, write_mu_);
         return;
