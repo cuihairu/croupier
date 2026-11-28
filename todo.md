@@ -661,7 +661,7 @@
 
 - [ ] **PROBE-003 · P2 · 资料调查 · 玩家 Login 级适配边界**
   - 依赖：—。交付与验收：复用已有 Minecraft SLP 与私有协议骨架，收集 online-mode/自家游戏登录协议与账号条件；SLP 状态检查不能作完整玩家登录证据。
-  - 状态／条件：BLOCKED（2026-11-01 复核）：需 MC Java 账号/出网、自家游戏账号/协议，许可证变更另行授权（用户拍板）。缺账号/出网/协议授权。
+  - 状态／条件：MC 半边调查已交付（4c2ebf0f）：docs/research/mc-online-login-survey-2026-11-28.md（zh 镜像同步）。online-mode 登录协议链收集（handshake→login→加密→hasJoined→configuration/play 全链、offline-mode 零账号路径、BungeeCord/Velocity 转发语义）+ 账号/许可条件（服务器侧自身无需账号、玩家侧需 MSA 持权账号）+ 探测四级矩阵（A=SLP 已实现零账号只证状态；B=登录路径可达性零账号、online-mode 止步加密边界；C=真实登录需持权账号+授权；D=鉴权依赖健康零账号）+ 出网实测（sessionserver 204 活、api 活、legacy authserver 退役死）。剩余闸门收窄为两项用户决策：①自家游戏登录协议/鉴权文档（外部无法调查）②持权账号授权（C 级）。约束条款重申：SLP 状态检查绝不得记为玩家登录证据。
 
 - [x] **PROBE-004 · P1 · 实现 · synthetics 目标及策略版本同步**
   - 依赖：—。交付与验收：按既有角色设计补齐静态配置到受控版本拉取/热生效，复用 core/configsync 并绑定 gameId/env；坏版本保留 last-good，重连后取最新，禁用/删除目标释放资源；不凭 sidecar 的 puller 宣称 synthetics 已拥有同能力
