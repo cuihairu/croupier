@@ -336,6 +336,10 @@ func TestService_Create_Success(t *testing.T) {
 	found, err := env.svcCtx.BackupModel.FindByBackupID(ctx, resp.Id)
 	require.NoError(t, err)
 	assert.Equal(t, "weekly", found.Name)
+
+	// Both creates run async backups (real executor writes into the temp dir);
+	// await their terminal states before TempDir cleanup.
+	waitBackupStatus(t, env, resp.Id, "succeeded")
 }
 
 // AUD-083: creation no longer mirrors into the extension config. The database
@@ -369,6 +373,8 @@ func TestService_Create_SyncsExtensionRecords(t *testing.T) {
 	// The executor advanced the database row, and the same status is what a
 	// later list reports (single source of truth end to end).
 	waitBackupStatus(t, env, first.Id, "succeeded")
+	// The second row's run must also reach terminal state before cleanup.
+	waitBackupStatus(t, env, second.Id, "succeeded")
 	resp, err = env.service.List(ctx, &BackupsListRequest{})
 	require.NoError(t, err)
 	require.Len(t, resp.Items, 2)

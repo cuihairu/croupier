@@ -109,6 +109,9 @@ func TestAud053_IdempotencyKeySequentialRetryReuses(t *testing.T) {
 
 	assert.Equal(t, first.Backup.Id, second.Backup.Id, "同键重试必须复用已存在行")
 	assert.EqualValues(t, 1, aud053CountByKey(t, db, "aud053-key-seq"))
+	// The reused row's async run keeps writing into the temp dir; await its
+	// terminal state so TempDir cleanup does not race the executor.
+	aud053WaitStatus(t, db, first.Backup.Id, "succeeded")
 }
 
 // succeeded also counts as active: a completed backup reuses on a same-key retry
@@ -179,6 +182,9 @@ func TestAud053_ConcurrentSameKeyCreatesSingleRow(t *testing.T) {
 		assert.Equal(t, responses[0].Backup.Id, responses[i].Backup.Id, "全员必须拿到同一行")
 	}
 	assert.EqualValues(t, 1, aud053CountByKey(t, db, "aud053-key-conc"), "库里必须只有一行")
+	// Await the single async run before cleanup (same TempDir race as the
+	// sequential tests).
+	aud053WaitStatus(t, db, responses[0].Backup.Id, "succeeded")
 }
 
 // Without a key, the name+type time window is the fallback: same name and type reuse
@@ -196,6 +202,9 @@ func TestAud053_NameTypeWindowDedupe(t *testing.T) {
 	incremental, err := s.Create(ctx, &BackupCreateRequest{Name: "aud053-nightly", Type: "incremental"})
 	require.NoError(t, err)
 	assert.NotEqual(t, first.Backup.Id, incremental.Backup.Id, "不同类型是不同备份，不受窗口误伤")
+	// Both rows run async backups; await their terminal states before cleanup.
+	aud053WaitStatus(t, db, first.Backup.Id, "succeeded")
+	aud053WaitStatus(t, db, incremental.Backup.Id, "succeeded")
 }
 
 // Expired window does not reuse: same name and type but the row is older than the
@@ -213,4 +222,8 @@ func TestAud053_ExpiredWindowAllowsNewBackup(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotEqual(t, first.Backup.Id, second.Backup.Id, "超窗后同名必须新建")
 	assert.EqualValues(t, 2, aud053CountByName(t, db, "aud053-old"))
+	// Both rows run async backups; await their terminal states before cleanup
+	// (CI: TempDir RemoveAll raced the executor writes).
+	aud053WaitStatus(t, db, first.Backup.Id, "succeeded")
+	aud053WaitStatus(t, db, second.Backup.Id, "succeeded")
 }

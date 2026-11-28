@@ -79,6 +79,9 @@ func TestBackupService_ZeroRolePermissionDenied(t *testing.T) {
 	allowedResp, err := env.service.List(adminCtx, &BackupsListRequest{})
 	require.NoError(t, err)
 	require.NotEmpty(t, allowedResp.Items)
+	// The control create runs an async backup writing into the temp dir; await
+	// its terminal state so TempDir cleanup does not race the executor.
+	waitBackupStatus(t, env, created.Id, "succeeded")
 
 	// List: 403, and no entries are returned.
 	listResp, err := env.service.List(viewerCtx, &BackupsListRequest{})
