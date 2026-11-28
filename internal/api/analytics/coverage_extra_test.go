@@ -593,8 +593,13 @@ func TestPaymentsPrefersBehaviorActiveUsersWhenAvailable(t *testing.T) {
 	resp, err := payments(ctx, svcCtx, &PaymentsRequest{GameId: "g", Env: "prod"})
 	require.NoError(t, err)
 	// Active users come from behavior (u-2), payers from payments (u-1).
-	assert.InDelta(t, float64(30)/1.0, resp.Metrics.ARPU, 0.001)
-	assert.InDelta(t, 1.0, resp.Metrics.ConversionRate, 0.001)
+	// DATA-057: a usable sample is disclosed as "ok" with its denominator.
+	require.NotNil(t, resp.Metrics.ARPU)
+	require.NotNil(t, resp.Metrics.ConversionRate)
+	assert.Equal(t, "ok", resp.Metrics.ActiveSource)
+	assert.Equal(t, int64(1), resp.Metrics.ActiveUsers)
+	assert.InDelta(t, float64(30)/1.0, *resp.Metrics.ARPU, 0.001)
+	assert.InDelta(t, 1.0, *resp.Metrics.ConversionRate, 0.001)
 }
 
 func TestPaymentsSummaryGroupsByMonthThroughService(t *testing.T) {

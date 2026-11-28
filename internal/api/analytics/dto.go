@@ -269,12 +269,24 @@ type PaymentsRequest struct {
 }
 
 type PaymentsMetrics struct {
-	Revenue        float64 `json:"revenue"`
-	Transactions   int     `json:"transactions"`
-	PayingUsers    int     `json:"payingUsers"`
-	ARPU           float64 `json:"arpu"`
-	ARPPU          float64 `json:"arppu"`
-	ConversionRate float64 `json:"conversionRate"`
+	Revenue      float64 `json:"revenue"`
+	Transactions int     `json:"transactions"`
+	PayingUsers  int     `json:"payingUsers"`
+	// DATA-057: ARPU and conversion rate need an active-user denominator.
+	// They are null (absent denominator) unless activeSource == "ok"; a
+	// fabricated fallback previously turned every no-denominator window
+	// into a 100% pay rate with ARPU == ARPPU.
+	ARPU  *float64 `json:"arpu"`
+	ARPPU float64  `json:"arppu"`
+	// ConversionRate is the pay rate (payers / active users).
+	ConversionRate *float64 `json:"conversionRate"`
+	// ActiveUsers is the denominator sample size, set only when activeSource == "ok".
+	ActiveUsers int64 `json:"activeUsers"`
+	// ActiveSource distinguishes why ARPU/conversionRate may be absent:
+	// "ok" (usable sample), "no_active" (no active users in the window),
+	// "query_failed" (the active-user query errored), "source_unconfigured"
+	// (no behavior source configured).
+	ActiveSource string `json:"activeSource"`
 }
 
 type PaymentsResponse struct {

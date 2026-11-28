@@ -680,3 +680,90 @@ func TestPaymentsSummary_CrossDayPayerWeekMonthDedup(t *testing.T) {
 		t.Errorf("day users = %d/%d, want 1/2", resp.Items[0].Users, resp.Items[1].Users)
 	}
 }
+
+// DATA-057: ARPU and the pay rate are only computable with an active-user
+// denominator. The old fallback (denominator := payers) fabricated a 100%
+// pay rate and ARPU == ARPPU whenever the behavior source was unconfigured,
+// the query failed, or the window had zero active users.
+func TestPayments_ActiveDenominatorExplicitDegradation(t *testing.T) {
+	build := func(t *testing.T) (*svc.ServiceContext, context.Context) {
+		db := setupAnalyticsFreshDB(t)
+		return setupFullServiceTestContext(t, db), context.Background()
+	}
+	seedPayment := func(ctx context.Context, svcCtx *svc.ServiceContext) {
+		require.NoError(t, svcCtx.PaymentsModel.CreateTransaction(ctx, &model.PaymentTransaction{
+			TransactionID: "tx-1", GameID: "g", Env: "prod", UserID: "u-1",
+			Amount: 30, Currency: "USD", Status: "success", OccurredAt: time.Now().UTC(),
+		}))
+	}
+	call := func(ctx context.Context, svcCtx *svc.ServiceContext) *PaymentsMetrics {
+		resp, err := payments(ctx, svcCtx, &PaymentsRequest{GameId: "g", Env: "prod"})
+		require.NoError(t, err)
+		return &resp.Metrics
+	}
+
+	t.Run("source_unconfigured", func(t *testing.T) {
+		db := setupAnalyticsFreshDB(t)
+		svcCtx := setupFullServiceTestContext(t, db)
+		svcCtx.BehaviorModel = nil
+		ctx := context.Background()
+		seedPayment(ctx, svcCtx)
+
+		m := call(ctx, svcCtx)
+		require.Nil(t, m.ARPU)
+		require.Nil(t, m.ConversionRate)
+		require.Equal(t, "source_unconfigured", m.ActiveSource)
+		// Verifiable metrics stay.
+		require.Equal(t, 30.0, m.Revenue)
+		require.Equal(t, 1, m.PayingUsers)
+		require.Equal(t, 30.0, m.ARPPU)
+	})
+
+	t.Run("query_failed", func(t *testing.T) {
+		db := setupAnalyticsFreshDB(t)
+		svcCtx := setupFullServiceTestContext(t, db)
+		ctx := context.Background()
+		seedPayment(ctx, svcCtx)
+		require.NoError(t, db.Migrator().DropTable(&model.BehaviorEvent{}))
+
+		m := call(ctx, svcCtx)
+		require.Nil(t, m.ARPU)
+		require.Nil(t, m.ConversionRate)
+		require.Equal(t, "query_failed", m.ActiveSource)
+		require.Equal(t, 30.0, m.ARPPU)
+	})
+
+	t.Run("no_active", func(t *testing.T) {
+		svcCtx, ctx := build(t)
+		seedPayment(ctx, svcCtx)
+
+		m := call(ctx, svcCtx)
+		require.Nil(t, m.ARPU)
+		require.Nil(t, m.ConversionRate)
+		require.Equal(t, "no_active", m.ActiveSource)
+		require.Equal(t, int64(0), m.ActiveUsers)
+		require.Equal(t, 30.0, m.ARPPU)
+	})
+
+	t.Run("ok_sample", func(t *testing.T) {
+		db := setupAnalyticsFreshDB(t)
+		svcCtx := setupFullServiceTestContext(t, db)
+		ctx := context.Background()
+		seedPayment(ctx, svcCtx)
+		now := time.Now().UTC()
+		for _, uid := range []string{"u-2", "u-3"} {
+			require.NoError(t, svcCtx.BehaviorModel.RecordEvent(ctx, &model.BehaviorEvent{
+				GameID: "g", Env: "prod", EventType: "login", UserID: uid, OccurredAt: now,
+			}))
+		}
+
+		m := call(ctx, svcCtx)
+		require.NotNil(t, m.ARPU)
+		require.NotNil(t, m.ConversionRate)
+		require.Equal(t, "ok", m.ActiveSource)
+		require.Equal(t, int64(2), m.ActiveUsers)
+		require.InDelta(t, 15.0, *m.ARPU, 0.001)
+		require.InDelta(t, 0.5, *m.ConversionRate, 0.001)
+		require.Equal(t, 30.0, m.ARPPU)
+	})
+}

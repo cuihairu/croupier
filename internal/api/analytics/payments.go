@@ -42,23 +42,37 @@ func payments(ctx context.Context, svcCtx *svc.ServiceContext, req *PaymentsRequ
 		return nil, err
 	}
 
-	activeUsers := agg.Payers
-	if svcCtx.BehaviorModel != nil {
-		if count, countErr := svcCtx.BehaviorModel.CountDistinctUsers(ctx, gameID, env, start, end); countErr == nil && count > 0 {
-			activeUsers = count
-		}
-	}
-
-	arpuBase := float64(activeUsers)
+	// DATA-057: ARPU and the pay rate require an active-user denominator.
+	// The previous fallback (denominator := payers on unconfigured source,
+	// query failure, or zero actives) fabricated a 100% pay rate and
+	// ARPU == ARPPU for every such window. Revenue, paying users and ARPPU
+	// stay verifiable regardless; ARPU/conversionRate are disclosed as
+	// unavailable (null) unless a usable sample exists.
 	metrics := PaymentsMetrics{
 		Revenue:      agg.Revenue,
 		Transactions: int(agg.Transactions),
 		PayingUsers:  int(agg.Payers),
-		ARPU:         safeDivide(agg.Revenue, arpuBase),
 		ARPPU:        safeDivide(agg.Revenue, float64(agg.Payers)),
 	}
-	if arpuBase > 0 {
-		metrics.ConversionRate = safeDivide(float64(agg.Payers), arpuBase)
+	switch {
+	case svcCtx.BehaviorModel == nil:
+		metrics.ActiveSource = "source_unconfigured"
+	default:
+		count, countErr := svcCtx.BehaviorModel.CountDistinctUsers(ctx, gameID, env, start, end)
+		switch {
+		case countErr != nil:
+			metrics.ActiveSource = "query_failed"
+		case count <= 0:
+			metrics.ActiveSource = "no_active"
+		default:
+			arpuBase := float64(count)
+			arpu := safeDivide(agg.Revenue, arpuBase)
+			rate := safeDivide(float64(agg.Payers), arpuBase)
+			metrics.ActiveSource = "ok"
+			metrics.ActiveUsers = count
+			metrics.ARPU = &arpu
+			metrics.ConversionRate = &rate
+		}
 	}
 
 	revenueStats, err := svcCtx.PaymentsModel.DailyRevenue(ctx, gameID, env, start, end)
