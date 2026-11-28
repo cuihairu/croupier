@@ -2655,7 +2655,10 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 完成：Invoke 在拨号前拒绝含 CR/LF 的 `params.path`（一行协议的命令词，CR/LF 即拼接多行命令——`ping\nADMIN grant hacker` 实测旧实现以 success 放行上线路）；body 从 TrimSpace 改为 `json.Compact`（doc 注释本就承诺 compact JSON：pretty-printed JSON 的 token 间换行会同样拼接第二行；Compact 同时消除行内空白与再校验，JSON 字符串内裸控制符本就非法，压缩后帧不可能引入 CR/LF）。新测试文件 4 用例：CR/LF 路径三形态拒绝且**零字节上线**（断言 fail 发生在任何 socket 工作前）、空路径拒绝既有契约钉死、pretty body 压缩为单行帧逐字节断言、纯路径帧形状断言。
   - 完成证据：`agents/sidecar/funcplugin/examples/tcp/main.go`（path 校验 + Compact）、`agents/sidecar/funcplugin/examples/tcp/main_test.go`（新 194 行，fake game interface 回环）；`go test ./agents/sidecar/funcplugin/examples/tcp/ -count=1` 绿、`go build ./...` 通过、`no_go_plugin` tag 两文件同构排除、dashboard_vnext_guard PASSED、已 push origin/main。变异验证：旧无校验帧装配编译级 mutant 下 `TestInvokeRejectsPathLineBreaking` 红（注入路径 success 放行）+ `TestInvokeCompactsPrettyBody` 红（原始多行空白上线），两个对照组用例（空路径/纯路径）在 mutant 下照旧通过证明断言面精准，恢复后 4/4 绿。
 - **对照 AUD-009，不重复计数**：将 SQLite dump 改为一致性快照并验证恢复数据（`internal/platform/backupexec/executor.go:227-243`）—— 保证 WAL 已提交事务进入备份。
-- [ ] 为 metrics 采集全链路接入 context 并补停止测试（`core/metrics/processes.go:139-200`）—— 防止采集关闭后 goroutine 泄漏。
+- [x] 为 metrics 采集全链路接入 context 并补停止测试（`core/metrics/processes.go:139-200`）—— 防止采集关闭后 goroutine 泄漏。
+  - 状态/条件：已完成。2026-11-28 LOCAL VERIFIED。commit `0104ba501`（fix: honor context cancellation in process walk）
+  - 完成：`collectProcesses(ctx)` 接收 Collector.Collect 已有的 ctx（原实现忽略之），取消协议铺满每个交接点——feeder 发送 select 带 ctx 逃逸（done 即 return，defer close(pidCh) 收尾）、worker 对每个 pid 先查 `ctx.Err()`（跳过剩余 /proc 读）且 snapshot 发送带 Done 逃逸、closer wg.Wait→close(snapCh) 不变——已取消的调用即刻停止读表，返回已落位的部分快照而非后台走完整表（30 万合成 pid 全表走查 ~1-2.7s；叠加超时的 Collect 会持续堆积后台僵尸走查 goroutine——本项消除的形态）。`listPids` 包级 seam 供测试伪造进程表。新测试 3 条：预取消 <300ms 停止且 feeder/worker/closer 全部退出（NumGoroutine 回落基线）、走查中途取消 <500ms 停止、无取消活路径不受影响（top-N 截断仍 50 行）。
+  - 完成证据：`core/metrics/processes.go`（取消协议 + seam）、`core/metrics/collector.go`（ctx 透传一行）、`core/metrics/processes_test.go`（3 新用例）；`go test ./core/metrics/ -count=1` 全包绿（12.5s）、`go build ./...` 通过、dashboard_vnext_guard PASSED、已 push origin/main。变异验证：撤掉全部三处 ctx 检查的 mutant 下两条停止用例红（预取消仍走全表 2.01s / 中途取消 2.66s，均远超阈），恢复后 3/3 绿。
 - [x] 将 AUD-007..018 追加到 todo 台账（`todo.md:1231-1266`）—— 避免已确认审计项遗漏跟踪。（2026-11-13 已补齐至 AUD-028）
 
 ## 文档站语言自动切换（G2-LANG-001）
