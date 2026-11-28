@@ -653,7 +653,7 @@
 
 - [ ] **PROBE-001 · P1 · 故障验证 · 真实游戏协议的多语言插件验收**
   - 依赖：—。交付与验收：复用 go-plugin 宿主、Go/Python/Node SDK；真实游戏目标验证 Describe/Check、凭证不回显、超时/取消/崩溃/熔断/恢复；不再规划 JSONL 等价运行时。
-  - 状态／条件：BLOCKED（2026-11-01 复核）：需真实游戏协议/目标/凭据；沙箱无真实游戏目标。缺真实协议/目标/凭据。
+  - 状态／条件：真实游戏目标半边已交付（7fe13d3c7）：Minecraft SLP 游戏协议参考插件三语言——Go `agents/synthetics/pluginhost/examples/mcslpprobe`（包装进程内 SLP checker）+ Python/Node `sdks/plugins/{python,js}/examples/probe_mc_slp.*`（各自 stdlib/node:net 自写 SLP，按 wiki.vg 公开规范）+ hostdriver 新 `probe-mc-slp` 场景（默认进程内 mock SLP 服务器精确断言，`-target host:port` 打真服务器通用断言；静默非 SLP 监听=插件业务失败而非宿主降级，插件内部读预算=宿主 deadline 80% 保证先答）。真服务端实证（MC_E2E=1，vanilla 26.3，本机 2026-11-28）：`TestSLPProbePluginsRealServerE2E` 三腿全 PASS（go/python/node 经真实 go-plugin 握手 Describe/Check 打真服务器，detail version=26.3 protocol=777）；SDK 套件 pytest 28/28、jest 66/66 含新场景；mcslpprobe 单测 4 用例（mock 服务器断言 version/protocol/players、配置错误三类、静默目标业务失败）。机制面凭证不回显/超时/取消/崩溃/熔断/恢复此前已有测试覆盖（pluginhost credentials/timeout/backoff/backpressure 套件 + hostdriver probe-credentials/func-timeout）。剩余闸门收窄为：持凭据的私有游戏协议插件（需游戏方提供协议+凭据，user-gated）。约束条款：SLP 通过只证服务器状态，绝不是玩家登录证据。
 
 - [ ] **PROBE-002 · P1 · 故障验证 · 第三方服务多视角探活验收**
   - 依赖：PROBE-004, PROBE-005。交付与验收：针对各角色实际能力建立矩阵，分别核对 sidecar 的 Checker/策略热更、synthetics 原生 HTTP/ICMP/插件、面板阶段/窗口/故障恢复；模拟端口通但业务错、断线和恢复；不宣称所有角色共享全部 DB/私有协议 Checker
