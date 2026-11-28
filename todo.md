@@ -2639,7 +2639,10 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
 - **对照 AUD-002，不重复计数**：同步修改 `core/transport/tcp/mux_conn.go` 的错误编码（`core/transport/tcp/mux_conn.go:370-386`）—— 消除同型 JSON 注入残留。
 - **对照 AUD-016，不重复计数**：为对象存储上传链路加权限与保留前缀保护（`internal/api/storage/service.go:122-163`）—— 阻止低权限覆写共享备份对象。
 - **对照 AUD-017，不重复计数**：为全局 PowerOps 配置端点加平台硬件权限（`internal/handler/routes_task.go:218-223`）—— 隔离游戏作用域与全局节点管理。
-- [ ] 将 fixture 的 signal 监听提前到 ready 前（`cmd/server/dashboard_fixture_cmd.go:51-55`）—— 修补 `76f057be9` 同型残留。
+- [x] 将 fixture 的 signal 监听提前到 ready 前（`cmd/server/dashboard_fixture_cmd.go:51-55`）—— 修补 `76f057be9` 同型残留。
+  - 状态/条件：已完成。2026-11-28 LOCAL VERIFIED。commit `5ede7da7f`（fix: register fixture signal listener before ready）
+  - 完成：`fixtureCmd.RunE` 的 `signal.Notify` 提前到 `StartDashboardFixture` 之前（缓冲通道兜住启动期到达的信号，启动失败路径补 `signal.Stop` 还原）——编排器见到 FIXTURE_READY 即发 SIGTERM，旧实现注册前的信号落默认处置直接杀进程，scope 清理与临时目录回收全部跳过。`fixtureSignalNotify` 包级 seam 供测试钉程序序；同步简化 `TestFixtureCmd_RunE_FullBootAndSignalShutdown`（旧 200ms 等待 + 20 次幂等重发工作窗随根因消失，改首发 SIGINT + 事件序断言）。变异验证：mutant（注册移回 Printf 之后）下新用例 `TestFixtureCmd_RunE_SignalNotifyBeforeStart` 0.036s 结构性红（启动失败翼从不触达 Printf，注册必然缺席——零墙钟零竞态），恢复后绿。注：纯墙钟法（进程被杀/时延采样）无法确定性命中 µs 级窗口，红证明取启动失败翼的程序序断言。
+  - 完成证据：`cmd/server/dashboard_fixture_cmd.go`（注册前置 + seam）、`cmd/server/fixture_cmd_wings_test.go`（NotifyBeforeStart 新用例 + FullBoot 简化）；`go test ./cmd/server/ -count=1` 全包绿（45.7s）、`go build ./...` 通过、dashboard_vnext_guard PASSED、已 push origin/main。
 - **对照 AUD-006，不重复计数**：固定 Mobile Dart/Flutter 工具链与 lockfile（`.github/workflows/ci-mobile.yml:40-64`）—— 消除依赖解析漂移。
 - **对照 AUD-008，不重复计数**：重写生产 JWT 密钥判定并补配置矩阵测试（`internal/security/jwtutil/secret.go:44-72`）—— 消除公开开发密钥回退。
 - **对照 AUD-001，不重复计数**：非 loopback Provider token 强制绑定 TLS（`cmd/sidecar-agent/root.go:638-647`）—— 防止握手 token 明文外泄。
