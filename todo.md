@@ -712,7 +712,7 @@
 
 - [ ] **DATA-001 · P1 · 方案决策 · 内置共用指标与外部专业分析边界**
   - 依赖：—。交付与验收：按用户确定的边界评审核心指标：新增、DAU/WAU/MAU、近实时在线、D1/D7/D30 留存、付费人数/订单/流水/退款/净额/付费率/ARPU/ARPPU；定义活跃事件、账号/角色去重、cohort/分母、UTC/业务时区、迟到更正、币种/单位及近似误差。复杂自助分析/归因/预测走外部，已有行为/关卡页保留但不扩建专业 BI
-  - 状态／条件：BLOCKED（2026-11-01 复核）：方案决策待评审批准（用户拍板）；复用 docs/analytics/core-and-external.md 和既有 game-metrics-overview，口径未验收不称已可用。缺方案批准。
+  - 状态／条件：评审稿已起草（13f1c6fa0）：docs/design/builtin-metrics-definitions-review.md（zh 镜像同步）。产品边界确认=owner 2026-10-29 已定（core 可复用+专业分析走外部）；定义提案 D1-D9（账号级 user_id 身份键、任意玩家事件活跃集+滚动 WAU/MAU+HLL 带声明误差、新增=首活跃日非 Player CRUD、按 (game,env) 业务时区缺省 UTC、心跳窗 90s 近似在线、cohort=首活跃日+immature 非 0%、订单 (game,env,order_id) 去重+退款日记账+按币种不加总、T+3 成熟期+版本化 restatement、缺测≠真零接 pipeline_monitor）+ A1-A10 验收映射（DATA-002–008 验证基准）。代码真值 grounding=events 表 user_id 扁平、payments 表级无 order 去重、daily_revenue 键缺 currency、retention_cohorts 无生产计算调用。口径未验收不称已可用。仍 BLOCKED：待用户批准 D1-D9。
 
 - [ ] **DATA-002 · P1 · 实现 · 共用事件接入与指标数据来源归一**
   - 依赖：DATA-001。交付与验收：复用 ingest/Server 事件入口/worker，提供游戏登录、注册、心跳、支付/退款的显式映射；每个指标声明权威来源、gameId/env/维度和新鲜度。统一 GORM 与 ClickHouse 读适配契约，不静默把平台 Player 数当游戏新增，不默认为两套库自动同步
