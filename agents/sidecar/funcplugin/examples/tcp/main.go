@@ -177,10 +177,29 @@ func (p *tcpPlugin) Invoke(ctx context.Context, in funcplugin.InvokeInput) (func
 	if params.Path == "" {
 		return p.fail(out, "bad_response", `params.path must not be empty`)
 	}
+	// A path is the command word of a single request line: CR/LF inside it
+	// would splice extra lines into the line protocol (one invoke = one
+	// request line, per the frame convention). Fail before any socket work
+	// so an injected frame is never even dialed.
+	if strings.ContainsAny(params.Path, "\r\n") {
+		return p.fail(out, "bad_response", "params.path must not contain CR or LF")
+	}
+	var frameBody []byte
 	if params.Body != nil {
 		if !bytes.HasPrefix(bytes.TrimSpace(*params.Body), []byte("{")) {
 			return p.fail(out, "bad_response", "params.body must be a JSON object")
 		}
+		// Compact rather than trim: interior whitespace (pretty-printed
+		// JSON between tokens) carries raw newlines, and a newline inside
+		// the body would splice a second line into a one-line protocol.
+		// json.Compact normalizes that away and re-validates the body;
+		// raw control characters inside JSON strings are invalid JSON, so
+		// a compacted body cannot introduce CR/LF into the frame.
+		var compact bytes.Buffer
+		if err := json.Compact(&compact, *params.Body); err != nil {
+			return p.fail(out, "bad_response", fmt.Sprintf("params.body is not valid JSON: %v", err))
+		}
+		frameBody = compact.Bytes()
 	}
 
 	deadline := socketDeadline(ctx, in.Timeout, p.targetTimeout)
@@ -199,8 +218,8 @@ func (p *tcpPlugin) Invoke(ctx context.Context, in funcplugin.InvokeInput) (func
 	}
 
 	frame := params.Path
-	if params.Body != nil {
-		frame += " " + string(bytes.TrimSpace(*params.Body))
+	if frameBody != nil {
+		frame += " " + string(frameBody)
 	}
 	frame += "\n"
 	if _, err := io.WriteString(conn, frame); err != nil {
