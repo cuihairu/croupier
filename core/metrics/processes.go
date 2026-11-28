@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"context"
 	"fmt"
 	"runtime"
 	"sort"
@@ -139,12 +140,24 @@ func scanListeners(pidNames map[int32]string) listenerScan {
 	return scan
 }
 
+// listPids is indirected only so tests can stub the process table without
+// a real /proc enumeration; production always uses process.Pids.
+var listPids = process.Pids
+
 // collectProcesses gathers the top-N processes by RSS plus the node-wide
 // listener list. cpu_percent is the process's lifetime-average CPU usage
 // (gopsutil CPUPercent semantics: total CPU time / time since start) — not an
 // instantaneous rate, which would require per-process two-sample tracking.
-func (c *Collector) collectProcesses() ([]*opsv1.ProcessMetrics, []*opsv1.PortMetrics) {
-	pids, err := process.Pids()
+//
+// The walk honors ctx cancellation at every hand-off: the feeder escapes
+// its send, workers skip remaining pids and escape their snapshot send, so
+// a cancelled call stops reading /proc promptly instead of walking a huge
+// process table to completion in the background (the goroutines would
+// otherwise outlive the abandoned Collect — stacked timed-out collects
+// keep walking concurrently). A cancelled walk returns whatever snapshots
+// already landed rather than blocking for the rest.
+func (c *Collector) collectProcesses(ctx context.Context) ([]*opsv1.ProcessMetrics, []*opsv1.PortMetrics) {
+	pids, err := listPids()
 	if err != nil || len(pids) == 0 {
 		// No enumeration (restricted container / platform gap): process and
 		// port faces are both empty rather than a fabricated list.
@@ -177,6 +190,9 @@ func (c *Collector) collectProcesses() ([]*opsv1.ProcessMetrics, []*opsv1.PortMe
 		go func() {
 			defer wg.Done()
 			for pid := range pidCh {
+				if ctx.Err() != nil {
+					continue
+				}
 				p := &process.Process{Pid: pid}
 				name, err := p.Name()
 				if err != nil || name == "" {
@@ -186,15 +202,22 @@ func (c *Collector) collectProcesses() ([]*opsv1.ProcessMetrics, []*opsv1.PortMe
 				if mi, err := p.MemoryInfo(); err == nil && mi != nil {
 					mem = mi.RSS
 				}
-				snapCh <- snapshot{proc: p, name: name, mem: mem}
+				select {
+				case snapCh <- snapshot{proc: p, name: name, mem: mem}:
+				case <-ctx.Done():
+				}
 			}
 		}()
 	}
 	go func() {
+		defer close(pidCh)
 		for _, pid := range pids {
-			pidCh <- pid
+			select {
+			case pidCh <- pid:
+			case <-ctx.Done():
+				return
+			}
 		}
-		close(pidCh)
 	}()
 	go func() {
 		wg.Wait()

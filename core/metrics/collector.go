@@ -104,7 +104,7 @@ func (c *Collector) Collect(ctx context.Context) *opsv1.MetricsReport {
 	// OPS-010 进程清单 + 端口列表：同一轮扫描派生两面（top-N 进程各带
 	// 监听端口 + 全节点监听端口表）。无枚举权限时两面均为空（诚实缺面，
 	// 不造列表）。
-	report.Processes, report.Ports = c.collectProcesses()
+	report.Processes, report.Ports = c.collectProcesses(ctx)
 	if c.sampler != nil {
 		report.SupervisedProcesses = c.sampler.SampleSupervisedProcesses()
 		if evs := c.sampler.SupervisorEventsSince(c.lastSamplerSeq()); len(evs) > 0 {

@@ -179,3 +179,77 @@ func TestListenerConnectionsFallbackOnError(t *testing.T) {
 		t.Fatalf("expected 1 socket from the tcp fallback, got %d", len(conns))
 	}
 }
+
+// stubPids replaces the process-table seam (listPids) for one test.
+func stubPids(t *testing.T, pids []int32) {
+	t.Helper()
+	orig := listPids
+	listPids = func() ([]int32, error) { return pids, nil }
+	t.Cleanup(func() { listPids = orig })
+}
+
+// syntheticPids fabricates n pids in a range that does not exist on test
+// hosts: per-pid reads fail fast (ENOENT) but still cost a real /proc
+// attempt, which is what makes an uncanceled walk of this list measurable.
+func syntheticPids(n int) []int32 {
+	pids := make([]int32, 0, n)
+	for i := int32(0); i < int32(n); i++ {
+		pids = append(pids, 100000+i)
+	}
+	return pids
+}
+
+// TestCollectProcessesCancelledStopsTheWalk pins the cancellation protocol:
+// an already-cancelled context must stop the walk before any per-pid /proc
+// work (a full walk of this synthetic table takes >1s; honoring the stop is
+// two orders of magnitude faster), and every walk goroutine — feeder,
+// workers, closer — must have exited by the time the call returns.
+func TestCollectProcessesCancelledStopsTheWalk(t *testing.T) {
+	stubPids(t, syntheticPids(300000))
+	c := NewCollector("agent")
+
+	base := runtime.NumGoroutine()
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	start := time.Now()
+	procs, _ := c.collectProcesses(ctx)
+	if elapsed := time.Since(start); elapsed > 300*time.Millisecond {
+		t.Fatalf("cancelled walk still ran the table: %v (procs=%d)", elapsed, len(procs))
+	}
+	deadline := time.Now().Add(2 * time.Second)
+	for runtime.NumGoroutine() > base+2 {
+		if time.Now().After(deadline) {
+			t.Fatalf("walk goroutines leaked: base=%d now=%d", base, runtime.NumGoroutine())
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
+// TestCollectProcessesCancelMidWalkStopsPromptly pins the mid-walk variant:
+// a context that expires while the walk is running stops it promptly
+// instead of walking all remaining pids to completion in the background.
+func TestCollectProcessesCancelMidWalkStopsPromptly(t *testing.T) {
+	stubPids(t, syntheticPids(300000))
+	c := NewCollector("agent")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Millisecond)
+	defer cancel()
+	start := time.Now()
+	procs, _ := c.collectProcesses(ctx)
+	if elapsed := time.Since(start); elapsed > 500*time.Millisecond {
+		t.Fatalf("mid-walk cancel not honored: %v (procs=%d)", elapsed, len(procs))
+	}
+}
+
+// TestCollectProcessesHappyPathUnaffected pins that the ctx plumbing does
+// not disturb the live walk: every stubbed pid yields a snapshot (fallback
+// names for nonexistent pids) and the top-N cap still applies.
+func TestCollectProcessesHappyPathUnaffected(t *testing.T) {
+	stubPids(t, syntheticPids(500))
+	c := NewCollector("agent")
+
+	procs, _ := c.collectProcesses(context.Background())
+	if len(procs) != maxProcesses {
+		t.Fatalf("got %d process rows, want the top-N cap %d", len(procs), maxProcesses)
+	}
+}
