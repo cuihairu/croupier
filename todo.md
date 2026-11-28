@@ -2628,7 +2628,10 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
 - **对照 PWR-004，不重复计数**：统一 PowerOps 发送与验证成功计数（`internal/powerops/request.go:397-432`）—— 消除终态与头部计数矛盾。
 - **对照 PWR-003，不重复计数**：实现逐目标持久化和重启恢复策略（`internal/powerops/request.go:271-321`）—— 不对不确定动作盲目重放。
 - **对照 PWR-006，不重复计数**：将 WOL 结果改为派发/确认两阶段（`internal/powerops/request.go:264-269,397-409`）—— 不把包发送误报为上线完成。
-- [ ] 用注入时钟替换备份 3.5 秒 sleep（相关测试，commit `d790d6258`）—— 降低测试耗时和慢 CI 抖动。
+- [x] 用注入时钟替换备份 3.5 秒 sleep（相关测试，commit `d790d6258`）—— 降低测试耗时和慢 CI 抖动。
+  - 状态/条件：已完成。2026-11-28 LOCAL VERIFIED。commit `b0155be07`（test: replace restart-delay sleep with state poll）
+  - 完成：未引入注入时钟 seam（零生产代码改动）——改用状态机确定性证据替代墙钟：`superviseExit` 的 stopCh 分支在锁内清 `nextRestartAt`（time.After 分支无此动作，且见到 STOPPED 直接 return 不清），测试改为轮询 `nextRestartAt == nil`（5s 失败上界）即「monitor 被 stopCh 唤醒」的确证。实测耗时 ~3.6s → 0.048s。变异验证： mutant（stopCh 分支不清 nextRestartAt）下旧断言 `restarts==1` 照旧通过（旧断言在此路径本就不设防）、新轮询 5.048s 红并报「not woken by stopCh」；恢复后绿。断言语义同时加强（旧 sleep 断言无法区分被唤醒/未被唤醒的 monitor）。
+  - 完成证据：`internal/app/agent/ops_server_monitor_restart_test.go`（3.5s sleep → nextRestartAt 轮询）；`go test ./internal/app/agent/ -count=1` 全包绿（33.5s）、`go build ./...` 通过、dashboard_vnext_guard PASSED、已 push origin/main。
 - **对照 AUD-015，不重复计数**：实现冷启动任务收割的有界持久巡检（`internal/tasks/store.go:135-156`）—— 覆盖未打开游戏库中的陈旧任务。
 - **对照 PWR-005，不重复计数**：将 status 查询移出审批与变更验证状态机（`internal/powerops/request.go:222-223,349-391`）—— 避免状态查询等待满验证超时。
 - **对照 AUD-005，不重复计数**：更新六语言鉴权/TLS 能力矩阵（`sdks/SDK_FEATURE_MATRIX.md:40-44`）—— 使文档与当前实现一致。
