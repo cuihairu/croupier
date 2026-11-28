@@ -65,14 +65,28 @@ func TestOpsServerMonitorProcess_RestartDelayOutsideLock(t *testing.T) {
 	require.Len(t, procs.Processes, 1)
 
 	// stopCh 中断剩余延迟：stopProcess 本身不翻状态（StopProcess handler/
-	// Stop 循环才置 STOPPED），此处同口径收口，再越过原延迟时点验证中断
-	// 生效——若 monitor 未被 stopCh 唤醒，3s 到点后会重启（restarts→2、
-	// startProcess 重开 waitDone），该窗口过去后 restarts 必须仍为初值 1。
+	// Stop 循环才置 STOPPED），此处同口径收口，再验证中断生效——monitor
+	// 走 stopCh 分支会在锁内清 nextRestartAt；若未被唤醒则等满 3s 延迟走
+	// time.After 分支，到点后见到 STOPPED 直接 return 且 nextRestartAt 保
+	// 持非 nil。故轮询 nextRestartAt 归 nil 即「monitor 被 stopCh 唤醒」
+	// 的确定性证据，替代原 3.5s 墙钟等待（耗时与慢 CI 抖动来源）。
 	s.stopProcess(p)
 	p.mu.Lock()
 	p.state = opsv1.ProcessState_PROCESS_STATE_STOPPED
 	p.mu.Unlock()
-	time.Sleep(3500 * time.Millisecond)
+	deadline = time.Now().Add(5 * time.Second)
+	for {
+		p.mu.RLock()
+		cleared := p.nextRestartAt == nil
+		p.mu.RUnlock()
+		if cleared {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("monitor was not woken by stopCh (nextRestartAt still set)")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
 	p.mu.RLock()
 	restarts := p.restarts
 	p.mu.RUnlock()
