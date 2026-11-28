@@ -2620,7 +2620,10 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
 - **对照 AUD-018，不重复计数**：统一 Python reader 异常退出收口逻辑（`sdks/python/croupier/transport/tcp.py:298-340`）—— 防止死连接保留可用状态。
 - **对照 AUD-004，不重复计数**：让 Agent Stop 超时返回错误（`cmd/sidecar-agent/service.go:163-175`）—— 向服务管理器如实报告未停止。
 - **对照 AUD-013，不重复计数**：为 C++ socket 写实现 write-all 和连接写锁（`sdks/cpp/src/tcp_transport_inbound.cpp:148-180`）—— 修复短写与并发帧交错。
-- [ ] 优化 listener fallback 的空结果处理（`core/metrics/processes.go:49-62`）—— 避免空 socket 结果重复四次全表扫描。
+- [x] 优化 listener fallback 的空结果处理（`core/metrics/processes.go:49-62`）—— 避免空 socket 结果重复四次全表扫描。
+  - 状态/条件：已完成。2026-11-28 LOCAL VERIFIED。commit `41aade8d2`（fix: trust empty inet socket scan on linux）
+  - 完成：`listenerConnections` 在 Linux 上信任 err==nil 的空 "inet" 扫描结果（/proc 表已成功读取即真实无 socket，不再回落四次逐协议全表重扫）；非 Linux 平台保留历史回落（"inet" kind 可能不被支持）；回落仍按 kind 吸收单调用错误。经 `fetchConnections` 包级变量注入 seam 两条新回归：空结果零回落（恰一次 inet 调用）、inet 出错时逐协议回落照常。变异验证：回退旧条件后新测试红（5 次调用 [inet tcp tcp6 udp udp6] 实测复现本项要消除的形态），恢复后绿。
+  - 完成证据：`core/metrics/processes.go`（trust-empty 条件 + seam）、`core/metrics/processes_test.go`（TestListenerConnectionsEmptyInetSkipsFallbackOnLinux / TestListenerConnectionsFallbackOnError）；`go test ./core/metrics/` 绿、`go build ./...` 通过、dashboard_vnext_guard PASSED、已 push origin/main。
 - **对照 AUD-010，不重复计数**：区分软删除账号与存储故障的 token 版本查询（`internal/svc/service_context_auth.go:304-316`）—— 保证删除账号立即吊销旧 JWT。
 - **对照 PWR-004，不重复计数**：统一 PowerOps 发送与验证成功计数（`internal/powerops/request.go:397-432`）—— 消除终态与头部计数矛盾。
 - **对照 PWR-003，不重复计数**：实现逐目标持久化和重启恢复策略（`internal/powerops/request.go:271-321`）—— 不对不确定动作盲目重放。
