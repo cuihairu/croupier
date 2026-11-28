@@ -9,6 +9,7 @@ import (
 
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/svc"
+	"github.com/stretchr/testify/require"
 )
 
 func TestResolvePaymentsRange(t *testing.T) {
@@ -540,5 +541,142 @@ func TestPaymentsIngest_EmptyGameId(t *testing.T) {
 	_, err := paymentsIngest(context.Background(), svcCtx, req)
 	if err == nil {
 		t.Fatal("expected error for empty game ID")
+	}
+}
+
+// DATA-056: one player paying on two days of the same week/month must count
+// once in that bucket. Revenue and transaction counts remain the sum of day
+// rows; only the user count is deduped by payer identity.
+func TestSummarizePaymentsWithPayerDays_CrossDayPayerCountedOnce(t *testing.T) {
+	t.Parallel()
+
+	d1 := time.Date(2026, 3, 16, 10, 0, 0, 0, time.UTC) // Monday
+	d2 := d1.AddDate(0, 0, 1)                           // same ISO week and month
+	stats := []model.DailyRevenueStat{
+		{Day: d1, Revenue: 10, Transactions: 1, Payers: 1},
+		{Day: d2, Revenue: 15, Transactions: 2, Payers: 2}, // u1 + u2
+	}
+	pairs := []model.PayerDay{
+		{Day: d1, UserID: "u1"},
+		{Day: d2, UserID: "u1"}, // same player, second day: must not double count
+		{Day: d2, UserID: "u2"},
+	}
+
+	week := summarizePaymentsWithPayerDays(stats, pairs, "week")
+	if len(week) != 1 {
+		t.Fatalf("expected 1 week bucket, got %#v", week)
+	}
+	if week[0].Users != 2 {
+		t.Errorf("week users = %d, want 2 (u1 counted once + u2)", week[0].Users)
+	}
+	if week[0].Revenue != 25 || week[0].Transactions != 3 {
+		t.Errorf("week revenue/transactions = %v/%d, want 25/3 (day-sum semantics)", week[0].Revenue, week[0].Transactions)
+	}
+
+	month := summarizePaymentsWithPayerDays(stats, pairs, "month")
+	if len(month) != 1 || month[0].Users != 2 {
+		t.Errorf("month summary = %#v, want one bucket with 2 users", month)
+	}
+
+	// Old path still sums day Payers (3) — this is the defect DATA-056 fixes.
+	if old := summarizePayments(stats, "week"); len(old) != 1 || old[0].Users != 3 {
+		t.Fatalf("day-sum path changed unexpectedly: %#v", old)
+	}
+}
+
+func TestSummarizePaymentsWithPayerDays_DistinctWeeksAndMonths(t *testing.T) {
+	t.Parallel()
+
+	d1 := time.Date(2026, 3, 16, 0, 0, 0, 0, time.UTC)
+	d2 := time.Date(2026, 3, 23, 0, 0, 0, 0, time.UTC) // next ISO week, same month
+	stats := []model.DailyRevenueStat{
+		{Day: d1, Revenue: 10, Transactions: 1, Payers: 1},
+		{Day: d2, Revenue: 20, Transactions: 2, Payers: 1},
+	}
+	pairs := []model.PayerDay{{Day: d1, UserID: "u1"}, {Day: d2, UserID: "u1"}}
+
+	week := summarizePaymentsWithPayerDays(stats, pairs, "week")
+	if len(week) != 2 || week[0].Users != 1 || week[1].Users != 1 {
+		t.Errorf("distinct weeks should each count u1 once: %#v", week)
+	}
+	month := summarizePaymentsWithPayerDays(stats, pairs, "month")
+	if len(month) != 1 || month[0].Users != 1 {
+		t.Errorf("same month should count u1 once overall: %#v", month)
+	}
+}
+
+func TestSummarizePaymentsWithPayerDays_EmptyAndPairOutsideBucket(t *testing.T) {
+	t.Parallel()
+
+	if items := summarizePaymentsWithPayerDays(nil, nil, "week"); len(items) != 0 {
+		t.Fatalf("empty stats should yield no buckets, got %#v", items)
+	}
+
+	stats := []model.DailyRevenueStat{
+		{Day: time.Date(2026, 3, 16, 0, 0, 0, 0, time.UTC), Revenue: 5, Transactions: 1, Payers: 1},
+	}
+	// A (day, user) pair for a day absent from the day rows must not
+	// invent a bucket or inflate an unrelated one.
+	pairs := []model.PayerDay{
+		{Day: time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC), UserID: "z"},
+	}
+	items := summarizePaymentsWithPayerDays(stats, pairs, "month")
+	if len(items) != 1 || items[0].Users != 0 {
+		t.Errorf("out-of-window pair must not create/count a bucket: %#v", items)
+	}
+}
+
+// TestPaymentsSummary_CrossDayPayerWeekMonthDedup drives the real handler on
+// SQLite: one player paying on two days of one week. The week and month
+// buckets must report 2 users (u1 once + u2) while revenue and transaction
+// counts keep their day-sum values (3 = 1+2). Before DATA-056 the week
+// reported 3 users.
+func TestPaymentsSummary_CrossDayPayerWeekMonthDedup(t *testing.T) {
+	db := setupServiceTestDB(t)
+	ctx := context.Background()
+	pm := model.NewPaymentsModel(db)
+
+	d1 := time.Date(2026, 3, 16, 10, 0, 0, 0, time.UTC) // Monday
+	d2 := d1.AddDate(0, 0, 1)
+	for _, tx := range []*model.PaymentTransaction{
+		{TransactionID: "w1", GameID: "g", Env: "dev", UserID: "u1", Amount: 10, Status: "success", OccurredAt: d1},
+		{TransactionID: "w2", GameID: "g", Env: "dev", UserID: "u1", Amount: 15, Status: "success", OccurredAt: d2},
+		{TransactionID: "w3", GameID: "g", Env: "dev", UserID: "u2", Amount: 20, Status: "success", OccurredAt: d2},
+	} {
+		require.NoError(t, pm.CreateTransaction(ctx, tx))
+	}
+
+	resp, err := paymentsSummary(ctx, &svc.ServiceContext{PaymentsModel: model.NewPaymentsModel(db)}, &PaymentsSummaryRequest{
+		GameId: "g", Env: "dev",
+		StartDate: "2026-03-15", EndDate: "2026-03-24",
+		GroupBy: "week",
+	})
+	require.NoError(t, err)
+	require.Len(t, resp.Items, 1, "week buckets: %#v", resp.Items)
+	if resp.Items[0].Users != 2 {
+		t.Errorf("week users = %d, want 2 (u1 deduped across days)", resp.Items[0].Users)
+	}
+
+	resp, err = paymentsSummary(ctx, &svc.ServiceContext{PaymentsModel: model.NewPaymentsModel(db)}, &PaymentsSummaryRequest{
+		GameId: "g", Env: "dev",
+		StartDate: "2026-03-15", EndDate: "2026-03-24",
+		GroupBy: "month",
+	})
+	require.NoError(t, err)
+	require.Len(t, resp.Items, 1, "month buckets: %#v", resp.Items)
+	if resp.Items[0].Users != 2 {
+		t.Errorf("month users = %d, want 2 (u1 deduped across days)", resp.Items[0].Users)
+	}
+
+	// Day granularity is untouched: per-day payer counts stay 1 and 2.
+	resp, err = paymentsSummary(ctx, &svc.ServiceContext{PaymentsModel: model.NewPaymentsModel(db)}, &PaymentsSummaryRequest{
+		GameId: "g", Env: "dev",
+		StartDate: "2026-03-15", EndDate: "2026-03-24",
+		GroupBy: "day",
+	})
+	require.NoError(t, err)
+	require.Len(t, resp.Items, 2)
+	if resp.Items[0].Users != 1 || resp.Items[1].Users != 2 {
+		t.Errorf("day users = %d/%d, want 1/2", resp.Items[0].Users, resp.Items[1].Users)
 	}
 }

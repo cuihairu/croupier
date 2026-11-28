@@ -183,7 +183,22 @@ func paymentsSummary(ctx context.Context, svcCtx *svc.ServiceContext, req *Payme
 		return nil, err
 	}
 
-	items := summarizePayments(stats, req.GroupBy)
+	groupBy := strings.ToLower(strings.TrimSpace(req.GroupBy))
+	var items []PaymentsSummary
+	if groupBy == "week" || groupBy == "month" {
+		// DATA-056: day-level payer counts cannot be added for a longer
+		// bucket — one user paying on two days would count twice. Fetch
+		// the distinct (day, user) pairs and dedup by identity within each
+		// bucket; revenue and transaction counts keep their additive
+		// day-row semantics.
+		days, payerErr := svcCtx.PaymentsModel.PayerDays(ctx, gameID, env, start, end)
+		if payerErr != nil {
+			return nil, payerErr
+		}
+		items = summarizePaymentsWithPayerDays(stats, days, groupBy)
+	} else {
+		items = summarizePayments(stats, groupBy)
+	}
 	return &PaymentsSummaryResponse{
 		Items: items,
 	}, nil
@@ -354,6 +369,74 @@ func aggregateBy(stats []model.DailyRevenueStat, keyFn func(time.Time) string) [
 		entry.Revenue += stat.Revenue
 		entry.Transactions += int(stat.Transactions)
 		entry.Users += int(stat.Payers)
+	}
+
+	items := make([]PaymentsSummary, 0, len(order))
+	for _, key := range order {
+		items = append(items, *buckets[key])
+	}
+	return items
+}
+
+// summarizePaymentsWithPayerDays aggregates day rows into week/month
+// buckets like aggregateBy, but the user count is the window-level distinct
+// payer count (DATA-056): payerDays are (day, user) pairs of the same scope,
+// deduped per bucket by user id, so a player paying on multiple days of the
+// same week counts once. Revenue/transactions stay the summed day semantics.
+func summarizePaymentsWithPayerDays(stats []model.DailyRevenueStat, payerDays []model.PayerDay, groupBy string) []PaymentsSummary {
+	groupBy = strings.ToLower(strings.TrimSpace(groupBy))
+	if groupBy != "week" && groupBy != "month" {
+		groupBy = "day"
+	}
+
+	var keyFn func(time.Time) string
+	switch groupBy {
+	case "week":
+		keyFn = func(t time.Time) string {
+			year, week := t.ISOWeek()
+			return fmt.Sprintf("%d-W%02d", year, week)
+		}
+	default: // month
+		keyFn = func(t time.Time) string {
+			return t.Format("2006-01")
+		}
+	}
+
+	buckets := make(map[string]*PaymentsSummary)
+	order := []string{}
+	for _, stat := range stats {
+		key := keyFn(stat.Day)
+		if key == "" {
+			key = stat.Day.Format("2006-01-02")
+		}
+		if _, ok := buckets[key]; !ok {
+			buckets[key] = &PaymentsSummary{Date: key}
+			order = append(order, key)
+		}
+		entry := buckets[key]
+		entry.Revenue += stat.Revenue
+		entry.Transactions += int(stat.Transactions)
+	}
+	// Bucket-local distinct payer identity: one user per bucket key, never
+	// counted twice for a second payment in the same week/month.
+	seen := make(map[string]map[string]struct{})
+	for _, pd := range payerDays {
+		key := keyFn(pd.Day)
+		if key == "" {
+			key = pd.Day.Format("2006-01-02")
+		}
+		if _, ok := buckets[key]; !ok {
+			continue // pair outside the day rows (e.g. zero-amount day) — not in this window's buckets
+		}
+		set := seen[key]
+		if set == nil {
+			set = make(map[string]struct{})
+			seen[key] = set
+		}
+		set[pd.UserID] = struct{}{}
+	}
+	for _, key := range order {
+		buckets[key].Users = len(seen[key])
 	}
 
 	items := make([]PaymentsSummary, 0, len(order))

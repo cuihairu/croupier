@@ -556,3 +556,58 @@ func TestPaymentsModel_scopedTransactions(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 30.0, agg.Revenue) // txn1 + txn2 (txn4 is failed)
 }
+
+// TestPaymentsModel_PayerDaysCrossDayDedup reproduces DATA-056 at the SQL
+// layer: one player paying on two days of one week yields day-level payer
+// counts of 1+1 (which sum to a wrong 2) while the (day, user) pairs let the
+// API dedup the week to 1. Revenue and transaction counts stay additive.
+func TestPaymentsModel_PayerDaysCrossDayDedup(t *testing.T) {
+	db := setupPaymentsTestDB(t)
+	model := NewPaymentsModel(db)
+	ctx := context.Background()
+
+	d1 := time.Date(2026, 3, 16, 10, 0, 0, 0, time.UTC) // Monday
+	d2 := d1.AddDate(0, 0, 1)                           // Tuesday, same ISO week
+	for _, tx := range []*PaymentTransaction{
+		{TransactionID: "payer-d1", GameID: "g", Env: "dev", UserID: "u1", Amount: 10, Status: "success", OccurredAt: d1},
+		{TransactionID: "payer-d2", GameID: "g", Env: "dev", UserID: "u1", Amount: 15, Status: "success", OccurredAt: d2},
+		{TransactionID: "payer-other", GameID: "g", Env: "dev", UserID: "u2", Amount: 20, Status: "success", OccurredAt: d2},
+		{TransactionID: "payer-failed", GameID: "g", Env: "dev", UserID: "u3", Amount: 99, Status: "failed", OccurredAt: d1},
+	} {
+		require.NoError(t, model.CreateTransaction(ctx, tx))
+	}
+
+	start := d1.Add(-24 * time.Hour)
+	end := d2.Add(24 * time.Hour)
+	stats, err := model.DailyRevenue(ctx, "g", "dev", start, end)
+	require.NoError(t, err)
+	require.Len(t, stats, 2)
+	require.Equal(t, int64(1), stats[0].Payers)
+	require.Equal(t, int64(2), stats[1].Payers)
+	var summed int64
+	for _, s := range stats {
+		summed += s.Payers
+	}
+	assert.Equal(t, int64(3), summed, "old day-sum semantics double-count u1")
+
+	pairs, err := model.PayerDays(ctx, "g", "dev", start, end)
+	require.NoError(t, err)
+	require.Len(t, pairs, 3, "two days for u1 plus one day for u2")
+	users := map[string]map[string]struct{}{}
+	for _, p := range pairs {
+		y, w := p.Day.ISOWeek()
+		key := fmt.Sprintf("%d-W%02d", y, w)
+		if users[key] == nil {
+			users[key] = map[string]struct{}{}
+		}
+		users[key][p.UserID] = struct{}{}
+	}
+	for key, set := range users {
+		assert.Len(t, set, 2, "distinct users in %s: u1 (both days) + u2", key)
+	}
+
+	// Scope and status filters match DailyRevenue.
+	pairs, err = model.PayerDays(ctx, "g", "prod", start, end)
+	require.NoError(t, err)
+	assert.Empty(t, pairs)
+}

@@ -128,6 +128,42 @@ type DailyRevenueStat struct {
 	Payers       int64
 }
 
+// PayerDay is one distinct (day, user) paying pair — the raw material for
+// window-level payer dedup (DATA-056): summing DailyRevenueStat.Payers
+// across days double-counts a user who pays on two days of the same
+// week/month bucket.
+type PayerDay struct {
+	Day    time.Time
+	UserID string
+}
+
+// PayerDays returns the distinct (day, user_id) paying pairs within the
+// window, honoring the same scope and status filter as DailyRevenue.
+func (m *PaymentsModel) PayerDays(ctx context.Context, gameID, env string, start, end time.Time) ([]PayerDay, error) {
+	type row struct {
+		Day    string
+		UserID string
+	}
+
+	var rows []row
+	if err := m.scopedTransactions(ctx, gameID, env, start, end).
+		Select("DISTINCT DATE(occurred_at) AS day, user_id").
+		Order("day ASC").
+		Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+
+	pairs := make([]PayerDay, 0, len(rows))
+	for _, r := range rows {
+		day, err := time.Parse("2006-01-02", r.Day)
+		if err != nil {
+			day = time.Time{}
+		}
+		pairs = append(pairs, PayerDay{Day: day, UserID: r.UserID})
+	}
+	return pairs, nil
+}
+
 // AggregateRevenue returns revenue, paying users, and transaction counts for the window.
 func (m *PaymentsModel) AggregateRevenue(ctx context.Context, gameID, env string, start, end time.Time) (RevenueAggregate, error) {
 	query := m.scopedTransactions(ctx, gameID, env, start, end)
