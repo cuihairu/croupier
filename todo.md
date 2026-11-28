@@ -690,7 +690,7 @@
 
 - [ ] **DEPLOY-002 · P1 · 故障验证 · 备份可恢复与业务凭据核对**
   - 依赖：DEPLOY-001。交付与验收：复用 backupexec 和既有备份/对象存储，在隔离环境实际恢复配置、契约/页面、审批/任务/执行凭据与角色数据，记录 RPO/RTO/校验和及未覆盖内存状态；验证副作用不因恢复重复执行，不新增未经设计的恢复服务
-  - 状态／条件：BLOCKED（2026-11-01 复核）：需脱敏备份、隔离数据库/对象存储读权限；备份 API/文件存在不证明恢复成功。缺备份/隔离恢复环境。
+  - 状态／条件：BLOCKED（2026-11-28 现场复核，见 docs/review/deploy-inventory-2026-11-28.md §9）：阻塞点已具体化——prod backups/db_sources 双 0 行 + server 镜像 distroless/static 无 pg_dump（容器探测 rc=1）= 备份 API 创建即失败、「既有备份」结构性不存在。解阻前置：镜像带 pg_dump（distroless 无 loader，musl 版不可直 COPY）或 postgres pure-Go dump，属设计决策待用户拍板；随后 API 建首份真实备份 → 隔离容器恢复演练。宿主手工 dump+恢复已评估并否决（不经 backupexec 链路，违反验收口径）。
 
 ## 容量验证
 

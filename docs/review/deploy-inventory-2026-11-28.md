@@ -153,6 +153,47 @@ interconnectTls 并移除明文确认行」。本报告只记录事实，拓扑�
 6. `mode: dev` + 滚动 `main` tag：无版本固定，生产语义缺失（每日交付面如此
    设计，仅记录）。
 
+## 9. DEPLOY-002 复核：备份可恢复性现状（2026-11-28 追加）
+
+按 DEPLOY-001 交付在同一现场对 DEPLOY-002（备份可恢复与业务凭据核对）做
+前置复核，结论：**隔离恢复演练在当前部署上不可执行，阻塞点已具体化**。
+
+能力链与生产现实的逐环节核对：
+
+| 环节               | 实现面                                                                                          | 生产现场（2026-11-28 只读核对）                                                                                   |
+| ------------------ | ----------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| 备份 API           | `/api/v1/ops/backups`（list/create/delete/download/verify）                                     | 已部署（随 server 镜像）                                                                                          |
+| 执行器             | `internal/platform/backupexec`（postgres=pg_dump / mysql=mysqldump / sqlite=VACUUM INTO 纯 Go） | postgres 路径依赖容器内 `pg_dump` 二进制                                                                          |
+| 对象存储           | `ObjectStore`（部署 `storage.driver=file` → `server_data` 卷）                                  | 已装配（file 驱动）                                                                                               |
+| 定时备份           | `backupexec.Scheduler`                                                                          | server.yaml 无对应配置节 → 未启用；宿主 cron 亦无                                                                 |
+| 业务数据源         | `db_sources` 表（按 (game,env) 注册 DSN）                                                       | 表存在，**0 行**（无任何已注册业务凭据）                                                                          |
+| 历史备份           | `backups` 表                                                                                    | **0 行**（部署以来从未执行过）                                                                                    |
+| **pg_dump 可用性** | executor 以 `exec.CommandContext("pg_dump",…)` 调用                                             | **server 运行时镜像 `distroless/static:nonroot` 仅含 Go 静态二进制 + busybox，无 pg_dump（容器内两次探测 rc=1）** |
+
+结论链条：`db_sources` 0 行 → 只剩平台级备份（meta DB DSN）路径；该路径的
+postgres 执行器需要容器内 pg_dump；镜像不含 → 备份 API 在生产上创建即失败
+（执行错误会把 backup 行置为 failed）。因此「既有备份」不存在是**结构性的**
+（不是没人点过按钮，而是点了也必然失败），隔离恢复演练的前置动作依次为：
+
+1. 让 server 镜像具备 pg_dump 执行能力。注意 `distroless/static` 无动态
+   loader——alpine（musl 动态链接）的 pg_dump 不能直接 COPY 进来；需要换
+   runtime base（如 distroless/base + glibc 版 postgresql-client 文件）或
+   静态链接方案，属于**镜像基底的设计决策**（影响所有部署面），需用户拍板。
+   备选：为 postgres 增加 pure-Go dump 路径（sqlite 已有先例），同样是设计
+   决策。
+2. 经既有备份 API 创建第一次真实备份（平台既有能力，不新增服务）。
+3. 在隔离环境（一次性 postgres 容器）实际恢复并核对校验和/行数，记录
+   RPO/RTO 与未覆盖内存态（registry 会话、在途审批、调度器状态等不进备份）。
+4. 另核「副作用不因恢复重复执行」：恢复库回灌后注册/任务/审批的状态机
+   语义需按上述内存态边界逐项确认。
+
+已考虑并否决的替代做法：宿主侧手工 `docker exec croupier-postgres pg_dump`
+
+- 一次性容器恢复。它能验证数据层可恢复性，但不经过 backupexec/API/对象
+  存储/校验链路，RPO/RTO 数据描述的是产品并不具备的机制——违反本项
+  「复用 backupexec 和既有备份…不新增未经设计的恢复服务」的验收口径，
+  不作为 DEPLOY-002 的交付。
+
 ## 脱敏说明
 
 本报告不含口令、secret、token、JWT 密钥与宿主 IP；镜像摘要为公开 registry
