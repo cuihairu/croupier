@@ -10,7 +10,6 @@ import (
 	"errors"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/cuihairu/croupier/agents/capture/connector"
 	"github.com/cuihairu/croupier/agents/capture/gate"
@@ -31,12 +30,14 @@ func lineageHitFixture(t *testing.T) *Runner {
 
 // lineageIntruderEvent 构造白名单外账号的写事件（触发 lineage 命中）。
 // OpInsert 携带事件本体即可入 journal（UPDATE 需 before/after 行像）。
+// TsUnixMs 必须固定：journal 按内容哈希去重，重投同一逻辑事件要求两轮
+// 字节一致（真实源重投时事件体来自 binlog，不随重放墙钟变化）。
 func lineageIntruderEvent(pos string) connector.ChangeEvent {
 	return connector.ChangeEvent{
 		SourceID: "s1", SourceType: "mysql", Database: "game", Table: "items",
 		Operation: connector.OpInsert, Account: "intruder",
 		Position: connector.Position{Kind: "gtid", Value: pos},
-		TsUnixMs: time.Now().UnixMilli(),
+		TsUnixMs: 1700000000000,
 	}
 }
 
