@@ -1827,7 +1827,8 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
   - 进度（2026-11-28）：「合并 manifest 验证」收口（Android 侧）——对本机 AUD-084 演练 release APK（`~/aud084-work/mobile/build/app/outputs/flutter-apk/app-release.apk`，2026-11-28 构建）`aapt2 dump xmltree --file AndroidManifest.xml` 对照源 `mobile/android/app/src/main/AndroidManifest.xml` 逐项核验合并产物：package `com.cuihairu.croupier_mobile`、versionCode 2 / versionName 0.1.0、INTERNET 权限在 release 生效（源注释要求的点）、MainActivity exported=true + singleTop(=1) + MAIN/LAUNCHER、PROCESS_TEXT queries 合并、flutterEmbedding=2、库贡献项（androidx startup/profileinstaller/window、应用包域 DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION）合并正确无越权权限。签名复验：该演练包为 debug 证书签名（rehearsal 约定，AUD-085 有记录）。剩余待办仅「iOS 实机验证」与「正式 release 包验收」（iOS 构建需 macOS/Xcode 本机不具备；正式 release 包受版本发布红线约束，须用户给出版本号）。
 - [ ] AUD-COV-007 · 复核 · 构建/发布/部署/运维与文档契约：检查 CI 触发路径、质量门禁、发布版本一致性、镜像/Compose 默认值、密钥暴露、备份恢复和用户文档与实现漂移；覆盖 .github、docker、configs、scripts、Makefile 与 docs。
   - 进度（2026-11-21）：本轮补查分析 CI、SDK 发布输入和备份执行状态，见 DATA-031～032、AUD-078～079、AUD-082～085。续审核对自托管发布配置替换与实例配置保留，见 AUD-095～096、AUD-099。真实部署、恢复演练及各平台产物验收仍待执行。
-- [ ] AUD-COV-008 · 汇总 · 回归历史审计并形成总报告：把 11 月 1–10 日历史审计结论按当前 HEAD 逐条标成仍存在/已修/无法复核；合并重复项、给出严重级别和证据；未覆盖区域明确标注，不能用扫描器无告警替代人工复核。
+- [x] AUD-COV-008 · 汇总 · 回归历史审计并形成总报告（重复条目，与「历史高优先级问题复核」节 AUD-COV-008 勾行同源）
+  - 状态／条件：已完成 — LOCAL VERIFIED（2026-11-28）。总报告 `docs/review/aud-cov-008-historical-regression-2026-11-28.md`，勾行 commit `7226eefa8`；完整状态/证据/已知边界见该勾行，此处不再重复。
   - 进度（2026-11-21）：已复核 11 月 4 日外部审核的 5 个 P0 与 P1-6～10、P1-12，见下方「历史高优先级问题复核」。其他历史条目仍待逐条对照。
 
 #### 剩余审核入口与验收证据
@@ -2649,7 +2650,10 @@ internal/api/ops 终态：97.0%（-race -covermode=atomic 全量 515s 绿）。�
 - **对照 AUD-003，不重复计数**：为移动端 refresh 加请求令牌并清理旧作用域（`mobile/lib/features/analytics/analytics_controller.dart:54-80`）—— 修复失败旧数据和乱序覆盖。
 - **对照 AUD-014，不重复计数**：接入 C# 默认 TLS transport 或安全模式拒绝连接（`sdks/csharp/src/Croupier.Sdk/CroupierClient.cs:681-774`）—— 同步消除同型 TLS 漂移。
 - **对照 AUD-021，不重复计数**：修正 IPv6 ICMP 类型比较（`core/healthprobe/icmp.go:96-101`）—— 让 IPv6 echo reply 能被识别。
-- [ ] 校验 TCP 插件 path 并补协议注入测试（`agents/sidecar/funcplugin/examples/tcp/main.go:177-205`）—— 阻止 CR/LF 注入多行命令。
+- [x] 校验 TCP 插件 path 并补协议注入测试（`agents/sidecar/funcplugin/examples/tcp/main.go:177-205`）—— 阻止 CR/LF 注入多行命令。
+  - 状态/条件：已完成。2026-11-28 LOCAL VERIFIED。commit `86b20354a`（fix: reject crlf in tcp plugin request path）
+  - 完成：Invoke 在拨号前拒绝含 CR/LF 的 `params.path`（一行协议的命令词，CR/LF 即拼接多行命令——`ping\nADMIN grant hacker` 实测旧实现以 success 放行上线路）；body 从 TrimSpace 改为 `json.Compact`（doc 注释本就承诺 compact JSON：pretty-printed JSON 的 token 间换行会同样拼接第二行；Compact 同时消除行内空白与再校验，JSON 字符串内裸控制符本就非法，压缩后帧不可能引入 CR/LF）。新测试文件 4 用例：CR/LF 路径三形态拒绝且**零字节上线**（断言 fail 发生在任何 socket 工作前）、空路径拒绝既有契约钉死、pretty body 压缩为单行帧逐字节断言、纯路径帧形状断言。
+  - 完成证据：`agents/sidecar/funcplugin/examples/tcp/main.go`（path 校验 + Compact）、`agents/sidecar/funcplugin/examples/tcp/main_test.go`（新 194 行，fake game interface 回环）；`go test ./agents/sidecar/funcplugin/examples/tcp/ -count=1` 绿、`go build ./...` 通过、`no_go_plugin` tag 两文件同构排除、dashboard_vnext_guard PASSED、已 push origin/main。变异验证：旧无校验帧装配编译级 mutant 下 `TestInvokeRejectsPathLineBreaking` 红（注入路径 success 放行）+ `TestInvokeCompactsPrettyBody` 红（原始多行空白上线），两个对照组用例（空路径/纯路径）在 mutant 下照旧通过证明断言面精准，恢复后 4/4 绿。
 - **对照 AUD-009，不重复计数**：将 SQLite dump 改为一致性快照并验证恢复数据（`internal/platform/backupexec/executor.go:227-243`）—— 保证 WAL 已提交事务进入备份。
 - [ ] 为 metrics 采集全链路接入 context 并补停止测试（`core/metrics/processes.go:139-200`）—— 防止采集关闭后 goroutine 泄漏。
 - [x] 将 AUD-007..018 追加到 todo 台账（`todo.md:1231-1266`）—— 避免已确认审计项遗漏跟踪。（2026-11-13 已补齐至 AUD-028）
