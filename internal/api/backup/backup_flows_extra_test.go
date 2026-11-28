@@ -870,6 +870,14 @@ func TestHandler_Create(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rec.Code)
 	assert.Contains(t, rec.Body.String(), "api-backup")
 
+	// Create 的备份执行是异步 goroutine（真实 sqlite 执行器在 t.TempDir 内落盘）：
+	// 必须等执行器到终态再返回，否则 TempDir RemoveAll 与落盘竞态报 directory not empty。
+	require.Eventually(t, func() bool {
+		var running int64
+		env.db.Model(&model.Backup{}).Where("status = ?", "pending").Count(&running)
+		return running == 0
+	}, 10*time.Second, 50*time.Millisecond)
+
 	rec = doBackupRequest(t, env, http.MethodPost, "/api/v1/backups", `{`)
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }
