@@ -1618,9 +1618,15 @@
 
 ### 目录/分类问题
 
-- [ ] internal/model/task.go 定义 `TaskRun`，而执行状态机在 internal/platform/dispatch/dispatcher.go；同一任务域的运行模型、派发器和事件查询分散在三处（internal/model/task.go:8；internal/platform/dispatch/dispatcher.go:54）。
-- [ ] internal/api/ops 与 internal/app/agent/ops_server.go 都是运维面，但前者是 Server REST DTO/编排，后者是 Agent gRPC 实现；同名领域缺少共享接口说明（internal/api/ops/handler.go:31；internal/app/agent/ops_server.go:34）。
-- [ ] internal/service/contract_service.go 与 internal/platform/registry/store.go 都维护函数契约状态；service 侧负责版本转换，registry 侧负责运行快照，当前命名不能直接显示这一边界（internal/service/contract_service.go:55；internal/platform/registry/store.go:159）。
+- [x] internal/model/task.go 定义 `TaskRun`，而执行状态机在 internal/platform/dispatch/dispatcher.go；同一任务域的运行模型、派发器和事件查询分散在三处（internal/model/task.go:8；internal/platform/dispatch/dispatcher.go:54）。
+  - 状态/条件：已完成（分类说明落地）。2026-11-28 LOCAL VERIFIED。commit `520bc690a`（docs: mark task ops and contract domain boundaries）
+  - 完成：三处各落边界注释互指角色——`model.TaskRun`（role 1 存储形状：只拥有列，状态迁移是 dispatch 的契约非 gorm hook）、`dispatch.TaskRunState`（role 2 执行状态机：镜像 model.TaskRun，事件经 TaskEventQuery 读回——task_query.go 从 model.TaskEventModel/TaskRunModel 适配、internal/tasks store 承载）、`internal/tasks/store.go` 即第三处适配层。不重构（拆散三处属设计决策），本项收口「缺少共享接口说明」的分类问题。
+- [x] internal/api/ops 与 internal/app/agent/ops_server.go 都是运维面，但前者是 Server REST DTO/编排，后者是 Agent gRPC 实现；同名领域缺少共享接口说明（internal/api/ops/handler.go:31；internal/app/agent/ops_server.go:34）。
+  - 状态/条件：已完成（分类说明落地）。2026-11-28 LOCAL VERIFIED。commit `520bc690a`（同上）
+  - 完成：两侧 Handler/OpsServer 注释互指——api/ops=Server REST DTO+编排（解析目标、经控制隧道转发，无本地执行），app/agent OpsServer=Agent 侧执行器（agent 主机 gRPC 面）；同名不同进程不同存储。纯注释新增，不触 LAY-013/029 拆分工作包（仍按并行会话红线维持 BLOCKED）。
+- [x] internal/service/contract_service.go 与 internal/platform/registry/store.go 都维护函数契约状态；service 侧负责版本转换，registry 侧负责运行快照，当前命名不能直接显示这一边界（internal/service/contract_service.go:55；internal/platform/registry/store.go:159）。
+  - 状态/条件：已完成（分类说明落地）。2026-11-28 LOCAL VERIFIED。commit `520bc690a`（同上）
+  - 完成：两侧 ContractService/Store 注释互指——service=持久契约版本+转换+生命周期（NewContractService 接线的 DB models），registry.Store=运行快照（活会话/OpenAPI operations/注册告警）；registry 不拥有版本化、service 不拥有活会话。
 
 ## 覆盖率补测 2026-11-08（巡检单 2026-10-20）
 
