@@ -62,7 +62,8 @@ func (s *stubInvocations) InvocationsSummary(_ context.Context, req *Invocations
 type stubLevels struct{}
 
 func (stubLevels) Levels(context.Context, *LevelsRequest) (*LevelsResponse, error) {
-	return &LevelsResponse{Levels: []LevelMetrics{{LevelId: "1-1", CompletionRate: 0.5}}}, nil
+	rate := 0.5
+	return &LevelsResponse{Levels: []LevelMetrics{{LevelId: "1-1", CompletionRate: &rate}}}, nil
 }
 
 type stubWarehouse struct{ err error }

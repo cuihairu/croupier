@@ -356,7 +356,11 @@ export type AnalyticsLevelMetric = {
   levelId: string;
   attempts: number;
   completions: number;
-  completionRate: number;
+  // DATA-058: null when the window cannot support a rate (completion-only
+  // windows attribute cross-window; see completionRateStatus).
+  completionRate: number | null;
+  completionRateStatus?: 'ok' | 'cross_window';
+  unmatchedCompletions?: number;
   avgDuration: number;
   avgRetries: number;
   difficulty?: number;

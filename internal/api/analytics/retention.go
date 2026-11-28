@@ -79,12 +79,25 @@ func levels(ctx context.Context, svcCtx *svc.ServiceContext, req *LevelsRequest)
 
 	stats := map[string]*levelStats{}
 	order := []string{}
+	// DATA-058: identical re-uploads of the same event (same type, user,
+	// level, timestamp and props — the duplicate-report shape of a client
+	// retry) are counted once per window.
+	seenEvents := map[string]struct{}{}
+	// DATA-058: completions are classified against the full window's attempt
+	// identities, so pairing is order-independent (the scan is paged and the
+	// delivery order is not guaranteed).
+	completionIDs := map[string][]string{}
 
 	for _, ev := range events {
 		levelID := eventString(ev, "levelId", "level_id", "level", "stage", "stageId")
 		if levelID == "" {
 			continue
 		}
+		dedupKey := ev.EventType + "|" + ev.UserID + "|" + levelID + "|" + ev.OccurredAt.UTC().Format(time.RFC3339Nano) + "|" + canonicalEventProps(ev)
+		if _, dup := seenEvents[dedupKey]; dup {
+			continue
+		}
+		seenEvents[dedupKey] = struct{}{}
 		stat := stats[levelID]
 		if stat == nil {
 			stat = &levelStats{}
@@ -96,9 +109,17 @@ func levels(ctx context.Context, svcCtx *svc.ServiceContext, req *LevelsRequest)
 		// EventType of every query result is non-empty; the props fallback branch is unreachable
 		// and has been removed.
 		eventName := strings.ToLower(ev.EventType)
+		identity := eventString(ev, "attemptId", "attempt_id")
 
 		if strings.Contains(eventName, "attempt") || strings.Contains(eventName, "start") || eventString(ev, "status") == "attempt" {
 			stat.Attempts++
+			if identity != "" {
+				stat.hasIdentity = true
+				if stat.attemptIDs == nil {
+					stat.attemptIDs = map[string]struct{}{}
+				}
+				stat.attemptIDs[identity] = struct{}{}
+			}
 			if duration := eventFloat(ev, "duration", "durationMs", "duration_ms", "time"); duration > 0 {
 				stat.DurationSum += duration
 				stat.DurationCount++
@@ -111,23 +132,47 @@ func levels(ctx context.Context, svcCtx *svc.ServiceContext, req *LevelsRequest)
 
 		if strings.Contains(eventName, "complete") || strings.Contains(eventName, "finish") || eventBool(ev, "completed", "success", "passed") {
 			stat.Completions++
+			if identity != "" {
+				stat.hasIdentity = true
+				completionIDs[levelID] = append(completionIDs[levelID], identity)
+			} else {
+				stat.unidentifiedCompletions++
+			}
 		}
 	}
 
 	levels := make([]LevelMetrics, 0, len(order))
 	for _, id := range order {
 		stat := stats[id]
+		// Pair completions against the window's attempt identities (pass 2,
+		// order-independent): a completion whose attempt is in the window
+		// completes that attempt; one without a matching attempt attributes
+		// cross-window (the attempt started the previous day or arrives
+		// asynchronously) and is disclosed, not silently folded into the rate.
+		for _, identity := range completionIDs[id] {
+			if _, started := stat.attemptIDs[identity]; started {
+				if stat.completedIDs == nil {
+					stat.completedIDs = map[string]struct{}{}
+				}
+				stat.completedIDs[identity] = struct{}{}
+			} else {
+				stat.Unmatched++
+			}
+		}
+		rate, rateStatus := levelCompletionRate(stat)
 		// stat is only created for an event matching levelId, and that event's EventType must
 		// contain attempt/start (level_attempt) or complete/finish (level_complete), so creating
 		// it already counts at least one Attempts or Completions entry — the both-zero continue
 		// branch is unreachable and has been removed.
 		levels = append(levels, LevelMetrics{
-			LevelId:        id,
-			Attempts:       stat.Attempts,
-			Completions:    stat.Completions,
-			CompletionRate: safeDivide(float64(stat.Completions), float64(maxInt(stat.Attempts, 1))),
-			AvgDuration:    safeDivide(stat.DurationSum, float64(maxInt(stat.DurationCount, 1))),
-			AvgRetries:     safeDivide(stat.RetriesSum, float64(maxInt(stat.RetriesCount, 1))),
+			LevelId:              id,
+			Attempts:             stat.Attempts,
+			Completions:          stat.Completions,
+			CompletionRate:       rate,
+			CompletionRateStatus: rateStatus,
+			UnmatchedCompletions: stat.Unmatched,
+			AvgDuration:          safeDivide(stat.DurationSum, float64(maxInt(stat.DurationCount, 1))),
+			AvgRetries:           safeDivide(stat.RetriesSum, float64(maxInt(stat.RetriesCount, 1))),
 		})
 	}
 
@@ -308,6 +353,14 @@ type levelStats struct {
 	DurationCount int
 	RetriesSum    float64
 	RetriesCount  int
+	// DATA-058 attempt identity pairing: distinct attempt identities seen on
+	// attempt events, identities completed against an in-window attempt, and
+	// completions with no matching in-window attempt (cross-window/async).
+	attemptIDs              map[string]struct{}
+	completedIDs            map[string]struct{}
+	Unmatched               int
+	unidentifiedCompletions int
+	hasIdentity             bool
 }
 
 type episodeStats struct {
@@ -516,4 +569,48 @@ func maxInt(a, b int) int {
 		return a
 	}
 	return b
+}
+
+// levelCompletionRate computes the level completion rate with an explicit
+// unavailable disposition (DATA-058). Identity mode (any event carried an
+// attemptId): rate = distinct completed identities / distinct started
+// identities; a completion-only window (started == 0) has every completion
+// attribute cross-window. Count mode (no identities): the legacy
+// completions/attempts, but a window whose completions exceed its attempts
+// proves some attempts started outside the window, and a zero-attempt window
+// cannot attribute its completions in-window — both disclose "cross_window"
+// with a nil rate instead of the old max(attempts, 1) denominator that
+// fabricated rates above 100%.
+func levelCompletionRate(stat *levelStats) (*float64, string) {
+	if stat.hasIdentity {
+		if len(stat.attemptIDs) == 0 {
+			return nil, "cross_window"
+		}
+		rate := safeDivide(float64(len(stat.completedIDs)), float64(len(stat.attemptIDs)))
+		return &rate, "ok"
+	}
+	if stat.Attempts > 0 {
+		if stat.Completions > stat.Attempts {
+			stat.Unmatched += stat.Completions - stat.Attempts
+			return nil, "cross_window"
+		}
+		rate := safeDivide(float64(stat.Completions), float64(stat.Attempts))
+		return &rate, "ok"
+	}
+	// Zero attempts: any completions belong to attempts outside this window.
+	return nil, "cross_window"
+}
+
+// canonicalEventProps renders an event's props as a stable string for the
+// duplicate-report dedup key (json.Marshal sorts map keys, so identical
+// re-uploads produce identical strings).
+func canonicalEventProps(ev model.BehaviorEvent) string {
+	if ev.Data == nil {
+		return "null"
+	}
+	b, err := json.Marshal(ev.Data)
+	if err != nil {
+		return ""
+	}
+	return string(b)
 }

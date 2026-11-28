@@ -41,7 +41,9 @@ export default function AnalyticsLevelsPage() {
       const perLevel = (r?.levels || []).map((item) => ({
         level: item.levelId,
         players: item.attempts,
-        winRate: item.completionRate * 100,
+        // DATA-058: unavailable rates (cross-window attribution) stay null and
+        // render as '-' instead of a fabricated percentage.
+        winRate: item.completionRate == null ? null : item.completionRate * 100,
         avgDurationSec: item.avgDuration,
         avgRetries: item.avgRetries,
         difficulty: item.difficulty,
@@ -52,7 +54,7 @@ export default function AnalyticsLevelsPage() {
         funnel: perLevel.map((item) => ({
           step: item.level,
           users: item.players,
-          rate: item.winRate,
+          rate: item.winRate == null ? undefined : item.winRate,
         })),
       });
     } finally {
@@ -69,7 +71,7 @@ export default function AnalyticsLevelsPage() {
         (data?.perLevel || []).map((x) => [
           String(x.level),
           String(x.players),
-          String(x.winRate),
+          x.winRate == null ? '' : String(x.winRate),
           String(x.avgDurationSec || ''),
           String(x.avgRetries || ''),
         ]),
@@ -312,7 +314,7 @@ export default function AnalyticsLevelsPage() {
 interface LevelData {
   level: string;
   players: number;
-  winRate: number;
+  winRate: number | null;
   avgDurationSec?: number;
   avgRetries?: number;
   difficulty?: number;

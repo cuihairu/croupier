@@ -401,12 +401,24 @@ type LevelsRequest struct {
 }
 
 type LevelMetrics struct {
-	LevelId        string  `json:"levelId"`
-	Attempts       int     `json:"attempts"`
-	Completions    int     `json:"completions"`
-	CompletionRate float64 `json:"completionRate"`
-	AvgDuration    float64 `json:"avgDuration"`
-	AvgRetries     float64 `json:"avgRetries"`
+	LevelId     string `json:"levelId"`
+	Attempts    int    `json:"attempts"`
+	Completions int    `json:"completions"`
+	// DATA-058: completion rate is null when the window cannot support it —
+	// completion-only windows (the attempts started the previous day or
+	// arrive asynchronously) must not be turned into a fabricated rate via a
+	// max(attempts, 1) denominator. Disclosure travels in
+	// completionRateStatus ("ok" or "cross_window").
+	CompletionRate *float64 `json:"completionRate"`
+	// CompletionRateStatus explains the rate: "ok" (computed) or
+	// "cross_window" (completions attribute to attempts outside this window;
+	// rate unavailable).
+	CompletionRateStatus string `json:"completionRateStatus"`
+	// UnmatchedCompletions counts completion events whose attempt identity
+	// has no in-window attempt (explicit cross-window attribution).
+	UnmatchedCompletions int     `json:"unmatchedCompletions"`
+	AvgDuration          float64 `json:"avgDuration"`
+	AvgRetries           float64 `json:"avgRetries"`
 }
 
 type LevelsResponse struct {
